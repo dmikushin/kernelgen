@@ -1,0 +1,267 @@
+#!/usr/bin/perl -w
+
+##
+## KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+##
+## Copyright (c) 2011 Dmitry Mikushin
+##
+## This software is provided 'as-is', without any express or implied warranty.
+## In no event will the authors be held liable for any damages arising 
+## from the use of this software.
+## Permission is granted to anyone to use this software for any purpose, 
+## including commercial applications, and to alter it and redistribute it freely,
+## subject to the following restrictions:
+##
+## 1. The origin of this software must not be misrepresented;
+## you must not claim that you wrote the original software.
+## If you use this software in a product, an acknowledgment
+## in the product documentation would be appreciated but is not required.
+## 2. Altered source versions must be plainly marked as such,
+## and must not be misrepresented as being the original software.
+## 3. This notice may not be removed or altered from any source distribution.
+##
+
+#
+# Perform CPU-specific compilation process
+#
+sub kgen_cpu()
+{
+	my($filename) = shift;
+	my($base_args) = shift;
+	my($ifilename) = shift;
+	my($dragonegg_compiler) = shift;
+	my($llvm_opt) = shift;
+	my($llc_compiler) = shift;
+	my($compiler) = shift;
+	my($backend_skipopts) = shift;
+	my($complog) = shift;
+	my($errlog) = shift;
+
+	#
+	# Load the list of options supported by target
+	# kernel compiler.
+	#
+	my(@compiler_opts) = split(
+		"\n", `cat KGEN_PREFIX/opts/$compiler.opts`);
+
+	#
+	# Create arguments list for ir stage.
+	#
+	my(@args) = @$base_args;
+	$args[$ifilename] = $filename;
+	push(@args, "-ffree-line-length-none");
+	push(@args, "-fplugin=DRAGONEGG_PREFIXdragonegg.so");
+	push(@args, "-O0");
+	push(@args, "-S");
+	push(@args, "-fplugin-arg-dragonegg-emit-ir");
+	push(@args, "-o");
+	push(@args, "$filename.bc");
+
+	#
+	# Filter out -g option
+	#
+	@args = grep(!/-g/, @args);
+
+	#
+	# Output LLVM IR to $filename.bc
+	#
+	my($ir_complog) = "";
+	my($ir_errlog) = "";
+	execlog(undef, \$ir_complog, \$ir_errlog, $dragonegg_compiler, @args);
+	if (! -e "$filename.bc")
+	{
+		if ($ir_complog ne "")
+		{
+			$ir_complog =~ s/^/ir\t>> /;
+			$ir_complog =~ s/\n/\nir\t>> /g;
+			$ir_complog =~ s/ir\t>>\s$//;
+			$$complog .= $ir_complog;
+		}
+		if ($ir_errlog ne "")
+		{
+			$ir_errlog =~ s/^/ir\t>> /;
+			$ir_errlog =~ s/\n/\nir\t>> /g;
+			$ir_errlog =~ s/ir\t>>\s$//;
+			$$errlog .= $ir_errlog;
+		}
+		
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+	
+	#
+	# Pass optimizations on the generated LLVM IR.
+	#
+	@args = ("-std-compile-opts", "$filename.bc",
+		"-S", "-o", "$filename.bc.opt");
+	my($opt_complog) = "";
+	my($opt_errlog) = "";
+	execlog(undef, \$opt_complog, \$opt_errlog, $llvm_opt, @args);
+	if (! -e "$filename.bc.opt")
+	{
+		if ($opt_complog ne "")
+		{
+			$opt_complog =~ s/^/opt\t>> /;
+			$opt_complog =~ s/\n/\nopt\t>> /g;
+			$opt_complog =~ s/opt\t>>\s$//;
+			$$complog .= $opt_complog;
+		}
+		if ($opt_errlog ne "")
+		{
+			$opt_errlog =~ s/^/opt\t>> /;
+			$opt_errlog =~ s/\n/\nopt\t>> /g;
+			$opt_errlog =~ s/opt\t>>\s$//;
+			$$errlog .= $opt_errlog;
+		}
+		
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+
+	#
+	# If we are targeting CUDA, use .cu extension
+	# instead of .c
+	#
+	my($filename_llc) = "$filename.bc.c";
+
+	#
+	# Generate C code out of *.bc using llvm backend.
+	#
+	my($cbe_complog) = "";
+	my($cbe_errlog) = "";
+	execlog(undef, \$cbe_complog, \$cbe_errlog,
+		$llc_compiler, "-march=c", "$filename.bc.opt",
+		"-o", $filename_llc);
+	if (! -e $filename_llc)
+	{
+		if ($cbe_complog ne "")
+		{
+			$cbe_complog =~ s/^/cbe\t>> /;
+			$cbe_complog =~ s/\n/\ncbe\t>> /g;
+			$cbe_complog =~ s/cbe\t>>\s$//;
+			$$complog .= $cbe_complog;
+		}
+		if ($cbe_errlog ne "")
+		{
+			$cbe_errlog =~ s/^/cbe\t>> /;
+			$cbe_errlog =~ s/\n/\ncbe\t>> /g;
+			$cbe_errlog =~ s/cbe\t>>\s$//;
+			$$errlog .= $cbe_errlog;
+		}
+
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+
+	#
+	# In case of CUDA, change kernel loop routine attribute
+	# from __device__ to __global__.
+	#
+	open($gforscale_fh, $filename_llc);
+	my($code) = "" . do { local $/; <$gforscale_fh> };
+	close($gforscale_fh);
+
+	$code =~ s/\#ifdef\s__CUDA_DEVICE_FUNC__\n__device__\n#endif\nvoid\s$name\_\(/#define $name\_ $name\_cpu\nvoid $name\_(/s;
+	
+	#
+	# Replace $kernel_name$ with actual name.
+	#
+	$code =~ s/\$kernel_name\$/$name\_cpu/g;
+
+	open($gforscale_fh, ">$filename_llc");
+	print $gforscale_fh "$code";
+	close($gforscale_fh);
+
+	#
+	# Finally, compile generated C to object output.
+	#
+	$$base_args[$ifilename] = $filename_llc;
+	@args = ();
+	foreach $arg (@$base_args)
+	{
+		#
+		# Filter non C language-specific options 
+		# 
+		my($compiler_ignored_opt) = 0;
+		foreach $opt (@$backend_skipopts) 
+		{
+			if ($arg =~ m/$opt/)
+			{
+				$compiler_ignored_opt = 1;
+				last;
+			}
+		}
+		if ($compiler_ignored_opt == 1)
+		{
+			next;
+		}
+		push(@args, $arg);
+	}
+	$$base_args[$ifilename] = $filename;
+
+	push(@args, "-o");
+	push(@args, "$filename.o");
+
+	my($c_complog) = "";
+	my($c_errlog) = "";
+	execlog(undef, \$c_complog, \$c_errlog,	$compiler, @args);
+	if ($c_complog ne "")
+	{
+		$c_complog =~ s/^/c\t>> /;
+		$c_complog =~ s/\n/\nc\t>> /g;
+		$c_complog =~ s/c\t>>\s$//;
+		$$complog .= $c_complog;
+	}
+	if ($c_errlog ne "")
+	{
+		$c_errlog =~ s/^/c\t>> /;
+		$c_errlog =~ s/\n/\nc\t>> /g;
+		$c_errlog =~ s/c\t>>\s$//;
+		$$errlog .= $c_errlog;
+	}
+	if (! -e "$filename.o")
+	{
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+	else
+	{
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print RESET, "";
+	}
+
+	$$complog = "";
+	$$errlog = "";
+
+	return 0;
+}
+
+1;

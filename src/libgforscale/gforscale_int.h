@@ -1,0 +1,235 @@
+/*
+ * KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+ *
+ * Copyright (c) 2011 Dmitry Mikushin
+ *
+ * This software is provided 'as-is', without any express or implied warranty.
+ * In no event will the authors be held liable for any damages arising 
+ * from the use of this software.
+ * Permission is granted to anyone to use this software for any purpose, 
+ * including commercial applications, and to alter it and redistribute it freely,
+ * subject to the following restrictions:
+ *
+ * 1. The origin of this software must not be misrepresented;
+ * you must not claim that you wrote the original software.
+ * If you use this software in a product, an acknowledgment
+ * in the product documentation would be appreciated but is not required.
+ * 2. Altered source versions must be plainly marked as such,
+ * and must not be misrepresented as being the original software.
+ * 3. This notice may not be removed or altered from any source distribution.
+ */
+
+#ifndef GFORSCALE_INT_H
+#define GFORSCALE_INT_H
+
+#include "gforscale.h"
+
+#include <stdio.h>
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+// Set last kernel loop launching error.
+void gforscale_set_last_error(gforscale_status_t error);
+
+// Defines all supported runmodes values array.
+extern int* gforscale_runmodes;
+
+// Defines all supported runmodes names array.
+extern char** gforscale_runmodes_names;
+
+// Defines supported runmodes count.
+extern int gforscale_runmodes_count;
+
+// Defines supported runmodes collective bitmask.
+extern int gforscale_runmodes_mask;
+
+struct gforscale_memory_region_t;
+
+// Defines memory region properties.
+struct gforscale_memory_region_t
+{
+	// Reference to the parent kernel dependency.
+	struct gforscale_kernel_symbol_t* symbol;
+	
+	// Shift from base address.
+	unsigned int shift;
+	
+	// Memory region base address.
+	void* base;
+	
+	// Memory region size.
+	size_t size;
+	
+	// Link to primary memory region - another
+	// instance whose mapping the current region reuses
+	// (NULL if current is primary iself).
+	struct gforscale_memory_region_t* primary;
+	
+	// Link to store device-mapped address.
+	void* mapping;
+};
+
+// Defines kernel dependency symbol.
+struct gforscale_kernel_symbol_t
+{
+	// Symbol name.
+	char* name;
+
+	// Argument index.
+	int index;
+	
+	// The (ref, size, desc) triple defines the kernel
+	// argument specification passed from user code side.
+	// Additional s* pair - shadowed original pointers
+	// (for comparison mode), and dev_* pair - even more
+	// space for backups.
+	void *ref, *sref, *dev_ref;
+	void *desc, *sdesc, *dev_desc;
+	size_t size, desc_size;
+	
+	// Flag indicating if the symbol is allocatable.
+	int allocatable;
+
+	// References to memory regions of
+	// data vector and descriptor container
+	// (for allocatable variables).
+	struct gforscale_memory_region_t *mref, *mdesc;
+};
+
+#pragma pack(push, 1)
+
+// Defines kernel launching configuration.
+struct gforscale_launch_config_t
+{
+	// Parent kernel config.
+	struct gforscale_kernel_config_t* config;
+	
+	char* kernel_name;
+
+	char* kernel_source; size_t kernel_source_size;
+	char* kernel_binary; size_t kernel_binary_size;
+	
+	// Entire launch config runmode.
+	int runmode;
+
+	// Memory regions array.
+	struct gforscale_memory_region_t* regs;
+
+	// Kernel arguments array.
+	struct gforscale_kernel_symbol_t* args;
+
+	// Kernel used modules symbols (dependencies) array.
+	struct gforscale_kernel_symbol_t* deps;
+	
+	// The number of regions of specific kind.
+	int args_nregions, deps_nregions;
+	
+	// TODO: this is a temporary flag.
+	int deps_init;
+	
+	// Kernel working time in seconds
+	// (without accounting time of data transfers).
+	double time;
+	
+	// Pointer to collection of device-specific
+	// kernel launch properties.
+	gforscale_specific_config_t specific;
+};
+
+#pragma pack(pop)
+
+#include <stdarg.h>
+
+// Merge specified memory regions into non-overlapping regions.
+gforscale_status_t gforscale_merge_regions(
+	struct gforscale_memory_region_t* regs,
+	int count);
+
+// Parse kernel arguments into launch config structure.
+gforscale_status_t gforscale_parse_args(
+	struct gforscale_launch_config_t* launch,
+	int* nargs, va_list list);
+
+// Parse kernel arguments into launch config structure.
+// (with memory aligning).
+gforscale_status_t gforscale_parse_args_aligned(
+	struct gforscale_launch_config_t* launch,
+	int* nargs, va_list list);
+
+#include <stdint.h>
+
+#pragma pack(push, 1)
+
+// The built-in timer value type.
+struct gforscale_time_t
+{
+	int64_t seconds;
+	int64_t nanoseconds;
+};
+
+#pragma pack(pop)
+
+void gforscale_get_timer_resolution(struct gforscale_time_t* val);
+
+// Get the built-in timer value.
+void gforscale_get_time(struct gforscale_time_t* val);
+
+// Get the built-in timer measured values difference.
+double gforscale_get_time_diff(
+	struct gforscale_time_t* val1, struct gforscale_time_t* val2);
+
+// Print the built-in timer measured values difference.
+void gforscale_print_time_diff(
+	struct gforscale_time_t* val1, struct gforscale_time_t* val2);
+
+// Parse module symbols for kernel executed on specific device.
+typedef gforscale_status_t (*gforscale_parse_modsyms_func_t)(
+	struct gforscale_launch_config_t* launch,
+	int* nargs, va_list list);
+
+extern gforscale_parse_modsyms_func_t* gforscale_parse_modsyms;
+
+// Load regions into specific device memory space.
+typedef gforscale_status_t (*gforscale_load_regions_func_t)(
+	struct gforscale_launch_config_t* launch, int* nmapped);
+
+extern gforscale_load_regions_func_t* gforscale_load_regions;
+
+// Save regions from specific device memory space.
+typedef gforscale_status_t (*gforscale_save_regions_func_t)(
+	struct gforscale_launch_config_t* launch, int nmapped);
+
+extern gforscale_save_regions_func_t* gforscale_save_regions;
+
+// Build kernel for specific device.
+typedef gforscale_status_t (*gforscale_build_func_t)(
+	struct gforscale_launch_config_t* launch);
+
+extern gforscale_build_func_t* gforscale_build;
+
+// Launch kernel on specific device.
+typedef gforscale_status_t (*gforscale_launch_func_t)(
+	struct gforscale_launch_config_t* launch,
+	int* bx, int* ex, int* by, int* ey, int* bz, int* ez);
+
+extern gforscale_launch_func_t* gforscale_launch;
+
+// Reset specific device.
+typedef gforscale_status_t (*gforscale_reset_func_t)(
+	struct gforscale_launch_config_t* launch);
+
+extern gforscale_reset_func_t* gforscale_reset;
+
+// Load the specified ELF image symbol raw data.
+int elf_read(const char* filename, const char* symname,
+	char** symdata, size_t* symsize);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // GFORSCALE_INT_H
+

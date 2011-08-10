@@ -1,0 +1,51 @@
+diff --git a/lib/Target/CBackend/CBackend.cpp b/lib/Target/CBackend/CBackend.cpp
+index 6c555a3..ba99559 100644
+--- a/lib/Target/CBackend/CBackend.cpp
++++ b/lib/Target/CBackend/CBackend.cpp
+@@ -3180,6 +3180,8 @@ static std::string gccifyAsm(std::string asmstr) {
+           asmstr.substr(i + 2, a - i - 2);
+         asmstr.replace(i, b - i + 1, n);
+         i += n.size() - 1;
++      } else if (asmstr[i + 1] == '$') {
++          asmstr.replace(i, 2, "$"); ++i;
+       } else
+         asmstr.replace(i, 1, "%");
+     }
+@@ -3227,8 +3229,7 @@ void CWriter::visitInlineAsm(CallInst &CI) {
+ 
+     if (!IsFirst) {
+       Out << ", ";
+-      IsFirst = false;
+-    }
++    } else IsFirst = false;
+ 
+     // Unpack the dest.
+     Value *DestVal;
+@@ -3268,8 +3269,7 @@ void CWriter::visitInlineAsm(CallInst &CI) {
+ 
+     if (!IsFirst) {
+       Out << ", ";
+-      IsFirst = false;
+-    }
++    } else IsFirst = false;
+ 
+     assert(ValueCount >= ResultVals.size() && "Input can't refer to result");
+     Value *SrcVal = CI.getArgOperand(ValueCount-ResultVals.size());
+@@ -3283,6 +3283,7 @@ void CWriter::visitInlineAsm(CallInst &CI) {
+   }
+ 
+   // Convert over the clobber constraints.
++  Out << "\n        :";
+   IsFirst = true;
+   for (InlineAsm::ConstraintInfoVector::iterator I = Constraints.begin(),
+        E = Constraints.end(); I != E; ++I) {
+@@ -3295,8 +3296,7 @@ void CWriter::visitInlineAsm(CallInst &CI) {
+ 
+     if (!IsFirst) {
+       Out << ", ";
+-      IsFirst = false;
+-    }
++    } else IsFirst = false;
+ 
+     Out << '\"' << C << '"';
+   }

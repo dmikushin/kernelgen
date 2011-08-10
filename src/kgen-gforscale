@@ -1,0 +1,206 @@
+#!/usr/bin/perl -w
+
+##
+## gforscale - an XSLT-based Fortran source to source preprocessor.
+##
+## Copyright (c) 2011 Dmitry Mikushin
+##
+## This software is provided 'as-is', without any express or implied warranty.
+## In no event will the authors be held liable for any damages arising 
+## from the use of this software.
+## Permission is granted to anyone to use this software for any purpose, 
+## including commercial applications, and to alter it and redistribute it freely,
+## subject to the following restrictions:
+##
+## 1. The origin of this software must not be misrepresented;
+## you must not claim that you wrote the original software.
+## If you use this software in a product, an acknowledgment
+## in the product documentation would be appreciated but is not required.
+## 2. Altered source versions must be plainly marked as such,
+## and must not be misrepresented as being the original software.
+## 3. This notice may not be removed or altered from any source distribution.
+##
+
+use IO::File;
+use IPC::Run3;
+use Symbol qw(gensym);
+use XML::LibXSLT;
+use XML::LibXML;
+
+my(@args) = ("-xml", "-xml-out=-");
+my($path) = "";
+my($markup_mode) = "";
+my($verbose) = "";
+my($full_verbose) = 0;
+my($specific_mode) = "default";
+foreach $arg (@ARGV)
+{
+	if ($arg =~ m/^-Wk,--gforscale-scene-path=(?<path>.*)/)
+	{
+		$path = $+{path};
+		next;
+	}
+	if ($arg =~ m/^-Wk,--gforscale-markup-mode=(?<markup_mode>.*)/)
+	{
+		$markup_mode = $+{markup_mode};
+		next;
+	}
+	if ($arg =~ m/^-Wk,--gforscale-verbose$/)
+	{
+		$full_verbose = 1;
+		next;
+	}
+	if ($arg =~ m/^-Wk,--gforscale-verbose=(?<STAGE>.*)/)
+	{
+		$verbose = $+{STAGE};
+		next;
+	}
+	if ($arg =~ m/^-Wk\,--gforscale-specific-mode=(?<SPECIFIC_MODE>(\w|\/)+)/)
+	{
+		$specific_mode = $+{SPECIFIC_MODE};
+		next;
+	}
+	push(@args, $arg);
+}
+
+if ($path eq "" or $markup_mode eq "")
+{
+	print STDERR "Scene path and mode must be specified\n";
+	exit;
+}
+
+if ($markup_mode ne "tree" and $markup_mode ne "refids")
+{
+	print STDERR "Mode must be tree or refids\n";
+	exit;	
+}
+
+#
+# Execute the specified command and return
+# its output in $stdout and $stderr strings.
+#
+sub execlog
+{
+	my($stdin) = shift;
+	my($stdout) = shift;
+	my($stderr) = shift;
+
+	#
+	# Create temp files for output redirecting.
+	#
+	my($stdout_fh) = IO::File->new_tmpfile;
+	my($stderr_fh) = IO::File->new_tmpfile;
+	
+	my(@command) = @_;
+	#print "@command\n";
+
+	run3(\@command, undef, $stdout_fh, $stderr_fh);
+	seek $_, 0, 0 for $stdout_fh, $stderr_fh;
+	$$stdout = "" . do { local $/; <$stdout_fh> };
+	$$stderr = "" . do { local $/; <$stderr_fh> };
+	
+	undef $stdout_fh;
+	undef $stderr_fh;
+}
+
+#
+# Logging strings.
+#
+my($xml) = "";
+my($errors) = "";
+
+#
+# Parse source code using g95xml.
+#
+my($g95xml) = "KGEN_PREFIX/bin/g95xml-$markup_mode";
+execlog(undef, \$xml, \$errors, $g95xml, @args);
+
+if ($xml eq "")
+{
+	print STDERR "$errors";
+	exit -1;
+}
+
+my($xslt) = XML::LibXSLT->new();
+
+sub pass_scene
+{
+	my($path) = $_[0];
+	my($xml) = $_[1];
+
+	#
+	# Read steps index.
+	#
+	my($steps) = "$path/steps";
+	if (! -e $steps)
+	{
+		print STDERR "Cannot find steps in $path\n";
+		exit -2;
+	}
+	my(@steps) = split("\n", `cat $steps`);
+
+	#
+	# Pass steps.
+	#
+	for (my $i = 0; $i < scalar(@steps); $i++)
+	{
+		#
+		# Try to use mode-specific step, if exists.
+		#
+		my($step) = $steps[$i];
+		if ($specific_mode ne "default")
+		{
+			my($specific_step) = "$specific_mode-" . $step;
+			if (-e "$path/$specific_step")
+			{
+				$step = $specific_step;
+			}
+		}
+		my($xsl) = "$path/" . $step;
+		if (! -e $xsl)
+		{
+			print STDERR "Cannot open $xsl\n";
+			exit -3;
+		}
+		my($source) = XML::LibXML->load_xml(string => $xml);
+		my($style) = XML::LibXML->load_xml(location => $xsl, no_cdata => 1);
+		my($stylesheet) = $xslt->parse_stylesheet($style);
+		my($results) = $stylesheet->transform($source);
+		$xml = $stylesheet->output_as_bytes($results);
+		
+		if (($full_verbose) or ($verbose eq $steps[$i]))
+		{
+			print STDERR "$xsl >>\n $xml\n <<\n";
+		}
+	}
+
+	#
+	# Read scenes index.
+	#
+	my($scenes) = "$path/scenes";
+	if (! -e $scenes)
+	{
+		print STDERR "Cannot find scenes in $path\n";
+		exit -2;
+	}
+	my(@scenes) = split("\n", `cat $scenes`);
+
+	my($result) = "";
+	if (scalar(@scenes))
+	{
+		foreach $scene (@scenes)
+		{
+			$result .= pass_scene("$path/$scene", $xml);
+		}
+		return $result;
+	}
+	else
+	{
+		return $xml;
+	}
+}
+
+$xml = pass_scene($path, $xml);
+
+print "$xml\n";
+

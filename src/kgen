@@ -1,0 +1,915 @@
+#!/usr/bin/perl -w
+
+##
+## KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+##
+## Copyright (c) 2011 Dmitry Mikushin
+##
+## This software is provided 'as-is', without any express or implied warranty.
+## In no event will the authors be held liable for any damages arising 
+## from the use of this software.
+## Permission is granted to anyone to use this software for any purpose, 
+## including commercial applications, and to alter it and redistribute it freely,
+## subject to the following restrictions:
+##
+## 1. The origin of this software must not be misrepresented;
+## you must not claim that you wrote the original software.
+## If you use this software in a product, an acknowledgment
+## in the product documentation would be appreciated but is not required.
+## 2. Altered source versions must be plainly marked as such,
+## and must not be misrepresented as being the original software.
+## 3. This notice may not be removed or altered from any source distribution.
+##
+
+require "KGEN_PREFIX/bin/kgen-exec";
+
+use Term::ANSIColor qw(:constants);
+
+require "KGEN_PREFIX/bin/kgen-cpu";
+require "KGEN_PREFIX/bin/kgen-cuda";
+require "KGEN_PREFIX/bin/kgen-opencl";
+
+#
+# Perform the compilation process
+#
+sub kgen()
+{
+	#
+	# DragonEgg compiler used to produce LLVM bytecode,
+	# convertable to C.
+	#
+	my($dragonegg_compiler) = $_[0];
+
+	#
+	# Compiler for kernels running on CPU ("emulation" mode).
+	#
+	my($cpu_compiler) = "gcc";
+
+	#
+	# CUDA compiler, usually nvcc.
+	#
+	my($cuda_compiler) = "nvcc";
+
+	#
+	# OpenCL compiler, since OpenCL's standard way of compilation
+	# is runtime API, kgen provides "compiler" stub for unification
+	# with other targets.
+	#
+	my($opencl_compiler) = "kgen-ocl";
+	
+	#
+	# The regular compiler.
+	#
+	my($regular_compiler) = "gfortran";
+
+	#
+	# Supported source code files extensions.
+	#
+	my($source_ext) = $_[1];
+	
+	#
+	# Compiler to produce C code from LLVM bytecode.
+	#
+	my($llc_compiler) = "LLVM_BIN_PREFIXllc";
+	
+	#
+	# LLVM optimizer performing passes on LLVM bytecode
+	#
+	my($llvm_opt) = "LLVM_BIN_PREFIXopt";
+	
+	#
+	# Gforscale source-to-source transformer.
+	#
+	my($gforscale) = "KGEN_PREFIX/bin/kgen-gforscale";
+	
+	#
+	# G95 XML processor and compiler source-to-source transformer.
+	#
+	my($g95xml_tree) = "KGEN_PREFIX/bin/g95xml-tree";
+
+	#
+	# Linker used to merge multiple objects into single one.
+	#
+	my($objmerge) = "ld";
+	my(@objmerge_base_args) = ("--unresolved-symbols=ignore-all", "-r", "-o");
+	
+	#
+	# Regular object replacement command.
+	#
+	my($objcopy) = "objcopy";
+
+	if (!scalar(@ARGV))
+	{
+		my($short) = $dragonegg_compiler;
+		$short =~ s/.*-//;
+		print "kgen-$short: no input files\n";
+		exit 0;
+	}
+	
+	# Split kgen args from other args in the command line.
+	my(@args) = ();
+	my(@kgen_args) = ();
+	for (my $i = 0; $i < scalar(@ARGV); $i++)
+	{
+		my($arg) = $ARGV[$i];
+		if ($arg =~ m/^-Wk\,/)
+		{
+			push(@kgen_args, $arg);
+		}
+		else
+		{
+			push(@args, $arg);
+		}
+	}
+
+	#
+	# In case of 32-bit compilation on 64-bit,
+	# invoke object mergering command with 32-bit flag.
+	#
+	if (grep(/-m32/, @args))
+	{
+		@objmerge_base_args = ("-melf_i386", @objmerge_base_args);
+	}
+
+	#
+	# Depending on bitness, set gforscale include path.
+	#
+	my($gforscale_include_path) = "-IKGEN_PREFIX\/include64"; 
+	if (("ARCH" ne "64") or grep(/-m32/, @args))
+	{
+		$gforscale_include_path = "-IKGEN_PREFIX\/include";
+	}
+
+	#
+	# Switch to bypass kgen pipe and use regular compiler only.
+	# 0 - disabled (no bypass)
+	# 1 - bypass
+	# 2 - bypass, but generate modules for dragonegg & gforscale
+	#
+	my($bypass) = 0;
+
+	#
+	# Fallback to regular compilation process
+	# in case of warnings.
+	#
+	my($fb_warnings) = 0;
+	
+	#
+	# Kernel loops targets flags.
+	#
+	my(@targets) = ("cpu");
+	
+	#
+	# Specific processing mode.
+	#
+	my($specific_mode) = "default";
+	
+	# Interpret kgen args.
+	for (my $i = 0; $i < scalar(@kgen_args); $i++)
+	{
+		my($arg) = $kgen_args[$i];
+		if ($arg =~ m/^-Wk\,--bypass$/)
+		{
+			$bypass = 1;
+		}
+		if ($arg =~ m/^-Wk\,--fallback-warnings$/)
+		{
+			$fb_warnings = 1;
+		}
+		if ($arg =~ m/^-Wk\,--host-compiler=(?<HOST_COMPILER>.+)/)
+		{
+			$host_compiler = $+{HOST_COMPILER};
+		}
+		if ($arg =~ m/^-Wk\,--cpu-compiler=(?<CPU_COMPILER>.+)/)
+		{
+			$cpu_compiler = $+{CPU_COMPILER};
+		}
+		if ($arg =~ m/^-Wk\,--cuda-compiler=(?<CUDA_COMPILER>.+)/)
+		{
+			$cuda_compiler = $+{CUDA_COMPILER};
+		}
+		if ($arg =~ m/^-Wk\,--opencl-compiler=(?<OPENCL_COMPILER>.+)/)
+		{
+			$opencl_compiler = $+{OPENCL_COMPILER};
+		}
+		if ($arg =~ m/^-Wk\,--kernel-target=(?<KERNEL_TARGET>.+)/)
+		{
+			@targets = split(",", $+{KERNEL_TARGET});
+			foreach $target (@targets)
+			{
+				if (($target ne "cpu") and ($target ne "cuda") and ($target ne "opencl"))
+				{
+					print STDERR BOLD, RED, "Unknown target $target\n", RESET;
+					print RESET, "";
+					exit 1;
+				}
+			}
+		}
+		if ($arg =~ m/^-Wk\,--specific-mode=(?<SPECIFIC_MODE>(\w|\/)+)/)
+		{
+			$specific_mode = $+{SPECIFIC_MODE};
+		}
+	}
+
+	#
+	# Find source code filename.
+	# FIXME There can be multiple source files supplied,
+	# currently this case is unhandled.
+	#
+	my($filename) = "";
+	my($ifilename) = -1;
+	for ($iarg = 0; $iarg < scalar(@args); $iarg++)
+	{
+		if ($args[$iarg] =~ m/$source_ext/)
+		{
+			$filename = $args[$iarg];
+			$ifilename = $iarg;
+		}
+	}
+
+	#
+	# Generate dragonegg & gforscale modules, if required.
+	#
+	if (($bypass == 2) and ($filename ne ""))
+	{
+		system($dragonegg_compiler, @args);
+
+		#
+		# Strip all command line arguments, except includes and definitions.
+		#
+		my(@g95xml_args) = ();
+		for ($iarg = 0; $iarg < scalar(@args); $iarg++)
+		{
+			if ($args[$iarg] =~ m/^(-I|-D|-J)/)
+			{
+				push(@g95xml_args, $args[$iarg]);
+			}
+		}
+		system($g95xml_tree, @g95xml_args, $filename);
+	}
+
+	#
+	# Only execute the regular compiler, if required or
+	# do only regular compilation for file extensions
+	# we do not know. Also should cover the case of linking.
+	#
+	if ($bypass)
+	{
+		system($regular_compiler, @args);
+		exit 0;
+	}
+	else
+	{
+		my(@args_ext) = @args;
+		if (("ARCH" ne "64") or grep(/-m32/, @args))
+		{
+			push(@args_ext, "-LKGEN_PREFIX/lib");
+		}
+		else
+		{
+			push(@args_ext, "-LKGEN_PREFIX/lib64");
+		}
+		push(@args_ext, "-lgforscale", "-lstdc++");
+		if ("CUDA_PREFIX" ne "undefined")
+		{
+			if (("ARCH" ne "64") or grep(/-m32/, @args))
+			{
+				push(@args_ext, "-LCUDA_PREFIX/lib", "-lcudart");
+			}
+			else
+			{
+				push(@args_ext, "-LCUDA_PREFIX/lib64", "-lcudart");
+			}
+		}
+		system($regular_compiler, @args_ext);
+	}
+
+	if ($filename eq "")
+	{
+		exit 0;
+	}
+
+	#
+	# Strip input and output file from args.
+	# By default we assume source is fully linked,
+	# producing a.out output executable by default.
+	# Other two cases are: presence of "-c" and "-o" options.
+	# With "-c" source is compiled only, producing by default
+	# an object file with same basename as source.
+	# With "-o" source could either compiled only (with additional
+	# "-c") or fully linked, but in both cases output is sent to
+	# explicitly defined file after "-o" option.
+	#
+	my($output) = "a.out";
+	my($iarg) = 0;
+	my(@base_args) = @args;
+	for ($iarg = 0; $iarg < scalar(@base_args); $iarg++)
+	{
+		if ($base_args[$iarg] eq "-c")
+		{
+			$output = $filename;
+			$output =~ s/.*\///;
+			$output =~ s/$source_ext/\.o/;
+		}
+	}
+	for ($iarg = 0; $iarg < scalar(@base_args); $iarg++)
+	{
+		if ($base_args[$iarg] eq "-o")
+		{
+			$output = $base_args[$iarg + 1];
+			@base_args = (@base_args[0 .. $iarg - 1],
+				@base_args[$iarg + 2 .. scalar(@base_args) - 1]);
+			last;
+		}
+	}
+	for ($iarg = 0; $iarg < scalar(@base_args); $iarg++)
+	{
+		if ($base_args[$iarg] =~ m/$source_ext/)
+		{
+			$filename = $base_args[$iarg];
+			$ifilename = $iarg;
+		}
+	}
+
+	@args = @base_args;
+
+	#
+	# Logging strings.
+	#
+	my($complog) = "";
+	my($errlog) = "";
+	
+	#
+	# Extract loops using gforscale.
+	# Strip all command line arguments, except includes,
+        # definitions and modules path.
+	#
+	my(@gforscale_args) = (
+		"-Wk,--gforscale-scene-path=KGEN_PREFIX/transforms/split/",
+		"-Wk,--gforscale-specific-mode=$specific_mode",
+		"-Wk,--gforscale-markup-mode=tree");
+#		"-Wk,--gforscale-markup-mode=tree", "-Wk,--gforscale-verbose=stage.10.xsl", $filename);
+	for ($iarg = 0; $iarg < scalar(@args); $iarg++)
+	{
+		#if ($args[$iarg] =~ m/^(-I|-D|-J)/)
+		{
+			push(@gforscale_args, $args[$iarg]);
+		}
+	}
+	my($gforscale_result) = "";
+	my($gforscale_errlog) = "";
+	execlog(undef, \$gforscale_result, \$gforscale_errlog,
+		$gforscale, @gforscale_args);
+	if ($gforscale_result eq "")
+	{
+		#
+		# If gforscale parsing has failed, then there is noting more
+		# to expect. We already have same object previously compiled
+		# with the regular compiler, and can now just leave.
+		# TODO: embed log into compiled object.
+		#
+		$gforscale_errlog =~ s/^/gforscale\t>> /;
+		$gforscale_errlog =~ s/\n/\ngforscale\t>> /g;
+		$gforscale_errlog =~ s/gforscale\t>>\s$//;
+		$errlog .= $gforscale_errlog;
+		print STDERR BOLD, RED, "$errlog", RESET;
+		print RESET, "";
+		exit 0;
+	}
+	else
+	{
+		$gforscale_errlog =~ s/^/gforscale\t>> $filename:/;
+		$gforscale_errlog =~ s/\n/\ngforscale\t>> $filename:/g;
+		$gforscale_errlog =~ s/gforscale\t>>\s$filename:$//;
+		print STDERR BOLD, GREEN, "$gforscale_errlog", RESET;
+		print RESET, "";
+	}
+#	print "$gforscale_result\n";
+#	exit 0;
+	
+	#
+	# Split gforscale output into parts:
+	# kernel loops, original code and helper routines.
+	#
+	my($has_kernels) = 0;
+	my(%kernels) = ();
+	while ($gforscale_result =~
+		s/\!\$GFORSCALE\sCUDA\sDEVICE\s(?<NAME>\w+)\n(?<CUDA>.*)\!\$GFORSCALE\sEND\sCUDA\sDEVICE\s\k<NAME>//s)
+	{
+		my($name) = $+{NAME};
+		
+		$kernels{$name}{"device"}{"cuda"} = $+{CUDA};
+
+		#
+		# Extract OpenCL kernel code part.
+		#
+		if ($gforscale_result !~
+			s/\!\$GFORSCALE\sOPENCL\sDEVICE\s$name\n(?<OPENCL>.*)\!\$GFORSCALE\sEND\sOPENCL\sDEVICE\s$name//s)
+		{
+			print STDERR BOLD, RED, "Cannot find OpenCL device code for kernel $name\n", RESET;
+			print RESET, "";
+			exit 0;
+		}
+
+		$kernels{$name}{"device"}{"opencl"} = $+{OPENCL};
+
+		#
+		# Extract CPU kernel code part.
+		#
+		if ($gforscale_result !~
+			s/\!\$GFORSCALE\sCPU\sDEVICE\s$name\n(?<CPU>.*)\!\$GFORSCALE\sEND\sCPU\sDEVICE\s$name//s)
+		{
+			print STDERR BOLD, RED, "Cannot find CPU device code for kernel $name\n", RESET;
+			print RESET, "";
+			exit 0;
+		}
+
+		$kernels{$name}{"device"}{"cpu"} = $+{CPU};
+
+		#
+		# Extract Fortran host code part.
+		#
+		if ($gforscale_result !~
+			s/\!\$GFORSCALE\sFORTRAN\sHOST\s$name\n(?<FORTRAN>.*)\!\$GFORSCALE\sEND\sFORTRAN\sHOST\s$name//s)
+		{
+			print STDERR BOLD, RED, "Cannot find Fortran host code for kernel $name\n", RESET;
+			print RESET, "";
+			exit 0;
+		}
+
+		$kernels{$name}{"host"}{"fortran"} = $+{FORTRAN};
+
+		#
+		# Extract initialization routines.
+		#
+		if ($gforscale_result !~
+			s/\!\$GFORSCALE\sCXX\sHOST\s$name\n(?<CXX>.*)\!\$GFORSCALE\sEND\sCXX\sHOST\s$name//s)
+		{
+			print STDERR BOLD, RED, "Cannot find C++ host code for kernel $name\n", RESET;
+			print RESET, "";
+			exit 0;
+		}
+			
+		$kernels{$name}{"host"}{"cxx"} = $+{CXX};
+		
+		$has_kernels = 1;
+	}
+	
+	#
+	# The code to run on host is the remainder left from $gforscale_result
+	# after filtering out the kernel routines.
+	#
+	my($hostcode) = $gforscale_result;
+	#print "$hostcode\n";
+
+	#
+	# Create a temp filename and use it instead of original
+	# source code filename. Convert filename extension to
+	# uppercase to have preprocessor enabled by default.
+	#
+	@args = @base_args;
+	my($gforscale_ext) = $filename;
+	$gforscale_ext =~ s/^.*\.//;
+	$gforscale_ext = uc($gforscale_ext);
+	my($gforscale_filename) = $filename;
+	$gforscale_filename =~ s/\.[^\.]*$/.host.$gforscale_ext/;
+	push(@args, "-o");
+	push(@args, "$gforscale_filename.o");
+
+	#
+	# If there are kernels, copy the host code to the temp file;
+	# otherwise, use original file.
+	#
+	if ($has_kernels)
+	{
+		open($gforscale_fh, ">$gforscale_filename");
+		print $gforscale_fh "$hostcode";
+		close($gforscale_fh);
+		$args[$ifilename] = $gforscale_filename;
+		push(@args, "-ffree-line-length-none");
+		push(@args, $gforscale_include_path);
+	}
+	
+	#
+	# Collect names of compiled objects.
+	#
+	my(@objects) = ();
+	
+	#
+	# First we need to compile the host side, as it may contain
+	# modules definitions used by kernels. Note the DragonEgg compiler
+	# is used here to generate modules compatible with kernels.
+	#
+	my($hostcode_complog) = "";
+	my($hostcode_errlog) = "";
+	execlog(undef, \$hostcode_complog, \$hostcode_errlog, $dragonegg_compiler, @args);
+	if ($hostcode_complog ne "")
+	{
+		$hostcode_complog =~ s/^/c\t>> /;
+		$hostcode_complog =~ s/\n/\nc\t>> /g;
+		$hostcode_complog =~ s/c\t>>\s$//;
+		$complog .= $hostcode_complog;
+	}
+	if ($hostcode_errlog ne "")
+	{
+		$hostcode_errlog =~ s/^/c\t>> /;
+		$hostcode_errlog =~ s/\n/\nc\t>> /g;
+		$hostcode_errlog =~ s/c\t>>\s$//;
+		$errlog .= $hostcode_errlog;
+	}
+	if (! -e "$gforscale_filename.o")
+	{
+		#
+		# If host side compilation has failed, then there is noting more
+		# to expect. We already have same object previously compiled
+		# with the regular compiler, and can now just leave.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$complog", RESET;
+		print STDERR BOLD, RED, "$errlog", RESET;
+		print RESET, "";
+
+		#
+		# To prevent ruining the whole build due to missing mode,
+                # compile original source with dragonegg in this case.
+		#
+		$args[$ifilename] = $filename;
+		system($dragonegg_compiler, @args);
+		system("rm", "$gforscale_filename.o");
+
+		exit 0;
+	}
+	else
+	{
+		push(@objects, "$gforscale_filename.o");
+	}
+
+	#
+	# Do nothing more, if there are no kernels found.
+	#
+	if (!$has_kernels)
+	{
+		exit 0;
+	}
+
+	#
+	# Iterate through kernel loops:
+	# if kernel loop cannot be compiled, discard the
+	# corresponding transforms in original code.
+	# After all, gather compilation results into
+	# single object file.
+	#
+	for $name (keys %kernels)
+	{
+		my(@kernel_objects) = ();
+
+		#
+		# Create a temp filename for Fortran host side code.
+		#
+		my($gforscale_fortran_host_filename) = $filename;
+		$gforscale_fortran_host_filename =~ s/\.[^\.]*$/.$name.host.$gforscale_ext/;
+
+		#
+		# Copy single kernel Fortran host content to the temp file.
+		#
+		open($gforscale_fh, ">$gforscale_fortran_host_filename");
+		print $gforscale_fh $kernels{$name}{"host"}{"fortran"};
+		close($gforscale_fh);
+
+		#
+		# Create a temp filename for C++ host side code.
+		#
+		my($gforscale_cxx_host_filename) = $filename;
+		$gforscale_cxx_host_filename =~ s/\.[^\.]*$/.$name.host.cpp/;
+
+		#
+		# Copy single kernel C++ host content to the temp file.
+		#
+		open($gforscale_fh, ">$gforscale_cxx_host_filename");
+		print $gforscale_fh $kernels{$name}{"host"}{"cxx"};
+		close($gforscale_fh);
+
+		#
+		# Compile kernel Fortran host code with regular compiler.
+		#
+		@args = @base_args;
+		push(@args, "-ffree-line-length-none");
+		push(@args, $gforscale_include_path);
+		$args[$ifilename] = $gforscale_fortran_host_filename;
+		push(@args, "-o");
+		push(@args, "$gforscale_fortran_host_filename.o");
+
+		$hostcode_complog = "";
+		$hostcode_errlog = "";
+		execlog(undef, \$hostcode_complog, \$hostcode_errlog, $regular_compiler, @args);
+		if (! -e "$gforscale_fortran_host_filename.o")
+		{
+			if ($hostcode_complog ne "")
+			{
+				$hostcode_complog =~ s/^/c\t>> /;
+				$hostcode_complog =~ s/\n/\nc\t>> /g;
+				$hostcode_complog =~ s/c\t>>\s$//;
+				$complog .= $hostcode_complog;
+			}
+			if ($hostcode_errlog ne "")
+			{
+				$hostcode_errlog =~ s/^/c\t>> /;
+				$hostcode_errlog =~ s/\n/\nc\t>> /g;
+				$hostcode_errlog =~ s/c\t>>\s$//;
+				$errlog .= $hostcode_errlog;
+			}
+
+			#
+			# TODO: embed log into compiled object.
+			#
+			print STDOUT BOLD, YELLOW, "$complog", RESET;
+			print STDERR BOLD, RED, "$errlog", RESET;
+			print RESET, "";
+			goto kernel_finish;
+		}
+		else
+		{
+			push(@kernel_objects, "$gforscale_fortran_host_filename.o");
+		}
+
+		#
+		# Compile kernel initialization C++ host code with regular compiler.
+		#
+		@args = @base_args;
+		push(@args, $gforscale_include_path);
+		$args[$ifilename] = $gforscale_cxx_host_filename;
+		push(@args, "-o");
+		push(@args, "$gforscale_cxx_host_filename.o");
+
+		$hostcode_complog = "";
+		$hostcode_errlog = "";
+		execlog(undef, \$hostcode_complog, \$hostcode_errlog, "g++", @args);
+		if (! -e "$gforscale_cxx_host_filename.o")
+		{
+			if ($hostcode_complog ne "")
+			{
+				$hostcode_complog =~ s/^/c\t>> /;
+				$hostcode_complog =~ s/\n/\nc\t>> /g;
+				$hostcode_complog =~ s/c\t>>\s$//;
+				$complog .= $hostcode_complog;
+			}
+			if ($hostcode_errlog ne "")
+			{
+				$hostcode_errlog =~ s/^/c\t>> /;
+				$hostcode_errlog =~ s/\n/\nc\t>> /g;
+				$hostcode_errlog =~ s/c\t>>\s$//;
+				$errlog .= $hostcode_errlog;
+			}
+
+			#
+			# TODO: embed log into compiled object.
+			#
+			print STDOUT BOLD, YELLOW, "$complog", RESET;
+			print STDERR BOLD, RED, "$errlog", RESET;
+			print RESET, "";
+			goto kernel_finish;
+		}
+		else
+		{
+			push(@kernel_objects, "$gforscale_cxx_host_filename.o");
+		}
+
+		#
+		# Create a temp filename for CPU device side code.
+		#
+		my($gforscale_c_device_filename) = $filename;
+		$gforscale_c_device_filename =~
+			s/\.[^\.]*$/.$name.c.device.$gforscale_ext/;
+		if (grep(/cpu/, @targets))
+		{
+			#
+			# Copy single CPU kernel device content to the temp file.
+			#
+			open($gforscale_fh, ">$gforscale_c_device_filename");
+			print $gforscale_fh $kernels{$name}{"device"}{"cpu"};
+			close($gforscale_fh);
+
+			if (kgen_cpu($gforscale_c_device_filename, \@base_args,
+				$ifilename, $dragonegg_compiler, $llvm_opt,
+				$llc_compiler, $cpu_compiler, $_[3],
+				\$complog, \$errlog))
+			{
+				goto kernel_finish;
+			}
+		}
+
+		#
+		# Create a temp filename for CUDA device side code.
+		#
+		my($gforscale_cuda_device_filename) = $filename;
+		$gforscale_cuda_device_filename =~
+			s/\.[^\.]*$/.$name.cuda.device.$gforscale_ext/;
+		if (grep(/cuda/, @targets))
+		{
+			#
+			# Copy single CUDA kernel device content to the temp file.
+			#
+			open($gforscale_fh, ">$gforscale_cuda_device_filename");
+			print $gforscale_fh $kernels{$name}{"device"}{"cuda"};
+			close($gforscale_fh);
+
+			if (kgen_cuda($gforscale_cuda_device_filename, \@base_args,
+				$ifilename, $dragonegg_compiler, $llvm_opt,
+				$llc_compiler, $cuda_compiler, $_[3],
+				\$complog, \$errlog))
+			{
+				goto kernel_finish;
+			}
+		}
+
+		#
+		# Create a temp filename for OpenCL device side code.
+		#
+		my($gforscale_opencl_device_filename) = $filename;
+		$gforscale_opencl_device_filename =~
+			s/\.[^\.]*$/.$name.opencl.device.$gforscale_ext/;
+		if (grep(/opencl/, @targets))
+		{
+			#
+			# Copy single OpenCL kernel device content to the temp file.
+			#
+			open($gforscale_fh, ">$gforscale_opencl_device_filename");
+			print $gforscale_fh $kernels{$name}{"device"}{"opencl"};
+			close($gforscale_fh);
+
+			if (kgen_opencl($gforscale_opencl_device_filename, \@base_args,
+				$ifilename, $dragonegg_compiler, $llvm_opt,
+				$llc_compiler, $opencl_compiler, $_[3],
+				\$complog, \$errlog))
+			{
+				goto kernel_finish;
+			}
+		}
+
+		#
+		# Fallback if warnings present.
+		#
+		if ($fb_warnings)
+		{
+			#
+			# Display error and stop processing compilation pipeline
+			# for entire kernel. Go directly to discarder.
+			# TODO: embed log into compiled object.
+			#
+			print STDOUT BOLD, YELLOW, "$complog", RESET;
+			print STDERR BOLD, RED, "$errlog", RESET;
+			print RESET, "";
+			goto kernel_finish;
+		}
+
+	kernel_finish :
+
+		if (
+			((grep(/cpu/, @targets)) and (!-e "$gforscale_c_device_filename.o")) or
+			((grep(/cuda/, @targets)) and (!-e "$gforscale_cuda_device_filename.o")) or
+			((grep(/opencl/, @targets)) and (!-e "$gforscale_opencl_device_filename.o")) or
+			(!-e "$gforscale_fortran_host_filename.o") or (!-e "$gforscale_cxx_host_filename.o"))
+		{
+			#
+			# Discard kernel invocation from host code.
+			#
+			if (!($hostcode =~ s/\!\$GFORSCALE\sSELECT\s$name\n.*\!\$GFORSCALE\sLOOP\s$name\n//s))
+			{
+				print STDERR "Cannot locate kernel $name\n";
+				print RESET, "";
+				exit 1;
+			}
+			if (!($hostcode =~ s/\!\$GFORSCALE\sEND\sLOOP\s$name\n.*\!\$GFORSCALE\sEND\sSELECT\s$name\n//s))
+			{
+				print STDERR "Cannot locate kernel $name\n";
+				print RESET, "";
+				exit 1;
+			}
+		}
+		else
+		{
+			if (grep(/cpu/, @targets) and (-e "$gforscale_c_device_filename.o"))
+			{
+				push(@kernel_objects, "$gforscale_c_device_filename.o");
+			}
+			if (grep(/cuda/, @targets) and (-e "$gforscale_cuda_device_filename.o"))
+			{
+				push(@kernel_objects, "$gforscale_cuda_device_filename.o");
+			}
+			if (grep(/opencl/, @targets) and (-e "$gforscale_opencl_device_filename.o"))
+			{
+				push(@kernel_objects, "$gforscale_opencl_device_filename.o");
+			}
+			push(@objects, @kernel_objects);
+		}
+
+		$complog = "";
+		$errlog = "";
+	}
+
+	#
+	# Recompile the host code using regular compiler.
+	# Add symbol definition in case of CUDA target.
+	#
+	@args = @base_args;
+	push(@args, "-ffree-line-length-none");
+	push(@args, $gforscale_include_path);
+	$gforscale_filename = $filename;
+	$gforscale_filename =~ s/\.[^\.]*$/.host.$gforscale_ext/;
+	system("rm -rf $gforscale_filename.o");
+	$args[$ifilename] = $gforscale_filename;
+	push(@args, "-o");
+	push(@args, "$gforscale_filename.o");
+	
+	#
+	# Again copy the host code to the temp file,
+	# as it could be modified by kernels discarder.
+	#
+	open($gforscale_fh, ">$gforscale_filename");
+	print $gforscale_fh "$hostcode";
+	close($gforscale_fh);
+
+	$hostcode_complog = "";
+	$hostcode_errlog = "";
+	execlog(undef, \$hostcode_complog, \$hostcode_errlog, $regular_compiler, @args);
+	if ($hostcode_complog ne "")
+	{
+		$hostcode_complog =~ s/^/c\t>> /;
+		$hostcode_complog =~ s/\n/\nc\t>> /g;
+		$hostcode_complog =~ s/c\t>>\s$//;
+		$complog .= $hostcode_complog;
+	}
+	if ($hostcode_errlog ne "")
+	{
+		$hostcode_errlog =~ s/^/c\t>> /;
+		$hostcode_errlog =~ s/\n/\nc\t>> /g;
+		$hostcode_errlog =~ s/c\t>>\s$//;
+		$errlog .= $hostcode_errlog;
+	}
+	if (! -e "$gforscale_filename.o")
+	{
+		#
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$complog", RESET;
+		print STDERR BOLD, RED, "$errlog", RESET;
+		print RESET, "";
+		exit 0;
+	}
+
+	#
+	# Combine objects generated for kernels and host code.
+	# Combine in different object and change its name after error check.
+	#
+	my(@objmerge_args) = (@objmerge_base_args, "$output\_kgen", @objects);
+	my($objmerge_log) = "";
+	my($objmerge_errlog) = "";
+	execlog(undef, \$objmerge_log, \$objmerge_errlog, $objmerge, @objmerge_args);
+	if ($objmerge_log ne "")
+	{
+		$objmerge_log =~ s/^/ir\t>> /;
+		$objmerge_log =~ s/\n/\nir\t>> /g;
+		$objmerge_log =~ s/ir\t>>\s$//;
+		$complog .= $objmerge_log;
+	}
+	if ($objmerge_errlog ne "")
+	{
+		$objmerge_errlog =~ s/^/ir\t>> /;
+		$objmerge_errlog =~ s/\n/\nir\t>> /g;
+		$objmerge_errlog =~ s/ir\t>>\s$//;
+		$errlog .= $objmerge_errlog;
+	}
+	if (! -e "$output\_kgen")
+	{
+		#
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$complog", RESET;
+		print STDERR BOLD, RED, "$errlog", RESET;
+		print RESET, "";
+		exit 0;
+	}
+
+	#
+	# Replace regular object with one containing accelerator kernels.
+	#
+	my(@objcopy_args) = (
+		"--wildcard",
+		"--localize-symbol=*__device_stub__*",
+		"--localize-symbol=*_gforscale_config",
+		"--localize-symbol=*_gforscale_blockidx_*",
+		"--localize-symbol=*_gforscale_threadidx_*",
+		"--localize-symbol=*_gforscale_desc_*",
+		"--localize-symbol=*_gforscale_init*",
+		"--localize-symbol=*_gforscale_free*",
+		"--localize-symbol=*_loop_*_gforscale*",
+		"--localize-symbol=*_gforscale_compare_",
+		"$output\_kgen", $output);
+	my($objcopy_log) = "";
+	my($objcopy_errlog) = "";
+	execlog(undef, \$objcopy_log, \$objcopy_errlog, $objcopy, @objcopy_args);
+
+	system("rm", "$output\_kgen");
+}
+
+1;
