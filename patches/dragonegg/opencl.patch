@@ -16,8 +16,8 @@
      { NULL, NULL } // Terminator.
  };
  
---- a/src/Convert.cpp	2011-07-31 22:40:18.396317069 +0400
-+++ b/src/Convert.cpp	2011-07-31 22:32:55.657875740 +0400
+--- a/dragonegg/src/Convert.cpp	2011-07-31 22:40:18.396317069 +0400
++++ b/dragonegg/src/Convert.cpp	2011-07-31 22:32:55.657875740 +0400
 @@ -39,6 +39,9 @@
  // System headers
  #include <gmp.h>
