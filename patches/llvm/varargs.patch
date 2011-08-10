@@ -1,5 +1,5 @@
---- a/lib/Target/CBackend/CBackend.cpp	2011-08-01 00:26:34.734483962 +0400
-+++ b/lib/Target/CBackend/CBackend.cpp	2011-08-01 00:25:49.325513362 +0400
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-01 00:26:34.734483962 +0400
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-01 00:25:49.325513362 +0400
 @@ -397,11 +397,11 @@
          /*isSigned=*/PAL.paramHasAttr(Idx, Attribute::SExt), "");
      PrintedType = true;
