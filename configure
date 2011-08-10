@@ -7,14 +7,17 @@ CXX=`which g++`
 FC=`which gfortran`
 NVCC=`which nvcc`
 
+HAVE_NVIDIA_OPENCL=0
+HAVE_AMD_OPENCL=0
+
 OPENCL_LIBPATH32=
 OPENCL_LIBPATH64=
 
 rm -rf makefile.in
 
-if [ ! -d $DIR/../include ]; then
+if [ ! -d $DIR/include ]; then
   echo "Cannot locate include directory"
-  echo "Please check ../include folder exists"
+  echo "Please check $DIR/include folder exists"
   exit
 fi
 
@@ -23,7 +26,7 @@ if [ "$CC" = "" ]; then
   echo "Please check your compiler"
   exit
 else
-  echo "CC=$CC -I$DIR/../include" >>makefile.in
+  echo "CC=$CC -I$DIR/include" >>makefile.in
 fi
 
 if [ "$CXX" = "" ]; then
@@ -45,17 +48,18 @@ fi
 if [ "$NVCC" = "" ]; then
   echo "NVIDIA CUDA compiler is not available"
   echo "CUDA support will be disabled"
-  echo "HAVE_CUDA=0" >>makefile.in
 else
   echo "NVCC=$NVCC -I$DIR/../include" >>makefile.in
+  HAVE_NVIDIA_OPENCL=1
 fi
 
-if [ -f /usr/local/ati-sdk/lib/x86_64/libOpenCL.so ]; then
-  echo "HAVE_OPENCL=1" >>makefile.in
-  OPENCL_LIBPATH32=-L/usr/local/ati-sdk/lib/x86
-  OPENCL_LIBPATH64=-L/usr/local/ati-sdk/lib/x86_64/
-else
-  echo "HAVE_OPENCL=0" >>makefile.in
+if [ "$HAVE_NVIDIA_OPENCL" = "0" ]; then
+  if [ -f /usr/local/ati-sdk/lib/x86_64/libOpenCL.so ]; then
+    echo "HAVE_OPENCL=1" >>makefile.in
+    OPENCL_LIBPATH32=-L/usr/local/ati-sdk/lib/x86
+    OPENCL_LIBPATH64=-L/usr/local/ati-sdk/lib/x86_64/
+    HAVE_AMD_OPENCL=1
+  fi
 fi
 
 foo=`mktemp foo_$$XXX`
@@ -152,12 +156,29 @@ if [ "$NVCC_arch" = "" ]; then
   echo "NVIDIA CUDA compiler \"$NVCC\" is not usable"
   echo "CUDA support will be disabled"
   echo "HAVE_CUDA=0" >>makefile.in
-  echo "HAVE_OPENCL=0" >>makefile.in
+  HAVE_NVIDIA_OPENCL=0
 else
   echo "HAVE_CUDA=1" >>makefile.in
-  echo "HAVE_OPENCL=1" >>makefile.in
 fi
 
+fi
+
+if [ "$HAVE_NVIDIA_OPENCL" = "1" ]; then
+  echo "HAVE_NVIDIA_OPENCL=1" >>makefile.in
+  echo "HAVE_AMD_OPENCL=0" >>makefile.in
+fi
+
+if [ "$HAVE_AMD_OPENCL" = "1" ]; then
+  echo "HAVE_NVIDIA_OPENCL=1" >>makefile.in
+  echo "HAVE_AMD_OPENCL=1" >>makefile.in
+fi
+
+if [ "$HAVE_NVIDIA_OPENCL" = "0" ] && [ "$HAVE_AMD_OPENCL" = "0" ]; then
+  echo "HAVE_NVIDIA_OPENCL=0" >>makefile.in
+  echo "HAVE_AMD_OPENCL=0" >>makefile.in
+  echo "HAVE_OPENCL=0" >>makefile.in
+else
+  echo "HAVE_OPENCL=1" >>makefile.in
 fi
 
 echo "OPENCL_LIBPATH32 = $OPENCL_LIBPATH32" >>makefile.in

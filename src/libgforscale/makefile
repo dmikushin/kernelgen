@@ -19,7 +19,7 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-include ../makefile.in
+include ../../makefile.in
 
 CFLAGS = -g -fPIC -std=c99
 CXXFLAGS = -g -fPIC
