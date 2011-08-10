@@ -1,5 +1,5 @@
---- a/gcc/fortran/mathbuiltins.def	2011-07-31 22:01:17.128422022 +0400
-+++ b/gcc/fortran/mathbuiltins.def	2011-07-31 18:50:34.817657100 +0400
+--- a/gcc-4.5/gcc/fortran/mathbuiltins.def	2011-07-31 22:01:17.128422022 +0400
++++ b/gcc-4.5/gcc/fortran/mathbuiltins.def	2011-07-31 18:50:34.817657100 +0400
 @@ -23,31 +23,31 @@
  
     Use DEFINE_MATH_BUILTIN_C if the complex versions of the builtin are
@@ -60,8 +60,8 @@
 +DEFINE_MATH_BUILTIN   (TGAMMA, "tgamma", 0, true, 1)
 +DEFINE_MATH_BUILTIN   (LGAMMA, "lgamma", 0, true, 1)
 +DEFINE_MATH_BUILTIN   (HYPOT,  "hypot",  1, true, 1)
---- a/gcc/common.opt	2011-07-31 22:05:13.724225605 +0400
-+++ b/gcc/common.opt	2011-07-31 21:19:10.732805730 +0400
+--- a/gcc-4.5/gcc/common.opt	2011-07-31 22:05:13.724225605 +0400
++++ b/gcc-4.5/gcc/common.opt	2011-07-31 21:19:10.732805730 +0400
 @@ -1571,4 +1571,8 @@
  Common RejectNegative Negative(shared)
  Create a position independent executable
@@ -71,8 +71,8 @@
 +Emit Fortran math builtins in a way compatible with OpenCL
 +
  ; This comment is to ensure we retain the blank line above.
---- a/gcc/fortran/f95-lang.c	2011-07-31 22:07:56.095659799 +0400
-+++ b/gcc/fortran/f95-lang.c	2011-07-31 20:29:31.478320815 +0400
+--- a/gcc-4.5/gcc/fortran/f95-lang.c	2011-07-31 22:07:56.095659799 +0400
++++ b/gcc-4.5/gcc/fortran/f95-lang.c	2011-07-31 20:29:31.478320815 +0400
 @@ -617,20 +617,22 @@
  }
  
@@ -223,8 +223,8 @@
        gfc_define_builtin ("__builtin_cexpil", func_longdouble_clongdouble, 
  		          BUILT_IN_CEXPIL, "cexpil", true);
        gfc_define_builtin ("__builtin_cexpi", func_double_cdouble,
---- a/gcc/fortran/trans-intrinsic.c	2011-07-31 22:09:22.993749869 +0400
-+++ b/gcc/fortran/trans-intrinsic.c	2011-07-31 19:43:06.692151047 +0400
+--- a/gcc-4.5/gcc/fortran/trans-intrinsic.c	2011-07-31 22:09:22.993749869 +0400
++++ b/gcc-4.5/gcc/fortran/trans-intrinsic.c	2011-07-31 19:43:06.692151047 +0400
 @@ -90,7 +90,7 @@
  /* ??? The NARGS==1 hack here is based on the fact that (c99 at least)
     defines complex variants of all of the entries in mathbuiltins.def

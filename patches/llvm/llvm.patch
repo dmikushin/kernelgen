@@ -1,5 +1,5 @@
---- a/include/llvm/Module.h	2011-07-31 23:06:09.371772843 +0400
-+++ b/include/llvm/Module.h	2011-08-05 00:10:40.010015703 +0400
+--- a/llvm/include/llvm/Module.h	2011-07-31 23:06:09.371772843 +0400
++++ b/llvm/include/llvm/Module.h	2011-08-05 00:10:40.010015703 +0400
 @@ -29,6 +29,7 @@
  class GVMaterializer;
  class LLVMContext;
@@ -8,8 +8,8 @@
  template<typename T> struct DenseMapInfo;
  template<typename KeyT, typename ValueT, 
           typename KeyInfoT, typename ValueInfoT> class DenseMap;
---- a/lib/VMCore/Module.cpp	2011-08-05 18:26:54.115445526 +0400
-+++ b/lib/VMCore/Module.cpp	2011-08-05 18:26:43.378675565 +0400
+--- a/llvm/lib/VMCore/Module.cpp	2011-08-05 18:26:54.115445526 +0400
++++ b/llvm/lib/VMCore/Module.cpp	2011-08-05 18:26:43.378675565 +0400
 @@ -442,11 +442,15 @@
      DenseSet<Type*> VisitedTypes;
      
@@ -41,8 +41,8 @@
        // Recursively walk all contained types.
        for (Type::subtype_iterator I = Ty->subtype_begin(),
             E = Ty->subtype_end(); I != E; ++I)
---- a/lib/Target/CBackend/CBackend.cpp	2011-08-05 18:29:54.734574154 +0400
-+++ b/lib/Target/CBackend/CBackend.cpp	2011-08-05 17:50:55.480804768 +0400
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-05 18:29:54.734574154 +0400
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-05 17:50:55.480804768 +0400
 @@ -510,17 +510,17 @@
      if (!IgnoreName)
        return Out << getStructName(STy) << ' ' << NameSoFar;

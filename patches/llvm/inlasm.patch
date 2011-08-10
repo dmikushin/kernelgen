@@ -1,7 +1,7 @@
 diff --git a/lib/Target/CBackend/CBackend.cpp b/lib/Target/CBackend/CBackend.cpp
 index 6c555a3..ba99559 100644
---- a/lib/Target/CBackend/CBackend.cpp
-+++ b/lib/Target/CBackend/CBackend.cpp
+--- a/llvm/lib/Target/CBackend/CBackend.cpp
++++ b/llvm/lib/Target/CBackend/CBackend.cpp
 @@ -3180,6 +3180,8 @@ static std::string gccifyAsm(std::string asmstr) {
            asmstr.substr(i + 2, a - i - 2);
          asmstr.replace(i, b - i + 1, n);

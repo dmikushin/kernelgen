@@ -1,5 +1,5 @@
---- a/libgomp/Makefile.am	2011-07-10 16:12:28.487269021 +0400
-+++ b/libgomp/Makefile.am	2011-07-10 16:22:30.200213171 +0400
+--- a/gcc-4.5/libgomp/Makefile.am	2011-07-10 16:12:28.487269021 +0400
++++ b/gcc-4.5/libgomp/Makefile.am	2011-07-10 16:22:30.200213171 +0400
 @@ -39,7 +39,7 @@
  nodist_noinst_HEADERS = libgomp_f.h
  nodist_libsubinclude_HEADERS = omp.h
@@ -21,8 +21,8 @@
  	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
  fortran.lo: libgomp_f.h
  fortran.o: libgomp_f.h
---- a/libgomp/Makefile.in	2011-07-10 15:50:44.542459288 +0400
-+++ b/libgomp/Makefile.in	2011-07-10 16:24:16.699158458 +0400
+--- a/gcc-4.5/libgomp/Makefile.in	2011-07-10 15:50:44.542459288 +0400
++++ b/gcc-4.5/libgomp/Makefile.in	2011-07-10 16:24:16.699158458 +0400
 @@ -351,7 +351,7 @@
  
  nodist_noinst_HEADERS = libgomp_f.h
@@ -44,8 +44,8 @@
  	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
  fortran.lo: libgomp_f.h
  fortran.o: libgomp_f.h
---- a/gcc/fortran/module.c	2011-07-10 04:02:32.258612162 +0400
-+++ b/gcc/fortran/module.c	2011-07-10 17:13:10.963201686 +0400
+--- a/gcc-4.5/gcc/fortran/module.c	2011-07-10 04:02:32.258612162 +0400
++++ b/gcc-4.5/gcc/fortran/module.c	2011-07-10 17:13:10.963201686 +0400
 @@ -75,7 +75,7 @@
  #include "md5.h"
  #include "cpp.h"

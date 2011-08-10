@@ -1,5 +1,5 @@
---- a/lib/Target/CBackend/CBackend.cpp	2011-08-09 13:55:31.443357077 +0400
-+++ b/lib/Target/CBackend/CBackend.cpp	2011-08-09 03:30:51.134534946 +0400
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-09 13:55:31.443357077 +0400
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-09 03:30:51.134534946 +0400
 @@ -520,7 +521,7 @@
      }
      Out << '}';
