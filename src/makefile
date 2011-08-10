@@ -21,7 +21,6 @@
 
 include ../makefile.in
 
-PREFIX =
 KGEN_PREFIX = $(PREFIX)/opt/kgen
 LLVM_BIN_PREFIX = $(PREFIX)/opt/llvm/bin/
 GCC_BIN_PREFIX = $(PREFIX)/opt/llvm/dragonegg/bin/dragonegg-
