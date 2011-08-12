@@ -21,13 +21,14 @@
 
 include ../makefile.in
 
-KGEN_PREFIX = $(PREFIX)/opt/kgen
-LLVM_BIN_PREFIX = $(PREFIX)/opt/llvm/bin/
-GCC_BIN_PREFIX = $(PREFIX)/opt/llvm/dragonegg/bin/dragonegg-
+KGEN_PREFIX = /opt/kgen
+KGEN_BUILD_PREFIX = $(PREFIX)$(KGEN_PREFIX)
+LLVM_BIN_PREFIX = $(KGEN_PREFIX)/bin/
+GCC_BIN_PREFIX = $(KGEN_PREFIX)/bin/dragonegg-
 ifeq ($(ARCH), 64)
-DRAGONEGG_PREFIX = $(PREFIX)/opt/llvm/dragonegg/lib${ARCH}/
+DRAGONEGG_PREFIX = $(KGEN_PREFIX)/lib${ARCH}/
 else
-DRAGONEGG_PREFIX = $(PREFIX)/opt/llvm/dragonegg/lib/
+DRAGONEGG_PREFIX = $(KGEN_PREFIX)/lib/
 endif
 CUDA_PREFIX = undefined
 ifeq ($(HAVE_CUDA), 1)
@@ -60,6 +61,6 @@ clean:
 
 install: kgen-gforscale libgforscale kgen-ocl
 	perl kgen-install $(ARCH) \
-		$(KGEN_PREFIX) $(LLVM_BIN_PREFIX) $(GCC_BIN_PREFIX) $(DRAGONEGG_PREFIX) \
-		$(CUDA_PREFIX)
+		$(KGEN_BUILD_PREFIX) $(KGEN_PREFIX) $(LLVM_BIN_PREFIX) $(GCC_BIN_PREFIX) \
+		$(DRAGONEGG_PREFIX) $(CUDA_PREFIX)
 

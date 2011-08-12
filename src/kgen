@@ -281,6 +281,7 @@ sub kgen()
 				push(@args_ext, "-LCUDA_PREFIX/lib64", "-lcudart");
 			}
 		}
+		print "$regular_compiler @args_ext\n";
 		system($regular_compiler, @args_ext);
 	}
 

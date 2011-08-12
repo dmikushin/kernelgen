@@ -77,7 +77,7 @@ make -j12 CXXFLAGS=-O3
 cd $RPM_BUILD_DIR/gcc-4.5
 mkdir build
 cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kgen --program-prefix=dragonegg- --enable-languages=c,fortran --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
+../configure --prefix=$RPM_BUILD_ROOT/opt/kgen --program-prefix=dragonegg- --enable-languages=fortran --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
 make -j12
 cd $RPM_BUILD_DIR/kernelgen/trunk
 ./configure
@@ -99,6 +99,10 @@ cp dragonegg.so $RPM_BUILD_ROOT/opt/kgen/lib64/
 cd $RPM_BUILD_DIR/kernelgen/trunk
 PREFIX=$RPM_BUILD_ROOT make install
 rm $RPM_BUILD_ROOT/opt/kgen/bin/bugpoint
+rm $RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-cpp
+rm $RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gcc
+rm $RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gccbug
+rm $RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gcov
 rm $RPM_BUILD_ROOT/opt/kgen/bin/lli
 rm $RPM_BUILD_ROOT/opt/kgen/bin/llvm-ar
 rm $RPM_BUILD_ROOT/opt/kgen/bin/llvm-as
@@ -235,6 +239,65 @@ rm $RPM_BUILD_ROOT/opt/kgen/docs/llvm/ps/llvmgcc.ps
 rm $RPM_BUILD_ROOT/opt/kgen/docs/llvm/ps/llvmgxx.ps
 rm $RPM_BUILD_ROOT/opt/kgen/docs/llvm/ps/opt.ps
 rm $RPM_BUILD_ROOT/opt/kgen/docs/llvm/ps/tblgen.ps
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/block.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/clast.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/cloog.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/constraints.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/domain.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/input.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/int.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/isl/backend.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/isl/cloog.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/isl/constraintset.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/isl/domain.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/loop.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/matrix.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/matrix/constraintset.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/names.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/options.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/pprint.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/program.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/state.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/statement.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/stride.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/union_domain.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/version.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/aff.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/aff_type.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/arg.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/band.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/blk.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/config.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/constraint.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/ctx.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/dim.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/div.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/flow.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/hash.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/ilp.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/int.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/list.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/local_space.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/lp.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/map.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/map_type.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/mat.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/obj.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/options.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/point.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/polynomial.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/printer.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/schedule.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/seq.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/set.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/set_type.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/stdint.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/stream.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/union_map.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/union_set.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/vec.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/version.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/isl/vertices.h
 rm $RPM_BUILD_ROOT/opt/kgen/include/llvm-c/Analysis.h
 rm $RPM_BUILD_ROOT/opt/kgen/include/llvm-c/BitReader.h
 rm $RPM_BUILD_ROOT/opt/kgen/include/llvm-c/BitWriter.h
@@ -708,10 +771,238 @@ rm $RPM_BUILD_ROOT/opt/kgen/include/llvm/Use.h
 rm $RPM_BUILD_ROOT/opt/kgen/include/llvm/User.h
 rm $RPM_BUILD_ROOT/opt/kgen/include/llvm/Value.h
 rm $RPM_BUILD_ROOT/opt/kgen/include/llvm/ValueSymbolTable.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Cloog.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Config/config.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Dependences.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/LinkAllPasses.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/MayAliasSet.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/ScopDetection.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/ScopInfo.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/ScopLib.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/ScopPass.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Support/AffineSCEVIterator.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Support/GICHelper.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Support/ScopHelper.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/polly/TempScopInfo.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/macros.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/matrix.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/scop.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/statement.h
+rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/vector.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/BugpointPasses.so
 rm $RPM_BUILD_ROOT/opt/kgen/lib/LLVMHello.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtbegin.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtbeginS.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtbeginT.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtend.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtendS.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtfastmath.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtprec32.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtprec64.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtprec80.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgcc.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgcc_eh.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgcov.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgfortranbegin.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgfortranbegin.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtbegin.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtbeginS.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtbeginT.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtend.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtendS.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtfastmath.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtprec32.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtprec64.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtprec80.o
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/finclude/omp_lib.dragonegg.mod
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/finclude/omp_lib.f90
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/finclude/omp_lib.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/finclude/omp_lib_kinds.dragonegg.mod
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/README
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/limits.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/linux/a.out.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/syslimits.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/abmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ammintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/avxintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/bmmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/cpuid.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/cross-stdarg.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/emmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/float.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/fma4intrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ia32intrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/immintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/iso646.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/lwpintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/mf-runtime.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/mm3dnow.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/mm_malloc.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/mmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/nmmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/omp.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/pmmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/popcntintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/smmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ssp/ssp.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ssp/stdio.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ssp/string.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ssp/unistd.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdarg.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdbool.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stddef.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdfix.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdint-gcc.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdint.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/tmmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/unwind.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/varargs.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/wmmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/x86intrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/xmmintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/xopintrin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/fixinc_list
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/gsyslimits.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/include/README
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/include/limits.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/macro_list
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/mkheaders.conf
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgcc.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgcc_eh.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgcov.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgfortranbegin.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgfortranbegin.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ada/gcc-interface/ada-tree.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/alias.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/all-tree.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ansidecl.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/auto-host.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/b-header-vars
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/basic-block.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/bitmap.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/builtins.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/bversion.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/c-common.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/c-common.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/c-pragma.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/c-pretty-print.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cfghooks.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cfgloop.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cgraph.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cif-code.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/dbxelf.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/elfos.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/glibc-stdint.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/att.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/biarch64.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/i386-protos.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/i386.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/linux64.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/unix.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/x86-64.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/linux.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/svr4.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/vxworks-dummy.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/configargs.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/coretypes.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cp/cp-tree.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cppdefault.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cpplib.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/debug.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/defaults.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/diagnostic.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/diagnostic.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/double-int.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/emit-rtl.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/except.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/filenames.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/fixed-value.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/flags.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/function.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gcc-plugin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/genrtl.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ggc.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gimple.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gimple.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gsstruct.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gtype-desc.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/hard-reg-set.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/hashtab.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/highlev-plugin-common.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/hwint.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/incpath.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/input.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/insn-constants.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/insn-flags.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/insn-modes.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/insn-notes.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/intl.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ipa-prop.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ipa-reference.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ipa-utils.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/java/java-tree.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/langhooks.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/libiberty.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/line-map.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/machmode.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/md5.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/mode-classes.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/objc/objc-tree.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/obstack.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/omp-builtins.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/options.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/opts.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/output.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/params.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/params.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/partition.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/plugin-version.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/plugin.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/plugin.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/pointer-set.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/predict.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/predict.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/prefix.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/pretty-print.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/real.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/reg-notes.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/rtl.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/rtl.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/safe-ctype.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/sbitmap.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/splay-tree.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/statistics.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/symtab.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/sync-builtins.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/system.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/target.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/timevar.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/timevar.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tm-preds.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tm.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tm_p.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/toplev.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-check.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-dump.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-flow-inline.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-flow.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-inline.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-iterator.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-pass.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-ssa-alias.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-ssa-operands.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-ssa-sccvn.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/treestruct.def
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/varray.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/vec.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/vecprim.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/version.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libCompilerDriver.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libEnhancedDisassembly.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libEnhancedDisassembly.so
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libLLVMAnalysis.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libLLVMArchive.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libLLVMAsmParser.a
@@ -749,30 +1040,97 @@ rm $RPM_BUILD_ROOT/opt/kgen/lib/libLLVMX86Utils.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libLLVMipa.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libLLVMipo.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libLTO.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libLTO.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libcloog-isl.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libcloog-isl.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libcloog-isl.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libcloog-isl.so.2
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgcc_s.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgcc_s.so.1
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libgfortran.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libgfortran.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgfortran.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgfortran.so.3
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgfortran.so.3.0.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libgomp.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libgomp.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgomp.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgomp.so.1
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgomp.so.1.0.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libgomp.spec
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libisl.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libisl.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libisl.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libisl.so.7
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libisl.so.7.0.0-gdb.py
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflap.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflap.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflap.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflap.so.0
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflap.so.0.0.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflapth.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflapth.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflapth.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflapth.so.0
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libmudflapth.so.0.0.0
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollyanalysis.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollyexchange.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollyjson.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollysupport.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libprofile_rt.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libprofile_rt.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libscoplib.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libscoplib.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libscoplib.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libscoplib.so.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libssp.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libssp.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libssp.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libssp.so.0
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libssp.so.0.0.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libssp_nonshared.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libssp_nonshared.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib/pkgconfig/cloog-isl.pc
+rm $RPM_BUILD_ROOT/opt/kgen/lib/pkgconfig/isl.pc
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgcc_s.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgcc_s.so.1
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgfortran.a
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgfortran.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgfortran.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgfortran.so.3
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgfortran.so.3.0.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgomp.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgomp.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgomp.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgomp.so.1
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgomp.so.1.0.0
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libgomp.spec
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libiberty.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflap.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflap.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflap.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflap.so.0
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflap.so.0.0.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflapth.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflapth.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflapth.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflapth.so.0
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libmudflapth.so.0.0.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libssp.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libssp.la
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libssp.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libssp.so.0
+rm $RPM_BUILD_ROOT/opt/kgen/lib64/libssp.so.0.0.0
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libssp_nonshared.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib64/libssp_nonshared.la
+rm $RPM_BUILD_ROOT/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/cc1
+rm $RPM_BUILD_ROOT/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/fixinc.sh
+rm $RPM_BUILD_ROOT/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/fixincl
+rm $RPM_BUILD_ROOT/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/mkheaders
+rm $RPM_BUILD_ROOT/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/mkinstalldirs
+rm $RPM_BUILD_ROOT/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/lto-wrapper
+rm $RPM_BUILD_ROOT/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/lto1
+rm $RPM_BUILD_ROOT/opt/kgen/share/info/clan.info
 rm $RPM_BUILD_ROOT/opt/kgen/share/info/dir
 rm $RPM_BUILD_ROOT/opt/kgen/share/man/man1/bugpoint.1
 rm $RPM_BUILD_ROOT/opt/kgen/share/man/man1/dragonegg-cpp.1
@@ -802,97 +1160,6 @@ rm $RPM_BUILD_ROOT/opt/kgen/share/man/man1/tblgen.1
 rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/fsf-funding.7
 rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/gfdl.7
 rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/gpl.7
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/block.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/clast.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/cloog.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/constraints.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/domain.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/input.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/int.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/isl/backend.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/isl/cloog.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/isl/constraintset.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/isl/domain.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/loop.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/matrix.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/matrix/constraintset.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/names.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/options.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/pprint.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/program.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/state.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/statement.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/stride.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/union_domain.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/cloog/version.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/aff.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/aff_type.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/arg.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/band.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/blk.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/config.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/constraint.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/ctx.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/dim.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/div.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/flow.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/hash.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/ilp.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/int.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/list.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/local_space.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/lp.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/map.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/map_type.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/mat.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/obj.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/options.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/point.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/polynomial.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/printer.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/schedule.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/seq.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/set.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/set_type.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/stdint.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/stream.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/union_map.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/union_set.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/vec.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/version.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/isl/vertices.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/macros.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/matrix.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/scop.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/statement.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/scoplib/vector.h
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libcloog-isl.a
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libcloog-isl.la
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libisl.a
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libisl.la
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libisl.so.7.0.0-gdb.py
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libscoplib.a
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libscoplib.la
-rm $RPM_BUILD_ROOT/opt/kgen/lib/pkgconfig/cloog-isl.pc
-rm $RPM_BUILD_ROOT/opt/kgen/lib/pkgconfig/isl.pc
-rm $RPM_BUILD_ROOT/opt/kgen/share/info/clan.info
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Cloog.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Config/config.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Dependences.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/LinkAllPasses.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/MayAliasSet.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/ScopDetection.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/ScopInfo.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/ScopLib.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/ScopPass.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Support/AffineSCEVIterator.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Support/GICHelper.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/Support/ScopHelper.h
-rm $RPM_BUILD_ROOT/opt/kgen/include/polly/TempScopInfo.h
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollyanalysis.a
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollyexchange.a
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollyjson.a
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollysupport.a
 
 
 %clean
@@ -905,6 +1172,10 @@ rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollysupport.a
 
 
 %files
+/opt/kgen/bin/cloog
+/opt/kgen/bin/dragonegg-gfortran
+/opt/kgen/bin/g95xml-refids
+/opt/kgen/bin/g95xml-tree
 /opt/kgen/bin/kgen
 /opt/kgen/bin/kgen-cpu
 /opt/kgen/bin/kgen-cuda
@@ -913,22 +1184,24 @@ rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollysupport.a
 /opt/kgen/bin/kgen-gfortran
 /opt/kgen/bin/kgen-ocl
 /opt/kgen/bin/kgen-opencl
-/opt/kgen/lib/libgforscale.so
-/opt/kgen/lib64/libgforscale.so
-/opt/kgen/lib/LLVMPolly.so
-/opt/kgen/bin/dragonegg-cpp
-/opt/kgen/bin/dragonegg-gcc
-/opt/kgen/bin/dragonegg-gccbug
-/opt/kgen/bin/dragonegg-gcov
-/opt/kgen/bin/dragonegg-gfortran
-/opt/kgen/bin/g95xml-refids
-/opt/kgen/bin/g95xml-tree
-/opt/kgen/include/gforscale.dragonegg.mod
-/opt/kgen/include/gforscale.h
-/opt/kgen/include/gforscale.mod
+/opt/kgen/bin/llc
+/opt/kgen/bin/opt
 /opt/kgen/include64/gforscale.dragonegg.mod
 /opt/kgen/include64/gforscale.h
 /opt/kgen/include64/gforscale.mod
+/opt/kgen/include/gforscale.dragonegg.mod
+/opt/kgen/include/gforscale.h
+/opt/kgen/include/gforscale.mod
+/opt/kgen/lib64/dragonegg.so
+/opt/kgen/lib64/libgforscale.so
+/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/collect2
+/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/f951
+/opt/kgen/lib/libcloog-isl.so.2.0.0
+/opt/kgen/lib/libgforscale.so
+/opt/kgen/lib/libisl.so.7.0.0
+/opt/kgen/lib/libLLVM-3.0svn.so
+/opt/kgen/lib/libscoplib.so.0.0.0
+/opt/kgen/lib/LLVMPolly.so
 /opt/kgen/opts/gcc.opts
 /opt/kgen/opts/kgen-ocl.opts
 /opt/kgen/opts/nvcc.opts
@@ -985,284 +1258,11 @@ rm $RPM_BUILD_ROOT/opt/kgen/lib/libpollysupport.a
 /opt/kgen/transforms/split/stage.12.xsl
 /opt/kgen/transforms/split/stage.15.xsl
 /opt/kgen/transforms/split/steps
-/opt/kgen/bin/llc
-/opt/kgen/bin/opt
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtbegin.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtbeginS.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtbeginT.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtend.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtendS.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtfastmath.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtprec32.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtprec64.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/crtprec80.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgcc.a
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgcc_eh.a
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgcov.a
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgfortranbegin.a
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/32/libgfortranbegin.la
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtbegin.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtbeginS.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtbeginT.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtend.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtendS.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtfastmath.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtprec32.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtprec64.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/crtprec80.o
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/finclude/omp_lib.dragonegg.mod
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/finclude/omp_lib.f90
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/finclude/omp_lib.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/finclude/omp_lib_kinds.dragonegg.mod
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/README
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/limits.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/linux/a.out.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/syslimits.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/abmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ammintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/avxintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/bmmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/cpuid.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/cross-stdarg.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/emmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/float.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/fma4intrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ia32intrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/immintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/iso646.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/lwpintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/mf-runtime.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/mm3dnow.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/mm_malloc.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/mmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/nmmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/omp.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/pmmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/popcntintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/smmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ssp/ssp.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ssp/stdio.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ssp/string.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ssp/unistd.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdarg.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdbool.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stddef.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdfix.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdint-gcc.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/stdint.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/tmmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/unwind.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/varargs.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/wmmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/x86intrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/xmmintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/xopintrin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/fixinc_list
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/gsyslimits.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/include/README
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/include/limits.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/macro_list
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/mkheaders.conf
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgcc.a
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgcc_eh.a
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgcov.a
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgfortranbegin.a
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/libgfortranbegin.la
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ada/gcc-interface/ada-tree.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/alias.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/all-tree.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ansidecl.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/auto-host.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/b-header-vars
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/basic-block.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/bitmap.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/builtins.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/bversion.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/c-common.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/c-common.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/c-pragma.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/c-pretty-print.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cfghooks.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cfgloop.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cgraph.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cif-code.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/dbxelf.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/elfos.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/glibc-stdint.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/att.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/biarch64.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/i386-protos.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/i386.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/linux64.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/unix.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/i386/x86-64.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/linux.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/svr4.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/config/vxworks-dummy.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/configargs.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/coretypes.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cp/cp-tree.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cppdefault.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/cpplib.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/debug.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/defaults.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/diagnostic.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/diagnostic.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/double-int.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/emit-rtl.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/except.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/filenames.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/fixed-value.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/flags.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/function.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gcc-plugin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/genrtl.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ggc.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gimple.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gimple.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gsstruct.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/gtype-desc.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/hard-reg-set.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/hashtab.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/highlev-plugin-common.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/hwint.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/incpath.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/input.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/insn-constants.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/insn-flags.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/insn-modes.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/insn-notes.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/intl.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ipa-prop.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ipa-reference.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/ipa-utils.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/java/java-tree.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/langhooks.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/libiberty.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/line-map.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/machmode.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/md5.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/mode-classes.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/objc/objc-tree.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/obstack.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/omp-builtins.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/options.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/opts.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/output.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/params.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/params.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/partition.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/plugin-version.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/plugin.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/plugin.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/pointer-set.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/predict.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/predict.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/prefix.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/pretty-print.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/real.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/reg-notes.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/rtl.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/rtl.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/safe-ctype.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/sbitmap.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/splay-tree.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/statistics.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/symtab.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/sync-builtins.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/system.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/target.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/timevar.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/timevar.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tm-preds.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tm.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tm_p.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/toplev.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-check.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-dump.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-flow-inline.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-flow.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-inline.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-iterator.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-pass.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-ssa-alias.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-ssa-operands.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree-ssa-sccvn.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/tree.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/treestruct.def
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/varray.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/vec.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/vecprim.h
-/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/plugin/include/version.h
-/opt/kgen/lib/libEnhancedDisassembly.so
-/opt/kgen/lib/libLLVM-3.0svn.so
-/opt/kgen/lib/libLTO.so
-/opt/kgen/lib/libgcc_s.so
-/opt/kgen/lib/libgcc_s.so.1
-/opt/kgen/lib/libgfortran.so
-/opt/kgen/lib/libgfortran.so.3
-/opt/kgen/lib/libgfortran.so.3.0.0
-/opt/kgen/lib/libgomp.so
-/opt/kgen/lib/libgomp.so.1
-/opt/kgen/lib/libgomp.so.1.0.0
-/opt/kgen/lib/libmudflap.so
-/opt/kgen/lib/libmudflap.so.0
-/opt/kgen/lib/libmudflap.so.0.0.0
-/opt/kgen/lib/libmudflapth.so
-/opt/kgen/lib/libmudflapth.so.0
-/opt/kgen/lib/libmudflapth.so.0.0.0
-/opt/kgen/lib/libprofile_rt.so
-/opt/kgen/lib/libssp.so
-/opt/kgen/lib/libssp.so.0
-/opt/kgen/lib/libssp.so.0.0.0
-/opt/kgen/lib64/libgcc_s.so
-/opt/kgen/lib64/libgcc_s.so.1
-/opt/kgen/lib64/libgfortran.a
-/opt/kgen/lib64/libgfortran.la
-/opt/kgen/lib64/libgfortran.so
-/opt/kgen/lib64/libgfortran.so.3
-/opt/kgen/lib64/libgfortran.so.3.0.0
-/opt/kgen/lib64/libgomp.so
-/opt/kgen/lib64/libgomp.so.1
-/opt/kgen/lib64/libgomp.so.1.0.0
-/opt/kgen/lib64/libgomp.spec
-/opt/kgen/lib64/libiberty.a
-/opt/kgen/lib64/libmudflap.so
-/opt/kgen/lib64/libmudflap.so.0
-/opt/kgen/lib64/libmudflap.so.0.0.0
-/opt/kgen/lib64/libmudflapth.so
-/opt/kgen/lib64/libmudflapth.so.0
-/opt/kgen/lib64/libmudflapth.so.0.0.0
-/opt/kgen/lib64/libssp.so
-/opt/kgen/lib64/libssp.so.0
-/opt/kgen/lib64/libssp.so.0.0.0
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/cc1
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/collect2
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/f951
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/fixinc.sh
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/fixincl
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/mkheaders
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/install-tools/mkinstalldirs
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/lto-wrapper
-/opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/lto1
-/opt/kgen/lib64/dragonegg.so
-/opt/kgen/bin/cloog
-/opt/kgen/lib/libcloog-isl.so
-/opt/kgen/lib/libcloog-isl.so.2
-/opt/kgen/lib/libcloog-isl.so.2.0.0
-/opt/kgen/lib/libisl.so
-/opt/kgen/lib/libisl.so.7
-/opt/kgen/lib/libisl.so.7.0.0
-/opt/kgen/lib/libscoplib.so
-/opt/kgen/lib/libscoplib.so.0
-/opt/kgen/lib/libscoplib.so.0.0.0
-
 
 %post
 echo "export PATH=\$PATH:/opt/kgen/bin" >>/etc/profile.d/kgen.sh
-echo "/opt/kgen/lib\n/opt/kgen/lib64" >>/etc/ld.so.conf.d/kgen.conf
+echo "/opt/kgen/lib" >>/etc/ld.so.conf.d/kgen.conf
+echo "/opt/kgen/lib64" >>/etc/ld.so.conf.d/kgen.conf
 
 
 %changelog

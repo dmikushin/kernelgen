@@ -21,28 +21,29 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-if (scalar(@ARGV) != 6)
+if (scalar(@ARGV) != 7)
 {
-	print "Usage: kgen-install ARCH KGEN_PREFIX LLVM_BIN_PREFIX GCC_BIN_PREFIX DRAGONEGG_PREFIX CUDA_PREFIX\n";
+	print "Usage: kgen-install ARCH KGEN_BUILD_PREFIX KGEN_PREFIX LLVM_BIN_PREFIX GCC_BIN_PREFIX DRAGONEGG_PREFIX CUDA_PREFIX\n";
 	exit;
 }
 
 my($ARCH) = $ARGV[0];
-my($KGEN_PREFIX) = $ARGV[1];
-my($LLVM_BIN_PREFIX) = $ARGV[2];
-my($GCC_BIN_PREFIX) = $ARGV[3];
-my($DRAGONEGG_PREFIX) = $ARGV[4];
-my($CUDA_PREFIX) = $ARGV[5];
+my($KGEN_BUILD_PREFIX) = $ARGV[1];
+my($KGEN_PREFIX) = $ARGV[2];
+my($LLVM_BIN_PREFIX) = $ARGV[3];
+my($GCC_BIN_PREFIX) = $ARGV[4];
+my($DRAGONEGG_PREFIX) = $ARGV[5];
+my($CUDA_PREFIX) = $ARGV[6];
 
-`mkdir -p $KGEN_PREFIX/bin`;
-`mkdir -p $KGEN_PREFIX/include`;
-`mkdir -p $KGEN_PREFIX/lib`;
-`mkdir -p $KGEN_PREFIX/opts`;
+`mkdir -p $KGEN_BUILD_PREFIX/bin`;
+`mkdir -p $KGEN_BUILD_PREFIX/include`;
+`mkdir -p $KGEN_BUILD_PREFIX/lib`;
+`mkdir -p $KGEN_BUILD_PREFIX/opts`;
 
 if ($ARCH eq "64")
 {
-	`mkdir -p $KGEN_PREFIX/include64`;
-	`mkdir -p $KGEN_PREFIX/lib64`;
+	`mkdir -p $KGEN_BUILD_PREFIX/include64`;
+	`mkdir -p $KGEN_BUILD_PREFIX/lib64`;
 }
 
 #
@@ -68,17 +69,17 @@ foreach $script (@scripts)
 	$kgen =~ s/GCC_BIN_PREFIX/$GCC_BIN_PREFIX/g;
 	$kgen =~ s/DRAGONEGG_PREFIX/$DRAGONEGG_PREFIX/g;
 	$kgen =~ s/CUDA_PREFIX/$CUDA_PREFIX/g;
-	open(kgen_fh, ">$KGEN_PREFIX\/bin\/$script");
+	open(kgen_fh, ">$KGEN_BUILD_PREFIX\/bin\/$script");
 	print kgen_fh "$kgen";
 	close(kgen_fh);
-	`chmod +x $KGEN_PREFIX\/bin\/$script`;
+	`chmod +x $KGEN_BUILD_PREFIX\/bin\/$script`;
 }
 
 #
 # Discard executable bit for kgen, as it is
 # not supposed to be executed by users.
 #
-`chmod -x $KGEN_PREFIX\/bin\/kgen`;
+`chmod -x $KGEN_BUILD_PREFIX\/bin\/kgen`;
 
 #
 # Copy binaries to install path.
@@ -89,7 +90,7 @@ my(@binaries) = (
 	"ocl/kgen-ocl");
 foreach $binary (@binaries)
 {
-	`cp $binary $KGEN_PREFIX\/bin\/`;
+	`cp $binary $KGEN_BUILD_PREFIX\/bin\/`;
 }
 
 #
@@ -101,7 +102,7 @@ my(@includes32) = (
 	"libgforscale/32/gforscale.dragonegg.mod");
 foreach $include (@includes32)
 {
-	`cp $include $KGEN_PREFIX\/include\/`;
+	`cp $include $KGEN_BUILD_PREFIX\/include\/`;
 }
 if ($ARCH eq "64")
 {
@@ -111,7 +112,7 @@ if ($ARCH eq "64")
 		"libgforscale/64/gforscale.dragonegg.mod");
 	foreach $include (@includes64)
 	{
-		`cp $include $KGEN_PREFIX\/include64\/`;
+		`cp $include $KGEN_BUILD_PREFIX\/include64\/`;
 	}
 }
 
@@ -122,7 +123,7 @@ my(@libraries32) = (
 	"libgforscale/32/libgforscale.so");
 foreach $library (@libraries32)
 {
-	`cp $library $KGEN_PREFIX\/lib\/`;
+	`cp $library $KGEN_BUILD_PREFIX\/lib\/`;
 }
 if ($ARCH eq "64")
 {
@@ -130,7 +131,7 @@ if ($ARCH eq "64")
 		"libgforscale/64/libgforscale.so");
 	foreach $library (@libraries64)
 	{
-		`cp $library $KGEN_PREFIX\/lib64\/`;
+		`cp $library $KGEN_BUILD_PREFIX\/lib64\/`;
 	}
 }
 
@@ -143,7 +144,7 @@ my(@opts) = (
 	"options/kgen-ocl.opts");
 foreach $opt (@opts)
 {
-	`cp $opt $KGEN_PREFIX\/opts\/`;
+	`cp $opt $KGEN_BUILD_PREFIX\/opts\/`;
 }
 
 #
@@ -153,12 +154,12 @@ my(@folders) = (
 	"transforms");
 foreach $folder (@folders)
 {
-	`cp -r $folder $KGEN_PREFIX\/`;
+	`cp -r $folder $KGEN_BUILD_PREFIX\/`;
 }
 
 #
 # Clear subversion tags.
 #
-`find $KGEN_PREFIX -name ".svn" -exec rm -rf {} \\; 2>/dev/null`;
+`find $KGEN_BUILD_PREFIX -name ".svn" -exec rm -rf {} \\; 2>/dev/null`;
 
 
