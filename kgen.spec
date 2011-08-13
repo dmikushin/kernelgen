@@ -7,7 +7,7 @@ Summary:        Compiler with automatic generation of GPU kernels from Fortran s
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.5-r177629.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r360.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r371.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -42,7 +42,7 @@ tar -xf gcc-4.5-r177629.tar.gz
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf dragonegg-r136347.tar.gz
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf kernelgen-r360.tar.gz
+tar -xf kernelgen-r371.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
 tar -xf cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
@@ -1179,31 +1179,32 @@ rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/gpl.7
 /opt/kgen/bin/kgen
 /opt/kgen/bin/kgen-cpu
 /opt/kgen/bin/kgen-cuda
+/opt/kgen/bin/kgen-cuda-embed
 /opt/kgen/bin/kgen-exec
-/opt/kgen/bin/kgen-gforscale
+/opt/kgen/bin/kgen-transform
 /opt/kgen/bin/kgen-gfortran
-/opt/kgen/bin/kgen-ocl
 /opt/kgen/bin/kgen-opencl
+/opt/kgen/bin/kgen-opencl-embed
 /opt/kgen/bin/llc
 /opt/kgen/bin/opt
-/opt/kgen/include64/gforscale.dragonegg.mod
-/opt/kgen/include64/gforscale.h
-/opt/kgen/include64/gforscale.mod
-/opt/kgen/include/gforscale.dragonegg.mod
-/opt/kgen/include/gforscale.h
-/opt/kgen/include/gforscale.mod
+/opt/kgen/include64/kernelgen.dragonegg.mod
+/opt/kgen/include64/kernelgen.h
+/opt/kgen/include64/kernelgen.mod
+/opt/kgen/include/kernelgen.dragonegg.mod
+/opt/kgen/include/kernelgen.h
+/opt/kgen/include/kernelgen.mod
 /opt/kgen/lib64/dragonegg.so
-/opt/kgen/lib64/libgforscale.so
+/opt/kgen/lib64/libkernelgen.so
 /opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/collect2
 /opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/f951
 /opt/kgen/lib/libcloog-isl.so.2.0.0
-/opt/kgen/lib/libgforscale.so
+/opt/kgen/lib/libkernelgen.so
 /opt/kgen/lib/libisl.so.7.0.0
 /opt/kgen/lib/libLLVM-3.0svn.so
 /opt/kgen/lib/libscoplib.so.0.0.0
 /opt/kgen/lib/LLVMPolly.so
 /opt/kgen/opts/gcc.opts
-/opt/kgen/opts/kgen-ocl.opts
+/opt/kgen/opts/kgen-opencl-embed.opts
 /opt/kgen/opts/nvcc.opts
 /opt/kgen/transforms/split/ALGORITHM
 /opt/kgen/transforms/split/cosmo-do-portable.xsl

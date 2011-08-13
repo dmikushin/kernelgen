@@ -142,7 +142,7 @@ if ($ARCH eq "64")
 my(@opts) = (
 	"options/gcc.opts",
 	"options/nvcc.opts",
-	"options/kgen-ocl.opts");
+	"options/kgen-opencl-embed.opts");
 foreach $opt (@opts)
 {
 	`cp $opt $KGEN_BUILD_PREFIX\/opts\/`;

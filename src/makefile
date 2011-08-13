@@ -35,7 +35,7 @@ ifeq ($(HAVE_CUDA), 1)
 CUDA_PREFIX = /opt/cuda
 endif
 
-.PHONY: kgen-kernelgen g95xml-tree g95xml-refids libkernelgen kgen-ocl
+.PHONY: kgen-kernelgen g95xml-tree g95xml-refids libkernelgen kgen-embed
 
 all: kgen-kernelgen libkernelgen kgen-embed
 
@@ -59,7 +59,7 @@ clean:
 	cd libkernelgen && $(MAKE) clean
 	cd kgen-embed && $(MAKE) clean
 
-install: kgen-kernelgen libkernelgen kgen-ocl
+install: kgen-kernelgen libkernelgen kgen-embed
 	perl kgen-install $(ARCH) \
 		$(KGEN_BUILD_PREFIX) $(KGEN_PREFIX) $(LLVM_BIN_PREFIX) $(GCC_BIN_PREFIX) \
 		$(DRAGONEGG_PREFIX) $(CUDA_PREFIX)

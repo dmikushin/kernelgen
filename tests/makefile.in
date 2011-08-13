@@ -49,7 +49,7 @@ FCOMP32 += -m32
 endif
 
 ifeq ($(HAVE_OPENCL), 1)
-FCOMP32 += -Wk,--opencl-compiler=kgen-ocl
+FCOMP32 += -Wk,--opencl-compiler=kgen-opencl-embed
 HAVE_OPENCL = opencl,
 else
 HAVE_OPENCL =
