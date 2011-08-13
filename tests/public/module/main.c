@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include <gforscale.h>
+#include <kernelgen.h>
 #include <malloc.h>
 #include <math.h>
 #include <stdio.h>
@@ -55,10 +55,10 @@ int main(int argc, char* argv[])
 	free(y);
 	free(xy);
 	
-	gforscale_status_t status = gforscale_get_last_error();
-	if (status.value != gforscale_success)
+	kernelgen_status_t status = kernelgen_get_last_error();
+	if (status.value != kernelgen_success)
 	{
-		printf("%s\n", gforscale_get_error_string(status));
+		printf("%s\n", kernelgen_get_error_string(status));
 		return 1;
 	}
 

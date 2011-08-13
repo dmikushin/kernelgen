@@ -25,40 +25,40 @@ use Term::ANSIColor qw(:constants);
 
 my($arch) = $ARGV[0];
 
-my($gforscale_debug_output) = 3;
+my($kernelgen_debug_output) = 3;
 
-my($gforscale_runmode) = 7;
+my($kernelgen_runmode) = 7;
 if ($arch eq "64")
 {
-	$gforscale_runmode = 3;
+	$kernelgen_runmode = 3;
 }
 
-my($output) = "gforscale_debug_output=$gforscale_debug_output";
-my($runmode) = $gforscale_runmode;
+my($output) = "kernelgen_debug_output=$kernelgen_debug_output";
+my($runmode) = $kernelgen_runmode;
 
 # The list of tests to perform.
 my(@tests) = (
 	"public/szlogical/szlogical",
-	"$output axpy_loop_1_gforscale=$runmode public/axpy/$arch/axpy 10",
-	"$output axpy_loop_1_gforscale=$runmode public/axpy/$arch/axpy 1000",
-	"$output logexp_loop_1_gforscale=$runmode public/logexp/$arch/logexp 10 10",
-	"$output logexp_loop_1_gforscale=$runmode public/logexp/$arch/logexp 1000 1000",
-	"$output logexp_loop_1_gforscale=$runmode public/allocatable/$arch/allocatable 10 10",
-	"$output logexp_loop_1_gforscale=$runmode public/allocatable/$arch/allocatable 1000 1000",
-	"$output container_log_loop_1_gforscale=$runmode container_exp_loop_1_gforscale=$runmode public/module/$arch/module 10 10",
-	"$output container_log_loop_1_gforscale=$runmode container_exp_loop_1_gforscale=$runmode public/module/$arch/module 1000 1000",
-	"$output logexp_loop_1_gforscale=$runmode public/mixed/$arch/mixed 10 10",
-	"$output logexp_loop_1_gforscale=$runmode public/mixed/$arch/mixed 1000 1000",
-	"$output logexp_loop_1_gforscale=$runmode logexp_loop_2_gforscale=$runmode logexp_loop_3_gforscale=$runmode public/multidim/$arch/multidim 10 10",
-	"$output logexp_loop_1_gforscale=$runmode logexp_loop_2_gforscale=$runmode logexp_loop_3_gforscale=$runmode public/multidim/$arch/multidim 1000 1000",
-	"$output sincos_loop_1_gforscale=$runmode public/sincos/$arch/sincos 10 10 10",
-	"$output sincos_loop_1_gforscale=$runmode public/sincos/$arch/sincos 64 64 64",
-	"$output sincos_loop_1_gforscale=$runmode public/shape/$arch/shape 10 10 10",
-	"$output sincos_loop_1_gforscale=$runmode public/shape/$arch/shape 64 64 64",
-	"$output derived_loop_1_gforscale=$runmode public/derived/$arch/derived 10 10",
-	"$output derived_loop_1_gforscale=$runmode public/derived/$arch/derived 1000 1000",
-	"$output logexp_loop_1_gforscale=$runmode public/inline/$arch/inline 10 10",
-	"$output logexp_loop_1_gforscale=$runmode public/inline/$arch/inline 1000 1000",
+	"$output axpy_loop_1_kernelgen=$runmode public/axpy/$arch/axpy 10",
+	"$output axpy_loop_1_kernelgen=$runmode public/axpy/$arch/axpy 1000",
+	"$output logexp_loop_1_kernelgen=$runmode public/logexp/$arch/logexp 10 10",
+	"$output logexp_loop_1_kernelgen=$runmode public/logexp/$arch/logexp 1000 1000",
+	"$output logexp_loop_1_kernelgen=$runmode public/allocatable/$arch/allocatable 10 10",
+	"$output logexp_loop_1_kernelgen=$runmode public/allocatable/$arch/allocatable 1000 1000",
+	"$output container_log_loop_1_kernelgen=$runmode container_exp_loop_1_kernelgen=$runmode public/module/$arch/module 10 10",
+	"$output container_log_loop_1_kernelgen=$runmode container_exp_loop_1_kernelgen=$runmode public/module/$arch/module 1000 1000",
+	"$output logexp_loop_1_kernelgen=$runmode public/mixed/$arch/mixed 10 10",
+	"$output logexp_loop_1_kernelgen=$runmode public/mixed/$arch/mixed 1000 1000",
+	"$output logexp_loop_1_kernelgen=$runmode logexp_loop_2_kernelgen=$runmode logexp_loop_3_kernelgen=$runmode public/multidim/$arch/multidim 10 10",
+	"$output logexp_loop_1_kernelgen=$runmode logexp_loop_2_kernelgen=$runmode logexp_loop_3_kernelgen=$runmode public/multidim/$arch/multidim 1000 1000",
+	"$output sincos_loop_1_kernelgen=$runmode public/sincos/$arch/sincos 10 10 10",
+	"$output sincos_loop_1_kernelgen=$runmode public/sincos/$arch/sincos 64 64 64",
+	"$output sincos_loop_1_kernelgen=$runmode public/shape/$arch/shape 10 10 10",
+	"$output sincos_loop_1_kernelgen=$runmode public/shape/$arch/shape 64 64 64",
+	"$output derived_loop_1_kernelgen=$runmode public/derived/$arch/derived 10 10",
+	"$output derived_loop_1_kernelgen=$runmode public/derived/$arch/derived 1000 1000",
+	"$output logexp_loop_1_kernelgen=$runmode public/inline/$arch/inline 10 10",
+	"$output logexp_loop_1_kernelgen=$runmode public/inline/$arch/inline 1000 1000",
 );
 
 foreach $test (@tests)

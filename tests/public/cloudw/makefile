@@ -20,7 +20,7 @@
 ##
 
 all:
-	kgen-gforscale cloudw.f90
+	kgen-kernelgen cloudw.f90
 
 clean:
 	rm -rf *.o *.bc *.bc.*

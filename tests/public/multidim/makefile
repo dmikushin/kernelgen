@@ -44,4 +44,4 @@ endif
 
 clean:
 	rm -rf 32/*.o 32/*.mod 32/multidim 64/*.o 64/*.mod 64/multidim \
-	*.bc* *.o *.mod *_gforscale.* *.host.*
+	*.bc* *.o *.mod *_kernelgen.* *.host.*

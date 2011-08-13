@@ -44,4 +44,4 @@ endif
 
 clean:
 	rm -rf 32/*.o 32/*.mod 32/allocatable 64/*.o 64/*.mod 64/allocatable \
-	*.bc* *.o *.mod *_gforscale.* *.host.*
+	*.bc* *.o *.mod *_kernelgen.* *.host.*

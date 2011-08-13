@@ -50,4 +50,4 @@ size.o: size.c
 	$(CCOMP) -g -c size.c
 
 clean:
-	rm -rf *.bc* *.o *.mod *_gforscale.* *.host.* *.device.* szlogical
+	rm -rf *.bc* *.o *.mod *_kernelgen.* *.host.* *.device.* szlogical
