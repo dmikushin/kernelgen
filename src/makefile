@@ -37,7 +37,7 @@ endif
 
 .PHONY: kgen-kernelgen g95xml-tree g95xml-refids libkernelgen kgen-ocl
 
-all: kgen-kernelgen libkernelgen kgen-ocl
+all: kgen-kernelgen libkernelgen kgen-embed
 
 kgen-kernelgen: g95xml-tree g95xml-refids
 	
@@ -50,14 +50,14 @@ g95xml-refids:
 libkernelgen:
 	cd libkernelgen && $(MAKE)
 
-kgen-ocl: libkernelgen
-	cd ocl && $(MAKE)
+kgen-embed: libkernelgen
+	cd kgen-embed && $(MAKE)
 
 clean:
 	cd g95xml_tree && $(MAKE) clean
 	cd g95xml_refids && $(MAKE) clean
 	cd libkernelgen && $(MAKE) clean
-	cd ocl && $(MAKE) clean
+	cd kgen-embed && $(MAKE) clean
 
 install: kgen-kernelgen libkernelgen kgen-ocl
 	perl kgen-install $(ARCH) \
