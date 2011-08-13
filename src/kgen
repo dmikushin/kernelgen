@@ -55,7 +55,7 @@ sub kgen()
 	# is runtime API, kgen provides "compiler" stub for unification
 	# with other targets.
 	#
-	my($opencl_compiler) = "kgen-ocl";
+	my($opencl_compiler) = "kgen-opencl-embed";
 	
 	#
 	# The regular compiler.

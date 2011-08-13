@@ -87,6 +87,7 @@ foreach $script (@scripts)
 my(@binaries) = (
 	"g95xml_tree/g95xml-tree",
 	"g95xml_refids/g95xml-refids",
+	"kgen-embed/kgen-cuda-embed",
 	"kgen-embed/kgen-opencl-embed");
 foreach $binary (@binaries)
 {
