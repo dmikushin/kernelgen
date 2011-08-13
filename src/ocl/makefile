@@ -21,7 +21,7 @@
 
 include ../../makefile.in
 
-KERNELGEN = ../libgforscale
+KERNELGEN = ../libkernelgen
 
 all: kgen-ocl
 

@@ -139,7 +139,7 @@ void kernelgen_launch_(
 	
 	failsafe :
 
-		if (config->runmode & GFORSCALE_RUNMODE_HOST)
+		if (config->runmode & KERNELGEN_RUNMODE_HOST)
 		{
 			for (int i = 0; i < config->nargs; i++)
 			{

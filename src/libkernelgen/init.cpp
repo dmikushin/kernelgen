@@ -107,7 +107,7 @@ void kernelgen_kernel_init(
 	
 	// Check how many bits set in runmode.
 	config->compare = (count_bits(config->runmode) > 1) &&
-		(config->runmode & GFORSCALE_RUNMODE_HOST);
+		(config->runmode & KERNELGEN_RUNMODE_HOST);
 
 	// Copy device-specific configs to entire kernel config.
 	config->specific = (kernelgen_specific_config_t*)
@@ -352,28 +352,28 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 	{
 		int i = 0;
 		
-		kernelgen_runmodes[i++] = GFORSCALE_RUNMODE_HOST;
-		kernelgen_runmodes_mask |= GFORSCALE_RUNMODE_HOST;
+		kernelgen_runmodes[i++] = KERNELGEN_RUNMODE_HOST;
+		kernelgen_runmodes_mask |= KERNELGEN_RUNMODE_HOST;
 
 		BIND_RUNMODE(i, cpu);
-		kernelgen_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_CPU;
-		kernelgen_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_CPU;
+		kernelgen_runmodes[i++] = KERNELGEN_RUNMODE_DEVICE_CPU;
+		kernelgen_runmodes_mask |= KERNELGEN_RUNMODE_DEVICE_CPU;
 
 #ifdef HAVE_CUDA
 		BIND_RUNMODE(i, cuda);
-		kernelgen_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_CUDA;
-		kernelgen_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_CUDA;
+		kernelgen_runmodes[i++] = KERNELGEN_RUNMODE_DEVICE_CUDA;
+		kernelgen_runmodes_mask |= KERNELGEN_RUNMODE_DEVICE_CUDA;
 #endif
 
 #ifdef HAVE_OPENCL
 		BIND_RUNMODE(i, opencl);
-		kernelgen_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_OPENCL;
-		kernelgen_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_OPENCL;
+		kernelgen_runmodes[i++] = KERNELGEN_RUNMODE_DEVICE_OPENCL;
+		kernelgen_runmodes_mask |= KERNELGEN_RUNMODE_DEVICE_OPENCL;
 #endif
 	}
 
 	// By default run everything on host.
-	kernelgen_runmode = GFORSCALE_RUNMODE_HOST;
+	kernelgen_runmode = KERNELGEN_RUNMODE_HOST;
 	char* crunmode = getenv("kernelgen_runmode");
 	if (crunmode)
 	{
@@ -446,7 +446,7 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 
 		// Being quiet optimistic initially...
 		result.value = CL_SUCCESS;
-		result.runmode = GFORSCALE_RUNMODE_DEVICE_OPENCL;
+		result.runmode = KERNELGEN_RUNMODE_DEVICE_OPENCL;
 		
 		// Get OpenCL platform ID.
 		result.value = clGetPlatformIDs(1, &opencl->id, NULL);

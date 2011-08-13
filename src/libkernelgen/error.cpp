@@ -76,12 +76,12 @@ extern "C" const char* kernelgen_get_error_string(kernelgen_status_t error)
 	}
 
 #ifdef HAVE_CUDA
-	if (error.runmode == GFORSCALE_RUNMODE_DEVICE_CUDA)
+	if (error.runmode == KERNELGEN_RUNMODE_DEVICE_CUDA)
 		return cudaGetErrorString((cudaError_t)error.value);
 #endif
 
 #ifdef HAVE_OPENCL
-	if (error.runmode == GFORSCALE_RUNMODE_DEVICE_OPENCL)
+	if (error.runmode == KERNELGEN_RUNMODE_DEVICE_OPENCL)
 	{
 		switch(error.value)
 		{

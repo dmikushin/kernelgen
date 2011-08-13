@@ -19,8 +19,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef GFORSCALE_INT_CUDA_H
-#define GFORSCALE_INT_CUDA_H
+#ifndef KERNELGEN_INT_CUDA_H
+#define KERNELGEN_INT_CUDA_H
 
 #ifdef HAVE_CUDA
 #include <cuda_runtime.h>
@@ -31,7 +31,7 @@ extern "C"
 #endif
 
 // Defines CUDA-specific kernel configuration.
-struct gforscale_cuda_config_t
+struct kernelgen_cuda_config_t
 {
 	// Flag indicating if memory regions must be aligned
 	// before mapping onto device.
@@ -47,4 +47,4 @@ struct gforscale_cuda_config_t
 
 #endif // HAVE_CUDA
 
-#endif // GFORSCALE_INT_CUDA_H
+#endif // KERNELGEN_INT_CUDA_H

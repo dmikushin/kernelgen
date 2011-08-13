@@ -19,8 +19,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef GFORSCALE_INT_OPENCL_H
-#define GFORSCALE_INT_OPENCL_H
+#ifndef KERNELGEN_INT_OPENCL_H
+#define KERNELGEN_INT_OPENCL_H
 
 #ifdef HAVE_OPENCL
 #include <CL/cl.h>
@@ -32,7 +32,7 @@ extern "C"
 
 #ifdef HAVE_OPENCL
 // Defines CUDA-specific kernel configuration.
-struct gforscale_opencl_config_t
+struct kernelgen_opencl_config_t
 {
 	// Flag indicating if memory regions must be aligned
 	// before mapping onto device.
@@ -70,4 +70,4 @@ struct gforscale_opencl_config_t
 
 #endif // HAVE_OPENCL
 
-#endif // GFORSCALE_INT_OPENCL_H
+#endif // KERNELGEN_INT_OPENCL_H
