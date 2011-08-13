@@ -41,15 +41,15 @@ endif
 INCFFI = -I/usr/lib64/libffi-3.0.9/include -I/usr/include/i686-linux-gnu
 
 OBJECTS = \
-	init.o launch.o compare.o error.o timing.o merge.o parse_args.o \
-	parse_modsyms_cpu.o parse_modsyms_cuda.o parse_modsyms_opencl.o \
-	map_cpu.o unmap_cpu.o map_cuda.o unmap_cuda.o map_opencl.o unmap_opencl.o \
-	build_cpu.o build_cuda.o build_opencl.o launch_cpu.o launch_cuda.o launch_opencl.o \
-	reset_cpu.o reset_cuda.o reset_opencl.o devaddr_opencl.o \
-	elf_read.o gforscale.o
+	init launch compare error timing merge parse_args \
+	parse_modsyms_cpu parse_modsyms_cuda parse_modsyms_opencl \
+	map_cpu unmap_cpu map_cuda unmap_cuda map_opencl unmap_opencl \
+	build_cpu build_cuda build_opencl launch_cpu launch_cuda launch_opencl \
+	reset_cpu reset_cuda reset_opencl devaddr_opencl \
+	elf_read elf_write load_source gforscale
 
-OBJECTS32 := $(addprefix 32/, $(OBJECTS))
-OBJECTS64 := $(addprefix 64/, $(OBJECTS))
+OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
+OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
 
 ifeq ($(ARCH), 32)
 CC32 = $(CC)
@@ -228,11 +228,6 @@ endif
 64/devaddr_opencl.o: devaddr_opencl.c
 	$(CC64) $(CFLAGS) -c $< -o $@
 
-32/elf_read.o: elf_read.c
-	$(CC32) $(CFLAGS) -c $< -o $@
-64/elf_read.o: elf_read.c
-	$(CC64) $(CFLAGS) -c $< -o $@
-
 32/gforscale.o: gforscale.f90
 	$(DFC32) $(FFLAGS) -c $< -o $@
 	$(FC32) $(FFLAGS) -c $< -o $@
@@ -240,7 +235,38 @@ endif
 	$(DFC64) $(FFLAGS) -c $< -o $@
 	$(FC64) $(FFLAGS) -c $< -o $@
 
+32/elf_read.o: elf_read.c
+	$(CC32) $(CFLAGS) -c $< -o $@
+64/elf_read.o: elf_read.c
+	$(CC64) $(CFLAGS) -c $< -o $@
+
+32/elf_write.o: elf_write.c
+	$(CC32) $(CFLAGS) -c $< -o $@
+64/elf_write.o: elf_write.c
+	$(CC64) $(CFLAGS) -c $< -o $@
+
+32/elf_write_test: elf_write_test.c elf_write.o
+	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lgforscale
+64/elf_write_test: elf_write_test.c elf_write.o
+	$(CC64) $(CFLAGS) $(INCFFI) $< -o $@ -L64 -lgforscale
+
+NUM_SYMBOLS ?= 1
+
+32/test: elf_read_test.c elf_write_test
+	32/elf_write_test 32/foo.o $(NUM_SYMBOLS) sym hello
+	$(CC32) $(CFLAGS) $< -o 32/elf_read_test 32/foo.o -lelf
+	32/elf_read_test /proc/self/exe sym
+64/test: elf_read_test.c elf_write_test
+	64/elf_write_test 64/foo.o $(NUM_SYMBOLS) sym hello
+	$(CC64) $(CFLAGS) $< -o 64/elf_read_test 64/foo.o -lelf
+	64/elf_read_test /proc/self/exe sym
+
+32/load_source.o: load_source.c
+	$(CC32) $(CFLAGS) -c $< -o $@
+64/load_source.o: load_source.c
+	$(CC64) $(CFLAGS) -c $< -o $@
+
 clean:
-	rm -rf 32/*.o 64/*.o 32/*.so 64/*.so 32/*.mod 64/*.mod \
-	32/merge_test 64/merge_test
+	rm -rf 32/*.o 64/*.o 32/*.so 64/*.so 32/*.mod 64/*.mod 32/merge_test 64/merge_test \
+	32/elf_write_test 32/elf_read_test 64/elf_write_test 64/elf_read_test
 

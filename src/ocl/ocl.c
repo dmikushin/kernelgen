@@ -19,102 +19,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "elf_write.h"
+#include "gforscale_int.h"
 
 #include <CL/cl.h>
-#include <fcntl.h>
-#include <libelf.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#define SZLINE 1024
-#define NLINES 1024
-
-static int load_source(const char* filename, char** source, size_t* szsource)
-{
-	if (!filename)
-	{
-		fprintf(stderr, "Invalid filename pointer\n");
-		return 1;
-	}
-	if (!source)
-	{
-		fprintf(stderr, "Invalid source pointer\n");
-		return 1;
-	}
-	if (!szsource)
-	{
-		fprintf(stderr, "Invalid size pointer\n");
-		return 1;
-	}
-	FILE * fp = fopen(filename, "r");
-	if (!fp)
-	{
-		fprintf(stderr, "Cannot open file %s\n", filename);
-		return 1;
-	}
-	struct stat st; stat(filename, &st);
-	*szsource = st.st_size;
-	*source = (char*)malloc(sizeof(char) * *szsource);
-	fread(*source, *szsource, 1, fp);
-	int ierr = ferror(fp);
-	fclose(fp);
-	if (ierr)
-	{
-		fprintf(stderr, "Error reading from %s, code = %d", filename, ierr);
-		return 1;
-	}
-	return 0;
-}
-
-static int load_header(GElf_Ehdr* ehdr)
-{
-	int status = 0;
-	Elf* e = NULL;
-	
-	int fd = open("/proc/self/exe", O_RDONLY);
-	if (fd < 0)
-	{
-		fprintf(stderr, "Cannot open file %s\n", "/proc/self/exe");
-		status = 1;
-		goto finish;
-	}
-
-	if (elf_version(EV_CURRENT) == EV_NONE)
-	{
-		fprintf(stderr, "ELF library initialization failed: %s\n",
-			elf_errmsg(-1));
-		status = 1;
-		goto finish;
-	}
-	
-	e = elf_begin(fd, ELF_C_READ, NULL);
-	if (!e)
-	{
-		fprintf(stderr, "elf_begin() failed for %s: %s\n",
-			"/proc/self/exe", elf_errmsg(-1));
-		status = 1;
-		goto finish;
-	}
-
-	// Get executable elf program header.
-	if (!gelf_getehdr(e, ehdr))
-	{
-		fprintf(stderr, "gelf_getehdr() failed: %s\n",
-			elf_errmsg(-1));
-		status = 1;
-		goto finish;
-	}
-
-finish:
-
-	if (e)	elf_end(e);
-	if (fd >= 0) close(fd);
-	return status;
-}
 
 int main(int argc, char* argv[])
 {
@@ -127,7 +37,8 @@ int main(int argc, char* argv[])
 	
 	// Take entire executable to clone some of its elf properties.
 	GElf_Ehdr ehdr;
-	if (load_header(&ehdr)) return 1;
+	if (gforscale_elf_read_eheader("/proc/self/exe", &ehdr))
+		return 1;
 	
 	// Count the total length of command line arguments.
 	int szoptions = 0;
@@ -253,7 +164,7 @@ int main(int argc, char* argv[])
 		// TODO: generate output filename, if not set.
 
 		size_t szsource = 0;
-		load_source(input, &sources[i], &szsource);
+		gforscale_load_source(input, &sources[i], &szsource);
 
 		cl_program program = clCreateProgramWithSource(
 			context, 1, (const char**)&sources[i], &szsource, &status);
@@ -356,7 +267,7 @@ int main(int argc, char* argv[])
 		sprintf(symbinary, fmtsymbinary, symbol);
 		
 		// Store OpenCL program binary in the output object.
-		int status = elf_write_many(output, &ehdr, 2,
+		int status = gforscale_elf_write_many(output, &ehdr, 2,
 			symsource, sources[i], szsource,
 			symbinary, binary, szbinary);
 		if (status)

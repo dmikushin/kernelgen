@@ -50,7 +50,7 @@ g95xml-refids:
 libgforscale:
 	cd libgforscale && $(MAKE)
 
-kgen-ocl:
+kgen-ocl: libgforscale
 	cd ocl && $(MAKE)
 
 clean:

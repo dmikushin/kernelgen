@@ -17,22 +17,46 @@
  * 2. Altered source versions must be plainly marked as such,
  * and must not be misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
- * 
- * Created with help of:
- * 	"libelf by Example" by Joseph Koshy
- * 	"Executable and Linkable Format (ELF)"
- * 	people on #gcc@irc.oftc.net
  */
 
-#include <gelf.h>
-#include <stdio.h>
+#include <malloc.h>
+#include <sys/stat.h>
 
-// Create ELF image containing symbol with the specified name,
-// associated data content and its length.
-int elf_write(const char* filename, GElf_Ehdr* ref_ehdr,
-	const char* symname, const char* symdata, size_t length);
-
-// Create ELF image containing multiple symbols with the specified names,
-// associated data contents and their lengths.
-int elf_write_many(const char* filename, GElf_Ehdr* ref_ehdr, int count, ...);
+// Load contents of the specified text file.
+int gforscale_load_source(const char* filename, char** source, size_t* szsource)
+{
+	if (!filename)
+	{
+		fprintf(stderr, "Invalid filename pointer\n");
+		return 1;
+	}
+	if (!source)
+	{
+		fprintf(stderr, "Invalid source pointer\n");
+		return 1;
+	}
+	if (!szsource)
+	{
+		fprintf(stderr, "Invalid size pointer\n");
+		return 1;
+	}
+	FILE * fp = fopen(filename, "r");
+	if (!fp)
+	{
+		fprintf(stderr, "Cannot open file %s\n", filename);
+		return 1;
+	}
+	struct stat st; stat(filename, &st);
+	*szsource = st.st_size;
+	*source = (char*)malloc(sizeof(char) * *szsource);
+	fread(*source, *szsource, 1, fp);
+	int ierr = ferror(fp);
+	fclose(fp);
+	if (ierr)
+	{
+		fprintf(stderr, "Error reading from %s, code = %d", filename, ierr);
+		return 1;
+	}
+	return 0;
+}
 

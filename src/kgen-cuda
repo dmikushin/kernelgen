@@ -248,8 +248,8 @@ sub kgen_cuda()
 	}
 	$$base_args[$ifilename] = $filename;
 	push(@args, "-D__CUDA_DEVICE_FUNC__");
-	push(@args, "--keep");
-	push(@args, "-G");
+	#push(@args, "--keep");
+	#push(@args, "-G");
 	push(@args, "--ptxas-options=\"-v\"");
 	push(@args, "-arch=sm_20");
 
@@ -288,6 +288,7 @@ sub kgen_cuda()
 	else
 	{
 		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, YELLOW, "$$errlog", RESET;
 		print RESET, "";
 	}
 

@@ -357,6 +357,7 @@ sub kgen_opencl()
 	else
 	{
 		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, YELLOW, "$$errlog", RESET;
 		print RESET, "";
 	}
 

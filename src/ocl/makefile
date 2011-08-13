@@ -21,25 +21,12 @@
 
 include ../../makefile.in
 
-NUM_SYMBOLS ?= 1
-
-INCFFI = -I/usr/lib64/libffi-3.0.9/include
+GFORSCALE = ../libgforscale
 
 all: kgen-ocl
 
-kgen-ocl: ocl.c elf_write.o
-	$(CC) -g -std=c99 -D_GNU_SOURCE -I. $< -o $@ elf_write.o -lelf $(OPENCL_LIBPATH) -lOpenCL
-
-elf_write.o: elf_write.c elf_write.h
-	$(CC) -g -std=c99 -c $< -o $@
-
-elf_write_test: elf_write_test.c elf_write.o
-	$(CC) -g -std=c99 $(INCFFI) $< -o $@ elf_write.o -lelf -lffi
-
-test: elf_read_test.c elf_write_test
-	./elf_write_test foo.o $(NUM_SYMBOLS) sym hello
-	$(CC) -g -std=c99 $< -o elf_read_test DCT8x8.o -lelf
-	./elf_read_test /proc/self/exe sym
+kgen-ocl: ocl.c
+	$(CC) -g -std=c99 -D_GNU_SOURCE -I$(GFORSCALE) $< -o $@ -L$(GFORSCALE)/$(ARCH) -lgforscale $(OPENCL_LIBPATH) -lOpenCL -lelf
 
 clean:
-	rm -rf kgen-ocl elf_write_test elf_read_test *.o
+	rm -rf kgen-ocl *.o

@@ -155,3 +155,50 @@ finish:
 	return status;
 }
 
+// Load the specified ELF executable header.
+int gforscale_elf_read_eheader(const char* executable, GElf_Ehdr* ehdr)
+{
+	int status = 0;
+	Elf* e = NULL;
+	
+	int fd = open(executable, O_RDONLY);
+	if (fd < 0)
+	{
+		fprintf(stderr, "Cannot open file %s\n", "/proc/self/exe");
+		status = 1;
+		goto finish;
+	}
+
+	if (elf_version(EV_CURRENT) == EV_NONE)
+	{
+		fprintf(stderr, "ELF library initialization failed: %s\n",
+			elf_errmsg(-1));
+		status = 1;
+		goto finish;
+	}
+	
+	e = elf_begin(fd, ELF_C_READ, NULL);
+	if (!e)
+	{
+		fprintf(stderr, "elf_begin() failed for %s: %s\n",
+			"/proc/self/exe", elf_errmsg(-1));
+		status = 1;
+		goto finish;
+	}
+
+	// Get executable elf program header.
+	if (!gelf_getehdr(e, ehdr))
+	{
+		fprintf(stderr, "gelf_getehdr() failed: %s\n",
+			elf_errmsg(-1));
+		status = 1;
+		goto finish;
+	}
+
+finish:
+
+	if (e)	elf_end(e);
+	if (fd >= 0) close(fd);
+	return status;
+}
+
