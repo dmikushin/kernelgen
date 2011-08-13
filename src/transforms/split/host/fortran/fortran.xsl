@@ -2,18 +2,18 @@
 
 <!--
 
- gforscale - an XSLT-based Fortran source to source preprocessor.
+ kernelgen - an XSLT-based Fortran source to source preprocessor.
  
- This file is part of gforscale.
+ This file is part of kernelgen.
  
  (c) 2009, 2011 Dmitry Mikushin
  
- gforscale is a free software; you can redistribute it and/or modify
+ kernelgen is a free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Softawre Foundation; either version 2 of the License, or
  (at your option) any later version.
  
- gforscale is distributed in the hope that it will be useful,
+ kernelgen is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU General Public License for more details.
@@ -65,7 +65,7 @@ xmlns:F="http://g95-xml.sourceforge.net/">
 
 <xsl:template match="F:_obj-N_/F:s" mode="filter-init-2">
   <xsl:apply-templates/>
-  <xsl:text>_gforscale</xsl:text>
+  <xsl:text>_kernelgen</xsl:text>
 </xsl:template>
 
 <xsl:template name="semicolon">
@@ -119,7 +119,7 @@ Cook kernel routine name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$routine-index"/>
-      <xsl:text>_gforscale</xsl:text>
+      <xsl:text>_kernelgen</xsl:text>
     </xsl:variable>
 <!--
 Cook modules deps init routine name.
@@ -128,7 +128,7 @@ Cook modules deps init routine name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$routine-index"/>
-      <xsl:text>_gforscale_init_deps</xsl:text>
+      <xsl:text>_kernelgen_init_deps</xsl:text>
     </xsl:variable>
 <!--
 Cook compare routine name.
@@ -137,7 +137,7 @@ Cook compare routine name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$routine-index"/>
-      <xsl:text>_gforscale_compare</xsl:text>
+      <xsl:text>_kernelgen_compare</xsl:text>
     </xsl:variable>
 <!--
 Kernel configuration variable.
@@ -146,12 +146,12 @@ Kernel configuration variable.
       <xsl:value-of select=".//@routine-name"/>
       <xsl:text>_loop_</xsl:text> 
       <xsl:value-of select="$routine-index"/>
-      <xsl:text>_gforscale_config</xsl:text>
+      <xsl:text>_kernelgen_config</xsl:text>
     </xsl:variable>
 <!--
 Open Fortran host code section.
 -->
-    <xsl:text>&#10;!$GFORSCALE&#32;FORTRAN&#32;HOST&#32;</xsl:text>
+    <xsl:text>&#10;!$KERNELGEN&#32;FORTRAN&#32;HOST&#32;</xsl:text>
     <xsl:value-of select="$kernel-routine-name"/>
     <xsl:text>&#10;</xsl:text>
 <!--
@@ -159,10 +159,10 @@ Insert modules deps init routine header.
 -->
     <xsl:text>subroutine&#32;</xsl:text>
     <xsl:value-of select="$initdeps-routine-name"/>
-    <xsl:text>(config)&#32;bind(C)&#10;USE&#32;GFORSCALE&#10;</xsl:text>
+    <xsl:text>(config)&#32;bind(C)&#10;USE&#32;KERNELGEN&#10;</xsl:text>
     <xsl:copy-of select="$use-stmts"/>
-    <xsl:text>type(gforscale_kernel_config),&#32;bind(C)&#32;::&#32;config</xsl:text>
-    <xsl:text>&#10;call&#32;gforscale_kernel_init_deps(config</xsl:text>
+    <xsl:text>type(kernelgen_kernel_config),&#32;bind(C)&#32;::&#32;config</xsl:text>
+    <xsl:text>&#10;call&#32;kernelgen_kernel_init_deps(config</xsl:text>
 <!--
 Used modules symbols.
 -->
@@ -206,17 +206,17 @@ Insert comparison routine header.
     <xsl:for-each select=".//F:modsyms/F:s[@T != &quot;&quot;]">
       <xsl:text>,&#32;</xsl:text>
       <xsl:value-of select="."/>
-      <xsl:text>_gforscale_1</xsl:text>
+      <xsl:text>_kernelgen_1</xsl:text>
     </xsl:for-each>
     <xsl:for-each select=".//F:args/F:s">
       <xsl:text>,&#32;</xsl:text>
       <xsl:value-of select="."/>
-      <xsl:text>_gforscale</xsl:text>
+      <xsl:text>_kernelgen</xsl:text>
     </xsl:for-each>
     <xsl:for-each select=".//F:modsyms/F:s[@T != &quot;&quot;]">
       <xsl:text>,&#32;</xsl:text>
       <xsl:value-of select="."/>
-      <xsl:text>_gforscale_2</xsl:text>
+      <xsl:text>_kernelgen_2</xsl:text>
     </xsl:for-each>
     <xsl:text>)</xsl:text>
     <xsl:text>&#10;</xsl:text>
@@ -309,9 +309,9 @@ Add modules symbols declarations.
       </xsl:choose>
       <xsl:text>&#32;::&#32;</xsl:text>
       <xsl:value-of select="@N"/>
-      <xsl:text>_gforscale_1,&#32;</xsl:text>
+      <xsl:text>_kernelgen_1,&#32;</xsl:text>
       <xsl:value-of select="@N"/>
-      <xsl:text>_gforscale_2&#10;</xsl:text>
+      <xsl:text>_kernelgen_2&#10;</xsl:text>
     </xsl:for-each>
     <xsl:text>&#10;</xsl:text>
     <xsl:value-of select="$compare-routine-name"/>
@@ -345,10 +345,10 @@ Compare each pair of routine arguments.
         <xsl:value-of select="@N"/>
         <xsl:text>)&#32;.and.&#32;allocated(</xsl:text>        
         <xsl:value-of select="@N"/>
-        <xsl:text>_gforscale))&#32;then&#10;</xsl:text>
+        <xsl:text>_kernelgen))&#32;then&#10;</xsl:text>
       </xsl:if>
       <xsl:variable name="type">
-        <xsl:value-of select="../../F:definitions/F:T-decl-stmt[F:entity-decl/F:_obj-N_/F:s/@N = $symbol-name]/F:gforscale-decl-body/F:_T-spec_/F:I-T-spec/F:_I-T-N_/F:I-T-N/@N"/>
+        <xsl:value-of select="../../F:definitions/F:T-decl-stmt[F:entity-decl/F:_obj-N_/F:s/@N = $symbol-name]/F:kernelgen-decl-body/F:_T-spec_/F:I-T-spec/F:_I-T-N_/F:I-T-N/@N"/>
       </xsl:variable>
       <xsl:choose>
         <xsl:when test="$type = &quot;integer&quot;">
@@ -358,13 +358,13 @@ Compare each pair of routine arguments.
           <xsl:value-of select="@N"/>
           <xsl:text>&#32;-&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale))&#32;.ne.&#32;0&#32;.or.&#32;(</xsl:text>
+          <xsl:text>_kernelgen))&#32;.ne.&#32;0&#32;.or.&#32;(</xsl:text>
           <xsl:value-of select="$min"/>
           <xsl:text>(</xsl:text>
           <xsl:value-of select="@N"/>
           <xsl:text>&#32;-&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale))&#32;.ne.&#32;0)&#32;&amp;&#10;&#32;&#32;</xsl:text>
+          <xsl:text>_kernelgen))&#32;.ne.&#32;0)&#32;&amp;&#10;&#32;&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
           <xsl:text>&#32;=&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
@@ -377,13 +377,13 @@ Compare each pair of routine arguments.
           <xsl:value-of select="@N"/>
           <xsl:text>&#32;-&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale))&#32;.ge.&#32;maxdiff&#32;.or.&#32;abs(</xsl:text>
+          <xsl:text>_kernelgen))&#32;.ge.&#32;maxdiff&#32;.or.&#32;abs(</xsl:text>
           <xsl:value-of select="$min"/>
           <xsl:text>(</xsl:text>
           <xsl:value-of select="@N"/>
           <xsl:text>&#32;-&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale))&#32;.ge.&#32;maxdiff)&#32;&amp;&#10;&#32;&#32;</xsl:text>
+          <xsl:text>_kernelgen))&#32;.ge.&#32;maxdiff)&#32;&amp;&#10;&#32;&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
           <xsl:text>&#32;=&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
@@ -413,9 +413,9 @@ Compare each pair of routine data dependencies.
       <xsl:if test="@allocatable = 1">
         <xsl:text>if&#32;(allocated(</xsl:text>
         <xsl:value-of select="@N"/>
-        <xsl:text>_gforscale_1)&#32;.and.&#32;allocated(</xsl:text>        
+        <xsl:text>_kernelgen_1)&#32;.and.&#32;allocated(</xsl:text>        
         <xsl:value-of select="@N"/>
-        <xsl:text>_gforscale_2))&#32;then&#10;</xsl:text>
+        <xsl:text>_kernelgen_2))&#32;then&#10;</xsl:text>
       </xsl:if>
       <xsl:choose>
         <xsl:when test="@T = &quot;integer&quot;">
@@ -423,15 +423,15 @@ Compare each pair of routine data dependencies.
           <xsl:value-of select="$max"/>
           <xsl:text>(</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale_1&#32;-&#32;</xsl:text>
+          <xsl:text>_kernelgen_1&#32;-&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale_2))&#32;.ne.&#32;0&#32;.or.&#32;(</xsl:text>
+          <xsl:text>_kernelgen_2))&#32;.ne.&#32;0&#32;.or.&#32;(</xsl:text>
           <xsl:value-of select="$min"/>
           <xsl:text>(</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale_1&#32;-&#32;</xsl:text>
+          <xsl:text>_kernelgen_1&#32;-&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale_2))&#32;.ne.&#32;0)&#32;&amp;&#10;&#32;&#32;</xsl:text>
+          <xsl:text>_kernelgen_2))&#32;.ne.&#32;0)&#32;&amp;&#10;&#32;&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
           <xsl:text>&#32;=&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
@@ -442,15 +442,15 @@ Compare each pair of routine data dependencies.
           <xsl:value-of select="$max"/>
           <xsl:text>(</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale_1&#32;-&#32;</xsl:text>
+          <xsl:text>_kernelgen_1&#32;-&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale_2))&#32;.ge.&#32;maxdiff&#32;.or.&#32;abs(</xsl:text>
+          <xsl:text>_kernelgen_2))&#32;.ge.&#32;maxdiff&#32;.or.&#32;abs(</xsl:text>
           <xsl:value-of select="$min"/>
           <xsl:text>(</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale_1&#32;-&#32;</xsl:text>
+          <xsl:text>_kernelgen_1&#32;-&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_gforscale_2))&#32;.ge.&#32;maxdiff)&#32;&amp;&#10;&#32;&#32;</xsl:text>
+          <xsl:text>_kernelgen_2))&#32;.ge.&#32;maxdiff)&#32;&amp;&#10;&#32;&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
           <xsl:text>&#32;=&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
@@ -476,7 +476,7 @@ Insert comparison routine footer.
 <!--
 Close Fortran host code section.
 -->
-    <xsl:text>!$GFORSCALE&#32;END&#32;FORTRAN&#32;HOST&#32;</xsl:text>
+    <xsl:text>!$KERNELGEN&#32;END&#32;FORTRAN&#32;HOST&#32;</xsl:text>
     <xsl:value-of select="$kernel-routine-name"/>
     <xsl:text>&#10;</xsl:text>
   </xsl:for-each>

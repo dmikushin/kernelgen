@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 ##
-## gforscale - an XSLT-based Fortran source to source preprocessor.
+## kernelgen - an XSLT-based Fortran source to source preprocessor.
 ##
 ## Copyright (c) 2011 Dmitry Mikushin
 ##
@@ -35,27 +35,27 @@ my($full_verbose) = 0;
 my($specific_mode) = "default";
 foreach $arg (@ARGV)
 {
-	if ($arg =~ m/^-Wk,--gforscale-scene-path=(?<path>.*)/)
+	if ($arg =~ m/^-Wk,--kernelgen-scene-path=(?<path>.*)/)
 	{
 		$path = $+{path};
 		next;
 	}
-	if ($arg =~ m/^-Wk,--gforscale-markup-mode=(?<markup_mode>.*)/)
+	if ($arg =~ m/^-Wk,--kernelgen-markup-mode=(?<markup_mode>.*)/)
 	{
 		$markup_mode = $+{markup_mode};
 		next;
 	}
-	if ($arg =~ m/^-Wk,--gforscale-verbose$/)
+	if ($arg =~ m/^-Wk,--kernelgen-verbose$/)
 	{
 		$full_verbose = 1;
 		next;
 	}
-	if ($arg =~ m/^-Wk,--gforscale-verbose=(?<STAGE>.*)/)
+	if ($arg =~ m/^-Wk,--kernelgen-verbose=(?<STAGE>.*)/)
 	{
 		$verbose = $+{STAGE};
 		next;
 	}
-	if ($arg =~ m/^-Wk\,--gforscale-specific-mode=(?<SPECIFIC_MODE>(\w|\/)+)/)
+	if ($arg =~ m/^-Wk\,--kernelgen-specific-mode=(?<SPECIFIC_MODE>(\w|\/)+)/)
 	{
 		$specific_mode = $+{SPECIFIC_MODE};
 		next;

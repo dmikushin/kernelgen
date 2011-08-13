@@ -2,18 +2,18 @@
 
 <!--
 
- gforscale - an XSLT-based Fortran source to source preprocessor.
+ kernelgen - an XSLT-based Fortran source to source preprocessor.
  
- This file is part of gforscale.
+ This file is part of kernelgen.
  
  (c) 2009, 2011 Dmitry Mikushin
  
- gforscale is a free software; you can redistribute it and/or modify
+ kernelgen is a free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Softawre Foundation; either version 2 of the License, or
  (at your option) any later version.
  
- gforscale is distributed in the hope that it will be useful,
+ kernelgen is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU General Public License for more details.
@@ -71,7 +71,7 @@ Every symbol tag to carry an attribute, indentifying the type of symbol:
 function, subroutine, parameter or variable.
 -->
       <xsl:variable name="is-parameter">
-        <xsl:for-each select="../../../F:gforscale-decl-body/F:attr-spec-lst/F:attr-spec">
+        <xsl:for-each select="../../../F:kernelgen-decl-body/F:attr-spec-lst/F:attr-spec">
           <xsl:if test="@N = &quot;parameter&quot;">
             <xsl:text>1</xsl:text>
           </xsl:if>
@@ -119,7 +119,7 @@ function, subroutine, parameter or variable.
   </xsl:element>
 </xsl:template>
 
-<xsl:template match="F:gforscale-decl-body" mode="process">
+<xsl:template match="F:kernelgen-decl-body" mode="process">
 <!--
 In type declaration section every used symbol
 is a dependency symbol.
@@ -130,7 +130,7 @@ is a dependency symbol.
 <xsl:template match="F:T-decl-stmt">
   <xsl:element name="T-decl-stmt" namespace="http://g95-xml.sourceforge.net/">
     <xsl:element name="symbols" namespace="http://g95-xml.sourceforge.net/">
-       <xsl:apply-templates match=".//F:entity-decl|.//F:gforscale-decl-body" mode="process"/>
+       <xsl:apply-templates match=".//F:entity-decl|.//F:kernelgen-decl-body" mode="process"/>
     </xsl:element>
     <xsl:apply-templates match="."/>
   </xsl:element>

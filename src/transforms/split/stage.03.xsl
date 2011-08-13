@@ -2,18 +2,18 @@
 
 <!--
 
- gforscale - an XSLT-based Fortran source to source preprocessor.
+ kernelgen - an XSLT-based Fortran source to source preprocessor.
  
- This file is part of gforscale.
+ This file is part of kernelgen.
  
  (c) 2009, 2011 Dmitry Mikushin
  
- gforscale is a free software; you can redistribute it and/or modify
+ kernelgen is a free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Softawre Foundation; either version 2 of the License, or
  (at your option) any later version.
  
- gforscale is distributed in the hope that it will be useful,
+ kernelgen is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU General Public License for more details.
@@ -43,7 +43,7 @@ xmlns:exsl="http://exslt.org/common" extension-element-prefixes="exsl">
     <xsl:variable name="name">
       <xsl:value-of select=".//F:_stmt-fct_/F:s/@N"/>
     </xsl:variable>
-    <xsl:element name="gforscale-decl-body" namespace="http://g95-xml.sourceforge.net/">
+    <xsl:element name="kernelgen-decl-body" namespace="http://g95-xml.sourceforge.net/">
 <!--
 Put original statement plain code here.
 -->
@@ -94,7 +94,7 @@ to pull function definition into kernel routines.
     <xsl:variable name="name">
       <xsl:value-of select=".//F:_head_/F:derived-T-def-stmt/F:_T-N_/F:s/@N"/>
     </xsl:variable>
-    <xsl:element name="gforscale-decl-body" namespace="http://g95-xml.sourceforge.net/">
+    <xsl:element name="kernelgen-decl-body" namespace="http://g95-xml.sourceforge.net/">
 <!--
 Put original statement plain code here.
 -->

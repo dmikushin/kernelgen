@@ -2,18 +2,18 @@
 
 <!--
 
- gforscale - an XSLT-based Fortran source to source preprocessor.
+ kernelgen - an XSLT-based Fortran source to source preprocessor.
  
- This file is part of gforscale.
+ This file is part of kernelgen.
  
  (c) 2009, 2011 Dmitry Mikushin
  
- gforscale is a free software; you can redistribute it and/or modify
+ kernelgen is a free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Softawre Foundation; either version 2 of the License, or
  (at your option) any later version.
  
- gforscale is distributed in the hope that it will be useful,
+ kernelgen is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU General Public License for more details.
@@ -87,7 +87,7 @@ xmlns:F="http://g95-xml.sourceforge.net/">
   </xsl:copy>
 </xsl:template>
 
-<xsl:template match="F:gforscale-decl-body/F:c[following-sibling::F:attr-spec-lst]">
+<xsl:template match="F:kernelgen-decl-body/F:c[following-sibling::F:attr-spec-lst]">
   <xsl:if test="following-sibling::F:attr-spec-lst/F:attr-spec[(@N != &quot;private&quot;) and (@N != &quot;optional&quot;) and (@N != &quot;save&quot;) and (@N != &quot;intent-in&quot;) and (@N != &quot;intent-out&quot;) and (@N != &quot;intent-inout&quot;)]">
 <!--
 Rewrite text node if it is not one of:
@@ -99,7 +99,7 @@ private, optional, intent, save.
   </xsl:if>
 </xsl:template>
 
-<xsl:template match="F:gforscale-decl-body/F:attr-spec-lst/F:c[following-sibling::F:attr-spec]">
+<xsl:template match="F:kernelgen-decl-body/F:attr-spec-lst/F:c[following-sibling::F:attr-spec]">
   <xsl:if test="following-sibling::F:attr-spec[(@N != &quot;private&quot;) and (@N != &quot;optional&quot;) and (@N != &quot;save&quot;) and (@N != &quot;intent-in&quot;) and (@N != &quot;intent-out&quot;) and (@N != &quot;intent-inout&quot;)]">
 <!--
 Rewrite text node if it is not one of:
@@ -111,7 +111,7 @@ private, optional, intent, save.
   </xsl:if>
 </xsl:template>
 
-<xsl:template match="F:gforscale-decl-body/F:attr-spec-lst/F:attr-spec">
+<xsl:template match="F:kernelgen-decl-body/F:attr-spec-lst/F:attr-spec">
   <xsl:if test="(@N != &quot;private&quot;) and (@N != &quot;optional&quot;) and (@N != &quot;save&quot;) and (@N != &quot;intent-in&quot;) and (@N != &quot;intent-out&quot;) and (@N != &quot;intent-inout&quot;)">
 <!--
 Rewrite attribute if it is not one of:

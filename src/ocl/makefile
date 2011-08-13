@@ -21,12 +21,12 @@
 
 include ../../makefile.in
 
-GFORSCALE = ../libgforscale
+KERNELGEN = ../libgforscale
 
 all: kgen-ocl
 
 kgen-ocl: ocl.c
-	$(CC) -g -std=c99 -D_GNU_SOURCE -I$(GFORSCALE) $< -o $@ -L$(GFORSCALE)/$(ARCH) -lgforscale $(OPENCL_LIBPATH) -lOpenCL -lelf
+	$(CC) -g -std=c99 -D_GNU_SOURCE -I$(KERNELGEN) $< -o $@ -L$(KERNELGEN)/$(ARCH) -lkernelgen $(OPENCL_LIBPATH) -lOpenCL -lelf
 
 clean:
 	rm -rf kgen-ocl *.o

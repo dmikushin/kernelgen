@@ -35,11 +35,11 @@ ifeq ($(HAVE_CUDA), 1)
 CUDA_PREFIX = /opt/cuda
 endif
 
-.PHONY: kgen-gforscale g95xml-tree g95xml-refids libgforscale kgen-ocl
+.PHONY: kgen-kernelgen g95xml-tree g95xml-refids libkernelgen kgen-ocl
 
-all: kgen-gforscale libgforscale kgen-ocl
+all: kgen-kernelgen libkernelgen kgen-ocl
 
-kgen-gforscale: g95xml-tree g95xml-refids
+kgen-kernelgen: g95xml-tree g95xml-refids
 	
 g95xml-tree:
 	cd g95xml_tree && $(MAKE)
@@ -47,19 +47,19 @@ g95xml-tree:
 g95xml-refids:
 	cd g95xml_refids && $(MAKE)
 
-libgforscale:
-	cd libgforscale && $(MAKE)
+libkernelgen:
+	cd libkernelgen && $(MAKE)
 
-kgen-ocl: libgforscale
+kgen-ocl: libkernelgen
 	cd ocl && $(MAKE)
 
 clean:
 	cd g95xml_tree && $(MAKE) clean
 	cd g95xml_refids && $(MAKE) clean
-	cd libgforscale && $(MAKE) clean
+	cd libkernelgen && $(MAKE) clean
 	cd ocl && $(MAKE) clean
 
-install: kgen-gforscale libgforscale kgen-ocl
+install: kgen-kernelgen libkernelgen kgen-ocl
 	perl kgen-install $(ARCH) \
 		$(KGEN_BUILD_PREFIX) $(KGEN_PREFIX) $(LLVM_BIN_PREFIX) $(GCC_BIN_PREFIX) \
 		$(DRAGONEGG_PREFIX) $(CUDA_PREFIX)

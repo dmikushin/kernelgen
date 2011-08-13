@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #include <CL/cl.h>
 #include <malloc.h>
@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
 	
 	// Take entire executable to clone some of its elf properties.
 	GElf_Ehdr ehdr;
-	if (gforscale_elf_read_eheader("/proc/self/exe", &ehdr))
+	if (kernelgen_elf_read_eheader("/proc/self/exe", &ehdr))
 		return 1;
 	
 	// Count the total length of command line arguments.
@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
 		// TODO: generate output filename, if not set.
 
 		size_t szsource = 0;
-		gforscale_load_source(input, &sources[i], &szsource);
+		kernelgen_load_source(input, &sources[i], &szsource);
 
 		cl_program program = clCreateProgramWithSource(
 			context, 1, (const char**)&sources[i], &szsource, &status);
@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
 		sprintf(symbinary, fmtsymbinary, symbol);
 		
 		// Store OpenCL program binary in the output object.
-		int status = gforscale_elf_write_many(output, &ehdr, 2,
+		int status = kernelgen_elf_write_many(output, &ehdr, 2,
 			symsource, sources[i], szsource,
 			symbinary, binary, szbinary);
 		if (status)

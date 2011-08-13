@@ -78,9 +78,9 @@ sub kgen()
 	my($llvm_opt) = "LLVM_BIN_PREFIXopt";
 	
 	#
-	# Gforscale source-to-source transformer.
+	# Kernelgen source-to-source transformer.
 	#
-	my($gforscale) = "KGEN_PREFIX/bin/kgen-gforscale";
+	my($kernelgen) = "KGEN_PREFIX/bin/kgen-transform";
 	
 	#
 	# G95 XML processor and compiler source-to-source transformer.
@@ -132,19 +132,19 @@ sub kgen()
 	}
 
 	#
-	# Depending on bitness, set gforscale include path.
+	# Depending on bitness, set kernelgen include path.
 	#
-	my($gforscale_include_path) = "-IKGEN_PREFIX\/include64"; 
+	my($kernelgen_include_path) = "-IKGEN_PREFIX\/include64"; 
 	if (("ARCH" ne "64") or grep(/-m32/, @args))
 	{
-		$gforscale_include_path = "-IKGEN_PREFIX\/include";
+		$kernelgen_include_path = "-IKGEN_PREFIX\/include";
 	}
 
 	#
 	# Switch to bypass kgen pipe and use regular compiler only.
 	# 0 - disabled (no bypass)
 	# 1 - bypass
-	# 2 - bypass, but generate modules for dragonegg & gforscale
+	# 2 - bypass, but generate modules for dragonegg & kernelgen
 	#
 	my($bypass) = 0;
 
@@ -228,7 +228,7 @@ sub kgen()
 	}
 
 	#
-	# Generate dragonegg & gforscale modules, if required.
+	# Generate dragonegg & kernelgen modules, if required.
 	#
 	if (($bypass == 2) and ($filename ne ""))
 	{
@@ -269,7 +269,7 @@ sub kgen()
 		{
 			push(@args_ext, "-LKGEN_PREFIX/lib64");
 		}
-		push(@args_ext, "-lgforscale", "-lstdc++");
+		push(@args_ext, "-lkernelgen", "-lstdc++");
 		if ("CUDA_PREFIX" ne "undefined")
 		{
 			if (("ARCH" ne "64") or grep(/-m32/, @args))
@@ -341,61 +341,61 @@ sub kgen()
 	my($errlog) = "";
 	
 	#
-	# Extract loops using gforscale.
+	# Extract loops using kernelgen.
 	# Strip all command line arguments, except includes,
         # definitions and modules path.
 	#
-	my(@gforscale_args) = (
-		"-Wk,--gforscale-scene-path=KGEN_PREFIX/transforms/split/",
-		"-Wk,--gforscale-specific-mode=$specific_mode",
-		"-Wk,--gforscale-markup-mode=tree");
-#		"-Wk,--gforscale-markup-mode=tree", "-Wk,--gforscale-verbose=stage.10.xsl", $filename);
+	my(@kernelgen_args) = (
+		"-Wk,--kernelgen-scene-path=KGEN_PREFIX/transforms/split/",
+		"-Wk,--kernelgen-specific-mode=$specific_mode",
+		"-Wk,--kernelgen-markup-mode=tree");
+#		"-Wk,--kernelgen-markup-mode=tree", "-Wk,--kernelgen-verbose=stage.10.xsl", $filename);
 	for ($iarg = 0; $iarg < scalar(@args); $iarg++)
 	{
 		#if ($args[$iarg] =~ m/^(-I|-D|-J)/)
 		{
-			push(@gforscale_args, $args[$iarg]);
+			push(@kernelgen_args, $args[$iarg]);
 		}
 	}
-	my($gforscale_result) = "";
-	my($gforscale_errlog) = "";
-	execlog(undef, \$gforscale_result, \$gforscale_errlog,
-		$gforscale, @gforscale_args);
-	if ($gforscale_result eq "")
+	my($kernelgen_result) = "";
+	my($kernelgen_errlog) = "";
+	execlog(undef, \$kernelgen_result, \$kernelgen_errlog,
+		$kernelgen, @kernelgen_args);
+	if ($kernelgen_result eq "")
 	{
 		#
-		# If gforscale parsing has failed, then there is noting more
+		# If kernelgen parsing has failed, then there is noting more
 		# to expect. We already have same object previously compiled
 		# with the regular compiler, and can now just leave.
 		# TODO: embed log into compiled object.
 		#
-		$gforscale_errlog =~ s/^/gforscale\t>> /;
-		$gforscale_errlog =~ s/\n/\ngforscale\t>> /g;
-		$gforscale_errlog =~ s/gforscale\t>>\s$//;
-		$errlog .= $gforscale_errlog;
+		$kernelgen_errlog =~ s/^/kernelgen\t>> /;
+		$kernelgen_errlog =~ s/\n/\nkernelgen\t>> /g;
+		$kernelgen_errlog =~ s/kernelgen\t>>\s$//;
+		$errlog .= $kernelgen_errlog;
 		print STDERR BOLD, RED, "$errlog", RESET;
 		print RESET, "";
 		exit 0;
 	}
 	else
 	{
-		$gforscale_errlog =~ s/^/gforscale\t>> $filename:/;
-		$gforscale_errlog =~ s/\n/\ngforscale\t>> $filename:/g;
-		$gforscale_errlog =~ s/gforscale\t>>\s$filename:$//;
-		print STDERR BOLD, GREEN, "$gforscale_errlog", RESET;
+		$kernelgen_errlog =~ s/^/kernelgen\t>> $filename:/;
+		$kernelgen_errlog =~ s/\n/\nkernelgen\t>> $filename:/g;
+		$kernelgen_errlog =~ s/kernelgen\t>>\s$filename:$//;
+		print STDERR BOLD, GREEN, "$kernelgen_errlog", RESET;
 		print RESET, "";
 	}
-#	print "$gforscale_result\n";
+#	print "$kernelgen_result\n";
 #	exit 0;
 	
 	#
-	# Split gforscale output into parts:
+	# Split kernelgen output into parts:
 	# kernel loops, original code and helper routines.
 	#
 	my($has_kernels) = 0;
 	my(%kernels) = ();
-	while ($gforscale_result =~
-		s/\!\$GFORSCALE\sCUDA\sDEVICE\s(?<NAME>\w+)\n(?<CUDA>.*)\!\$GFORSCALE\sEND\sCUDA\sDEVICE\s\k<NAME>//s)
+	while ($kernelgen_result =~
+		s/\!\$KERNELGEN\sCUDA\sDEVICE\s(?<NAME>\w+)\n(?<CUDA>.*)\!\$KERNELGEN\sEND\sCUDA\sDEVICE\s\k<NAME>//s)
 	{
 		my($name) = $+{NAME};
 		
@@ -404,8 +404,8 @@ sub kgen()
 		#
 		# Extract OpenCL kernel code part.
 		#
-		if ($gforscale_result !~
-			s/\!\$GFORSCALE\sOPENCL\sDEVICE\s$name\n(?<OPENCL>.*)\!\$GFORSCALE\sEND\sOPENCL\sDEVICE\s$name//s)
+		if ($kernelgen_result !~
+			s/\!\$KERNELGEN\sOPENCL\sDEVICE\s$name\n(?<OPENCL>.*)\!\$KERNELGEN\sEND\sOPENCL\sDEVICE\s$name//s)
 		{
 			print STDERR BOLD, RED, "Cannot find OpenCL device code for kernel $name\n", RESET;
 			print RESET, "";
@@ -417,8 +417,8 @@ sub kgen()
 		#
 		# Extract CPU kernel code part.
 		#
-		if ($gforscale_result !~
-			s/\!\$GFORSCALE\sCPU\sDEVICE\s$name\n(?<CPU>.*)\!\$GFORSCALE\sEND\sCPU\sDEVICE\s$name//s)
+		if ($kernelgen_result !~
+			s/\!\$KERNELGEN\sCPU\sDEVICE\s$name\n(?<CPU>.*)\!\$KERNELGEN\sEND\sCPU\sDEVICE\s$name//s)
 		{
 			print STDERR BOLD, RED, "Cannot find CPU device code for kernel $name\n", RESET;
 			print RESET, "";
@@ -430,8 +430,8 @@ sub kgen()
 		#
 		# Extract Fortran host code part.
 		#
-		if ($gforscale_result !~
-			s/\!\$GFORSCALE\sFORTRAN\sHOST\s$name\n(?<FORTRAN>.*)\!\$GFORSCALE\sEND\sFORTRAN\sHOST\s$name//s)
+		if ($kernelgen_result !~
+			s/\!\$KERNELGEN\sFORTRAN\sHOST\s$name\n(?<FORTRAN>.*)\!\$KERNELGEN\sEND\sFORTRAN\sHOST\s$name//s)
 		{
 			print STDERR BOLD, RED, "Cannot find Fortran host code for kernel $name\n", RESET;
 			print RESET, "";
@@ -443,8 +443,8 @@ sub kgen()
 		#
 		# Extract initialization routines.
 		#
-		if ($gforscale_result !~
-			s/\!\$GFORSCALE\sCXX\sHOST\s$name\n(?<CXX>.*)\!\$GFORSCALE\sEND\sCXX\sHOST\s$name//s)
+		if ($kernelgen_result !~
+			s/\!\$KERNELGEN\sCXX\sHOST\s$name\n(?<CXX>.*)\!\$KERNELGEN\sEND\sCXX\sHOST\s$name//s)
 		{
 			print STDERR BOLD, RED, "Cannot find C++ host code for kernel $name\n", RESET;
 			print RESET, "";
@@ -457,10 +457,10 @@ sub kgen()
 	}
 	
 	#
-	# The code to run on host is the remainder left from $gforscale_result
+	# The code to run on host is the remainder left from $kernelgen_result
 	# after filtering out the kernel routines.
 	#
-	my($hostcode) = $gforscale_result;
+	my($hostcode) = $kernelgen_result;
 	#print "$hostcode\n";
 
 	#
@@ -469,13 +469,13 @@ sub kgen()
 	# uppercase to have preprocessor enabled by default.
 	#
 	@args = @base_args;
-	my($gforscale_ext) = $filename;
-	$gforscale_ext =~ s/^.*\.//;
-	$gforscale_ext = uc($gforscale_ext);
-	my($gforscale_filename) = $filename;
-	$gforscale_filename =~ s/\.[^\.]*$/.host.$gforscale_ext/;
+	my($kernelgen_ext) = $filename;
+	$kernelgen_ext =~ s/^.*\.//;
+	$kernelgen_ext = uc($kernelgen_ext);
+	my($kernelgen_filename) = $filename;
+	$kernelgen_filename =~ s/\.[^\.]*$/.host.$kernelgen_ext/;
 	push(@args, "-o");
-	push(@args, "$gforscale_filename.o");
+	push(@args, "$kernelgen_filename.o");
 
 	#
 	# If there are kernels, copy the host code to the temp file;
@@ -483,12 +483,12 @@ sub kgen()
 	#
 	if ($has_kernels)
 	{
-		open($gforscale_fh, ">$gforscale_filename");
-		print $gforscale_fh "$hostcode";
-		close($gforscale_fh);
-		$args[$ifilename] = $gforscale_filename;
+		open($kernelgen_fh, ">$kernelgen_filename");
+		print $kernelgen_fh "$hostcode";
+		close($kernelgen_fh);
+		$args[$ifilename] = $kernelgen_filename;
 		push(@args, "-ffree-line-length-none");
-		push(@args, $gforscale_include_path);
+		push(@args, $kernelgen_include_path);
 	}
 	
 	#
@@ -518,7 +518,7 @@ sub kgen()
 		$hostcode_errlog =~ s/c\t>>\s$//;
 		$errlog .= $hostcode_errlog;
 	}
-	if (! -e "$gforscale_filename.o")
+	if (! -e "$kernelgen_filename.o")
 	{
 		#
 		# If host side compilation has failed, then there is noting more
@@ -536,13 +536,13 @@ sub kgen()
 		#
 		$args[$ifilename] = $filename;
 		system($dragonegg_compiler, @args);
-		system("rm", "$gforscale_filename.o");
+		system("rm", "$kernelgen_filename.o");
 
 		exit 0;
 	}
 	else
 	{
-		push(@objects, "$gforscale_filename.o");
+		push(@objects, "$kernelgen_filename.o");
 	}
 
 	#
@@ -567,43 +567,43 @@ sub kgen()
 		#
 		# Create a temp filename for Fortran host side code.
 		#
-		my($gforscale_fortran_host_filename) = $filename;
-		$gforscale_fortran_host_filename =~ s/\.[^\.]*$/.$name.host.$gforscale_ext/;
+		my($kernelgen_fortran_host_filename) = $filename;
+		$kernelgen_fortran_host_filename =~ s/\.[^\.]*$/.$name.host.$kernelgen_ext/;
 
 		#
 		# Copy single kernel Fortran host content to the temp file.
 		#
-		open($gforscale_fh, ">$gforscale_fortran_host_filename");
-		print $gforscale_fh $kernels{$name}{"host"}{"fortran"};
-		close($gforscale_fh);
+		open($kernelgen_fh, ">$kernelgen_fortran_host_filename");
+		print $kernelgen_fh $kernels{$name}{"host"}{"fortran"};
+		close($kernelgen_fh);
 
 		#
 		# Create a temp filename for C++ host side code.
 		#
-		my($gforscale_cxx_host_filename) = $filename;
-		$gforscale_cxx_host_filename =~ s/\.[^\.]*$/.$name.host.cpp/;
+		my($kernelgen_cxx_host_filename) = $filename;
+		$kernelgen_cxx_host_filename =~ s/\.[^\.]*$/.$name.host.cpp/;
 
 		#
 		# Copy single kernel C++ host content to the temp file.
 		#
-		open($gforscale_fh, ">$gforscale_cxx_host_filename");
-		print $gforscale_fh $kernels{$name}{"host"}{"cxx"};
-		close($gforscale_fh);
+		open($kernelgen_fh, ">$kernelgen_cxx_host_filename");
+		print $kernelgen_fh $kernels{$name}{"host"}{"cxx"};
+		close($kernelgen_fh);
 
 		#
 		# Compile kernel Fortran host code with regular compiler.
 		#
 		@args = @base_args;
 		push(@args, "-ffree-line-length-none");
-		push(@args, $gforscale_include_path);
-		$args[$ifilename] = $gforscale_fortran_host_filename;
+		push(@args, $kernelgen_include_path);
+		$args[$ifilename] = $kernelgen_fortran_host_filename;
 		push(@args, "-o");
-		push(@args, "$gforscale_fortran_host_filename.o");
+		push(@args, "$kernelgen_fortran_host_filename.o");
 
 		$hostcode_complog = "";
 		$hostcode_errlog = "";
 		execlog(undef, \$hostcode_complog, \$hostcode_errlog, $regular_compiler, @args);
-		if (! -e "$gforscale_fortran_host_filename.o")
+		if (! -e "$kernelgen_fortran_host_filename.o")
 		{
 			if ($hostcode_complog ne "")
 			{
@@ -630,22 +630,22 @@ sub kgen()
 		}
 		else
 		{
-			push(@kernel_objects, "$gforscale_fortran_host_filename.o");
+			push(@kernel_objects, "$kernelgen_fortran_host_filename.o");
 		}
 
 		#
 		# Compile kernel initialization C++ host code with regular compiler.
 		#
 		@args = @base_args;
-		push(@args, $gforscale_include_path);
-		$args[$ifilename] = $gforscale_cxx_host_filename;
+		push(@args, $kernelgen_include_path);
+		$args[$ifilename] = $kernelgen_cxx_host_filename;
 		push(@args, "-o");
-		push(@args, "$gforscale_cxx_host_filename.o");
+		push(@args, "$kernelgen_cxx_host_filename.o");
 
 		$hostcode_complog = "";
 		$hostcode_errlog = "";
 		execlog(undef, \$hostcode_complog, \$hostcode_errlog, "g++", @args);
-		if (! -e "$gforscale_cxx_host_filename.o")
+		if (! -e "$kernelgen_cxx_host_filename.o")
 		{
 			if ($hostcode_complog ne "")
 			{
@@ -672,25 +672,25 @@ sub kgen()
 		}
 		else
 		{
-			push(@kernel_objects, "$gforscale_cxx_host_filename.o");
+			push(@kernel_objects, "$kernelgen_cxx_host_filename.o");
 		}
 
 		#
 		# Create a temp filename for CPU device side code.
 		#
-		my($gforscale_c_device_filename) = $filename;
-		$gforscale_c_device_filename =~
-			s/\.[^\.]*$/.$name.c.device.$gforscale_ext/;
+		my($kernelgen_c_device_filename) = $filename;
+		$kernelgen_c_device_filename =~
+			s/\.[^\.]*$/.$name.c.device.$kernelgen_ext/;
 		if (grep(/cpu/, @targets))
 		{
 			#
 			# Copy single CPU kernel device content to the temp file.
 			#
-			open($gforscale_fh, ">$gforscale_c_device_filename");
-			print $gforscale_fh $kernels{$name}{"device"}{"cpu"};
-			close($gforscale_fh);
+			open($kernelgen_fh, ">$kernelgen_c_device_filename");
+			print $kernelgen_fh $kernels{$name}{"device"}{"cpu"};
+			close($kernelgen_fh);
 
-			if (kgen_cpu($gforscale_c_device_filename, \@base_args,
+			if (kgen_cpu($kernelgen_c_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
 				$llc_compiler, $cpu_compiler, $_[3],
 				\$complog, \$errlog))
@@ -702,19 +702,19 @@ sub kgen()
 		#
 		# Create a temp filename for CUDA device side code.
 		#
-		my($gforscale_cuda_device_filename) = $filename;
-		$gforscale_cuda_device_filename =~
-			s/\.[^\.]*$/.$name.cuda.device.$gforscale_ext/;
+		my($kernelgen_cuda_device_filename) = $filename;
+		$kernelgen_cuda_device_filename =~
+			s/\.[^\.]*$/.$name.cuda.device.$kernelgen_ext/;
 		if (grep(/cuda/, @targets))
 		{
 			#
 			# Copy single CUDA kernel device content to the temp file.
 			#
-			open($gforscale_fh, ">$gforscale_cuda_device_filename");
-			print $gforscale_fh $kernels{$name}{"device"}{"cuda"};
-			close($gforscale_fh);
+			open($kernelgen_fh, ">$kernelgen_cuda_device_filename");
+			print $kernelgen_fh $kernels{$name}{"device"}{"cuda"};
+			close($kernelgen_fh);
 
-			if (kgen_cuda($gforscale_cuda_device_filename, \@base_args,
+			if (kgen_cuda($kernelgen_cuda_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
 				$llc_compiler, $cuda_compiler, $_[3],
 				\$complog, \$errlog))
@@ -726,19 +726,19 @@ sub kgen()
 		#
 		# Create a temp filename for OpenCL device side code.
 		#
-		my($gforscale_opencl_device_filename) = $filename;
-		$gforscale_opencl_device_filename =~
-			s/\.[^\.]*$/.$name.opencl.device.$gforscale_ext/;
+		my($kernelgen_opencl_device_filename) = $filename;
+		$kernelgen_opencl_device_filename =~
+			s/\.[^\.]*$/.$name.opencl.device.$kernelgen_ext/;
 		if (grep(/opencl/, @targets))
 		{
 			#
 			# Copy single OpenCL kernel device content to the temp file.
 			#
-			open($gforscale_fh, ">$gforscale_opencl_device_filename");
-			print $gforscale_fh $kernels{$name}{"device"}{"opencl"};
-			close($gforscale_fh);
+			open($kernelgen_fh, ">$kernelgen_opencl_device_filename");
+			print $kernelgen_fh $kernels{$name}{"device"}{"opencl"};
+			close($kernelgen_fh);
 
-			if (kgen_opencl($gforscale_opencl_device_filename, \@base_args,
+			if (kgen_opencl($kernelgen_opencl_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
 				$llc_compiler, $opencl_compiler, $_[3],
 				\$complog, \$errlog))
@@ -766,21 +766,21 @@ sub kgen()
 	kernel_finish :
 
 		if (
-			((grep(/cpu/, @targets)) and (!-e "$gforscale_c_device_filename.o")) or
-			((grep(/cuda/, @targets)) and (!-e "$gforscale_cuda_device_filename.o")) or
-			((grep(/opencl/, @targets)) and (!-e "$gforscale_opencl_device_filename.o")) or
-			(!-e "$gforscale_fortran_host_filename.o") or (!-e "$gforscale_cxx_host_filename.o"))
+			((grep(/cpu/, @targets)) and (!-e "$kernelgen_c_device_filename.o")) or
+			((grep(/cuda/, @targets)) and (!-e "$kernelgen_cuda_device_filename.o")) or
+			((grep(/opencl/, @targets)) and (!-e "$kernelgen_opencl_device_filename.o")) or
+			(!-e "$kernelgen_fortran_host_filename.o") or (!-e "$kernelgen_cxx_host_filename.o"))
 		{
 			#
 			# Discard kernel invocation from host code.
 			#
-			if (!($hostcode =~ s/\!\$GFORSCALE\sSELECT\s$name\n.*\!\$GFORSCALE\sLOOP\s$name\n//s))
+			if (!($hostcode =~ s/\!\$KERNELGEN\sSELECT\s$name\n.*\!\$KERNELGEN\sLOOP\s$name\n//s))
 			{
 				print STDERR "Cannot locate kernel $name\n";
 				print RESET, "";
 				exit 1;
 			}
-			if (!($hostcode =~ s/\!\$GFORSCALE\sEND\sLOOP\s$name\n.*\!\$GFORSCALE\sEND\sSELECT\s$name\n//s))
+			if (!($hostcode =~ s/\!\$KERNELGEN\sEND\sLOOP\s$name\n.*\!\$KERNELGEN\sEND\sSELECT\s$name\n//s))
 			{
 				print STDERR "Cannot locate kernel $name\n";
 				print RESET, "";
@@ -789,17 +789,17 @@ sub kgen()
 		}
 		else
 		{
-			if (grep(/cpu/, @targets) and (-e "$gforscale_c_device_filename.o"))
+			if (grep(/cpu/, @targets) and (-e "$kernelgen_c_device_filename.o"))
 			{
-				push(@kernel_objects, "$gforscale_c_device_filename.o");
+				push(@kernel_objects, "$kernelgen_c_device_filename.o");
 			}
-			if (grep(/cuda/, @targets) and (-e "$gforscale_cuda_device_filename.o"))
+			if (grep(/cuda/, @targets) and (-e "$kernelgen_cuda_device_filename.o"))
 			{
-				push(@kernel_objects, "$gforscale_cuda_device_filename.o");
+				push(@kernel_objects, "$kernelgen_cuda_device_filename.o");
 			}
-			if (grep(/opencl/, @targets) and (-e "$gforscale_opencl_device_filename.o"))
+			if (grep(/opencl/, @targets) and (-e "$kernelgen_opencl_device_filename.o"))
 			{
-				push(@kernel_objects, "$gforscale_opencl_device_filename.o");
+				push(@kernel_objects, "$kernelgen_opencl_device_filename.o");
 			}
 			push(@objects, @kernel_objects);
 		}
@@ -814,21 +814,21 @@ sub kgen()
 	#
 	@args = @base_args;
 	push(@args, "-ffree-line-length-none");
-	push(@args, $gforscale_include_path);
-	$gforscale_filename = $filename;
-	$gforscale_filename =~ s/\.[^\.]*$/.host.$gforscale_ext/;
-	system("rm -rf $gforscale_filename.o");
-	$args[$ifilename] = $gforscale_filename;
+	push(@args, $kernelgen_include_path);
+	$kernelgen_filename = $filename;
+	$kernelgen_filename =~ s/\.[^\.]*$/.host.$kernelgen_ext/;
+	system("rm -rf $kernelgen_filename.o");
+	$args[$ifilename] = $kernelgen_filename;
 	push(@args, "-o");
-	push(@args, "$gforscale_filename.o");
+	push(@args, "$kernelgen_filename.o");
 	
 	#
 	# Again copy the host code to the temp file,
 	# as it could be modified by kernels discarder.
 	#
-	open($gforscale_fh, ">$gforscale_filename");
-	print $gforscale_fh "$hostcode";
-	close($gforscale_fh);
+	open($kernelgen_fh, ">$kernelgen_filename");
+	print $kernelgen_fh "$hostcode";
+	close($kernelgen_fh);
 
 	$hostcode_complog = "";
 	$hostcode_errlog = "";
@@ -847,7 +847,7 @@ sub kgen()
 		$hostcode_errlog =~ s/c\t>>\s$//;
 		$errlog .= $hostcode_errlog;
 	}
-	if (! -e "$gforscale_filename.o")
+	if (! -e "$kernelgen_filename.o")
 	{
 		#
 		# TODO: embed log into compiled object.
@@ -897,14 +897,14 @@ sub kgen()
 	my(@objcopy_args) = (
 		"--wildcard",
 		"--localize-symbol=*__device_stub__*",
-		"--localize-symbol=*_gforscale_config",
-		"--localize-symbol=*_gforscale_blockidx_*",
-		"--localize-symbol=*_gforscale_threadidx_*",
-		"--localize-symbol=*_gforscale_desc_*",
-		"--localize-symbol=*_gforscale_init*",
-		"--localize-symbol=*_gforscale_free*",
-		"--localize-symbol=*_loop_*_gforscale*",
-		"--localize-symbol=*_gforscale_compare_",
+		"--localize-symbol=*_kernelgen_config",
+		"--localize-symbol=*_kernelgen_blockidx_*",
+		"--localize-symbol=*_kernelgen_threadidx_*",
+		"--localize-symbol=*_kernelgen_desc_*",
+		"--localize-symbol=*_kernelgen_init*",
+		"--localize-symbol=*_kernelgen_free*",
+		"--localize-symbol=*_loop_*_kernelgen*",
+		"--localize-symbol=*_kernelgen_compare_",
 		"$output\_kgen", $output);
 	my($objcopy_log) = "";
 	my($objcopy_errlog) = "";

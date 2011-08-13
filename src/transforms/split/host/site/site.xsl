@@ -2,18 +2,18 @@
 
 <!--
 
- gforscale - an XSLT-based Fortran source to source preprocessor.
+ kernelgen - an XSLT-based Fortran source to source preprocessor.
  
- This file is part of gforscale.
+ This file is part of kernelgen.
  
  (c) 2009, 2011 Dmitry Mikushin
  
- gforscale is a free software; you can redistribute it and/or modify
+ kernelgen is a free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Softawre Foundation; either version 2 of the License, or
  (at your option) any later version.
  
- gforscale is distributed in the hope that it will be useful,
+ kernelgen is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU General Public License for more details.
@@ -88,16 +88,16 @@ Open module.
 -->
           <xsl:text>module&#32;</xsl:text>
           <xsl:value-of select=".//F:routine-name"/>
-          <xsl:text>_gforscale_module_uses&#10;</xsl:text>
+          <xsl:text>_kernelgen_module_uses&#10;</xsl:text>
           <xsl:copy-of select="$use-stmts"/>
           <xsl:text>end&#32;module&#32;</xsl:text>
           <xsl:value-of select=".//F:routine-name"/>
-          <xsl:text>_gforscale_module_uses&#10;</xsl:text>
+          <xsl:text>_kernelgen_module_uses&#10;</xsl:text>
 
           <xsl:text>module&#32;</xsl:text>
           <xsl:value-of select=".//F:routine-name"/>
-          <xsl:text>_gforscale_module&#10;</xsl:text>
-          <xsl:text>USE&#32;GFORSCALE&#10;</xsl:text>
+          <xsl:text>_kernelgen_module&#10;</xsl:text>
+          <xsl:text>USE&#32;KERNELGEN&#10;</xsl:text>
 <!--
 Add interfaces for comparison functions.
 -->
@@ -115,9 +115,9 @@ Kernel configuration variable.
               <xsl:value-of select="$routine-name"/>
               <xsl:text>_loop_</xsl:text> 
               <xsl:value-of select="$routine-index"/>
-              <xsl:text>_gforscale_config</xsl:text>
+              <xsl:text>_kernelgen_config</xsl:text>
             </xsl:variable>
-            <xsl:text>&#10;type(gforscale_kernel_config),&#32;bind(C)&#32;::&#32;</xsl:text>
+            <xsl:text>&#10;type(kernelgen_kernel_config),&#32;bind(C)&#32;::&#32;</xsl:text>
             <xsl:value-of select="$routine-config"/>
             <xsl:text>&#10;</xsl:text>
           </xsl:for-each>
@@ -139,12 +139,12 @@ Determine routine index to make unique name.
             <xsl:value-of select="$routine-name"/>
             <xsl:text>_loop_</xsl:text>  
             <xsl:value-of select="$routine-index"/>
-            <xsl:text>_gforscale_compare()&#10;end&#32;function&#10;</xsl:text>
+            <xsl:text>_kernelgen_compare()&#10;end&#32;function&#10;</xsl:text>
           </xsl:for-each>
 <!--
 For each kernel routine insert an interface to
 launching function. All kernel routines launch with
-the same gforscale_launch_ call, but different explicit
+the same kernelgen_launch_ call, but different explicit
 interfaces are used to pass pointers to allocatable
 arguments.
 -->
@@ -162,7 +162,7 @@ Cook routine name.
               <xsl:value-of select="$routine-name"/>
               <xsl:text>_loop_</xsl:text>  
               <xsl:value-of select="$routine-index"/>
-              <xsl:text>_gforscale_desc</xsl:text>
+              <xsl:text>_kernelgen_desc</xsl:text>
             </xsl:variable>
 <!--
 Insert routines for routine arguments.
@@ -176,7 +176,7 @@ Insert routines for routine arguments.
               <xsl:value-of select="@N"/>
               <xsl:text>)&#10;USE&#32;</xsl:text>
               <xsl:value-of select="$routine-name"/>
-              <xsl:text>_gforscale_module_uses&#10;</xsl:text>
+              <xsl:text>_kernelgen_module_uses&#10;</xsl:text>
               <!--<xsl:copy-of select="$use-stmts"/>-->
               <xsl:text>integer(8)&#32;::&#32;</xsl:text>
               <xsl:value-of select="$loop-routine-name"/>
@@ -243,7 +243,7 @@ Close interface section and module.
 -->
           <xsl:text>&#10;end&#32;interface&#10;&#10;end&#32;module&#32;</xsl:text>
           <xsl:value-of select=".//F:routine-name"/>
-          <xsl:text>_gforscale_module&#10;</xsl:text>
+          <xsl:text>_kernelgen_module&#10;</xsl:text>
 <!--
 If there are any allocatable symbols,
 provide implementations of helper functions.
@@ -262,7 +262,7 @@ Cook routine name.
               <xsl:value-of select="$routine-name"/>
               <xsl:text>_loop_</xsl:text>  
               <xsl:value-of select="$routine-index"/>
-              <xsl:text>_gforscale_desc</xsl:text>
+              <xsl:text>_kernelgen_desc</xsl:text>
             </xsl:variable>
 <!--
 Insert routines for routine arguments.
@@ -331,14 +331,14 @@ Insert routines for modules symbols.
 Add use statement for module with helper functions,
 if there are any do-groups for the current routine.
 -->
-  <xsl:text>&#10;USE&#32;GFORSCALE</xsl:text>
+  <xsl:text>&#10;USE&#32;KERNELGEN</xsl:text>
   <xsl:variable name="routine-name">
     <xsl:value-of select=".//F:routine-name"/>
   </xsl:variable>
   <xsl:if test="count(..//F:do-group[@routine-name = $routine-name]) > 0">
     <xsl:text>&#10;USE&#32;</xsl:text>
     <xsl:value-of select="$routine-name"/>
-    <xsl:text>_gforscale_module&#10;</xsl:text>
+    <xsl:text>_kernelgen_module&#10;</xsl:text>
   </xsl:if>
 </xsl:template>
 
@@ -359,7 +359,7 @@ Cook routine name.
     <xsl:value-of select=".//@routine-name"/>
     <xsl:text>_loop_</xsl:text>
     <xsl:value-of select="$loop-index"/>
-    <xsl:text>_gforscale</xsl:text>
+    <xsl:text>_kernelgen</xsl:text>
   </xsl:variable>
 <!--
 Kernel configuration variable.
@@ -368,7 +368,7 @@ Kernel configuration variable.
     <xsl:value-of select=".//@routine-name"/>
     <xsl:text>_loop_</xsl:text> 
     <xsl:value-of select="$loop-index"/>
-    <xsl:text>_gforscale_config</xsl:text>
+    <xsl:text>_kernelgen_config</xsl:text>
   </xsl:variable>
 <!--
 Count the routine number of arguments.
@@ -474,14 +474,14 @@ Used modules symbols.
 <!--
 Insert loop version selecting and launching blocks.
 -->
-  <xsl:text>&#10;!$GFORSCALE&#32;SELECT&#32;</xsl:text>
+  <xsl:text>&#10;!$KERNELGEN&#32;SELECT&#32;</xsl:text>
   <xsl:value-of select="$loop-routine-name"/>
   <xsl:text>&#10;if&#32;(</xsl:text>
   <xsl:value-of select="$routine-config"/>
-  <xsl:text>%runmode&#32;.ne.&#32;gforscale_runmode_host)&#32;then</xsl:text>
-  <xsl:text>&#10;!$GFORSCALE&#32;CALL&#32;</xsl:text>
+  <xsl:text>%runmode&#32;.ne.&#32;kernelgen_runmode_host)&#32;then</xsl:text>
+  <xsl:text>&#10;!$KERNELGEN&#32;CALL&#32;</xsl:text>
   <xsl:value-of select="$loop-routine-name"/>
-  <xsl:text>&#10;&#32;&#32;call&#32;gforscale_launch(</xsl:text>
+  <xsl:text>&#10;&#32;&#32;call&#32;kernelgen_launch(</xsl:text>
   <xsl:value-of select="$routine-config"/>
   <xsl:text>,&#32;</xsl:text>
   <xsl:value-of select="$api-call"/>
@@ -498,30 +498,30 @@ Assign loop index with upper boundary value after loop is complete.
 <!--
 Finish kernel loop block.
 -->
-  <xsl:text>!$GFORSCALE&#32;END&#32;CALL&#32;</xsl:text>
+  <xsl:text>!$KERNELGEN&#32;END&#32;CALL&#32;</xsl:text>
   <xsl:value-of select="$loop-routine-name"/>
   <xsl:text>&#10;endif</xsl:text>
   <xsl:text>&#10;if&#32;((iand(</xsl:text>
   <xsl:value-of select="$routine-config"/>
-  <xsl:text>%runmode,&#32;gforscale_runmode_host)&#32;.eq.&#32;1)&#32;</xsl:text>
-  <xsl:text>.or.&#32;(gforscale_get_last_error()&#32;.ne.&#32;0))&#32;then</xsl:text>
-  <xsl:text>&#10;!$GFORSCALE&#32;LOOP&#32;</xsl:text>
+  <xsl:text>%runmode,&#32;kernelgen_runmode_host)&#32;.eq.&#32;1)&#32;</xsl:text>
+  <xsl:text>.or.&#32;(kernelgen_get_last_error()&#32;.ne.&#32;0))&#32;then</xsl:text>
+  <xsl:text>&#10;!$KERNELGEN&#32;LOOP&#32;</xsl:text>
   <xsl:value-of select="$loop-routine-name"/>
   <xsl:text>&#10;</xsl:text>  
   <xsl:apply-templates select="F:do"/>
-  <xsl:text>&#10;!$GFORSCALE&#32;END&#32;LOOP&#32;</xsl:text>
+  <xsl:text>&#10;!$KERNELGEN&#32;END&#32;LOOP&#32;</xsl:text>
   <xsl:value-of select="$loop-routine-name"/>
   <xsl:text>&#10;endif</xsl:text>
   <xsl:text>&#10;if&#32;((</xsl:text>
   <xsl:value-of select="$routine-config"/>
   <xsl:text>%compare&#32;.eq.&#32;1)&#32;</xsl:text>
-  <xsl:text>.and.&#32;(gforscale_get_last_error()&#32;.eq.&#32;0))&#32;then</xsl:text>
-  <xsl:text>&#10;&#32;&#32;call&#32;gforscale_compare(</xsl:text>
+  <xsl:text>.and.&#32;(kernelgen_get_last_error()&#32;.eq.&#32;0))&#32;then</xsl:text>
+  <xsl:text>&#10;&#32;&#32;call&#32;kernelgen_compare(</xsl:text>
   <xsl:value-of select="$routine-config"/>
   <xsl:text>,&#32;</xsl:text>
   <xsl:value-of select="$loop-routine-name"/>
-  <xsl:text>_compare,&#32;gforscale_compare_maxdiff)&#10;endif</xsl:text>
-  <xsl:text>&#10;!$GFORSCALE&#32;END&#32;SELECT&#32;</xsl:text>
+  <xsl:text>_compare,&#32;kernelgen_compare_maxdiff)&#10;endif</xsl:text>
+  <xsl:text>&#10;!$KERNELGEN&#32;END&#32;SELECT&#32;</xsl:text>
   <xsl:value-of select="$loop-routine-name"/>
   <xsl:text>&#10;</xsl:text>
 </xsl:template>

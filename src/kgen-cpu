@@ -178,9 +178,9 @@ sub kgen_cpu()
 	# In case of CUDA, change kernel loop routine attribute
 	# from __device__ to __global__.
 	#
-	open($gforscale_fh, $filename_llc);
-	my($code) = "" . do { local $/; <$gforscale_fh> };
-	close($gforscale_fh);
+	open($kernelgen_fh, $filename_llc);
+	my($code) = "" . do { local $/; <$kernelgen_fh> };
+	close($kernelgen_fh);
 
 	$code =~ s/\#ifdef\s__CUDA_DEVICE_FUNC__\n__device__\n#endif\nvoid\s$name\_\(/#define $name\_ $name\_cpu\nvoid $name\_(/s;
 	
@@ -189,9 +189,9 @@ sub kgen_cpu()
 	#
 	$code =~ s/\$kernel_name\$/$name\_cpu/g;
 
-	open($gforscale_fh, ">$filename_llc");
-	print $gforscale_fh "$code";
-	close($gforscale_fh);
+	open($kernelgen_fh, ">$filename_llc");
+	print $kernelgen_fh "$code";
+	close($kernelgen_fh);
 
 	#
 	# Finally, compile generated C to object output.

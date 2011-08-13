@@ -2,18 +2,18 @@
 
 <!--
 
- gforscale - an XSLT-based Fortran source to source preprocessor.
+ kernelgen - an XSLT-based Fortran source to source preprocessor.
  
- This file is part of gforscale.
+ This file is part of kernelgen.
  
  (c) 2009, 2011 Dmitry Mikushin
  
- gforscale is a free software; you can redistribute it and/or modify
+ kernelgen is a free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Softawre Foundation; either version 2 of the License, or
  (at your option) any later version.
  
- gforscale is distributed in the hope that it will be useful,
+ kernelgen is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU General Public License for more details.
@@ -71,7 +71,7 @@ Cook kernel routine name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$loop-index"/>
-      <xsl:text>_gforscale</xsl:text>
+      <xsl:text>_kernelgen</xsl:text>
     </xsl:variable>
 <!--
 Cook init routine name.
@@ -80,7 +80,7 @@ Cook init routine name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$loop-index"/>
-      <xsl:text>_gforscale_init</xsl:text>
+      <xsl:text>_kernelgen_init</xsl:text>
     </xsl:variable>
 <!--
 Cook free routine name.
@@ -89,7 +89,7 @@ Cook free routine name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$loop-index"/>
-      <xsl:text>_gforscale_free</xsl:text>
+      <xsl:text>_kernelgen_free</xsl:text>
     </xsl:variable>
 <!--
 Cook config variable name.
@@ -98,7 +98,7 @@ Cook config variable name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$loop-index"/>
-      <xsl:text>_gforscale_config</xsl:text>
+      <xsl:text>_kernelgen_config</xsl:text>
     </xsl:variable>
 <!--
 Cook modules deps init routine name.
@@ -107,7 +107,7 @@ Cook modules deps init routine name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$loop-index"/>
-      <xsl:text>_gforscale_init_deps</xsl:text>
+      <xsl:text>_kernelgen_init_deps</xsl:text>
     </xsl:variable>
 <!--
 Count the routine number of arguments.
@@ -124,17 +124,17 @@ Count the routine number of used modules symbols.
 <!--
 Insert routine header.
 -->
-    <xsl:text>&#10;!$GFORSCALE&#32;CXX&#32;HOST&#32;</xsl:text>
+    <xsl:text>&#10;!$KERNELGEN&#32;CXX&#32;HOST&#32;</xsl:text>
     <xsl:value-of select="$kernel-routine-name"/>
-    <xsl:text>&#10;#include&#32;&lt;gforscale.h&gt;&#10;&#10;</xsl:text>
-    <xsl:text>extern&#32;gforscale_kernel_config_t&#32;</xsl:text>
+    <xsl:text>&#10;#include&#32;&lt;kernelgen.h&gt;&#10;&#10;</xsl:text>
+    <xsl:text>extern&#32;kernelgen_kernel_config_t&#32;</xsl:text>
     <xsl:value-of select="$config-name"/>
     <xsl:text>;&#10;&#10;extern&#32;"C"&#32;void&#32;</xsl:text>
     <xsl:value-of select="$initdeps-routine-name"/>
-    <xsl:text>(gforscale_kernel_config_t* config);&#10;&#10;</xsl:text>
+    <xsl:text>(kernelgen_kernel_config_t* config);&#10;&#10;</xsl:text>
     <xsl:text>__attribute__&#32;((__constructor__(102)))&#32;void&#32;</xsl:text>
     <xsl:value-of select="$init-routine-name"/>
-    <xsl:text>()&#10;{&#10;gforscale_kernel_init(&amp;</xsl:text>
+    <xsl:text>()&#10;{&#10;kernelgen_kernel_init(&amp;</xsl:text>
     <xsl:value-of select="$config-name"/>
     <xsl:text>,&#32;</xsl:text>
     <xsl:value-of select="$loop-index"/>
@@ -153,11 +153,11 @@ Insert routine header.
     <xsl:text>);&#10;}&#10;&#10;</xsl:text>
     <xsl:text>__attribute__&#32;((__destructor__(102)))&#32;void&#32;</xsl:text>
     <xsl:value-of select="$free-routine-name"/>
-    <xsl:text>()&#10;{&#10;gforscale_kernel_free_deps(&amp;</xsl:text>
+    <xsl:text>()&#10;{&#10;kernelgen_kernel_free_deps(&amp;</xsl:text>
     <xsl:value-of select="$config-name"/>
-    <xsl:text>);&#10;gforscale_kernel_free(&amp;</xsl:text>
+    <xsl:text>);&#10;kernelgen_kernel_free(&amp;</xsl:text>
     <xsl:value-of select="$config-name"/>
-    <xsl:text>);&#10;}&#10;!$GFORSCALE&#32;END&#32;CXX&#32;HOST&#32;</xsl:text>
+    <xsl:text>);&#10;}&#10;!$KERNELGEN&#32;END&#32;CXX&#32;HOST&#32;</xsl:text>
     <xsl:value-of select="$kernel-routine-name"/>
     <xsl:text>&#10;</xsl:text>
   </xsl:for-each>

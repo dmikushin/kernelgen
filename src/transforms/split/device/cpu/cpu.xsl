@@ -2,18 +2,18 @@
 
 <!--
 
- gforscale - an XSLT-based Fortran source to source preprocessor.
+ kernelgen - an XSLT-based Fortran source to source preprocessor.
  
- This file is part of gforscale.
+ This file is part of kernelgen.
  
  (c) 2009, 2011 Dmitry Mikushin
  
- gforscale is a free software; you can redistribute it and/or modify
+ kernelgen is a free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Softawre Foundation; either version 2 of the License, or
  (at your option) any later version.
  
- gforscale is distributed in the hope that it will be useful,
+ kernelgen is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU General Public License for more details.
@@ -88,12 +88,12 @@ Cook routine name.
       <xsl:value-of select="$routine-name"/>
       <xsl:text>_loop_</xsl:text>  
       <xsl:value-of select="$routine-index"/>
-      <xsl:text>_gforscale</xsl:text>
+      <xsl:text>_kernelgen</xsl:text>
     </xsl:variable>
 <!--
 Insert routine header.
 -->
-    <xsl:text>&#10;!$GFORSCALE&#32;CPU&#32;DEVICE&#32;</xsl:text>
+    <xsl:text>&#10;!$KERNELGEN&#32;CPU&#32;DEVICE&#32;</xsl:text>
     <xsl:value-of select="$loop-routine-name"/>
     <xsl:text>&#10;subroutine&#32;</xsl:text>
     <xsl:value-of select="$loop-routine-name"/>
@@ -152,7 +152,7 @@ Insert routine footer.
 -->
     <xsl:text>&#10;end&#32;subroutine&#32;</xsl:text>
     <xsl:value-of select="$loop-routine-name"/>
-    <xsl:text>&#10;!$GFORSCALE&#32;END&#32;CPU&#32;DEVICE&#32;</xsl:text>
+    <xsl:text>&#10;!$KERNELGEN&#32;END&#32;CPU&#32;DEVICE&#32;</xsl:text>
     <xsl:value-of select="$loop-routine-name"/>
     <xsl:text>&#10;</xsl:text>
   </xsl:for-each>

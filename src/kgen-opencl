@@ -193,9 +193,9 @@ sub kgen_opencl()
 	# In case of CUDA, change kernel loop routine attribute
 	# from __device__ to __global__.
 	#
-	open($gforscale_fh, $filename_llc_i);
-	my($code) = "" . do { local $/; <$gforscale_fh> };
-	close($gforscale_fh);
+	open($kernelgen_fh, $filename_llc_i);
+	my($code) = "" . do { local $/; <$kernelgen_fh> };
+	close($kernelgen_fh);
 
 	#$code =~ s/cl_khr_fp64/cl_amd_fp64/;
 
@@ -230,9 +230,9 @@ sub kgen_opencl()
 	#
 	$code =~ s/\$kernel_name\$/$name\_opencl/g;
 
-	open($gforscale_fh, ">$filename_llc_i");
-	print $gforscale_fh "$code";
-	close($gforscale_fh);
+	open($kernelgen_fh, ">$filename_llc_i");
+	print $kernelgen_fh "$code";
+	close($kernelgen_fh);
 
 	#
 	# If we are targeting CUDA, use .cu extension
