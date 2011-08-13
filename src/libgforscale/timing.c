@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #include <stdio.h>
 #include <time.h>
@@ -30,7 +30,7 @@
 //#define CLOCKID CLOCK_THREAD_CPUTIME_ID
 
 // Get the built-in timer resolution.
-void gforscale_get_timer_resolution(struct gforscale_time_t* val)
+void kernelgen_get_timer_resolution(struct kernelgen_time_t* val)
 {
 	if ((sizeof(int64_t) == sizeof(time_t)) &&
 		(sizeof(int64_t) == sizeof(long)))
@@ -45,7 +45,7 @@ void gforscale_get_timer_resolution(struct gforscale_time_t* val)
 }
 
 // Get the built-in timer value.
-void gforscale_get_time(struct gforscale_time_t* val)
+void kernelgen_get_time(struct kernelgen_time_t* val)
 {
 	if ((sizeof(int64_t) == sizeof(time_t)) &&
 		(sizeof(int64_t) == sizeof(long)))
@@ -60,8 +60,8 @@ void gforscale_get_time(struct gforscale_time_t* val)
 }
 
 // Get the built-in timer measured values difference.
-double gforscale_get_time_diff(
-	struct gforscale_time_t* val1, struct gforscale_time_t* val2)
+double kernelgen_get_time_diff(
+	struct kernelgen_time_t* val1, struct kernelgen_time_t* val2)
 {
 	int64_t seconds = val2->seconds - val1->seconds;
 	int64_t nanoseconds = val2->nanoseconds - val1->nanoseconds;
@@ -76,8 +76,8 @@ double gforscale_get_time_diff(
 }
 
 // Print the built-in timer measured values difference.
-void gforscale_print_time_diff(
-	struct gforscale_time_t* val1, struct gforscale_time_t* val2)
+void kernelgen_print_time_diff(
+	struct kernelgen_time_t* val1, struct kernelgen_time_t* val2)
 {
 	int64_t seconds = val2->seconds - val1->seconds;
 	int64_t nanoseconds = val2->nanoseconds - val1->nanoseconds;

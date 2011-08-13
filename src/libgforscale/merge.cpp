@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #include <list>
 
@@ -27,19 +27,19 @@ using namespace std;
 
 // Compare two args by base value.
 static bool compare(
-	struct gforscale_memory_region_t* first,
-	struct gforscale_memory_region_t* second)
+	struct kernelgen_memory_region_t* first,
+	struct kernelgen_memory_region_t* second)
 {
 	return (size_t)first->base < (size_t)second->base;
 }
 
 // Merge specified memory regions into non-overlapping regions.
-extern "C" gforscale_status_t gforscale_merge_regions(
-	struct gforscale_memory_region_t* regs,
+extern "C" kernelgen_status_t kernelgen_merge_regions(
+	struct kernelgen_memory_region_t* regs,
 	int count)
 {
 	// Load agruments lregs with values.
-	list<struct gforscale_memory_region_t*> lregs;
+	list<struct kernelgen_memory_region_t*> lregs;
 	for (int i = 0; i < count; i++)
 	{	
 		lregs.push_back(regs + i);
@@ -51,15 +51,15 @@ extern "C" gforscale_status_t gforscale_merge_regions(
 	
 	// Walk through each pair of intervals sorted in
 	// ascending order.
-	list<struct gforscale_memory_region_t*>::iterator it1 = lregs.begin();
-	list<struct gforscale_memory_region_t*>::iterator it2 = lregs.begin();
+	list<struct kernelgen_memory_region_t*>::iterator it1 = lregs.begin();
+	list<struct kernelgen_memory_region_t*>::iterator it2 = lregs.begin();
 	for (int i = 0; i < count - 1; i++, it1++)
 	{
 		it2++;
 
 		// Get two left-most intervals relative layout.
-		struct gforscale_memory_region_t* reg1 = *it1;
-		struct gforscale_memory_region_t* reg2 = *it2;
+		struct kernelgen_memory_region_t* reg1 = *it1;
+		struct kernelgen_memory_region_t* reg2 = *it2;
 		
 		// The left border of second interval is inside
 		// first interval.
@@ -75,10 +75,10 @@ extern "C" gforscale_status_t gforscale_merge_regions(
 				
 				// Go backwards and update sizes of all previous
 				// intervals with the same base as first.
-				for (list<struct gforscale_memory_region_t*>::iterator it3 =
+				for (list<struct kernelgen_memory_region_t*>::iterator it3 =
 					lregs.begin(); it3 != it2; it3++)
 				{
-					struct gforscale_memory_region_t* reg3 = *it3;
+					struct kernelgen_memory_region_t* reg3 = *it3;
 					if (reg3->base == reg1->base)
 						reg3->size = reg2->size;
 				}
@@ -97,11 +97,11 @@ extern "C" gforscale_status_t gforscale_merge_regions(
 
 			// Go backwards and find interval with the smallest
 			// index.
-			struct gforscale_memory_region_t* rmin = reg2;
-			for (list<struct gforscale_memory_region_t*>::iterator it3 =
+			struct kernelgen_memory_region_t* rmin = reg2;
+			for (list<struct kernelgen_memory_region_t*>::iterator it3 =
 				lregs.begin(); it3 != it2; it3++)
 			{
-				struct gforscale_memory_region_t* reg3 = *it3;
+				struct kernelgen_memory_region_t* reg3 = *it3;
 				if (reg3->base == reg1->base)
 				{
 					if (reg3->symbol->index < rmin->symbol->index)
@@ -113,10 +113,10 @@ extern "C" gforscale_status_t gforscale_merge_regions(
 			// Go backwards and set interval with smallest
 			// index as primary.
 			reg2->primary = rmin;
-			for (list<struct gforscale_memory_region_t*>::iterator it3 =
+			for (list<struct kernelgen_memory_region_t*>::iterator it3 =
 				lregs.begin(); it3 != it2; it3++)
 			{
-				struct gforscale_memory_region_t* reg3 = *it3;
+				struct kernelgen_memory_region_t* reg3 = *it3;
 				if (reg3->base == reg1->base)
 					reg3->primary = rmin;
 			}
@@ -124,8 +124,8 @@ extern "C" gforscale_status_t gforscale_merge_regions(
 		}
 	}
 	
-	gforscale_status_t result;
-	result.value = gforscale_success;
+	kernelgen_status_t result;
+	result.value = kernelgen_success;
 	result.runmode = 0;
 	return result;
 }

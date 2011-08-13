@@ -19,13 +19,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
-#include "gforscale_int_cuda.h"
+#include "kernelgen_int.h"
+#include "kernelgen_int_cuda.h"
 
-long gforscale_reset_verbose = 1 << 2;
+long kernelgen_reset_verbose = 1 << 2;
 
-gforscale_status_t gforscale_reset_cuda(
-	struct gforscale_launch_config_t* l)
+kernelgen_status_t kernelgen_reset_cuda(
+	struct kernelgen_launch_config_t* l)
 {
 #ifdef HAVE_CUDA
 	cudaError_t status = cudaSuccess;
@@ -37,19 +37,19 @@ gforscale_status_t gforscale_reset_cuda(
 	status = cudaDeviceReset();
 	if (status != cudaSuccess)
 	{
-		gforscale_print_error(gforscale_reset_verbose,
+		kernelgen_print_error(kernelgen_reset_verbose,
 			"Cannot reset device, status = %d: %s\n",
 			status, cudaGetErrorString(status));
 	}
 
-	gforscale_status_t result;
+	kernelgen_status_t result;
 	result.value = status;
 	result.runmode = l->runmode;
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #else
-	gforscale_status_t result;
-	result.value = gforscale_success;
+	kernelgen_status_t result;
+	result.value = kernelgen_success;
 	result.runmode = l->runmode;
 	return result;
 #endif

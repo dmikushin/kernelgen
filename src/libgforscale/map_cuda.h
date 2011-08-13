@@ -19,12 +19,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-gforscale_status_t gforscale_load_regions_cuda(
-	struct gforscale_launch_config_t* l, int* nmapped)
+kernelgen_status_t kernelgen_load_regions_cuda(
+	struct kernelgen_launch_config_t* l, int* nmapped)
 {
 #ifdef HAVE_CUDA
 	int count = l->args_nregions + l->deps_nregions;
-	struct gforscale_memory_region_t* regs = l->regs;
+	struct kernelgen_memory_region_t* regs = l->regs;
 
 	// Being quiet optimistic initially...
 	cudaError_t status = cudaSuccess;
@@ -36,8 +36,8 @@ gforscale_status_t gforscale_load_regions_cuda(
 	// map it to device memory.
 	for (int i = 0; i < count; i++)
 	{
-		struct gforscale_memory_region_t* reg = l->regs + i;
-		struct gforscale_kernel_symbol_t* sym = reg->symbol;
+		struct kernelgen_memory_region_t* reg = l->regs + i;
+		struct kernelgen_kernel_symbol_t* sym = reg->symbol;
 		
 		// Pin & map memory region only for regions that
 		// are not referring to primary (i.e. reusing other
@@ -51,7 +51,7 @@ gforscale_status_t gforscale_load_regions_cuda(
 			status = cudaHostRegister(reg->base, reg->size, cudaHostRegisterMapped);
 			if (status != cudaSuccess)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot register memory segment [%p .. %p] for symbol \"%s\", status = %d: %s\n",
 					reg->base, reg->base + reg->size, reg->symbol->name, status, cudaGetErrorString(status));
 				goto finish;
@@ -66,7 +66,7 @@ gforscale_status_t gforscale_load_regions_cuda(
 			status = cudaHostGetDevicePointer((void**)&reg->mapping, reg->base, 0);
 			if (status != cudaSuccess)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot map memory segment [%p .. %p] for symbol \"%s\", status = %d: %s\n",
 					reg->base, reg->base + reg->size, reg->symbol->name, status, cudaGetErrorString(status));
 				goto finish;
@@ -77,7 +77,7 @@ gforscale_status_t gforscale_load_regions_cuda(
 			status = cudaMalloc((void**)&reg->mapping, reg->size);
 			if (status != cudaSuccess)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot allocate device memory segment of size = %zu on device, status = %d: %s\n",
 					reg->size, status, cudaGetErrorString(status));
 				goto finish;
@@ -91,21 +91,21 @@ gforscale_status_t gforscale_load_regions_cuda(
 			status = cudaMemcpy(reg->mapping, reg->base, reg->size, cudaMemcpyHostToDevice);
 			if (status != cudaSuccess)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot copy data from [%p .. %p] to [%p .. %p] for symbol \"%s\", status = %d: %s\n",
 					reg->base, reg->base + reg->size, reg->mapping, reg->mapping + reg->size,
 					status, cudaGetErrorString(status));
 				goto finish;
 			}
 #endif
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"symbol \"%s\" maps memory segment [%p .. %p] to [%p .. %p]\n",
 				reg->symbol->name, reg->base, reg->base + reg->size, reg->mapping, reg->mapping + reg->size);
 		}
 		else
 		{
 			reg->mapping = reg->primary->mapping;
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"symbol \"%s\" memory segment [%p .. %p] reuses mapping created by symbol \"%s\"\n",
 				reg->symbol->name, reg->base, reg->base + reg->size, reg->primary->symbol->name);
 		}
@@ -116,20 +116,20 @@ finish:
 	// If something goes wrong, unmap previously mapped regions.
 	if (status != cudaSuccess)
 	{
-		gforscale_save_regions_cuda(l, *nmapped);
+		kernelgen_save_regions_cuda(l, *nmapped);
 		*nmapped = 0;
 	}
 
-	gforscale_status_t result;
+	kernelgen_status_t result;
 	result.value = status;
 	result.runmode = l->runmode;
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #else
-	gforscale_status_t result;
-	result.value = gforscale_error_not_implemented;
+	kernelgen_status_t result;
+	result.value = kernelgen_error_not_implemented;
 	result.runmode = l->runmode;
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #endif
 }

@@ -19,13 +19,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
-#include "gforscale_int_cuda.h"
+#include "kernelgen_int.h"
+#include "kernelgen_int_cuda.h"
 
 #include "unmap_cuda.h"
 
 #define HAVE_MAPPING
-#define gforscale_save_regions_cuda gforscale_unmap_regions_cuda
+#define kernelgen_save_regions_cuda kernelgen_unmap_regions_cuda
 
 #include "unmap_cuda.h"
 

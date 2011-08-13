@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #include <malloc.h>
 #include <stdarg.h>
@@ -30,11 +30,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-long gforscale_launch_verbose = 1;
+long kernelgen_launch_verbose = 1;
 
 // Launch kernel with the specified 3D compute grid, arguments and modules symbols.
-void gforscale_launch_(
-	struct gforscale_kernel_config_t* config,
+void kernelgen_launch_(
+	struct kernelgen_kernel_config_t* config,
 	int* bx, int* ex, int* by, int* ey, int* bz, int* ez,
 	int* nargs, int* nmodsyms, ...)
 {
@@ -42,34 +42,34 @@ void gforscale_launch_(
 	// config, handle data and execute the kernel.
 	// NOTE We skip first runmode index, as it is always stands for
 	// execution of original loop on host.
-	for (int irunmode = 1, nmapped = 0, nregions; irunmode < gforscale_runmodes_count; irunmode++)
+	for (int irunmode = 1, nmapped = 0, nregions; irunmode < kernelgen_runmodes_count; irunmode++)
 	{
 		// Indirect indexing automatically has
 		// unsupported runmodes skipped.
-		int runmode = gforscale_runmodes[irunmode];
+		int runmode = kernelgen_runmodes[irunmode];
 		
 		// Although, specific kernel may have supported
 		// runmode disabled.
 		if (!(config->runmode & runmode)) continue;
 
 		// Kernel config structure.
-		struct gforscale_launch_config_t* l = config->launch + irunmode;
+		struct kernelgen_launch_config_t* l = config->launch + irunmode;
 
-		gforscale_print_debug(gforscale_launch_verbose,
+		kernelgen_print_debug(kernelgen_launch_verbose,
 			"Launching %s for device runmode \"%s\"\n",
-			l->kernel_name, gforscale_runmodes_names[irunmode]);
+			l->kernel_name, kernelgen_runmodes_names[irunmode]);
 
 		// Being quiet optimistic initially...
-		gforscale_status_t status;
-		status.value = gforscale_success;
+		kernelgen_status_t status;
+		status.value = kernelgen_success;
 		status.runmode = runmode;
 
 		va_list list;
 		va_start(list, nmodsyms);
-		status = gforscale_parse_args(l, nargs, list);
+		status = kernelgen_parse_args(l, nargs, list);
 		va_end(list);
 		
-		if (status.value != gforscale_success)
+		if (status.value != kernelgen_success)
 		{
 			va_end(list);
 			goto failsafe;
@@ -82,10 +82,10 @@ void gforscale_launch_(
 			va_arg(list, size_t*);
 			va_arg(list, void*);
 		}
-		status = gforscale_parse_modsyms[irunmode](l, nmodsyms, list);
+		status = kernelgen_parse_modsyms[irunmode](l, nmodsyms, list);
 		va_end(list);
 
-		if (status.value != gforscale_success)
+		if (status.value != kernelgen_success)
 		{
 			va_end(list);
 			goto failsafe;
@@ -93,28 +93,28 @@ void gforscale_launch_(
 
 		// Merge memory regions into non-overlapping regions.
 		nregions = l->args_nregions + l->deps_nregions;
-		status = gforscale_merge_regions(l->regs, nregions);
+		status = kernelgen_merge_regions(l->regs, nregions);
 	
 		// Map or load regions into device memory space.
-		status = gforscale_load_regions[irunmode](l, &nmapped);
+		status = kernelgen_load_regions[irunmode](l, &nmapped);
 
-		if (status.value != gforscale_success)
+		if (status.value != kernelgen_success)
 			goto failsafe;
 
-		status = gforscale_launch[irunmode](l, bx, ex, by, ey, bz, ez);
+		status = kernelgen_launch[irunmode](l, bx, ex, by, ey, bz, ez);
 
-		if (status.value != gforscale_success)
+		if (status.value != kernelgen_success)
 			goto failsafe;
 
 		// Unmap or save regions from device memory space.
-		status = gforscale_save_regions[irunmode](l, nmapped);
+		status = kernelgen_save_regions[irunmode](l, nmapped);
 
-		if (status.value != gforscale_success)
+		if (status.value != kernelgen_success)
 			goto failsafe;
 
 		for (int i = 0; i < config->nargs; i++)
 		{ 
-			struct gforscale_kernel_symbol_t* arg = l->args + i;
+			struct kernelgen_kernel_symbol_t* arg = l->args + i;
 
 			// Restore original data pointers in allocatable
 			// arguments descriptors.
@@ -127,7 +127,7 @@ void gforscale_launch_(
 
 		for (int i = 0; i < config->nmodsyms; i++)
 		{
-			struct gforscale_kernel_symbol_t* dep = l->deps + i;
+			struct kernelgen_kernel_symbol_t* dep = l->deps + i;
 
 			// Restore original data pointers in allocatable
 			// modules symbols descriptors.
@@ -143,7 +143,7 @@ void gforscale_launch_(
 		{
 			for (int i = 0; i < config->nargs; i++)
 			{
-				struct gforscale_kernel_symbol_t* arg = l->args + i;
+				struct kernelgen_kernel_symbol_t* arg = l->args + i;
 
 				// Restore original data pointers in allocatable
 				// arguments descriptors.
@@ -159,7 +159,7 @@ void gforscale_launch_(
 			}
 			for (int i = 0; i < config->nmodsyms; i++)
 			{
-				struct gforscale_kernel_symbol_t* dep = l->deps + i;
+				struct kernelgen_kernel_symbol_t* dep = l->deps + i;
 				
 				// Restore original data pointers in allocatable
 				// modules symbols descriptors.
@@ -174,12 +174,12 @@ void gforscale_launch_(
 		}
 
 		// Reset device in case error might be not recoverable.
-		gforscale_reset[irunmode](l);
+		kernelgen_reset[irunmode](l);
 		
 		// Disable the failing runmode.
 		config->runmode &= ~runmode;
 		
-		gforscale_set_last_error(status);
+		kernelgen_set_last_error(status);
 	}	
 }
 

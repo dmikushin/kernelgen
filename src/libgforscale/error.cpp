@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #ifdef HAVE_CUDA
 #include <cuda_runtime.h>
@@ -31,48 +31,48 @@
 
 #include <stack>
 
-// Defines gforscale errors stack.
-static std::stack<gforscale_status_t> gforscale_error_stack;
+// Defines kernelgen errors stack.
+static std::stack<kernelgen_status_t> kernelgen_error_stack;
 
-// Get the last gforscale error.
-extern "C" gforscale_status_t gforscale_get_last_error()
+// Get the last kernelgen error.
+extern "C" kernelgen_status_t kernelgen_get_last_error()
 {
-	if (gforscale_error_stack.size())
-		return gforscale_error_stack.top();
+	if (kernelgen_error_stack.size())
+		return kernelgen_error_stack.top();
 	
-	gforscale_status_t success;
-	success.value = gforscale_success;
+	kernelgen_status_t success;
+	success.value = kernelgen_success;
 	success.runmode = 0;
 	return success;
 }
 
-// Pop the last gforscale error.
-extern "C" gforscale_status_t gforscale_pop_last_error()
+// Pop the last kernelgen error.
+extern "C" kernelgen_status_t kernelgen_pop_last_error()
 {
-	gforscale_status_t status;
-	status.value = gforscale_success;
+	kernelgen_status_t status;
+	status.value = kernelgen_success;
 	status.runmode = 0;
 	
-	if (gforscale_error_stack.size())
+	if (kernelgen_error_stack.size())
 	{
-		status = gforscale_error_stack.top();
-		gforscale_error_stack.pop();
+		status = kernelgen_error_stack.top();
+		kernelgen_error_stack.pop();
 	}
 	
 	return status;
 }
 
 // Get text message for the specified error code.
-extern "C" const char* gforscale_get_error_string(gforscale_status_t error)
+extern "C" const char* kernelgen_get_error_string(kernelgen_status_t error)
 {
 	switch (error.value)
 	{
-		case gforscale_success :			return "No error";
-		case gforscale_initialization_failed :		return "Initialization failed";
-		case gforscale_error_not_found :		return "Entity not found";
-		case gforscale_error_not_implemented :		return "Used functionality is not implemented";
-		case gforscale_error_ffi_setup :		return "Error in FFI setup";
-		case gforscale_error_results_mismatch :		return "Kernel and control results mismatch";
+		case kernelgen_success :			return "No error";
+		case kernelgen_initialization_failed :		return "Initialization failed";
+		case kernelgen_error_not_found :		return "Entity not found";
+		case kernelgen_error_not_implemented :		return "Used functionality is not implemented";
+		case kernelgen_error_ffi_setup :		return "Error in FFI setup";
+		case kernelgen_error_results_mismatch :		return "Kernel and control results mismatch";
 	}
 
 #ifdef HAVE_CUDA
@@ -137,10 +137,10 @@ extern "C" const char* gforscale_get_error_string(gforscale_status_t error)
 	return "Unknown error";
 }
 
-// Push the last gforscale error.
-extern "C" void gforscale_set_last_error(gforscale_status_t error)
+// Push the last kernelgen error.
+extern "C" void kernelgen_set_last_error(kernelgen_status_t error)
 {
-	if (error.value != gforscale_success)
-		gforscale_error_stack.push(error);
+	if (error.value != kernelgen_success)
+		kernelgen_error_stack.push(error);
 }
 

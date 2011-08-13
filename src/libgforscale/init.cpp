@@ -19,8 +19,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int_cuda.h"
-#include "gforscale_int_opencl.h"
+#include "kernelgen_int_cuda.h"
+#include "kernelgen_int_opencl.h"
 #include "init.h"
 
 #include <fcntl.h>
@@ -33,27 +33,27 @@
 #include <string.h>
 #include <unistd.h>
 
-int gforscale_runmode;
-int* gforscale_runmodes;
-char** gforscale_runmodes_names;
-int gforscale_runmodes_count;
-int gforscale_runmodes_mask;
+int kernelgen_runmode;
+int* kernelgen_runmodes;
+char** kernelgen_runmodes_names;
+int kernelgen_runmodes_count;
+int kernelgen_runmodes_mask;
 
-long gforscale_debug_output;
-long gforscale_error_output;
+long kernelgen_debug_output;
+long kernelgen_error_output;
 
-gforscale_parse_modsyms_func_t* gforscale_parse_modsyms;
-gforscale_load_regions_func_t* gforscale_load_regions;
-gforscale_save_regions_func_t* gforscale_save_regions;
-gforscale_build_func_t* gforscale_build;
-gforscale_launch_func_t* gforscale_launch;
-gforscale_reset_func_t* gforscale_reset;
+kernelgen_parse_modsyms_func_t* kernelgen_parse_modsyms;
+kernelgen_load_regions_func_t* kernelgen_load_regions;
+kernelgen_save_regions_func_t* kernelgen_save_regions;
+kernelgen_build_func_t* kernelgen_build;
+kernelgen_launch_func_t* kernelgen_launch;
+kernelgen_reset_func_t* kernelgen_reset;
 
 // Global structure to hold device-specific configs.
 // Is initialized once and then copied to each individual
 // kernel config.
 static size_t specific_configs_size = 0;
-static gforscale_specific_config_t* specific_configs;
+static kernelgen_specific_config_t* specific_configs;
 
 static unsigned int count_bits(unsigned n)
 {
@@ -67,14 +67,14 @@ static unsigned int count_bits(unsigned n)
 }
 
 // Initialize kernel routine configuration.
-void gforscale_kernel_init(
-	struct gforscale_kernel_config_t* config,
+void kernelgen_kernel_init(
+	struct kernelgen_kernel_config_t* config,
 	int iloop, int nloops, char* name,
 	int nargs, int nmodsyms)
 {
 	config->iloop = iloop;
 	config->nloops = nloops;
-	config->runmode = gforscale_runmode;
+	config->runmode = kernelgen_runmode;
 	config->nargs = nargs;
 	config->nmodsyms = nmodsyms;
 
@@ -83,7 +83,7 @@ void gforscale_kernel_init(
 	strcpy(config->routine_name, name);
 	
 	// Check for individual per-kernel switch.
-	const char* kernel_basename_fmt = "%s_loop_%d_gforscale";
+	const char* kernel_basename_fmt = "%s_loop_%d_kernelgen";
 	int length = snprintf(NULL, 0, kernel_basename_fmt, name, iloop);
 	if (length < 0)
 	{
@@ -101,7 +101,7 @@ void gforscale_kernel_init(
 		// only known bits, and at least one of them
 		// is supported.
 		int runmode = atoi(crunmode);
-		if (runmode & gforscale_runmodes_mask)
+		if (runmode & kernelgen_runmodes_mask)
 			config->runmode = runmode;
 	}
 	
@@ -110,37 +110,37 @@ void gforscale_kernel_init(
 		(config->runmode & GFORSCALE_RUNMODE_HOST);
 
 	// Copy device-specific configs to entire kernel config.
-	config->specific = (gforscale_specific_config_t*)
+	config->specific = (kernelgen_specific_config_t*)
 		malloc(specific_configs_size);
 	memcpy(config->specific, specific_configs, specific_configs_size);
 	
 	// For each runmode allocate space for launch config
 	// structure.
 	config->launch =
-		(struct gforscale_launch_config_t*)malloc(
-			sizeof(struct gforscale_launch_config_t) *
-			gforscale_runmodes_count);
+		(struct kernelgen_launch_config_t*)malloc(
+			sizeof(struct kernelgen_launch_config_t) *
+			kernelgen_runmodes_count);
 
 	const char* kernel_name_fmt = "%s_%s";
-	for (int irunmode = 1; irunmode < gforscale_runmodes_count; irunmode++)
+	for (int irunmode = 1; irunmode < kernelgen_runmodes_count; irunmode++)
 	{
 		// Indirect indexing automatically has
 		// unsupported runmodes skipped.
-		int runmode = gforscale_runmodes[irunmode];
+		int runmode = kernelgen_runmodes[irunmode];
 		
 		// Although, specific kernel may have supported
 		// runmode disabled.
 		if (!(config->runmode & runmode)) continue;
 
-		struct gforscale_launch_config_t* l = config->launch + irunmode;
+		struct kernelgen_launch_config_t* l = config->launch + irunmode;
 		l->runmode = runmode;
 		l->config = config;
-		l->specific = (gforscale_specific_config_t)config->specific +
+		l->specific = (kernelgen_specific_config_t)config->specific +
 			(size_t)(config->specific[irunmode]);
 		
 		// Build device-specific kernel name.
 		length = snprintf(NULL, 0, kernel_name_fmt,
-			kernel_basename, gforscale_runmodes_names[irunmode]);
+			kernel_basename, kernelgen_runmodes_names[irunmode]);
 		if (length < 0)
 		{
 			// TODO: release resources!
@@ -148,28 +148,28 @@ void gforscale_kernel_init(
 		length++;
 		l->kernel_name = (char*)malloc(length);
 		sprintf(l->kernel_name, kernel_name_fmt,
-			kernel_basename, gforscale_runmodes_names[irunmode]);
+			kernel_basename, kernelgen_runmodes_names[irunmode]);
 		
 		// Allocate array to hold memory regions.
 		// Maximum possible length is x2 times number of arguments
 		// plus number of modules symbols, in case all arguments
 		// and modules symbols are allocatable.
-		l->regs = (struct gforscale_memory_region_t*)malloc(
-			sizeof(struct gforscale_memory_region_t) * (nargs * 2 + nmodsyms));
+		l->regs = (struct kernelgen_memory_region_t*)malloc(
+			sizeof(struct kernelgen_memory_region_t) * (nargs * 2 + nmodsyms));
 		memset(l->regs, 0,
-			sizeof(struct gforscale_memory_region_t) * (nargs * 2 + nmodsyms));
+			sizeof(struct kernelgen_memory_region_t) * (nargs * 2 + nmodsyms));
 
 		// Allocate array to hold kernel arguments.	
-		l->args = (struct gforscale_kernel_symbol_t*)malloc(
-			sizeof(struct gforscale_kernel_symbol_t) * nargs);
+		l->args = (struct kernelgen_kernel_symbol_t*)malloc(
+			sizeof(struct kernelgen_kernel_symbol_t) * nargs);
 		memset(l->args, 0,
-			sizeof(struct gforscale_kernel_symbol_t) * nargs);
+			sizeof(struct kernelgen_kernel_symbol_t) * nargs);
 
 		// Allocate array to hold kernel used modules symbols.
-		l->deps = (struct gforscale_kernel_symbol_t*)malloc(
-			sizeof(struct gforscale_kernel_symbol_t) * nmodsyms);
+		l->deps = (struct kernelgen_kernel_symbol_t*)malloc(
+			sizeof(struct kernelgen_kernel_symbol_t) * nmodsyms);
 		memset(l->deps, 0,
-			sizeof(struct gforscale_kernel_symbol_t) * nmodsyms);
+			sizeof(struct kernelgen_kernel_symbol_t) * nmodsyms);
 
 		l->args_nregions = 0;
 		l->deps_nregions = 0;
@@ -213,8 +213,8 @@ void gforscale_kernel_init(
 		free(kernel_binary_name);
 
 		// Build kernel for specific device.
-		gforscale_status_t result = gforscale_build[irunmode](l);
-		if (result.value != gforscale_success)
+		kernelgen_status_t result = kernelgen_build[irunmode](l);
+		if (result.value != kernelgen_success)
 		{
 			// TODO: handle errors
 		}
@@ -223,11 +223,11 @@ void gforscale_kernel_init(
 	free(kernel_basename);
 }
 
-long gforscale_kernel_init_deps_verbose = 1 << 2;
+long kernelgen_kernel_init_deps_verbose = 1 << 2;
 
 // Initialize kernel routine static dependencies.
-void gforscale_kernel_init_deps_(
-	struct gforscale_kernel_config_t* config, ...)
+void kernelgen_kernel_init_deps_(
+	struct kernelgen_kernel_config_t* config, ...)
 {
 	// TODO: use this implementation instead of code in launcher,
 	// when CUDA order of initialization issue will be fixed.
@@ -236,20 +236,20 @@ void gforscale_kernel_init_deps_(
 }
 
 // Release resources used by kernel configuration.
-void gforscale_kernel_free(
-	struct gforscale_kernel_config_t* config)
+void kernelgen_kernel_free(
+	struct kernelgen_kernel_config_t* config)
 {
-	for (int irunmode = 1; irunmode < gforscale_runmodes_count; irunmode++)
+	for (int irunmode = 1; irunmode < kernelgen_runmodes_count; irunmode++)
 	{
 		// Indirect indexing automatically has
 		// unsupported runmodes skipped.
-		int runmode = gforscale_runmodes[irunmode];
+		int runmode = kernelgen_runmodes[irunmode];
 		
 		// Although, specific kernel may have supported
 		// runmode disabled.
 		if (!(config->runmode & runmode)) continue;
 
-		struct gforscale_launch_config_t* l = config->launch + irunmode;
+		struct kernelgen_launch_config_t* l = config->launch + irunmode;
 
 		free(l->kernel_name);
 		free(l->args);
@@ -263,158 +263,158 @@ void gforscale_kernel_free(
 }
 
 // Release resources used by kernel routine static dependencies.
-void gforscale_kernel_free_deps(
-	struct gforscale_kernel_config_t* config)
+void kernelgen_kernel_free_deps(
+	struct kernelgen_kernel_config_t* config)
 {
 	// TODO: use this implementation instead of code in launcher,
 	// when CUDA order of initialization issue will be fixed.
-	for (int irunmode = 1; irunmode < gforscale_runmodes_count; irunmode++)
+	for (int irunmode = 1; irunmode < kernelgen_runmodes_count; irunmode++)
 	{
 		// Indirect indexing automatically has
 		// unsupported runmodes skipped.
-		int runmode = gforscale_runmodes[irunmode];
+		int runmode = kernelgen_runmodes[irunmode];
 		
 		// Although, specific kernel may have supported
 		// runmode disabled.
 		if (!(config->runmode & runmode)) continue;
 
-		struct gforscale_launch_config_t* l = config->launch + irunmode;
+		struct kernelgen_launch_config_t* l = config->launch + irunmode;
 		
 		for (int i = 0; i < config->nmodsyms; i++)
 		{
-			struct gforscale_kernel_symbol_t* dep = l->deps + i;
+			struct kernelgen_kernel_symbol_t* dep = l->deps + i;
 			free(dep->name);		
 		}
 	}
 }
 
 // Read environment variables and setup runtime global configuration.
-__attribute__ ((__constructor__(101))) void gforscale_init()
+__attribute__ ((__constructor__(101))) void kernelgen_init()
 {
 	// Count supported runmodes
 	// and sizes of their specific configs.
-	gforscale_runmodes_count = 2; // host + device CPU
+	kernelgen_runmodes_count = 2; // host + device CPU
 #ifdef HAVE_CUDA
-	specific_configs_size += sizeof(gforscale_cuda_config_t);
-	gforscale_runmodes_count++;
+	specific_configs_size += sizeof(kernelgen_cuda_config_t);
+	kernelgen_runmodes_count++;
 #endif
 #ifdef HAVE_OPENCL
-	specific_configs_size += sizeof(gforscale_opencl_config_t);
-	gforscale_runmodes_count++;
+	specific_configs_size += sizeof(kernelgen_opencl_config_t);
+	kernelgen_runmodes_count++;
 #endif
 
 	// Allocate tables for device-specific functions pointers.
-	gforscale_parse_modsyms = 
-		(gforscale_parse_modsyms_func_t*)malloc(
-			sizeof(gforscale_parse_modsyms_func_t) *
-			gforscale_runmodes_count);
-	gforscale_load_regions =
-		(gforscale_load_regions_func_t*)malloc(
-			sizeof(gforscale_load_regions_func_t) *
-			gforscale_runmodes_count);
-	gforscale_save_regions =
-		(gforscale_save_regions_func_t*)malloc(
-			sizeof(gforscale_save_regions_func_t) *
-			gforscale_runmodes_count);
-	gforscale_build =
-		(gforscale_build_func_t*)malloc(
-			sizeof(gforscale_build_func_t) *
-			gforscale_runmodes_count);
-	gforscale_launch =
-		(gforscale_launch_func_t*)malloc(
-			sizeof(gforscale_launch_func_t) *
-			gforscale_runmodes_count);
-	gforscale_reset =
-		(gforscale_reset_func_t*)malloc(
-			sizeof(gforscale_reset_func_t) *
-			gforscale_runmodes_count);
+	kernelgen_parse_modsyms = 
+		(kernelgen_parse_modsyms_func_t*)malloc(
+			sizeof(kernelgen_parse_modsyms_func_t) *
+			kernelgen_runmodes_count);
+	kernelgen_load_regions =
+		(kernelgen_load_regions_func_t*)malloc(
+			sizeof(kernelgen_load_regions_func_t) *
+			kernelgen_runmodes_count);
+	kernelgen_save_regions =
+		(kernelgen_save_regions_func_t*)malloc(
+			sizeof(kernelgen_save_regions_func_t) *
+			kernelgen_runmodes_count);
+	kernelgen_build =
+		(kernelgen_build_func_t*)malloc(
+			sizeof(kernelgen_build_func_t) *
+			kernelgen_runmodes_count);
+	kernelgen_launch =
+		(kernelgen_launch_func_t*)malloc(
+			sizeof(kernelgen_launch_func_t) *
+			kernelgen_runmodes_count);
+	kernelgen_reset =
+		(kernelgen_reset_func_t*)malloc(
+			sizeof(kernelgen_reset_func_t) *
+			kernelgen_runmodes_count);
 
 #define BIND_RUNMODE(i, suffix) \
 	{ \
-		gforscale_parse_modsyms[i] = gforscale_parse_modsyms_##suffix; \
-		gforscale_load_regions[i] = gforscale_load_regions_##suffix; \
-		gforscale_save_regions[i] = gforscale_save_regions_##suffix; \
-		gforscale_build[i] = gforscale_build_##suffix; \
-		gforscale_launch[i] = gforscale_launch_##suffix; \
-		gforscale_reset[i] = gforscale_reset_##suffix; \
-		gforscale_runmodes_names[i] = (char*)malloc(strlen(#suffix) + 1); \
-		strcpy(gforscale_runmodes_names[i], #suffix); \
+		kernelgen_parse_modsyms[i] = kernelgen_parse_modsyms_##suffix; \
+		kernelgen_load_regions[i] = kernelgen_load_regions_##suffix; \
+		kernelgen_save_regions[i] = kernelgen_save_regions_##suffix; \
+		kernelgen_build[i] = kernelgen_build_##suffix; \
+		kernelgen_launch[i] = kernelgen_launch_##suffix; \
+		kernelgen_reset[i] = kernelgen_reset_##suffix; \
+		kernelgen_runmodes_names[i] = (char*)malloc(strlen(#suffix) + 1); \
+		strcpy(kernelgen_runmodes_names[i], #suffix); \
 	}
 
 	// Create a list of values, names and mask of supported runmodes.
 	// For each supported runmode bind its device-specific functions
 	// to the common index list.
-	gforscale_runmodes_names =
-		(char**)malloc(sizeof(char*) * gforscale_runmodes_count);
-	gforscale_runmodes =
-		(int*)malloc(sizeof(int) * gforscale_runmodes_count);
-	gforscale_runmodes_mask = 0;
+	kernelgen_runmodes_names =
+		(char**)malloc(sizeof(char*) * kernelgen_runmodes_count);
+	kernelgen_runmodes =
+		(int*)malloc(sizeof(int) * kernelgen_runmodes_count);
+	kernelgen_runmodes_mask = 0;
 	{
 		int i = 0;
 		
-		gforscale_runmodes[i++] = GFORSCALE_RUNMODE_HOST;
-		gforscale_runmodes_mask |= GFORSCALE_RUNMODE_HOST;
+		kernelgen_runmodes[i++] = GFORSCALE_RUNMODE_HOST;
+		kernelgen_runmodes_mask |= GFORSCALE_RUNMODE_HOST;
 
 		BIND_RUNMODE(i, cpu);
-		gforscale_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_CPU;
-		gforscale_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_CPU;
+		kernelgen_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_CPU;
+		kernelgen_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_CPU;
 
 #ifdef HAVE_CUDA
 		BIND_RUNMODE(i, cuda);
-		gforscale_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_CUDA;
-		gforscale_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_CUDA;
+		kernelgen_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_CUDA;
+		kernelgen_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_CUDA;
 #endif
 
 #ifdef HAVE_OPENCL
 		BIND_RUNMODE(i, opencl);
-		gforscale_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_OPENCL;
-		gforscale_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_OPENCL;
+		kernelgen_runmodes[i++] = GFORSCALE_RUNMODE_DEVICE_OPENCL;
+		kernelgen_runmodes_mask |= GFORSCALE_RUNMODE_DEVICE_OPENCL;
 #endif
 	}
 
 	// By default run everything on host.
-	gforscale_runmode = GFORSCALE_RUNMODE_HOST;
-	char* crunmode = getenv("gforscale_runmode");
+	kernelgen_runmode = GFORSCALE_RUNMODE_HOST;
+	char* crunmode = getenv("kernelgen_runmode");
 	if (crunmode)
 	{
 		// Check the supplied runmode contains
 		// only known bits, and at least one of them
 		// is supported.
 		int runmode = atoi(crunmode);
-		if (runmode & gforscale_runmodes_mask)
-			gforscale_runmode = runmode;
+		if (runmode & kernelgen_runmodes_mask)
+			kernelgen_runmode = runmode;
 	}
 	
 	// By default disable all debug output.
-	gforscale_debug_output = 0;
+	kernelgen_debug_output = 0;
 
 	// By default enable all error output.
-	gforscale_error_output = ~gforscale_debug_output;
+	kernelgen_error_output = ~kernelgen_debug_output;
 	
-	char* cdebug = getenv("gforscale_debug_output");
-	if (cdebug) gforscale_debug_output = atoi(cdebug);
+	char* cdebug = getenv("kernelgen_debug_output");
+	if (cdebug) kernelgen_debug_output = atoi(cdebug);
 	
-	char* cerror = getenv("gforscale_error_output");
-	if (cerror) gforscale_error_output = atoi(cerror);
+	char* cerror = getenv("kernelgen_error_output");
+	if (cerror) kernelgen_error_output = atoi(cerror);
 
 	// Create array of pointers to device-specific configs.
 	// Initialize device-specific settings.
 	size_t offset = 
-		sizeof(gforscale_specific_config_t) * gforscale_runmodes_count;
+		sizeof(kernelgen_specific_config_t) * kernelgen_runmodes_count;
 	specific_configs_size += offset;
 	specific_configs =
-		(gforscale_specific_config_t*)malloc(specific_configs_size);
+		(kernelgen_specific_config_t*)malloc(specific_configs_size);
 	specific_configs[0] = NULL;
 	specific_configs[1] = NULL;
 	{
 		int i = 2;
-		gforscale_status_t result;
+		kernelgen_status_t result;
 #ifdef HAVE_CUDA
-		struct gforscale_cuda_config_t* cuda =
-			(struct gforscale_cuda_config_t*)(
-			(gforscale_specific_config_t)(specific_configs) + offset);
-		specific_configs[i++] = (gforscale_specific_config_t)offset;
-		offset += sizeof(struct gforscale_cuda_config_t);
+		struct kernelgen_cuda_config_t* cuda =
+			(struct kernelgen_cuda_config_t*)(
+			(kernelgen_specific_config_t)(specific_configs) + offset);
+		specific_configs[i++] = (kernelgen_specific_config_t)offset;
+		offset += sizeof(struct kernelgen_cuda_config_t);
 
 #ifdef HAVE_ALIGNED_MAPPING
 		cuda->aligned = 1;
@@ -427,10 +427,10 @@ __attribute__ ((__constructor__(101))) void gforscale_init()
 		result.value = cudaSetDeviceFlags(cudaDeviceMapHost);
 		if (result.value != cudaSuccess)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"Cannot set device flags, status = %d: %s\n",
-				result.value, gforscale_get_error_string(result));
-			gforscale_set_last_error(result);
+				result.value, kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
 			// TODO: release resources!
 			return;
 		}
@@ -438,11 +438,11 @@ __attribute__ ((__constructor__(101))) void gforscale_init()
 		// TODO: check the number of available CUDA devices!
 #endif
 #ifdef HAVE_OPENCL	
-		struct gforscale_opencl_config_t* opencl =
-			(struct gforscale_opencl_config_t*)(
-			(gforscale_specific_config_t)(specific_configs) + offset);
-		specific_configs[i++] = (gforscale_specific_config_t)offset;
-		offset += sizeof(struct gforscale_opencl_config_t);
+		struct kernelgen_opencl_config_t* opencl =
+			(struct kernelgen_opencl_config_t*)(
+			(kernelgen_specific_config_t)(specific_configs) + offset);
+		specific_configs[i++] = (kernelgen_specific_config_t)offset;
+		offset += sizeof(struct kernelgen_opencl_config_t);
 
 		// Being quiet optimistic initially...
 		result.value = CL_SUCCESS;
@@ -452,10 +452,10 @@ __attribute__ ((__constructor__(101))) void gforscale_init()
 		result.value = clGetPlatformIDs(1, &opencl->id, NULL);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"clGetPlatformIDs returned %d: %s\n", (int)result.value,
-				gforscale_get_error_string(result));
-			gforscale_set_last_error(result);
+				kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
 			// TODO: release resources!
 			return;
 		}
@@ -465,19 +465,19 @@ __attribute__ ((__constructor__(101))) void gforscale_init()
 			CL_DEVICE_TYPE_ALL, 0, NULL, &opencl->ndevs);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"clGetDeviceIDs returned %d: %s\n", (int)result.value,
-				gforscale_get_error_string(result));
-			gforscale_set_last_error(result);
+				kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
 			// TODO: release resources!
 			return;
 		}
 		if (opencl->ndevs < 1)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"No OpenCL devices found\n");
-			result.value = gforscale_error_not_found;
-			gforscale_set_last_error(result);
+			result.value = kernelgen_error_not_found;
+			kernelgen_set_last_error(result);
 			// TODO: release resources!
 			return;
 		}
@@ -488,10 +488,10 @@ __attribute__ ((__constructor__(101))) void gforscale_init()
 			1, &opencl->device, NULL);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"clGetDeviceIDs returned %d: %s\n", (int)result.value,
-				gforscale_get_error_string(result));
-			gforscale_set_last_error(result);
+				kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
 			// TODO: release resources!
 			return;
 		}
@@ -502,10 +502,10 @@ __attribute__ ((__constructor__(101))) void gforscale_init()
 			NULL, NULL, &result.value);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"clCreateContext returned %d: %s\n", (int)result.value,
-				gforscale_get_error_string(result));
-			gforscale_set_last_error(result);
+				kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
 			// TODO: release resources!
 			return;
 		}
@@ -514,10 +514,10 @@ __attribute__ ((__constructor__(101))) void gforscale_init()
 			opencl->context, opencl->device, 0, &result.value);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"clCreateCommandQueue returned %d: %s\n", (int)result.value,
-				gforscale_get_error_string(result));
-			gforscale_set_last_error(result);
+				kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
 			// TODO: release resources!
 			return;
 		}
@@ -527,32 +527,32 @@ __attribute__ ((__constructor__(101))) void gforscale_init()
 			CL_DEVICE_NAME, 20, &name, NULL);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"clGetDeviceInfo returned %d: %s\n", (int)result.value,
-				gforscale_get_error_string(result));
-			gforscale_set_last_error(result);
+				kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
 			// TODO: release resources!
 			return;
 		}
 
-		gforscale_print_debug(gforscale_launch_verbose,
+		kernelgen_print_debug(kernelgen_launch_verbose,
 			"OpenCL engine uses device \"%s\"\n", name);
 #endif
 	}
 }
 
 // Release resources used by runtime global configuration.
-__attribute__ ((__destructor__(101))) void gforscale_free()
+__attribute__ ((__destructor__(101))) void kernelgen_free()
 {
-	free(gforscale_parse_modsyms);
-	free(gforscale_load_regions);
-	free(gforscale_save_regions);
-	free(gforscale_build);
-	free(gforscale_launch);
-	free(gforscale_reset);
-	free(gforscale_runmodes);
-	for (int i = 1; i < gforscale_runmodes_count; i++)
-		free(gforscale_runmodes_names[i]);
-	free(gforscale_runmodes_names);
+	free(kernelgen_parse_modsyms);
+	free(kernelgen_load_regions);
+	free(kernelgen_save_regions);
+	free(kernelgen_build);
+	free(kernelgen_launch);
+	free(kernelgen_reset);
+	free(kernelgen_runmodes);
+	for (int i = 1; i < kernelgen_runmodes_count; i++)
+		free(kernelgen_runmodes_names[i]);
+	free(kernelgen_runmodes_names);
 }
 

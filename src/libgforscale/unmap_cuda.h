@@ -19,20 +19,20 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-gforscale_status_t gforscale_save_regions_cuda(
-	struct gforscale_launch_config_t* l, int nmapped)
+kernelgen_status_t kernelgen_save_regions_cuda(
+	struct kernelgen_launch_config_t* l, int nmapped)
 {
 #ifdef HAVE_CUDA
 	int count = l->args_nregions + l->deps_nregions;
-	struct gforscale_memory_region_t* regs = l->regs;
+	struct kernelgen_memory_region_t* regs = l->regs;
 
-	gforscale_status_t result;
+	kernelgen_status_t result;
 	result.runmode = l->runmode;
 
 	// Unregister pinned memory regions.
 	for (int i = 0; i < nmapped; i++)
 	{
-		struct gforscale_memory_region_t* reg = l->regs + i;
+		struct kernelgen_memory_region_t* reg = l->regs + i;
 		
 		if (!reg->primary)
 		{
@@ -41,12 +41,12 @@ gforscale_status_t gforscale_save_regions_cuda(
 			int status = cudaHostUnregister(reg->base);
 			if (status != cudaSuccess)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot unregister host memory segment [%p .. %p] for symbol \"%s\", status = %d: %s\n",
 					reg->base, reg->base + reg->size, reg->symbol->name,
 					status, cudaGetErrorString(status));
 				result.value = status;
-				gforscale_set_last_error(result);
+				kernelgen_set_last_error(result);
 			}
 #else
 			// Explicitly copy output data from device memory region and free it.
@@ -54,35 +54,35 @@ gforscale_status_t gforscale_save_regions_cuda(
 			int status = cudaMemcpy(reg->base, reg->mapping, reg->size, cudaMemcpyDeviceToHost);
 			if (status != cudaSuccess)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot copy data from [%p .. %p] to [%p .. %p] for symbol \"%s\", status = %d: %s\n",
 					reg->mapping, reg->base + reg->size, reg->base, reg->mapping + reg->size,
 					status, cudaGetErrorString(status));
 				result.value = status;
-				gforscale_set_last_error(result);
+				kernelgen_set_last_error(result);
 			}
 			cudaGetLastError();
 			status = cudaFree(reg->mapping);
 			if (status != cudaSuccess)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot free device memory segment [%p .. %p] for symbol \"%s\", status = %d: %s\n",
 					reg->base, reg->base + reg->size, reg->symbol->name,
 					status, cudaGetErrorString(status));
 				result.value = status;
-				gforscale_set_last_error(result);
+				kernelgen_set_last_error(result);
 			}
 #endif
 		}
 	}
-	result.value = gforscale_success;
-	gforscale_set_last_error(result);
+	result.value = kernelgen_success;
+	kernelgen_set_last_error(result);
 	return result;
 #else
-	gforscale_status_t result;
-	result.value = gforscale_error_not_implemented;
+	kernelgen_status_t result;
+	result.value = kernelgen_error_not_implemented;
 	result.runmode = l->runmode;
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #endif
 }

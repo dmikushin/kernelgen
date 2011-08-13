@@ -19,13 +19,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
-gforscale_status_t gforscale_build_cuda(
-	struct gforscale_launch_config_t* l)
+kernelgen_status_t kernelgen_build_cuda(
+	struct kernelgen_launch_config_t* l)
 {
-	gforscale_status_t result;
-	result.value = gforscale_error_not_implemented;
+	kernelgen_status_t result;
+	result.value = kernelgen_error_not_implemented;
 	result.runmode = l->runmode;
 	return result;
 }

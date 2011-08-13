@@ -156,7 +156,7 @@ finish:
 }
 
 // Load the specified ELF executable header.
-int gforscale_elf_read_eheader(const char* executable, GElf_Ehdr* ehdr)
+int kernelgen_elf_read_eheader(const char* executable, GElf_Ehdr* ehdr)
 {
 	int status = 0;
 	Elf* e = NULL;

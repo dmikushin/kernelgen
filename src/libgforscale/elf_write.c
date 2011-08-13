@@ -155,7 +155,7 @@ static int elf_write_data(Elf* e, const char* symdata, size_t length)
 // Create ELF image containing symbol with the specified name,
 // associated data content and its length.
 // Duplicate ident and archtecture from the reference executable header.
-int gforscale_elf_write(const char* filename, GElf_Ehdr* ref_ehdr,
+int kernelgen_elf_write(const char* filename, GElf_Ehdr* ref_ehdr,
 	const char* symname, const char* symdata, size_t length)
 {
 	int status = 0;
@@ -280,7 +280,7 @@ finish:
 // Create ELF image containing multiple symbols with the specified names,
 // associated data contents and their lengths.
 // Duplicate ident and archtecture from the reference executable header.
-int gforscale_elf_write_many(const char* filename, GElf_Ehdr* ref_ehdr, int count, ...)
+int kernelgen_elf_write_many(const char* filename, GElf_Ehdr* ref_ehdr, int count, ...)
 {
 	int status = 0;
 	Elf* e = NULL;

@@ -19,21 +19,21 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int_opencl.h"
+#include "kernelgen_int_opencl.h"
 #include "init.h"
 
-gforscale_status_t gforscale_load_regions_opencl(
-	struct gforscale_launch_config_t* l, int* nmapped)
+kernelgen_status_t kernelgen_load_regions_opencl(
+	struct kernelgen_launch_config_t* l, int* nmapped)
 {
 #ifdef HAVE_OPENCL
-	struct gforscale_opencl_config_t* opencl =
-		(struct gforscale_opencl_config_t*)l->specific;
+	struct kernelgen_opencl_config_t* opencl =
+		(struct kernelgen_opencl_config_t*)l->specific;
 
 	int count = l->args_nregions + l->deps_nregions;
-	struct gforscale_memory_region_t* regs = l->regs;
+	struct kernelgen_memory_region_t* regs = l->regs;
 
 	// Being quiet optimistic initially...
-	gforscale_status_t result;
+	kernelgen_status_t result;
 	result.value = CL_SUCCESS;
 	result.runmode = l->runmode;
 
@@ -44,8 +44,8 @@ gforscale_status_t gforscale_load_regions_opencl(
 	// map it to device memory.
 	for (int i = 0; i < count; i++)
 	{
-		struct gforscale_memory_region_t* reg = l->regs + i;
-		struct gforscale_kernel_symbol_t* sym = reg->symbol;
+		struct kernelgen_memory_region_t* reg = l->regs + i;
+		struct kernelgen_kernel_symbol_t* sym = reg->symbol;
 		
 		// Pin & map memory region only for regions that
 		// are not referring to primary (i.e. reusing other
@@ -58,9 +58,9 @@ gforscale_status_t gforscale_load_regions_opencl(
 				reg->base, &result.value);
 			if (result.value != CL_SUCCESS)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot allocate device memory segment of size = %zu on device, status = %d: %s\n",
-					reg->size, result.value, gforscale_get_error_string(result));
+					reg->size, result.value, kernelgen_get_error_string(result));
 				goto finish;
 			}
 
@@ -68,14 +68,14 @@ gforscale_status_t gforscale_load_regions_opencl(
 			// (to safely unregister in case of failure).
 			(*nmapped)++;
 
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"symbol \"%s\" maps memory segment [%p .. %p] to [%p .. %p]\n",
 				reg->symbol->name, reg->base, reg->base + reg->size, reg->mapping, reg->mapping + reg->size);
 		}
 		else
 		{
 			reg->mapping = reg->primary->mapping;
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"symbol \"%s\" memory segment [%p .. %p] reuses mapping created by symbol \"%s\"\n",
 				reg->symbol->name, reg->base, reg->base + reg->size, reg->primary->symbol->name);
 		}
@@ -86,17 +86,17 @@ finish:
 	// If something goes wrong, unmap previously mapped regions.
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_save_regions_opencl(l, *nmapped);
+		kernelgen_save_regions_opencl(l, *nmapped);
 		*nmapped = 0;
 	}
 
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #else
-	gforscale_status_t result;
-	result.value = gforscale_error_not_implemented;
+	kernelgen_status_t result;
+	result.value = kernelgen_error_not_implemented;
 	result.runmode = l->runmode;
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #endif
 }

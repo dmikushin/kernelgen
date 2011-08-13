@@ -22,7 +22,7 @@
 #ifndef HAVE_INIT_H
 #define HAVE_INIT_H
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -30,82 +30,82 @@ extern "C"
 #endif
 
 // Parse module symbols for kernel executed on CPU.
-gforscale_status_t gforscale_parse_modsyms_cpu(
-	struct gforscale_launch_config_t* launch,
+kernelgen_status_t kernelgen_parse_modsyms_cpu(
+	struct kernelgen_launch_config_t* launch,
 	int* nargs, va_list list);
 
 // Parse module symbols for kernel executed on CUDA GPU.
-gforscale_status_t gforscale_parse_modsyms_cuda(
-	struct gforscale_launch_config_t* launch,
+kernelgen_status_t kernelgen_parse_modsyms_cuda(
+	struct kernelgen_launch_config_t* launch,
 	int* nargs, va_list list);
 
 // Parse module symbols for kernel executed on OpenCL device.
-gforscale_status_t gforscale_parse_modsyms_opencl(
-	struct gforscale_launch_config_t* launch,
+kernelgen_status_t kernelgen_parse_modsyms_opencl(
+	struct kernelgen_launch_config_t* launch,
 	int* nargs, va_list list);
 
 // Load regions into CPU device memory space.
-gforscale_status_t gforscale_load_regions_cpu(
-	struct gforscale_launch_config_t* launch, int* nmapped);
+kernelgen_status_t kernelgen_load_regions_cpu(
+	struct kernelgen_launch_config_t* launch, int* nmapped);
 
 // Save regions from CPU device memory space.
-gforscale_status_t gforscale_save_regions_cpu(
-	struct gforscale_launch_config_t* launch, int nmapped);
+kernelgen_status_t kernelgen_save_regions_cpu(
+	struct kernelgen_launch_config_t* launch, int nmapped);
 
 // Load regions into CUDA device memory space.
-gforscale_status_t gforscale_load_regions_cuda(
-	struct gforscale_launch_config_t* launch, int* nmapped);
+kernelgen_status_t kernelgen_load_regions_cuda(
+	struct kernelgen_launch_config_t* launch, int* nmapped);
 
 // Save regions from CUDA device memory space.
-gforscale_status_t gforscale_save_regions_cuda(
-	struct gforscale_launch_config_t* launch, int nmapped);
+kernelgen_status_t kernelgen_save_regions_cuda(
+	struct kernelgen_launch_config_t* launch, int nmapped);
 
 // Load regions into OpenCL device memory space.
-gforscale_status_t gforscale_load_regions_opencl(
-	struct gforscale_launch_config_t* launch, int* nmapped);
+kernelgen_status_t kernelgen_load_regions_opencl(
+	struct kernelgen_launch_config_t* launch, int* nmapped);
 
 // Save regions from OpenCL device memory space.
-gforscale_status_t gforscale_save_regions_opencl(
-	struct gforscale_launch_config_t* launch, int nmapped);
+kernelgen_status_t kernelgen_save_regions_opencl(
+	struct kernelgen_launch_config_t* launch, int nmapped);
 
 // Build kernel for the CPU device.
-gforscale_status_t gforscale_build_cpu(
-	struct gforscale_launch_config_t* launch);
+kernelgen_status_t kernelgen_build_cpu(
+	struct kernelgen_launch_config_t* launch);
 
 // Build kernel for the CUDA device.
-gforscale_status_t gforscale_build_cuda(
-	struct gforscale_launch_config_t* launch);
+kernelgen_status_t kernelgen_build_cuda(
+	struct kernelgen_launch_config_t* launch);
 
 // Build kernel for the OpenCL device.
-gforscale_status_t gforscale_build_opencl(
-	struct gforscale_launch_config_t* launch);
+kernelgen_status_t kernelgen_build_opencl(
+	struct kernelgen_launch_config_t* launch);
 
 // Launch kernel on the CPU device.
-gforscale_status_t gforscale_launch_cpu(
-	struct gforscale_launch_config_t* launch,
+kernelgen_status_t kernelgen_launch_cpu(
+	struct kernelgen_launch_config_t* launch,
 	int* bx, int* ex, int* by, int* ey, int* bz, int* ez);
 
 // Launch kernel on the CUDA device.
-gforscale_status_t gforscale_launch_cuda(
-	struct gforscale_launch_config_t* launch,
+kernelgen_status_t kernelgen_launch_cuda(
+	struct kernelgen_launch_config_t* launch,
 	int* bx, int* ex, int* by, int* ey, int* bz, int* ez);
 
 // Launch kernel on the OpenCL device.
-gforscale_status_t gforscale_launch_opencl(
-	struct gforscale_launch_config_t* launch,
+kernelgen_status_t kernelgen_launch_opencl(
+	struct kernelgen_launch_config_t* launch,
 	int* bx, int* ex, int* by, int* ey, int* bz, int* ez);
 
 // Reset CPU device.
-gforscale_status_t gforscale_reset_cpu(
-	struct gforscale_launch_config_t* launch);
+kernelgen_status_t kernelgen_reset_cpu(
+	struct kernelgen_launch_config_t* launch);
 
 // Reset CUDA device.
-gforscale_status_t gforscale_reset_cuda(
-	struct gforscale_launch_config_t* launch);
+kernelgen_status_t kernelgen_reset_cuda(
+	struct kernelgen_launch_config_t* launch);
 
 // Reset OpenCL device.
-gforscale_status_t gforscale_reset_opencl(
-	struct gforscale_launch_config_t* launch);
+kernelgen_status_t kernelgen_reset_opencl(
+	struct kernelgen_launch_config_t* launch);
 
 #ifdef __cplusplus
 }

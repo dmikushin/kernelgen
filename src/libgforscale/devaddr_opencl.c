@@ -19,12 +19,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
-#include "gforscale_int_opencl.h"
+#include "kernelgen_int.h"
+#include "kernelgen_int_opencl.h"
 
-char* gforscale_devaddr_opencl_kernel_source =
+char* kernelgen_devaddr_opencl_kernel_source =
 
-"__kernel void gforscale_devaddr_opencl_kernel("
+"__kernel void kernelgen_devaddr_opencl_kernel("
 "	__global void* host_ptr, __global ptrdiff_t* dev_ptr)"
 "{"
 "	*dev_ptr = (ptrdiff_t)(host_ptr);"
@@ -32,8 +32,8 @@ char* gforscale_devaddr_opencl_kernel_source =
 
 // Get the device representation for the specified host container
 // of device address.
-gforscale_status_t gforscale_devaddr_opencl(
-	struct gforscale_launch_config_t* l,
+kernelgen_status_t kernelgen_devaddr_opencl(
+	struct kernelgen_launch_config_t* l,
 	void* host_ptr, size_t offset, void** dev_ptr)
 {
 #ifdef HAVE_OPENCL
@@ -41,15 +41,15 @@ gforscale_status_t gforscale_devaddr_opencl(
 	static int kernel_compiled = 0;
 	static cl_mem dev_ptr_dev;
 
-	struct gforscale_opencl_config_t* opencl =
-		(struct gforscale_opencl_config_t*)l->specific;
+	struct kernelgen_opencl_config_t* opencl =
+		(struct kernelgen_opencl_config_t*)l->specific;
 
 	// Being quiet optimistic initially...
-	gforscale_status_t result;
+	kernelgen_status_t result;
 	result.value = CL_SUCCESS;
 	result.runmode = l->runmode;
 	
-	const char* kernel_name = "gforscale_devaddr_opencl_kernel";
+	const char* kernel_name = "kernelgen_devaddr_opencl_kernel";
 	
 	if (!kernel_compiled)
 	{
@@ -57,22 +57,22 @@ gforscale_status_t gforscale_devaddr_opencl(
 		cl_int status = CL_SUCCESS;
 		cl_program program = clCreateProgramWithSource(
 			opencl->context, 1,
-			(const char**)&gforscale_devaddr_opencl_kernel_source,
+			(const char**)&kernelgen_devaddr_opencl_kernel_source,
 			NULL, &result.value);
 		if ((result.value != CL_SUCCESS) || (status != CL_SUCCESS))
 		{
 			if (result.value != CL_SUCCESS)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot create kernel %s, status = %d: %s\n",
-					kernel_name, result.value, gforscale_get_error_string(result));
+					kernel_name, result.value, kernelgen_get_error_string(result));
 			}
 			if (status != CL_SUCCESS)
 			{
 				result.value = status;
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot create kernel %s, status = %d: %s\n",
-					kernel_name, result.value, gforscale_get_error_string(result));
+					kernel_name, result.value, kernelgen_get_error_string(result));
 			}
 			goto finish;
 		}
@@ -81,20 +81,20 @@ gforscale_status_t gforscale_devaddr_opencl(
 			1, &opencl->device, NULL, NULL, NULL);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"Cannot build program for kernel %s, status = %d: %s\n",
-				kernel_name, result.value, gforscale_get_error_string(result));
+				kernel_name, result.value, kernelgen_get_error_string(result));
 			result.value = clGetProgramBuildInfo(opencl->program, opencl->device,
 				CL_PROGRAM_BUILD_LOG, l->kernel_source_size,
 				&l->kernel_source, NULL);
 			if (result.value != CL_SUCCESS)
 			{
 				result.value = status;
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot get kernel %s build log, status = %d: %s\n",
-					kernel_name, result.value, gforscale_get_error_string(result));
+					kernel_name, result.value, kernelgen_get_error_string(result));
 			}
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"%s\n", l->kernel_source);
 			goto finish;
 		}
@@ -104,9 +104,9 @@ gforscale_status_t gforscale_devaddr_opencl(
 			kernel_name, &result.value);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"Cannot create kernel %s, status = %d: %s\n",
-				kernel_name, result.value, gforscale_get_error_string(result));
+				kernel_name, result.value, kernelgen_get_error_string(result));
 			goto finish;
 		}
 		
@@ -115,9 +115,9 @@ gforscale_status_t gforscale_devaddr_opencl(
 			CL_MEM_READ_WRITE, sizeof(ptrdiff_t), NULL, &result.value);
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"Cannot allocate device memory segment of size = %zu on device, status = %d: %s\n",
-				sizeof(ptrdiff_t), result.value, gforscale_get_error_string(result));
+				sizeof(ptrdiff_t), result.value, kernelgen_get_error_string(result));
 			goto finish;
 		}
 		
@@ -129,9 +129,9 @@ gforscale_status_t gforscale_devaddr_opencl(
 		kernel, 0, sizeof(void*), &host_ptr);
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot setup kernel argument, status = %d: %s\n",
-			result.value, gforscale_get_error_string(result));
+			result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}
 	/*long loffset = offset;
@@ -139,18 +139,18 @@ gforscale_status_t gforscale_devaddr_opencl(
 		kernel, 1, sizeof(long), &loffset);
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot setup kernel argument, status = %d: %s\n",
-			result.value, gforscale_get_error_string(result));
+			result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}*/
 	result.value = clSetKernelArg(
 		kernel, 1, sizeof(void*), &dev_ptr_dev);
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot setup kernel argument, status = %d: %s\n",
-			result.value, gforscale_get_error_string(result));
+			result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}
 
@@ -160,17 +160,17 @@ gforscale_status_t gforscale_devaddr_opencl(
 		opencl->command_queue, kernel, 0, NULL, &sync);
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot launch kernel %s, status = %d: %s\n",
-			kernel_name, result.value, gforscale_get_error_string(result));
+			kernel_name, result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}
 	result.value = clWaitForEvents(1, &sync);
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot synchronize device running kernel %s, status = %d: %s\n",
-			kernel_name, result.value, gforscale_get_error_string(result));
+			kernel_name, result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}
 	
@@ -180,20 +180,20 @@ gforscale_status_t gforscale_devaddr_opencl(
 		0, sizeof(void*), dev_ptr, 0, NULL, &sync);
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot copy data from device to host, status = %d: %s\n",
-			result.value, gforscale_get_error_string(result));
+			result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}
 	
 finish:
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #else
-	gforscale_status_t result;
-	result.value = gforscale_error_not_implemented;
+	kernelgen_status_t result;
+	result.value = kernelgen_error_not_implemented;
 	result.runmode = l->runmode;
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #endif
 }

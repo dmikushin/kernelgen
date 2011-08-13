@@ -23,7 +23,7 @@
 // random integers, then randomly connects pairs into intervals
 // and merges into non-overlapping intervals using merge_intervals.
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #include <malloc.h>
 #include <stdio.h>
@@ -42,13 +42,13 @@ int main(int argc, char* argv[])
 
 	int* pnts = (int*)malloc(sizeof(int) * n);
 		
-	struct gforscale_memory_region_t* regs =
-		(struct gforscale_memory_region_t*)malloc(
-			sizeof(struct gforscale_memory_region_t) * n);
+	struct kernelgen_memory_region_t* regs =
+		(struct kernelgen_memory_region_t*)malloc(
+			sizeof(struct kernelgen_memory_region_t) * n);
 
-	struct gforscale_kernel_symbol_t* args =
-		(struct gforscale_kernel_symbol_t*)malloc(
-			sizeof(struct gforscale_kernel_symbol_t) * n);
+	struct kernelgen_kernel_symbol_t* args =
+		(struct kernelgen_kernel_symbol_t*)malloc(
+			sizeof(struct kernelgen_kernel_symbol_t) * n);
 	for (int i = 0; i < n; i++)
 	{
 		args[i].index = i;
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
 		int ibegin = rand() % n;
 		int iend = rand() % n;
 		
-		struct gforscale_memory_region_t* reg = regs + i;
+		struct kernelgen_memory_region_t* reg = regs + i;
 		
 		reg->base = (void*)(size_t)(pnts[ibegin]);
 		reg->size = (size_t)pnts[iend];
@@ -78,18 +78,18 @@ int main(int argc, char* argv[])
 	
 	for (int i = 0; i < n; i++)
 	{
-		struct gforscale_memory_region_t* reg = regs + i;
+		struct kernelgen_memory_region_t* reg = regs + i;
 		
 		printf("reg in  : %d [%p + %u, %p]\n",
 			i, reg->base, reg->shift, (void*)((size_t)reg->base + reg->size));
 	}
 	printf("\n");
 	
-	gforscale_merge_regions(regs, n);
+	kernelgen_merge_regions(regs, n);
 
 	for (int i = 0; i < n; i++)
 	{
-		struct gforscale_memory_region_t* reg = regs + i;
+		struct kernelgen_memory_region_t* reg = regs + i;
 
 		printf("reg out : %d [%p + %u, %p]",
 			i, reg->base, reg->shift, (void*)((size_t)reg->base + reg->size));

@@ -46,7 +46,7 @@ OBJECTS = \
 	map_cpu unmap_cpu map_cuda unmap_cuda map_opencl unmap_opencl \
 	build_cpu build_cuda build_opencl launch_cpu launch_cuda launch_opencl \
 	reset_cpu reset_cuda reset_opencl devaddr_opencl \
-	elf_read elf_write load_source gforscale
+	elf_read elf_write load_source kernelgen
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -62,7 +62,7 @@ CXX64 = $(CXX)
 FC64 = $(FC) -J64
 DFC64 = $(DFC) -J64
 NVCC64 = $(NVCC)
-all: 32/libgforscale.so 32/merge_test
+all: 32/libkernelgen.so 32/merge_test
 else
 CC32 = $(CC) -m32
 CXX32 = $(CXX) -m32
@@ -74,7 +74,7 @@ CXX64 = $(CXX)
 FC64 = $(FC) -J64
 DFC64 = $(DFC) -J64
 NVCC64 = $(NVCC)
-all: 32/libgforscale.so 32/merge_test 64/libgforscale.so 64/merge_test
+all: 32/libkernelgen.so 32/merge_test 64/libkernelgen.so 64/merge_test
 endif
 
 ifeq ($(HAVE_OPENCL), 1)
@@ -84,49 +84,49 @@ NVCC32 += -DHAVE_OPENCL
 endif
 
 ifeq ($(HAVE_OPENCL), 1)
-32/libgforscale.so: $(OBJECTS32)
+32/libkernelgen.so: $(OBJECTS32)
 	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt -lOpenCL
 else
-32/libgforscale.so: $(OBJECTS32)
+32/libkernelgen.so: $(OBJECTS32)
 	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt
 endif
-64/libgforscale.so: $(OBJECTS64)
+64/libkernelgen.so: $(OBJECTS64)
 	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt
 
-32/init.o: init.cpp init.h gforscale.h gforscale_int.h
+32/init.o: init.cpp init.h kernelgen.h kernelgen_int.h
 	$(NVCC32) $(NVFLAGS) -c $< -o $@
-64/init.o: init.cpp init.h gforscale.h gforscale_int.h
+64/init.o: init.cpp init.h kernelgen.h kernelgen_int.h
 	$(NVCC64) $(NVFLAGS) -c $< -o $@
 
-32/launch.o: launch.c gforscale.h gforscale_int.h
+32/launch.o: launch.c kernelgen.h kernelgen_int.h
 	$(NVCC32) $(NVFLAGS) -D_GNU_SOURCE -c $< -o $@
-64/launch.o: launch.c gforscale.h gforscale_int.h
+64/launch.o: launch.c kernelgen.h kernelgen_int.h
 	$(NVCC64) $(NVFLAGS) -D_GNU_SOURCE -c $< -o $@
 
-32/compare.o: compare.c gforscale.h gforscale_int.h
+32/compare.o: compare.c kernelgen.h kernelgen_int.h
 	$(CC32) $(CFLAGS) $(INCFFI) -c $< -o $@
-64/compare.o: compare.c gforscale.h gforscale_int.h
+64/compare.o: compare.c kernelgen.h kernelgen_int.h
 	$(CC64) $(CFLAGS) $(INCFFI) -c $< -o $@
 
-32/error.o: error.cpp gforscale.h
+32/error.o: error.cpp kernelgen.h
 	$(NVCC32) $(NVFLAGS) -c $< -o $@
-64/error.o: error.cpp gforscale.h
+64/error.o: error.cpp kernelgen.h
 	$(NVCC64) $(NVFLAGS) -c $< -o $@
 
-32/timing.o: timing.c gforscale.h
+32/timing.o: timing.c kernelgen.h
 	$(CC32) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
-64/timing.o: timing.c gforscale.h
+64/timing.o: timing.c kernelgen.h
 	$(CC64) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
 
-32/merge.o: merge.cpp gforscale.h gforscale_int.h
+32/merge.o: merge.cpp kernelgen.h kernelgen_int.h
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/merge.o: merge.cpp gforscale.h gforscale_int.h
+64/merge.o: merge.cpp kernelgen.h kernelgen_int.h
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
-32/merge_test: merge_test.c gforscale_int.h 32/libgforscale.so
-	$(CC32) $(CFLAGS) $< -o $@ -L32 -lgforscale
-64/merge_test: merge_test.c gforscale_int.h 64/libgforscale.so
-	$(CC64) $(CFLAGS) $< -o $@ -L64 -lgforscale
+32/merge_test: merge_test.c kernelgen_int.h 32/libkernelgen.so
+	$(CC32) $(CFLAGS) $< -o $@ -L32 -lkernelgen
+64/merge_test: merge_test.c kernelgen_int.h 64/libkernelgen.so
+	$(CC64) $(CFLAGS) $< -o $@ -L64 -lkernelgen
 
 32/parse_args.o: parse_args.c parse_args.h
 	$(CC32) $(CFLAGS) -c $< -o $@
@@ -228,10 +228,10 @@ endif
 64/devaddr_opencl.o: devaddr_opencl.c
 	$(CC64) $(CFLAGS) -c $< -o $@
 
-32/gforscale.o: gforscale.f90
+32/kernelgen.o: kernelgen.f90
 	$(DFC32) $(FFLAGS) -c $< -o $@
 	$(FC32) $(FFLAGS) -c $< -o $@
-64/gforscale.o: gforscale.f90
+64/kernelgen.o: kernelgen.f90
 	$(DFC64) $(FFLAGS) -c $< -o $@
 	$(FC64) $(FFLAGS) -c $< -o $@
 
@@ -246,9 +246,9 @@ endif
 	$(CC64) $(CFLAGS) -c $< -o $@
 
 32/elf_write_test: elf_write_test.c elf_write.o
-	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lgforscale
+	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lkernelgen
 64/elf_write_test: elf_write_test.c elf_write.o
-	$(CC64) $(CFLAGS) $(INCFFI) $< -o $@ -L64 -lgforscale
+	$(CC64) $(CFLAGS) $(INCFFI) $< -o $@ -L64 -lkernelgen
 
 NUM_SYMBOLS ?= 1
 

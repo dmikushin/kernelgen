@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #include <malloc.h>
 #include <stdio.h>
@@ -28,7 +28,7 @@
 #include "parse_args.h"
 
 #define HAVE_ALIGNING
-#define gforscale_parse_args gforscale_parse_args_aligned
+#define kernelgen_parse_args kernelgen_parse_args_aligned
 
 #include "parse_args.h"
 

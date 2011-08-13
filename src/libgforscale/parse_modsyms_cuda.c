@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
+#include "kernelgen_int.h"
 
 #include <malloc.h>
 #include <stdio.h>
@@ -28,6 +28,6 @@
 #include "parse_modsyms_cuda.h"
 
 #define HAVE_ALIGNING
-#define gforscale_parse_modsyms_cuda gforscale_parse_modsyms_cuda_aligned
+#define kernelgen_parse_modsyms_cuda kernelgen_parse_modsyms_cuda_aligned
 
 #include "parse_modsyms_cuda.h" 

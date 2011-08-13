@@ -19,18 +19,18 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
-#include "gforscale_int_opencl.h"
+#include "kernelgen_int.h"
+#include "kernelgen_int_opencl.h"
 
-gforscale_status_t gforscale_build_opencl(
-	struct gforscale_launch_config_t* l)
+kernelgen_status_t kernelgen_build_opencl(
+	struct kernelgen_launch_config_t* l)
 {
 #ifdef HAVE_OPENCL
-	struct gforscale_opencl_config_t* opencl =
-		(struct gforscale_opencl_config_t*)l->specific;
+	struct kernelgen_opencl_config_t* opencl =
+		(struct kernelgen_opencl_config_t*)l->specific;
 
 	// Being quiet optimistic initially...
-	gforscale_status_t result;
+	kernelgen_status_t result;
 	result.value = CL_SUCCESS;
 	result.runmode = l->runmode;
 
@@ -46,16 +46,16 @@ gforscale_status_t gforscale_build_opencl(
 	{
 		if (result.value != CL_SUCCESS)
 		{
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"Cannot create kernel %s, status = %d: %s\n",
-				l->kernel_name, result.value, gforscale_get_error_string(result));
+				l->kernel_name, result.value, kernelgen_get_error_string(result));
 		}
 		if (status != CL_SUCCESS)
 		{
 			result.value = status;
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"Cannot create kernel %s, status = %d: %s\n",
-				l->kernel_name, result.value, gforscale_get_error_string(result));
+				l->kernel_name, result.value, kernelgen_get_error_string(result));
 		}
 		goto finish;
 	}
@@ -64,20 +64,20 @@ gforscale_status_t gforscale_build_opencl(
 		1, &opencl->device, NULL, NULL, NULL);
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot build program for kernel %s, status = %d: %s\n",
-			l->kernel_name, result.value, gforscale_get_error_string(result));
+			l->kernel_name, result.value, kernelgen_get_error_string(result));
 		result.value = clGetProgramBuildInfo(opencl->program, opencl->device,
 			CL_PROGRAM_BUILD_LOG, l->kernel_source_size,
 			&l->kernel_source, NULL);
 		if (result.value != CL_SUCCESS)
 		{
 			result.value = status;
-			gforscale_print_error(gforscale_launch_verbose,
+			kernelgen_print_error(kernelgen_launch_verbose,
 				"Cannot get kernel %s build log, status = %d: %s\n",
-				l->kernel_name, result.value, gforscale_get_error_string(result));
+				l->kernel_name, result.value, kernelgen_get_error_string(result));
 		}
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"%s\n", l->kernel_source);
 		goto finish;
 	}
@@ -87,18 +87,18 @@ gforscale_status_t gforscale_build_opencl(
 		l->kernel_name, &result.value);
 	if (result.value != CL_SUCCESS)
 	{
-		gforscale_print_error(gforscale_launch_verbose,
+		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot create kernel %s, status = %d: %s\n",
-			l->kernel_name, result.value, gforscale_get_error_string(result));
+			l->kernel_name, result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}
 
 finish:
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #else
-	gforscale_status_t result;
-	result.value = gforscale_error_not_implemented;
+	kernelgen_status_t result;
+	result.value = kernelgen_error_not_implemented;
 	result.runmode = l->runmode;
 	return result;
 #endif

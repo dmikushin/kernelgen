@@ -19,12 +19,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-gforscale_status_t gforscale_parse_args(
-	struct gforscale_launch_config_t* l,
+kernelgen_status_t kernelgen_parse_args(
+	struct kernelgen_launch_config_t* l,
 	int* nargs, va_list list)
 {
 	// Kernel config structure.
-	struct gforscale_kernel_config_t* config = l->config;
+	struct kernelgen_kernel_config_t* config = l->config;
 
 	// Check with selector config for entire kernel. If it is
 	// requested to be executed both on host and device, enable
@@ -45,7 +45,7 @@ gforscale_status_t gforscale_parse_args(
 	// Fill kernel arguments array.
 	for (int i = 0; i < *nargs; i++)
 	{
-		struct gforscale_kernel_symbol_t* arg = l->args + i;
+		struct kernelgen_kernel_symbol_t* arg = l->args + i;
 		arg->index = i;
 		
 		// Assign each kernel argument with one or two
@@ -64,7 +64,7 @@ gforscale_status_t gforscale_parse_args(
 		arg->size = *(size_t*)va_arg(list, size_t*);
 		arg->desc = va_arg(list, void*);
 
-		gforscale_print_debug(gforscale_launch_verbose,
+		kernelgen_print_debug(kernelgen_launch_verbose,
 			"arg \"%s\" ref = %p, size = %zu, desc = %p\n", arg->name, arg->ref, arg->size,
 			(arg->desc == arg->ref) ? arg->desc : *(void**)arg->desc);
 
@@ -78,13 +78,13 @@ gforscale_status_t gforscale_parse_args(
 			memcpy(arg->ref, arg->sref, arg->size);
 			if (arg->desc == arg->sref) arg->desc = arg->ref;
 			
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"arg \"%s\" ref = %p, size = %zu duplicated to %p for results comparison\n",
 				arg->name, arg->sref, arg->size, arg->ref);
 		}
 
 		// Start with filling ref region.
-		struct gforscale_memory_region_t* reg = arg->mref;
+		struct kernelgen_memory_region_t* reg = arg->mref;
 		
 		// Pin region to the parent kernel argument.
 		reg->symbol = arg;
@@ -133,7 +133,7 @@ gforscale_status_t gforscale_parse_args(
 			memcpy(arg->desc, arg->sdesc, SZDESC);
 			*(void**)arg->desc = arg->ref;
 
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"arg \"%s\" desc = %p, size = %zu duplicated to %p for results comparison\n",
 				arg->name, arg->sdesc, (size_t)SZDESC, arg->desc);
 		}
@@ -157,8 +157,8 @@ gforscale_status_t gforscale_parse_args(
 		l->args_nregions++;
 	}
 	
-	gforscale_status_t result;
-	result.value = gforscale_success;
+	kernelgen_status_t result;
+	result.value = kernelgen_success;
 	result.runmode = 0;
 	return result;
 }

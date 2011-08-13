@@ -19,8 +19,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "gforscale_int.h"
-#include "gforscale_int_opencl.h"
+#include "kernelgen_int.h"
+#include "kernelgen_int_opencl.h"
 
 #include <fcntl.h>
 #include <gelf.h>
@@ -30,17 +30,17 @@
 #include <string.h>
 #include <unistd.h>
 
-gforscale_status_t gforscale_parse_modsyms_opencl(
-	struct gforscale_launch_config_t* l,
+kernelgen_status_t kernelgen_parse_modsyms_opencl(
+	struct kernelgen_launch_config_t* l,
 	int* nargs, va_list list)
 {
 #ifdef HAVE_OPENCL
-	struct gforscale_kernel_config_t* config = l->config;
+	struct kernelgen_kernel_config_t* config = l->config;
 
 	int compare = config->compare;
 
 	// Being quiet optimistic initially...
-	gforscale_status_t result;
+	kernelgen_status_t result;
 	result.value = CL_SUCCESS;
 	result.runmode = l->runmode;
 
@@ -62,28 +62,28 @@ gforscale_status_t gforscale_parse_modsyms_opencl(
 			int fd = open(filename, O_RDONLY);
 			if (fd < 0)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot open file %s\n", filename);
-				result.value = gforscale_error_not_found;
+				result.value = kernelgen_error_not_found;
 				goto finish;
 			}
 
 			if (elf_version(EV_CURRENT) == EV_NONE)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"ELF library initialization failed: %s\n",
 					elf_errmsg(-1));
-				result.value = gforscale_initialization_failed;
+				result.value = kernelgen_initialization_failed;
 				goto finish;
 			}
 
 			e = elf_begin(fd, ELF_C_READ, NULL);
 			if (!e)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"elf_begin() failed for %s: %s\n",
 					filename, elf_errmsg(-1));
-				result.value = gforscale_initialization_failed;
+				result.value = kernelgen_initialization_failed;
 				goto finish;
 			}
 
@@ -92,10 +92,10 @@ gforscale_status_t gforscale_parse_modsyms_opencl(
 			{
 				if (!gelf_getshdr(scn, &shdr))
 				{
-					gforscale_print_error(gforscale_launch_verbose,
+					kernelgen_print_error(kernelgen_launch_verbose,
 						"gelf_getshdr() failed for %s: %s\n",
 						filename, elf_errmsg(-1));
-					result.value = gforscale_initialization_failed;
+					result.value = kernelgen_initialization_failed;
 					goto finish;
 				}
 
@@ -107,10 +107,10 @@ gforscale_status_t gforscale_parse_modsyms_opencl(
 					symbols = elf_getdata(scn, NULL);
 					if (!symbols)
 					{
-						gforscale_print_error(gforscale_launch_verbose,
+						kernelgen_print_error(kernelgen_launch_verbose,
 							"elf_getdata() failed for %s: %s\n",
 							filename, elf_errmsg(-1));
-						result.value = gforscale_initialization_failed;
+						result.value = kernelgen_initialization_failed;
 						goto finish;
 					}
 					break;
@@ -119,10 +119,10 @@ gforscale_status_t gforscale_parse_modsyms_opencl(
 
 			if (!scn)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot find valid sections in %s\n",
 					filename);
-				result.value = gforscale_initialization_failed;
+				result.value = kernelgen_initialization_failed;
 				goto finish;
 			}
 		}
@@ -130,7 +130,7 @@ gforscale_status_t gforscale_parse_modsyms_opencl(
 		// Fill used modules symbols array.
 		for (int i = 0, offset = 0; i < config->nmodsyms; i++)
 		{
-			struct gforscale_kernel_symbol_t* dep = l->deps + i;
+			struct kernelgen_kernel_symbol_t* dep = l->deps + i;
 			dep->index = config->nargs + i;
 		
 			// Assign each kernel dependency with one memory
@@ -178,7 +178,7 @@ gforscale_status_t gforscale_parse_modsyms_opencl(
 				// If symbol is allocatable, submit its data pointer
 				// memory region for mapping.
 				dep->mref = l->regs + l->deps_nregions + l->args_nregions;
-				struct gforscale_memory_region_t* reg = dep->mref;
+				struct kernelgen_memory_region_t* reg = dep->mref;
 		
 				// Pin region to the parent kernel argument.
 				reg->symbol = dep;
@@ -210,9 +210,9 @@ gforscale_status_t gforscale_parse_modsyms_opencl(
 
 				if (!symname)
 				{
-					gforscale_print_error(gforscale_launch_verbose,
+					kernelgen_print_error(kernelgen_launch_verbose,
 						"Cannot determine symbol name for address %p\n", dep->desc);
-					result.value = gforscale_error_not_found;
+					result.value = kernelgen_error_not_found;
 					goto finish;
 				}
 
@@ -221,18 +221,18 @@ gforscale_status_t gforscale_parse_modsyms_opencl(
 				strcpy(dep->name, symname);
 			}
 
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"dep \"%s\" ref = %p, size = %zu, desc = %p\n",
 				dep->name, dep->sref, dep->size, dep->desc);
 			
 			if (compare || dep->allocatable)
 			{
-				gforscale_print_debug(gforscale_launch_verbose,
+				kernelgen_print_debug(kernelgen_launch_verbose,
 					"dep \"%s\" ref = %p, size = %zu duplicated to %p for results comparison\n",
 					dep->name, dep->sref, dep->size, dep->ref);
 			}
 
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"found module symbol %s, size = %zu at address %p\n",
 				dep->name, dep->desc_size, dep->desc);
 
@@ -253,13 +253,13 @@ finish:
 	if (e) elf_end(e);
 	if (fd >= 0) close(fd);
 	
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #else
-	gforscale_status_t result;
-	result.value = gforscale_error_not_implemented;
+	kernelgen_status_t result;
+	result.value = kernelgen_error_not_implemented;
 	result.runmode = l->runmode;
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #endif
 }

@@ -34,12 +34,12 @@
 extern "C"
 #endif
 
-gforscale_status_t gforscale_parse_modsyms_cuda(
-	struct gforscale_launch_config_t* l,
+kernelgen_status_t kernelgen_parse_modsyms_cuda(
+	struct kernelgen_launch_config_t* l,
 	int* nargs, va_list list)
 {
 #ifdef HAVE_CUDA
-	struct gforscale_kernel_config_t* config = l->config;
+	struct kernelgen_kernel_config_t* config = l->config;
 
 	// Check with selector config for entire kernel. If it is
 	// requested to be executed both on host and device, enable
@@ -51,7 +51,7 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 	int compare = config->compare;
 
 	// Being quiet optimistic initially...
-	gforscale_status_t result;
+	kernelgen_status_t result;
 	result.value = cudaSuccess;
 	result.runmode = l->runmode;
 
@@ -73,28 +73,28 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 			int fd = open(filename, O_RDONLY);
 			if (fd < 0)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot open file %s\n", filename);
-				result.value = gforscale_error_not_found;
+				result.value = kernelgen_error_not_found;
 				goto finish;
 			}
 
 			if (elf_version(EV_CURRENT) == EV_NONE)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"ELF library initialization failed: %s\n",
 					elf_errmsg(-1));
-				result.value = gforscale_initialization_failed;
+				result.value = kernelgen_initialization_failed;
 				goto finish;
 			}
 
 			e = elf_begin(fd, ELF_C_READ, NULL);
 			if (!e)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"elf_begin() failed for %s: %s\n",
 					filename, elf_errmsg(-1));
-				result.value = gforscale_initialization_failed;
+				result.value = kernelgen_initialization_failed;
 				goto finish;
 			}
 
@@ -103,10 +103,10 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 			{
 				if (!gelf_getshdr(scn, &shdr))
 				{
-					gforscale_print_error(gforscale_launch_verbose,
+					kernelgen_print_error(kernelgen_launch_verbose,
 						"gelf_getshdr() failed for %s: %s\n",
 						filename, elf_errmsg(-1));
-					result.value = gforscale_initialization_failed;
+					result.value = kernelgen_initialization_failed;
 					goto finish;
 				}
 
@@ -118,10 +118,10 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 					symbols = elf_getdata(scn, NULL);
 					if (!symbols)
 					{
-						gforscale_print_error(gforscale_launch_verbose,
+						kernelgen_print_error(kernelgen_launch_verbose,
 							"elf_getdata() failed for %s: %s\n",
 							filename, elf_errmsg(-1));
-						result.value = gforscale_initialization_failed;
+						result.value = kernelgen_initialization_failed;
 						goto finish;
 					}
 					break;
@@ -130,10 +130,10 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 
 			if (!scn)
 			{
-				gforscale_print_error(gforscale_launch_verbose,
+				kernelgen_print_error(kernelgen_launch_verbose,
 					"Cannot find valid sections in %s\n",
 					filename);
-				result.value = gforscale_initialization_failed;
+				result.value = kernelgen_initialization_failed;
 				goto finish;
 			}
 		}
@@ -141,7 +141,7 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 		// Fill used modules symbols array.
 		for (int i = 0; i < config->nmodsyms; i++)
 		{
-			struct gforscale_kernel_symbol_t* dep = l->deps + i;
+			struct kernelgen_kernel_symbol_t* dep = l->deps + i;
 			dep->index = config->nargs + i;
 		
 			// Assign each kernel dependency with one memory
@@ -189,7 +189,7 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 				// If symbol is allocatable, submit its data pointer
 				// memory region for mapping.
 				dep->mref = l->regs + l->deps_nregions + l->args_nregions;
-				struct gforscale_memory_region_t* reg = dep->mref;
+				struct kernelgen_memory_region_t* reg = dep->mref;
 		
 				// Pin region to the parent kernel argument.
 				reg->symbol = dep;
@@ -232,9 +232,9 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 
 				if (!symname)
 				{
-					gforscale_print_error(gforscale_launch_verbose,
+					kernelgen_print_error(kernelgen_launch_verbose,
 						"Cannot determine symbol name for address %p\n", dep->desc);
-					result.value = gforscale_error_not_found;
+					result.value = kernelgen_error_not_found;
 					goto finish;
 				}
 
@@ -247,18 +247,18 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 				dep->name[strlen(dep->name)] = '\0';
 			}
 
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"dep \"%s\" ref = %p, size = %zu, desc = %p\n",
 				dep->name, dep->sref, dep->size, dep->desc);
 			
 			if (compare || dep->allocatable)
 			{
-				gforscale_print_debug(gforscale_launch_verbose,
+				kernelgen_print_debug(kernelgen_launch_verbose,
 					"dep \"%s\" ref = %p, size = %zu duplicated to %p for results comparison\n",
 					dep->name, dep->sref, dep->size, dep->ref);
 			}
 
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"found module symbol %s at address %p\n", dep->name, dep->desc);
 
 			if (!l->deps_init)
@@ -270,14 +270,14 @@ gforscale_status_t gforscale_parse_modsyms_cuda(
 				result.value = cudaGetSymbolAddress(&dep->dev_desc, dep->name);
 				if (result.value != cudaSuccess)
 				{
-					gforscale_print_error(gforscale_launch_verbose,
+					kernelgen_print_error(kernelgen_launch_verbose,
 						"Cannot get address of symbol \"%s\" on device, status = %d: %s\n",
-						dep->name, result.value, gforscale_get_error_string(result));
+						dep->name, result.value, kernelgen_get_error_string(result));
 					goto finish;
 				}
 			}
 
-			gforscale_print_debug(gforscale_launch_verbose,
+			kernelgen_print_debug(kernelgen_launch_verbose,
 				"found module symbol %s device counterpart at address %p, size = %zu\n",
 				dep->name, dep->dev_desc, dep->size);
 		}
@@ -291,13 +291,13 @@ finish:
 	if (e) elf_end(e);
 	if (fd >= 0) close(fd);
 
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #else
-	gforscale_status_t result;
-	result.value = gforscale_success;
+	kernelgen_status_t result;
+	result.value = kernelgen_success;
 	result.runmode = l->runmode;
-	gforscale_set_last_error(result);
+	kernelgen_set_last_error(result);
 	return result;
 #endif
 }

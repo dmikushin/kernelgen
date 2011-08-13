@@ -23,7 +23,7 @@
 #include <sys/stat.h>
 
 // Load contents of the specified text file.
-int gforscale_load_source(const char* filename, char** source, size_t* szsource)
+int kernelgen_load_source(const char* filename, char** source, size_t* szsource)
 {
 	if (!filename)
 	{
