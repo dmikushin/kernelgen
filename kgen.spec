@@ -7,7 +7,7 @@ Summary:        Compiler with automatic generation of GPU kernels from Fortran s
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.5-r177629.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r375.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r376.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -42,7 +42,7 @@ tar -xf gcc-4.5-r177629.tar.gz
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf dragonegg-r136347.tar.gz
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf kernelgen-r375.tar.gz
+tar -xf kernelgen-r376.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
 tar -xf cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
@@ -1199,6 +1199,8 @@ rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/gpl.7
 /opt/kgen/libexec/gcc/x86_64-unknown-linux-gnu/4.5.4/f951
 /opt/kgen/lib/libcloog-isl.so.2.0.0
 /opt/kgen/lib/libkernelgen.so
+/opt/kgen/lib/libcloog-isl.so
+/opt/kgen/lib/libcloog-isl.so.2
 /opt/kgen/lib/libisl.so
 /opt/kgen/lib/libisl.so.7
 /opt/kgen/lib/libisl.so.7.0.0
