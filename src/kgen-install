@@ -53,6 +53,7 @@ if ($ARCH eq "64")
 my(@scripts) = (
 	"kgen",
 	"kgen-exec",
+	"kgen-ir",
 	"kgen-cpu",
 	"kgen-cuda",
 	"kgen-opencl",
@@ -87,6 +88,7 @@ foreach $script (@scripts)
 my(@binaries) = (
 	"g95xml_tree/g95xml-tree",
 	"g95xml_refids/g95xml-refids",
+	"kgen-embed/kgen-ir-embed",
 	"kgen-embed/kgen-cuda-embed",
 	"kgen-embed/kgen-opencl-embed");
 foreach $binary (@binaries)

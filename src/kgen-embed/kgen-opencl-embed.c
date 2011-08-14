@@ -228,25 +228,7 @@ int main(int argc, char* argv[])
 			for (int i = strlen(symbol) - 1; i >= 0; i--)
 				if (symbol[i] == '.') symbol[i] = '\0';
 		}
-
-		// Create the kernel source symbol.
-		const char* fmtsymsource = "%s_source";
-		size_t szsymsource = snprintf(NULL, 0, fmtsymsource, symbol);
-		if (szsymsource <= 0)
-		{
-			fprintf(stderr, "Cannot determine the length of kernel source symbol\n");
-			free(options);
-			free(sources[i]);
-			free(input);
-			free(sources);
-			free(binary);
-			free(symbol);
-			return 1;
-		}
-		szsymsource++;
-		char* symsource = (char*)malloc(szsymsource);
-		sprintf(symsource, fmtsymsource, symbol);
-		
+	
 		// Create the kernel binary symbol.
 		const char* fmtsymbinary = "%s_binary";
 		size_t szsymbinary = snprintf(NULL, 0, fmtsymbinary, symbol);
@@ -259,7 +241,6 @@ int main(int argc, char* argv[])
 			free(sources);
 			free(binary);
 			free(symbol);
-			free(symsource);
 			return 1;			
 		}
 		szsymbinary++;
@@ -267,8 +248,7 @@ int main(int argc, char* argv[])
 		sprintf(symbinary, fmtsymbinary, symbol);
 		
 		// Store OpenCL program binary in the output object.
-		int status = kernelgen_elf_write_many(output, &ehdr, 2,
-			symsource, sources[i], szsource,
+		int status = kernelgen_elf_write_many(output, &ehdr, 1,
 			symbinary, binary, szbinary);
 		if (status)
 		{
@@ -278,7 +258,6 @@ int main(int argc, char* argv[])
 			free(sources);
 			free(binary);
 			free(symbol);
-			free(symsource);
 			free(symbinary);
 			return status;
 		}
@@ -287,7 +266,6 @@ int main(int argc, char* argv[])
 		free(sources[i]);
 		free(binary);
 		free(symbol);
-		free(symsource);
 		free(symbinary);
 	}
 

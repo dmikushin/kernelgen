@@ -25,6 +25,7 @@ require "KGEN_PREFIX/bin/kgen-exec";
 
 use Term::ANSIColor qw(:constants);
 
+require "KGEN_PREFIX/bin/kgen-ir";
 require "KGEN_PREFIX/bin/kgen-cpu";
 require "KGEN_PREFIX/bin/kgen-cuda";
 require "KGEN_PREFIX/bin/kgen-opencl";
@@ -76,6 +77,11 @@ sub kgen()
 	# LLVM optimizer performing passes on LLVM bytecode
 	#
 	my($llvm_opt) = "LLVM_BIN_PREFIXopt";
+
+	#
+	# IR code embedder.
+	#
+	my($ir_embed) = "LLVM_BIN_PREFIXkgen-ir-embed";
 	
 	#
 	# Kernelgen source-to-source transformer.
@@ -692,7 +698,7 @@ sub kgen()
 
 			if (kgen_cpu($kernelgen_c_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
-				$llc_compiler, $cpu_compiler, $_[3],
+				$ir_embed, $llc_compiler, $cpu_compiler, $_[3],
 				\$complog, \$errlog))
 			{
 				goto kernel_finish;
@@ -716,7 +722,7 @@ sub kgen()
 
 			if (kgen_cuda($kernelgen_cuda_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
-				$llc_compiler, $cuda_compiler, $_[3],
+				$ir_embed, $llc_compiler, $cuda_compiler, $_[3],
 				\$complog, \$errlog))
 			{
 				goto kernel_finish;
@@ -740,7 +746,7 @@ sub kgen()
 
 			if (kgen_opencl($kernelgen_opencl_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
-				$llc_compiler, $opencl_compiler, $_[3],
+				$ir_embed, $llc_compiler, $opencl_compiler, $_[3],
 				\$complog, \$errlog))
 			{
 				goto kernel_finish;
@@ -792,14 +798,17 @@ sub kgen()
 			if (grep(/cpu/, @targets) and (-e "$kernelgen_c_device_filename.o"))
 			{
 				push(@kernel_objects, "$kernelgen_c_device_filename.o");
+				push(@kernel_objects, "$kernelgen_c_device_filename.ir.o");
 			}
 			if (grep(/cuda/, @targets) and (-e "$kernelgen_cuda_device_filename.o"))
 			{
 				push(@kernel_objects, "$kernelgen_cuda_device_filename.o");
+				push(@kernel_objects, "$kernelgen_cuda_device_filename.ir.o");
 			}
 			if (grep(/opencl/, @targets) and (-e "$kernelgen_opencl_device_filename.o"))
 			{
 				push(@kernel_objects, "$kernelgen_opencl_device_filename.o");
+				push(@kernel_objects, "$kernelgen_opencl_device_filename.ir.o");
 			}
 			push(@objects, @kernel_objects);
 		}

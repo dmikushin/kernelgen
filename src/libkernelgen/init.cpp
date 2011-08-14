@@ -179,7 +179,7 @@ void kernelgen_kernel_init(
 
 		// Build device-specific kernel source symbol name.
 		length = snprintf(NULL, 0, kernel_name_fmt,
-			l->kernel_name, "source");
+			l->kernel_name, "ir");
 		if (length < 0)
 		{
 			// TODO: release resources!
@@ -187,9 +187,16 @@ void kernelgen_kernel_init(
 		length++;
 		char* kernel_source_name = (char*)malloc(length);
 		sprintf(kernel_source_name, kernel_name_fmt,
-			l->kernel_name, "source");
+			l->kernel_name, "ir");
 
 		// Build device-specific kernel binary symbol name.
+		length = snprintf(NULL, 0, kernel_name_fmt,
+			l->kernel_name, "binary");
+		if (length < 0)
+		{
+			// TODO: release resources!
+		}
+		length++;
 		char* kernel_binary_name = (char*)malloc(length);
 		sprintf(kernel_binary_name, kernel_name_fmt,
 			l->kernel_name, "binary");

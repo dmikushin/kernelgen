@@ -23,7 +23,10 @@ include ../../makefile.in
 
 KERNELGEN = ../libkernelgen
 
-all: kgen-cuda-embed kgen-opencl-embed
+all: kgen-ir-embed kgen-cuda-embed kgen-opencl-embed
+
+kgen-ir-embed: kgen-ir-embed.c
+	$(CC) -g -std=c99 -D_GNU_SOURCE -I$(KERNELGEN) $< -o $@ -L$(KERNELGEN)/$(ARCH) -lkernelgen
 
 kgen-cuda-embed: kgen-cuda-embed.c
 	$(CC) -g -std=c99 $< -o $@
@@ -32,4 +35,4 @@ kgen-opencl-embed: kgen-opencl-embed.c
 	$(CC) -g -std=c99 -D_GNU_SOURCE -I$(KERNELGEN) $< -o $@ -L$(KERNELGEN)/$(ARCH) -lkernelgen $(OPENCL_LIBPATH) -lOpenCL -lelf
 
 clean:
-	rm -rf kgen-cuda-embed kgen-opencl-embed *.o
+	rm -rf kgen-ir-embed kgen-cuda-embed kgen-opencl-embed *.o
