@@ -1,8 +1,8 @@
-LLVM = /opt/llvm
+PREFIX = /opt/kgen
 FCOMP = gfortran
-DRAGONEGG_FCOMP = $(LLVM)/dragonegg/bin/dragonegg-gfortran -fplugin=$(LLVM)/dragonegg/lib64/dragonegg.so
-OPT = $(LLVM)/bin/opt -load $(LLVM)/lib/LLVMPolly.so
-LLC = $(LLVM)/bin/llc
+DRAGONEGG_FCOMP = dragonegg-gfortran -fplugin=$(PREFIX)/lib64/dragonegg.so
+OPT = $(PREFIX)/bin/opt -load $(PREFIX)/lib/LLVMPolly.so
+LLC = $(PREFIX)/bin/llc
 #PRINT = -DPRINT
 
 .PNONY: \
