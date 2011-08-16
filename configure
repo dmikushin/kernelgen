@@ -2,10 +2,10 @@
 
 DIR=`pwd`
 
-CC=`which gcc`
-CXX=`which g++`
-FC=`which gfortran`
-NVCC=`which nvcc`
+CC=`which gcc 2>/dev/null`
+CXX=`which g++ 2>/dev/null`
+FC=`which gfortran 2>/dev/null`
+NVCC=`which nvcc 2>/dev/null`
 
 HAVE_NVIDIA_OPENCL=0
 HAVE_AMD_OPENCL=0
@@ -34,7 +34,7 @@ if [ "$CXX" = "" ]; then
   echo "Please check your compiler"
   exit
 else
-  echo "CXX=$CXX -I$DIR/../include" >>makefile.in
+  echo "CXX=$CXX -I$DIR/include" >>makefile.in
 fi
 
 if [ "$FC" = "" ]; then
@@ -42,22 +42,22 @@ if [ "$FC" = "" ]; then
   echo "Please check your compiler"
   exit
 else
-  echo "FC=$FC -I$DIR/../include" >>makefile.in
+  echo "FC=$FC -I$DIR/include" >>makefile.in
 fi
 
 if [ "$NVCC" = "" ]; then
   echo "NVIDIA CUDA compiler is not available"
   echo "CUDA support will be disabled"
 else
-  echo "NVCC=$NVCC -I$DIR/../include" >>makefile.in
+  echo "NVCC=$NVCC -I$DIR/include" >>makefile.in
   HAVE_NVIDIA_OPENCL=1
 fi
 
 if [ "$HAVE_NVIDIA_OPENCL" = "0" ]; then
-  if [ -f /usr/local/ati-sdk/lib/x86_64/libOpenCL.so ]; then
+  if [ -f /opt/AMDAPP/lib/x86_64/libOpenCL.so ]; then
     echo "HAVE_OPENCL=1" >>makefile.in
-    OPENCL_LIBPATH32=-L/usr/local/ati-sdk/lib/x86
-    OPENCL_LIBPATH64=-L/usr/local/ati-sdk/lib/x86_64/
+    OPENCL_LIBPATH32=-L/opt/AMDAPP/lib/x86
+    OPENCL_LIBPATH64=-L/opt/AMDAPP/lib/x86_64/
     HAVE_AMD_OPENCL=1
   fi
 fi
@@ -177,6 +177,8 @@ if [ "$HAVE_NVIDIA_OPENCL" = "0" ] && [ "$HAVE_AMD_OPENCL" = "0" ]; then
   echo "HAVE_NVIDIA_OPENCL=0" >>makefile.in
   echo "HAVE_AMD_OPENCL=0" >>makefile.in
   echo "HAVE_OPENCL=0" >>makefile.in
+  echo "OpenCL library is not available"
+  echo "OpenCL support will be disabled"
 else
   echo "HAVE_OPENCL=1" >>makefile.in
 fi

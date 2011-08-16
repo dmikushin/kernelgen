@@ -85,7 +85,7 @@ endif
 
 ifeq ($(HAVE_OPENCL), 1)
 32/libkernelgen.so: $(OBJECTS32)
-	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt -lOpenCL
+	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt $(OPENCL_LIBPATH32) -lOpenCL
 else
 32/libkernelgen.so: $(OBJECTS32)
 	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt

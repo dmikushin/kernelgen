@@ -89,8 +89,13 @@ my(@binaries) = (
 	"g95xml_tree/g95xml-tree",
 	"g95xml_refids/g95xml-refids",
 	"kgen-embed/kgen-ir-embed",
-	"kgen-embed/kgen-cuda-embed",
 	"kgen-embed/kgen-opencl-embed");
+
+if (-e "kgen-embed/kgen-cuda-embed")
+{
+	push(@binaries, "kgen-embed/kgen-cuda-embed");
+}
+
 foreach $binary (@binaries)
 {
 	`cp $binary $KGEN_BUILD_PREFIX\/bin\/`;

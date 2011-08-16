@@ -23,7 +23,15 @@ include ../../makefile.in
 
 KERNELGEN = ../libkernelgen
 
+ifeq ($(HAVE_CUDA), 1)
 all: kgen-ir-embed kgen-cuda-embed kgen-opencl-embed
+else
+ifeq ($(HAVE_OPENCL), 1)
+all: kgen-ir-embed kgen-opencl-embed
+else
+all: kgen-ir-embed
+endif
+endif
 
 kgen-ir-embed: kgen-ir-embed.c
 	$(CC) -g -std=c99 -D_GNU_SOURCE -I$(KERNELGEN) $< -o $@ -L$(KERNELGEN)/$(ARCH) -lkernelgen
