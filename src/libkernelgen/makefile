@@ -81,17 +81,22 @@ ifeq ($(HAVE_OPENCL), 1)
 CC32 += -DHAVE_OPENCL
 CXX32 += -DHAVE_OPENCL
 NVCC32 += -DHAVE_OPENCL
+CC64 += -DHAVE_OPENCL
+CXX64 += -DHAVE_OPENCL
+NVCC64 += -DHAVE_OPENCL
 endif
 
 ifeq ($(HAVE_OPENCL), 1)
 32/libkernelgen.so: $(OBJECTS32)
 	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt $(OPENCL_LIBPATH32) -lOpenCL
+64/libkernelgen.so: $(OBJECTS64)
+	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt $(OPENCL_LIBPATH64) -lOpenCL
 else
 32/libkernelgen.so: $(OBJECTS32)
 	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt
-endif
 64/libkernelgen.so: $(OBJECTS64)
 	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt
+endif
 
 32/init.o: init.cpp init.h kernelgen.h kernelgen_int.h
 	$(NVCC32) $(NVFLAGS) -c $< -o $@

@@ -1,5 +1,14 @@
---- llvm/lib/Target/CBackend/CBackend.cpp	2011-08-17 18:40:55.881490805 +0400
-+++ llvm/lib/Target/CBackend/CBackend.cpp	2011-08-17 04:51:51.519672551 +0400
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-19 22:08:00.939238011 +0400
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-19 21:30:01.951332125 +0400
+@@ -363,7 +363,7 @@
+ }
+ 
+ std::string CWriter::getStructName(StructType *ST) {
+-  if (!ST->isLiteral() && !ST->getName().empty())
++  if (!ST->isAnonymous() && !ST->getName().empty())
+     return CBEMangle("l_"+ST->getName().str());
+   
+   return "l_unnamed_" + utostr(UnnamedStructIDs[ST]);
 @@ -520,7 +520,7 @@
      }
      Out << '}';
@@ -73,14 +82,17 @@
  // PrintEscapedString - Print each character of the specified string, escaping
  // it if it is not printable or if it is an escape char.
  static void PrintEscapedString(const std::string &Str, raw_ostream &Out) {
-@@ -1696,17 +1737,26 @@
+@@ -1696,17 +1737,29 @@
        break;
      }
    }
 +  
-+  // OpenCL pragmas
++  // In case of OpenCL be C++, do not define size_t, enable double
++  // extension by request.
 +  Out << "#ifdef __OPENCL_DEVICE_FUNC__\n";
++  Out << "#ifdef __OPENCL_HAVE_DOUBLE__\n";
 +  Out << "#pragma OPENCL EXTENSION cl_khr_fp64: enable\n";
++  Out << "#endif\n";
 +  Out << "#define __GNUG__\n";
 +  Out << "#define size_t size_t\n";
 +  Out << "#endif\n\n";
@@ -101,7 +113,7 @@
  
        << "\n\n/* Support for floating point constants */\n"
        << "typedef unsigned long long ConstantDoubleTy;\n"
-@@ -1751,12 +1801,19 @@
+@@ -1751,12 +1804,19 @@
    // Global variable declarations...
    if (!M.global_empty()) {
      Out << "\n/* External Global Variable Declarations */\n";
@@ -122,7 +134,7 @@
        else if (I->hasDLLImportLinkage())
          Out << "__declspec(dllimport) ";
        else
-@@ -1771,14 +1828,24 @@
+@@ -1771,14 +1831,24 @@
        if (I->hasExternalWeakLinkage())
           Out << " __EXTERNAL_WEAK__";
        Out << ";\n";
@@ -147,7 +159,7 @@
  
    // Store the intrinsics which will be declared/defined below.
    SmallVector<const Function*, 8> intrinsicsToDefine;
-@@ -1802,6 +1869,12 @@
+@@ -1802,6 +1872,12 @@
          I->getName() == "longjmp" || I->getName() == "_setjmp")
        continue;
  
@@ -160,7 +172,7 @@
      if (I->hasExternalWeakLinkage())
        Out << "extern ";
      printFunctionSignature(I, true);
-@@ -1820,6 +1893,9 @@
+@@ -1820,6 +1896,9 @@
        Out << " LLVM_ASM(\"" << I->getName().substr(1) << "\")";
  
      Out << ";\n";
@@ -170,7 +182,7 @@
    }
  
    // Output the global variable declarations
-@@ -1835,7 +1911,9 @@
+@@ -1835,7 +1914,9 @@
          if (I->hasLocalLinkage())
            Out << "static ";
          else
@@ -181,7 +193,7 @@
  
          // Thread Local Storage
          if (I->isThreadLocal())
-@@ -1855,6 +1933,9 @@
+@@ -1855,6 +1936,9 @@
          if (I->hasHiddenVisibility())
            Out << " __HIDDEN__";
          Out << ";\n";
@@ -191,7 +203,7 @@
        }
    }
  
-@@ -1868,6 +1949,8 @@
+@@ -1868,6 +1952,8 @@
          if (getGlobalVariableClass(I))
            continue;
  
@@ -200,7 +212,7 @@
          if (I->hasLocalLinkage())
            Out << "static ";
          else if (I->hasDLLImportLinkage())
-@@ -1918,6 +2001,7 @@
+@@ -1918,6 +2004,7 @@
            }
          }
          Out << ";\n";
@@ -208,7 +220,7 @@
        }
    }
  
-@@ -1926,34 +2010,20 @@
+@@ -1926,34 +2013,20 @@
  
    // Emit some helper functions for dealing with FCMP instruction's
    // predicates
@@ -257,7 +269,7 @@
  
    // Emit definitions of the intrinsics.
    for (SmallVector<const Function*, 8>::const_iterator
-@@ -2002,6 +2072,7 @@
+@@ -2002,6 +2075,7 @@
    if (FPC->getType() == Type::getDoubleTy(FPC->getContext())) {
      double Val = FPC->getValueAPF().convertToDouble();
      uint64_t i = FPC->getValueAPF().bitcastToAPInt().getZExtValue();
@@ -265,7 +277,7 @@
      Out << "static const ConstantDoubleTy FPConstant" << FPCounter++
      << " = 0x" << utohexstr(i)
      << "ULL;    /* " << Val << " */\n";
-@@ -2009,6 +2080,7 @@
+@@ -2009,6 +2083,7 @@
      float Val = FPC->getValueAPF().convertToFloat();
      uint32_t i = (uint32_t)FPC->getValueAPF().bitcastToAPInt().
      getZExtValue();
@@ -273,7 +285,7 @@
      Out << "static const ConstantFloatTy FPConstant" << FPCounter++
      << " = 0x" << utohexstr(i)
      << "U;    /* " << Val << " */\n";
-@@ -2016,6 +2088,7 @@
+@@ -2016,6 +2091,7 @@
      // api needed to prevent premature destruction
      APInt api = FPC->getValueAPF().bitcastToAPInt();
      const uint64_t *p = api.getRawData();
@@ -281,7 +293,7 @@
      Out << "static const ConstantFP80Ty FPConstant" << FPCounter++
      << " = { 0x" << utohexstr(p[0])
      << "ULL, 0x" << utohexstr((uint16_t)p[1]) << ",{0,0,0}"
-@@ -2024,6 +2097,7 @@
+@@ -2024,6 +2100,7 @@
               FPC->getType() == Type::getFP128Ty(FPC->getContext())) {
      APInt api = FPC->getValueAPF().bitcastToAPInt();
      const uint64_t *p = api.getRawData();
@@ -289,7 +301,30 @@
      Out << "static const ConstantFP128Ty FPConstant" << FPCounter++
      << " = { 0x"
      << utohexstr(p[0]) << ", 0x" << utohexstr(p[1])
-@@ -2247,9 +2321,9 @@
+@@ -2044,7 +2121,13 @@
+   Out << "  unsigned int Int32;\n";
+   Out << "  unsigned long long Int64;\n";
+   Out << "  float Float;\n";
++  Out << "#ifdef __OPENCL_DEVICE_FUNC__\n";
++  Out << "#ifdef __OPENCL_HAVE_DOUBLE__\n";
++  Out << "  double Double;\n";
++  Out << "#endif\n";
++  Out << "#else\n";
+   Out << "  double Double;\n";
++  Out << "#endif\n";
+   Out << "} llvmBitCastUnion;\n";
+ 
+   // Get all of the struct types used in the module.
+@@ -2062,7 +2145,7 @@
+   for (unsigned i = 0, e = StructTypes.size(); i != e; ++i) {
+     StructType *ST = StructTypes[i];
+ 
+-    if (ST->isLiteral() || ST->getName().empty())
++    if (ST->isAnonymous() || ST->getName().empty())
+       UnnamedStructIDs[ST] = NextTypeID++;
+ 
+     std::string Name = getStructName(ST);
+@@ -2247,9 +2330,9 @@
    // Finish printing arguments... if this is a vararg function, print the ...,
    // unless there are no known types, in which case, we just emit ().
    //
@@ -301,7 +336,7 @@
      FunctionInnards << "void"; // ret() -> ret(void) in C.
    }
    FunctionInnards << ')';
-@@ -3477,9 +3551,9 @@
+@@ -3477,9 +3560,9 @@
    bool IsUnaligned = Alignment &&
      Alignment < TD->getABITypeAlignment(OperandType);
  
@@ -313,7 +348,7 @@
      Out << "((";
      if (IsUnaligned)
        Out << "struct __attribute__ ((packed, aligned(" << Alignment << "))) {";
-@@ -3490,15 +3564,15 @@
+@@ -3490,15 +3573,15 @@
        Out << "*";
      }
      Out << ")";

@@ -189,7 +189,13 @@ sub kgen_opencl
 	my($code) = "" . do { local $/; <$kernelgen_fh> };
 	close($kernelgen_fh);
 
-	#$code =~ s/cl_khr_fp64/cl_amd_fp64/;
+	#
+	# Double extension is named differently in case of AMD OpenCL.
+	#
+	if ("CUDA_PREFIX" eq "undefined")
+	{
+		$code =~ s/cl_khr_fp64/cl_amd_fp64/;
+	}
 
 	#
 	# Add structure emulating global variables to kernel

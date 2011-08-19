@@ -1,8 +1,11 @@
 # Release name
 %define release opencl
 
+# Rebuild everything or only kernelgen
+%define fullrepack 1
+
 # The number of parallel compilation jobs
-%define njobs 1
+%define njobs 4
 
 AutoReq: 0
 
@@ -13,7 +16,7 @@ Summary:        Compiler with automatic generation of GPU kernels from Fortran s
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.5-r177629.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r379.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r381.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -28,8 +31,8 @@ Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
 URL:            https://hpcforge.org/projects/kernelgen/
 
-BuildRequires:  gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
-Requires:       gcc-gfortran perl elfutils-libelf libffi gmp mpfr libmpc perl-IPC-Run3 perl-XML-LibXSLT
+BuildRequires:  gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
+Requires:       gcc-c++ gcc-gfortran perl elfutils-libelf libffi gmp mpfr libmpc perl-IPC-Run3 perl-XML-LibXSLT
 
 Packager:       Dmitry Mikushin <dmikushin@nvidia.com>
 
@@ -38,31 +41,37 @@ KGen is a tool for automatic generation of GPU kernels from Fortran source code.
 
 
 %prep
-#rm -rf $RPM_BUILD_DIR/llvm
-#tar -xf $RPM_SOURCE_DIR/llvm-r136600.tar.gz
-#cd $RPM_BUILD_DIR/llvm/tools
-#tar -xf $RPM_SOURCE_DIR/polly-r137304.tar.gz
-#cd $RPM_BUILD_DIR
-#rm -rf $RPM_BUILD_DIR/gcc-4.5
-#tar -xf $RPM_SOURCE_DIR/gcc-4.5-r177629.tar.gz
+%if %fullrepack
+rm -rf $RPM_BUILD_DIR/llvm
+tar -xf $RPM_SOURCE_DIR/llvm-r136600.tar.gz
+cd $RPM_BUILD_DIR/llvm/tools
+tar -xf $RPM_SOURCE_DIR/polly-r137304.tar.gz
+cd $RPM_BUILD_DIR
+rm -rf $RPM_BUILD_DIR/gcc-4.5
+tar -xf $RPM_SOURCE_DIR/gcc-4.5-r177629.tar.gz
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r136347.tar.gz
-rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r379.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
 tar -xf $RPM_SOURCE_DIR/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
+%endif
+rm -rf $RPM_BUILD_DIR/kernelgen
+tar -xf $RPM_SOURCE_DIR/kernelgen-r381.tar.gz
 
-#%patch0 -p1
-#%patch1 -p1
-#%patch2 -p1
-#%patch3 -p1
-#%patch4 -p1
+
+%if %fullrepack
+%patch0 -p1
+%patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
 %patch5 -p1
+%endif
 
 
 %build
+%if %fullrepack
 cd $RPM_BUILD_DIR/cloog
 ./get_submodules.sh
 ./autogen.sh
@@ -74,17 +83,18 @@ cd $RPM_BUILD_DIR/scoplib-0.2.0
 ./configure --enable-mp-version --prefix=$RPM_BUILD_ROOT/opt/kgen
 make
 ln -s $RPM_BUILD_DIR/scoplib-0.2.0/source/.libs $RPM_BUILD_DIR/scoplib-0.2.0/lib
-#cd $RPM_BUILD_DIR/llvm
-#mkdir build
-#cp -rf include/ build/include/
-#cd build
-#../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kgen --enable-targets=host,cbe --with-cloog=$RPM_BUILD_DIR/cloog --with-isl=$RPM_BUILD_DIR/cloog/isl --with-scoplib=$RPM_BUILD_DIR/scoplib-0.2.0
-#make -j%{njobs}
-#cd $RPM_BUILD_DIR/gcc-4.5
-#mkdir build
-#cd build/
-#../configure --prefix=$RPM_BUILD_ROOT/opt/kgen --program-prefix=dragonegg- --enable-languages=fortran --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
-#make -j%{njobs}
+cd $RPM_BUILD_DIR/llvm
+mkdir build
+cp -rf include/ build/include/
+cd build
+../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kgen --enable-targets=host,cbe --with-cloog=$RPM_BUILD_DIR/cloog --with-isl=$RPM_BUILD_DIR/cloog/isl --with-scoplib=$RPM_BUILD_DIR/scoplib-0.2.0
+make -j%{njobs}
+cd $RPM_BUILD_DIR/gcc-4.5
+mkdir build
+cd build/
+../configure --prefix=$RPM_BUILD_ROOT/opt/kgen --program-prefix=dragonegg- --enable-languages=fortran --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
+make -j%{njobs}
+%endif
 cd $RPM_BUILD_DIR/kernelgen/trunk
 ./configure
 make src
@@ -99,11 +109,12 @@ cd $RPM_BUILD_DIR/llvm/build
 make install
 cd $RPM_BUILD_DIR/gcc-4.5/build
 make install
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgcc_s.so
+rm $RPM_BUILD_ROOT/opt/kgen/lib/libgcc_s.so.1
 cd $RPM_BUILD_DIR/dragonegg
+GCC=$RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gcc LLVM_CONFIG=$RPM_BUILD_ROOT/opt/kgen/bin/llvm-config make clean
 GCC=$RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gcc LLVM_CONFIG=$RPM_BUILD_ROOT/opt/kgen/bin/llvm-config make
 cp dragonegg.so $RPM_BUILD_ROOT/opt/kgen/lib64/
-cd $RPM_BUILD_DIR/kernelgen/trunk
-PREFIX=$RPM_BUILD_ROOT make install
 rm $RPM_BUILD_ROOT/opt/kgen/bin/bugpoint
 rm $RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-cpp
 rm $RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gcc
@@ -828,6 +839,7 @@ rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/limits.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/linux/a.out.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/syslimits.h
+rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/X11/Xw32defs.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/abmintrin.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ammintrin.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/avxintrin.h
@@ -1049,8 +1061,6 @@ rm $RPM_BUILD_ROOT/opt/kgen/lib/libLTO.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libLTO.so
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libcloog-isl.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libcloog-isl.la
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libgcc_s.so
-rm $RPM_BUILD_ROOT/opt/kgen/lib/libgcc_s.so.1
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libgfortran.a
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libgfortran.la
 rm $RPM_BUILD_ROOT/opt/kgen/lib/libgfortran.so
@@ -1162,6 +1172,8 @@ rm $RPM_BUILD_ROOT/opt/kgen/share/man/man1/tblgen.1
 rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/fsf-funding.7
 rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/gfdl.7
 rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/gpl.7
+cd $RPM_BUILD_DIR/kernelgen/trunk
+PREFIX=$RPM_BUILD_ROOT make install
 
 
 %clean
@@ -1183,7 +1195,7 @@ rm $RPM_BUILD_ROOT/opt/kgen/share/man/man7/gpl.7
 /opt/kgen/bin/kgen-ir-embed
 /opt/kgen/bin/kgen-cpu
 /opt/kgen/bin/kgen-cuda
-/opt/kgen/bin/kgen-cuda-embed
+#/opt/kgen/bin/kgen-cuda-embed
 /opt/kgen/bin/kgen-exec
 /opt/kgen/bin/kgen-transform
 /opt/kgen/bin/kgen-gfortran

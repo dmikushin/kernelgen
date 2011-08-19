@@ -28,6 +28,9 @@
 
 int main(int argc, char* argv[])
 {
+	kernelgen_status_t status;
+	status.runmode = KERNELGEN_RUNMODE_DEVICE_OPENCL;
+
 	if (argc < 2)
 	{
 		printf("KernelGen OpenCL kernels compiler CLI\n");
@@ -37,8 +40,9 @@ int main(int argc, char* argv[])
 	
 	// Take entire executable to clone some of its elf properties.
 	GElf_Ehdr ehdr;
-	if (kernelgen_elf_read_eheader("/proc/self/exe", &ehdr))
-		return 1;
+	status.value = kernelgen_elf_read_eheader("/proc/self/exe", &ehdr);
+	if (status.value != CL_SUCCESS)
+		return status.value;
 	
 	// Count the total length of command line arguments.
 	int szoptions = 0;
@@ -54,12 +58,12 @@ int main(int argc, char* argv[])
 	int nsources = 0;
 	char** sources = (char**)malloc(sizeof(char*) * argc);
 	char* output = NULL;
-	int output_param = 0;
+	int output_param = -1;
 	char* symbol = NULL;
 	for (int i = 1; i < argc; i++)
 	{
 		// Skip argument following -o.
-		if (output_param)
+		if (output_param != -1)
 		{
 			output_param = 0;
 			continue;
@@ -103,10 +107,11 @@ int main(int argc, char* argv[])
 
 	// Get OpenCL platform ID.
 	cl_platform_id id;
-	cl_int status = clGetPlatformIDs(1, &id, NULL);
-	if (status != CL_SUCCESS)
+	status.value = clGetPlatformIDs(1, &id, NULL);
+	if (status.value != CL_SUCCESS)
 	{
-		fprintf(stderr, "clGetPlatformIDs returned %d\n", (int)status);
+		fprintf(stderr, "clGetPlatformIDs returned %d: %s\n",
+			(int)status.value, kernelgen_get_error_string(status));
 		free(options);
 		free(sources);
 		return 1;
@@ -114,11 +119,12 @@ int main(int argc, char* argv[])
 
 	// Get OpenCL devices count.
 	int opencl_devices_count;
-	status = clGetDeviceIDs(id, CL_DEVICE_TYPE_ALL,
+	status.value = clGetDeviceIDs(id, CL_DEVICE_TYPE_ALL,
 		0, NULL, &opencl_devices_count);
-	if (status != CL_SUCCESS)
+	if (status.value != CL_SUCCESS)
 	{
-		fprintf(stderr, "clGetDeviceIDs returned %d\n", (int)status);
+		fprintf(stderr, "clGetDeviceIDs returned %d: %s\n",
+			(int)status.value, kernelgen_get_error_string(status));
 		free(options);
 		free(sources);
 		return 1;
@@ -133,11 +139,12 @@ int main(int argc, char* argv[])
 
 	// Get OpenCL devices.
 	cl_device_id device;
-	status = clGetDeviceIDs(id, CL_DEVICE_TYPE_ALL,
+	status.value = clGetDeviceIDs(id, CL_DEVICE_TYPE_ALL,
 		1, &device, NULL);
-	if (status != CL_SUCCESS)
+	if (status.value != CL_SUCCESS)
 	{
-		fprintf(stderr, "clGetDeviceIDs returned %d\n", (int)status);
+		fprintf(stderr, "clGetDeviceIDs returned %d: %s\n",
+			(int)status.value, kernelgen_get_error_string(status));
 		free(options);
 		free(sources);
 		return 1;
@@ -145,10 +152,11 @@ int main(int argc, char* argv[])
 	
 	// Create device context.
 	cl_context context = clCreateContext(
-		NULL, 1, &device, NULL, NULL, &status);
-	if (status != CL_SUCCESS)
+		NULL, 1, &device, NULL, NULL, &status.value);
+	if (status.value != CL_SUCCESS)
 	{
-		fprintf(stderr, "clCreateContext returned %d\n", (int)status);
+		fprintf(stderr, "clCreateContext returned %d: %s\n",
+			(int)status.value, kernelgen_get_error_string(status));
 		free(options);
 		free(sources);
 		return 1;
@@ -160,61 +168,84 @@ int main(int argc, char* argv[])
 		size_t szname = strlen(sources[i]);
 		char* input = (char*)malloc(sizeof(char) * (szname + 1));
 		strcpy(input, sources[i]);
-		
-		// TODO: generate output filename, if not set.
+
+		// Generate output filename, if not set.
+		if (output_param == -1)
+		{
+			output = (char*)malloc(sizeof(char*) * (szname + 1));
+			strcpy(output, input);
+			strcpy(output + szname - 2, "o");
+		}
 
 		size_t szsource = 0;
 		kernelgen_load_source(input, &sources[i], &szsource);
 
 		cl_program program = clCreateProgramWithSource(
-			context, 1, (const char**)&sources[i], &szsource, &status);
-		if (status != CL_SUCCESS)
+			context, 1, (const char**)&sources[i], &szsource, &status.value);
+		if (status.value != CL_SUCCESS)
 		{
-			fprintf(stderr, "clCreateProgramWithSource returned %d\n", (int)status);
+			fprintf(stderr, "clCreateProgramWithSource returned %d: %s\n",
+				(int)status.value, kernelgen_get_error_string(status));
 			free(options);
 			free(sources[i]);
 			free(input);
+			if (output_param == -1) free(output);
 			free(sources);
 			return 1;
 		}
 
-		status = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
-		if (status != CL_SUCCESS)
+		status.value = clBuildProgram(program, 1, &device, NULL /*options*/, NULL, NULL);
+		if (status.value != CL_SUCCESS)
 		{
-			clGetProgramBuildInfo(program, device,
+			fprintf(stderr, "clBuildProgram returned %d: %s\n",
+				(int)status.value, kernelgen_get_error_string(status));
+			status.value = clGetProgramBuildInfo(program, device,
 				CL_PROGRAM_BUILD_LOG, szsource, sources[i], NULL);
-			fprintf(stderr, "%s\n", sources[i]);
+			if (status.value != CL_SUCCESS)
+			{
+				fprintf(stderr, "clGetProgramBuildInfo returned %d: %s\n",
+					(int)status.value, kernelgen_get_error_string(status));
+			}
+			else
+			{
+				fprintf(stderr, "%s\n", sources[i]);
+			}
 			free(options);
 			free(sources[i]);
 			free(input);
+			if (output_param == -1) free(output);
 			free(sources);
 			return 1;
 		}
 
 		// Get the OpenCL program binary size.
 		size_t szbinary = 0;
-		status = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES,
+		status.value = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES,
 			sizeof(size_t), &szbinary, NULL);
-		if (status != CL_SUCCESS)
+		if (status.value != CL_SUCCESS)
 		{
-			fprintf(stderr, "clGetProgramInfo returned %d\n", (int)status);
+			fprintf(stderr, "clGetProgramInfo returned %d: %s\n",
+				(int)status.value, kernelgen_get_error_string(status));
 			free(options);
 			free(sources[i]);
 			free(input);
+			if (output_param == -1) free(output);
 			free(sources);
 			return 1;
 		}
 
 		// Get the OpenCL program binary.
 		unsigned char* binary = (unsigned char*)malloc(szbinary);
-		status = clGetProgramInfo(program, CL_PROGRAM_BINARIES,
+		status.value = clGetProgramInfo(program, CL_PROGRAM_BINARIES,
 			sizeof(unsigned char*), &binary, NULL);
-		if (status != CL_SUCCESS)
+		if (status.value != CL_SUCCESS)
 		{
-			fprintf(stderr, "clGetProgramInfo returned %d\n", (int)status);
+			fprintf(stderr, "clGetProgramInfo returned %d: %s\n",
+				(int)status.value, kernelgen_get_error_string(status));
 			free(options);
 			free(sources[i]);
 			free(input);
+			if (output_param == -1) free(output);
 			free(sources);
 			free(binary);
 			return 1;
@@ -238,6 +269,7 @@ int main(int argc, char* argv[])
 			free(options);
 			free(sources[i]);
 			free(input);
+			if (output_param == -1) free(output);
 			free(sources);
 			free(binary);
 			free(symbol);
@@ -248,21 +280,23 @@ int main(int argc, char* argv[])
 		sprintf(symbinary, fmtsymbinary, symbol);
 		
 		// Store OpenCL program binary in the output object.
-		int status = kernelgen_elf_write_many(output, &ehdr, 1,
+		status.value = kernelgen_elf_write_many(output, &ehdr, 1,
 			symbinary, binary, szbinary);
-		if (status)
+		if (status.value)
 		{
 			free(options);
 			free(sources[i]);
 			free(input);
+			if (output_param == -1) free(output);
 			free(sources);
 			free(binary);
 			free(symbol);
 			free(symbinary);
-			return status;
+			return status.value;
 		}
 
 		free(input);
+		if (output_param == -1) free(output);
 		free(sources[i]);
 		free(binary);
 		free(symbol);
