@@ -37,6 +37,7 @@ sub kgen_cuda
 	my($backend_skipopts) = shift;
 	my($complog) = shift;
 	my($errlog) = shift;
+	my($verbose) = shift;
 
 	#
 	# Load the list of options supported by target
@@ -67,7 +68,7 @@ sub kgen_cuda
 	# Generate and optimize IR.
 	#
 	if (kgen_ir($filename, $dragonegg_compiler, \@args,
-		$llvm_opt, $complog, $errlog))
+		$llvm_opt, $complog, $errlog, $verbose))
 	{
 		return 1;
 	}
@@ -82,7 +83,8 @@ sub kgen_cuda
 	{
 		push(@ir_embed_args, "-m32");
 	}
-	execlog(undef, \$cbe_complog, \$cbe_errlog, $ir_embed, @ir_embed_args);
+	execlog(undef, \$cbe_complog, \$cbe_errlog,
+		$verbose, $ir_embed, @ir_embed_args);
 	if (! -e "$filename_ir_o")
 	{
 		if ($ir_complog ne "")
@@ -121,7 +123,7 @@ sub kgen_cuda
 	#
 	push(@args, "-D__CUDA_DEVICE_FUNC__");
 	if (kgen_ir($filename, $dragonegg_compiler, \@args,
-		$llvm_opt, $complog, $errlog))
+		$llvm_opt, $complog, $errlog, $verbose))
 	{
 		return 1;
 	}
@@ -137,7 +139,7 @@ sub kgen_cuda
 	#
 	my($cbe_complog) = "";
 	my($cbe_errlog) = "";
-	execlog(undef, \$cbe_complog, \$cbe_errlog,
+	execlog(undef, \$cbe_complog, \$cbe_errlog, $verbose,
 		$llc_compiler, "-march=c", "$filename.opt.ir",
 		"-o", $filename_ir_c);
 	if (! -e $filename_ir_c)
@@ -251,7 +253,8 @@ sub kgen_cuda
 
 	my($c_complog) = "";
 	my($c_errlog) = "";
-	execlog(undef, \$c_complog, \$c_errlog,	$compiler, @args);
+	execlog(undef, \$c_complog, \$c_errlog,
+		$verbose, $compiler, @args);
 	if ($c_complog ne "")
 	{
 		$c_complog =~ s/^/c\t>> /;

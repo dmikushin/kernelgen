@@ -32,13 +32,15 @@ sub kgen_ir
 	my($llvm_opt) = shift;
 	my($complog) = shift;
 	my($errlog) = shift;
+	my($verbose) = shift;
 
 	#
 	# Generate LLVM IR.
 	#
 	my($ir_complog) = "";
 	my($ir_errlog) = "";
-	execlog(undef, \$ir_complog, \$ir_errlog, $dragonegg_compiler, @$args);
+	execlog(undef, \$ir_complog, \$ir_errlog,
+		$verbose, $dragonegg_compiler, @$args);
 	if (! -e "$filename.ir")
 	{
 		if ($ir_complog ne "")
@@ -74,7 +76,8 @@ sub kgen_ir
 		"-S", "-o", "$filename.opt.ir");
 	my($opt_complog) = "";
 	my($opt_errlog) = "";
-	execlog(undef, \$opt_complog, \$opt_errlog, $llvm_opt, @opt_args);
+	execlog(undef, \$opt_complog, \$opt_errlog,
+		$verbose, $llvm_opt, @opt_args);
 	if (! -e "$filename.opt.ir")
 	{
 		if ($opt_complog ne "")

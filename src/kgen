@@ -173,6 +173,11 @@ sub kgen()
 	my($fileprefix) = mktemp($fileprefix_template);
 	
 	#
+	# Enable or disable verbose output.
+	#
+	my($verbose) = 0;
+	
+	#
 	# Specific processing mode.
 	# TODO: deprecated
 	#
@@ -222,6 +227,10 @@ sub kgen()
 		if ($arg =~ m/^-Wk\,--keep$/)
 		{
 			$fileprefix = "";
+		}
+		if ($arg =~ m/^-Wk\,--verbose$/)
+		{
+			$verbose = 1;
 		}
 		if ($arg =~ m/^-Wk\,--specific-mode=(?<SPECIFIC_MODE>(\w|\/)+)/)
 		{
@@ -386,7 +395,7 @@ sub kgen()
 	my($kernelgen_result) = "";
 	my($kernelgen_errlog) = "";
 	execlog(undef, \$kernelgen_result, \$kernelgen_errlog,
-		$kernelgen, @kernelgen_args);
+		$verbose, $kernelgen, @kernelgen_args);
 	if ($kernelgen_result eq "")
 	{
 		#
@@ -529,7 +538,8 @@ sub kgen()
 	#
 	my($hostcode_complog) = "";
 	my($hostcode_errlog) = "";
-	execlog(undef, \$hostcode_complog, \$hostcode_errlog, $dragonegg_compiler, @args);
+	execlog(undef, \$hostcode_complog, \$hostcode_errlog,
+		$verbose, $dragonegg_compiler, @args);
 	if ($hostcode_complog ne "")
 	{
 		$hostcode_complog =~ s/^/c\t>> /;
@@ -628,7 +638,8 @@ sub kgen()
 
 		$hostcode_complog = "";
 		$hostcode_errlog = "";
-		execlog(undef, \$hostcode_complog, \$hostcode_errlog, $regular_compiler, @args);
+		execlog(undef, \$hostcode_complog, \$hostcode_errlog,
+			$verbose, $regular_compiler, @args);
 		if (! -e "$kernelgen_fortran_host_filename.o")
 		{
 			if ($hostcode_complog ne "")
@@ -670,7 +681,8 @@ sub kgen()
 
 		$hostcode_complog = "";
 		$hostcode_errlog = "";
-		execlog(undef, \$hostcode_complog, \$hostcode_errlog, "g++", @args);
+		execlog(undef, \$hostcode_complog, \$hostcode_errlog,
+			$verbose, "g++", @args);
 		if (! -e "$kernelgen_cxx_host_filename.o")
 		{
 			if ($hostcode_complog ne "")
@@ -719,7 +731,7 @@ sub kgen()
 			if (kgen_cpu($kernelgen_c_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
 				$ir_embed, $llc_compiler, $cpu_compiler, $_[3],
-				\$complog, \$errlog))
+				\$complog, \$errlog, $verbose))
 			{
 				goto kernel_finish;
 			}
@@ -743,7 +755,7 @@ sub kgen()
 			if (kgen_cuda($kernelgen_cuda_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
 				$ir_embed, $llc_compiler, $cuda_compiler, $_[3],
-				\$complog, \$errlog))
+				\$complog, \$errlog, $verbose))
 			{
 				goto kernel_finish;
 			}
@@ -767,7 +779,7 @@ sub kgen()
 			if (kgen_opencl($kernelgen_opencl_device_filename, \@base_args,
 				$ifilename, $dragonegg_compiler, $llvm_opt,
 				$ir_embed, $llc_compiler, $opencl_compiler, $_[3],
-				\$complog, \$errlog))
+				\$complog, \$errlog, $verbose))
 			{
 				goto kernel_finish;
 			}
@@ -861,7 +873,8 @@ sub kgen()
 
 	$hostcode_complog = "";
 	$hostcode_errlog = "";
-	execlog(undef, \$hostcode_complog, \$hostcode_errlog, $regular_compiler, @args);
+	execlog(undef, \$hostcode_complog, \$hostcode_errlog,
+		$verbose, $regular_compiler, @args);
 	if ($hostcode_complog ne "")
 	{
 		$hostcode_complog =~ s/^/c\t>> /;
@@ -894,7 +907,8 @@ sub kgen()
 	my(@objmerge_args) = (@objmerge_base_args, "$output\_kgen", @objects);
 	my($objmerge_log) = "";
 	my($objmerge_errlog) = "";
-	execlog(undef, \$objmerge_log, \$objmerge_errlog, $objmerge, @objmerge_args);
+	execlog(undef, \$objmerge_log, \$objmerge_errlog,
+		$verbose, $objmerge, @objmerge_args);
 	if ($objmerge_log ne "")
 	{
 		$objmerge_log =~ s/^/ir\t>> /;
@@ -937,7 +951,8 @@ sub kgen()
 		"$output\_kgen", $output);
 	my($objcopy_log) = "";
 	my($objcopy_errlog) = "";
-	execlog(undef, \$objcopy_log, \$objcopy_errlog, $objcopy, @objcopy_args);
+	execlog(undef, \$objcopy_log, \$objcopy_errlog,
+		$verbose, $objcopy, @objcopy_args);
 
 	if ($fileprefix ne "")
 	{

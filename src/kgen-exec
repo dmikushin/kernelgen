@@ -33,6 +33,7 @@ sub execlog
 	my($stdin) = shift;
 	my($stdout) = shift;
 	my($stderr) = shift;
+	my($verbose) = shift;
 
 	#
 	# Create temp files for output redirecting.
@@ -41,7 +42,10 @@ sub execlog
 	my($stderr_fh) = IO::File->new_tmpfile;
 	
 	my(@command) = @_;
-	print BOLD, WHITE, "@command\n", RESET;
+	if ($verbose != 0)
+	{
+		print BOLD, WHITE, "@command\n", RESET;
+	}
 
 	run3(\@command, undef, $stdout_fh, $stderr_fh);
 	seek $_, 0, 0 for $stdout_fh, $stderr_fh;
