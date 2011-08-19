@@ -23,6 +23,7 @@
 
 require "KGEN_PREFIX/bin/kgen-exec";
 
+use File::Temp qw(:mktemp);
 use Term::ANSIColor qw(:constants);
 
 require "KGEN_PREFIX/bin/kgen-ir";
@@ -166,7 +167,14 @@ sub kgen()
 	my(@targets) = ("cpu");
 	
 	#
+	# Temporary files location prefix.
+	#
+	my($fileprefix_template) = "/tmp/XXXX";
+	my($fileprefix) = mktemp($fileprefix_template);
+	
+	#
 	# Specific processing mode.
+	# TODO: deprecated
 	#
 	my($specific_mode) = "default";
 	
@@ -210,6 +218,10 @@ sub kgen()
 					exit 1;
 				}
 			}
+		}
+		if ($arg =~ m/^-Wk\,--keep$/)
+		{
+			$fileprefix = "";
 		}
 		if ($arg =~ m/^-Wk\,--specific-mode=(?<SPECIFIC_MODE>(\w|\/)+)/)
 		{
@@ -339,6 +351,14 @@ sub kgen()
 	}
 
 	@args = @base_args;
+
+	#
+	# Strip filename prefix, if temporary location is enabled.
+	#
+	if ($fileprefix ne "")
+	{
+		$filename =~ s/^.*\///;		
+	}
 
 	#
 	# Logging strings.
@@ -478,7 +498,7 @@ sub kgen()
 	my($kernelgen_ext) = $filename;
 	$kernelgen_ext =~ s/^.*\.//;
 	$kernelgen_ext = uc($kernelgen_ext);
-	my($kernelgen_filename) = $filename;
+	my($kernelgen_filename) = "$fileprefix\_$filename";
 	$kernelgen_filename =~ s/\.[^\.]*$/.host.$kernelgen_ext/;
 	push(@args, "-o");
 	push(@args, "$kernelgen_filename.o");
@@ -573,7 +593,7 @@ sub kgen()
 		#
 		# Create a temp filename for Fortran host side code.
 		#
-		my($kernelgen_fortran_host_filename) = $filename;
+		my($kernelgen_fortran_host_filename) = "$fileprefix\_$filename";
 		$kernelgen_fortran_host_filename =~ s/\.[^\.]*$/.$name.host.$kernelgen_ext/;
 
 		#
@@ -586,7 +606,7 @@ sub kgen()
 		#
 		# Create a temp filename for C++ host side code.
 		#
-		my($kernelgen_cxx_host_filename) = $filename;
+		my($kernelgen_cxx_host_filename) = "$fileprefix\_$filename";
 		$kernelgen_cxx_host_filename =~ s/\.[^\.]*$/.$name.host.cpp/;
 
 		#
@@ -684,7 +704,7 @@ sub kgen()
 		#
 		# Create a temp filename for CPU device side code.
 		#
-		my($kernelgen_c_device_filename) = $filename;
+		my($kernelgen_c_device_filename) = "$fileprefix\_$filename";
 		$kernelgen_c_device_filename =~
 			s/\.[^\.]*$/.$name.c.device.$kernelgen_ext/;
 		if (grep(/cpu/, @targets))
@@ -708,7 +728,7 @@ sub kgen()
 		#
 		# Create a temp filename for CUDA device side code.
 		#
-		my($kernelgen_cuda_device_filename) = $filename;
+		my($kernelgen_cuda_device_filename) = "$fileprefix\_$filename";
 		$kernelgen_cuda_device_filename =~
 			s/\.[^\.]*$/.$name.cuda.device.$kernelgen_ext/;
 		if (grep(/cuda/, @targets))
@@ -732,7 +752,7 @@ sub kgen()
 		#
 		# Create a temp filename for OpenCL device side code.
 		#
-		my($kernelgen_opencl_device_filename) = $filename;
+		my($kernelgen_opencl_device_filename) = "$fileprefix\_$filename";
 		$kernelgen_opencl_device_filename =~
 			s/\.[^\.]*$/.$name.opencl.device.$kernelgen_ext/;
 		if (grep(/opencl/, @targets))
@@ -919,6 +939,10 @@ sub kgen()
 	my($objcopy_errlog) = "";
 	execlog(undef, \$objcopy_log, \$objcopy_errlog, $objcopy, @objcopy_args);
 
+	if ($fileprefix ne "")
+	{
+		`rm $fileprefix*`;
+	}
 	system("rm", "$output\_kgen");
 }
 
