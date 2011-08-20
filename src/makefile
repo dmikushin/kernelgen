@@ -35,18 +35,15 @@ ifeq ($(HAVE_CUDA), 1)
 CUDA_PREFIX = /opt/cuda
 endif
 
-.PHONY: g95xml-tree g95xml-refids detectgrid libkernelgen kgen-embed
+.PHONY: g95xml-tree g95xml-refids libkernelgen kgen-embed
 
-all: g95xml-tree g95xml-refids detectgrid libkernelgen kgen-embed
+all: g95xml-tree g95xml-refids libkernelgen kgen-embed
 
 g95xml-tree:
 	cd g95xml_tree && $(MAKE)
 
 g95xml-refids:
 	cd g95xml_refids && $(MAKE)
-
-detectgrid:
-	cd detectgrid && $(MAKE)
 
 libkernelgen:
 	cd libkernelgen && $(MAKE)

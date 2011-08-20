@@ -1,11 +1,11 @@
 # Release name
-%define release opencl
+%define release cuda
 
 # Rebuild everything or only kernelgen
 %define fullrepack 1
 
 # The number of parallel compilation jobs
-%define njobs 4
+%define njobs 12
 
 AutoReq: 0
 
@@ -16,7 +16,7 @@ Summary:        Compiler with automatic generation of GPU kernels from Fortran s
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.5-r177629.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r381.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r384.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -57,7 +57,7 @@ rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r381.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r384.tar.gz
 
 
 %if %fullrepack
@@ -1195,7 +1195,9 @@ PREFIX=$RPM_BUILD_ROOT make install
 /opt/kgen/bin/kgen-ir-embed
 /opt/kgen/bin/kgen-cpu
 /opt/kgen/bin/kgen-cuda
-#/opt/kgen/bin/kgen-cuda-embed
+%if (%release == "cuda")
+/opt/kgen/bin/kgen-cuda-embed
+%endif
 /opt/kgen/bin/kgen-exec
 /opt/kgen/bin/kgen-transform
 /opt/kgen/bin/kgen-gfortran
