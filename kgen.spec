@@ -839,7 +839,7 @@ rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/limits.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/linux/a.out.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/syslimits.h
-rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/X11/Xw32defs.h
+rm -rf $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include-fixed/X11/Xw32defs.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/abmintrin.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/ammintrin.h
 rm $RPM_BUILD_ROOT/opt/kgen/lib/gcc/x86_64-unknown-linux-gnu/4.5.4/include/avxintrin.h

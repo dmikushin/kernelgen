@@ -1,14 +1,5 @@
 --- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-19 22:08:00.939238011 +0400
 +++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-19 21:30:01.951332125 +0400
-@@ -363,7 +363,7 @@
- }
- 
- std::string CWriter::getStructName(StructType *ST) {
--  if (!ST->isLiteral() && !ST->getName().empty())
-+  if (!ST->isAnonymous() && !ST->getName().empty())
-     return CBEMangle("l_"+ST->getName().str());
-   
-   return "l_unnamed_" + utostr(UnnamedStructIDs[ST]);
 @@ -520,7 +520,7 @@
      }
      Out << '}';
@@ -315,15 +306,6 @@
    Out << "} llvmBitCastUnion;\n";
  
    // Get all of the struct types used in the module.
-@@ -2062,7 +2145,7 @@
-   for (unsigned i = 0, e = StructTypes.size(); i != e; ++i) {
-     StructType *ST = StructTypes[i];
- 
--    if (ST->isLiteral() || ST->getName().empty())
-+    if (ST->isAnonymous() || ST->getName().empty())
-       UnnamedStructIDs[ST] = NextTypeID++;
- 
-     std::string Name = getStructName(ST);
 @@ -2247,9 +2330,9 @@
    // Finish printing arguments... if this is a vararg function, print the ...,
    // unless there are no known types, in which case, we just emit ().
