@@ -1,11 +1,17 @@
 # Release name
 %define release cuda
 
+# Build unoptimized version with debug info
+%define debug 1
+
 # Rebuild everything or only kernelgen
 %define fullrepack 1
 
 # The number of parallel compilation jobs
-%define njobs 12
+%define njobs 24
+
+# Use polly as builtin transform pass or as external tool
+%define polly_builtin 1
 
 AutoReq: 0
 
@@ -17,7 +23,11 @@ Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.5-r177629.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
 Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r384.tar.gz
+%if (%polly_builtin == 0)
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
+%else
+Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-builtin-r137304.tar.gz
+%endif
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
 Patch0:		llvm.varargs.patch
@@ -26,6 +36,10 @@ Patch2:		llvm.gpu.patch
 Patch3:		gcc.patch
 Patch4:		gcc.opencl.patch
 Patch5:		dragonegg.opencl.patch
+%if (%polly_builtin == 1)
+Patch6:		polly.builtin.patch
+Patch7:		polly.cbe.patch
+%endif
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -44,9 +58,13 @@ KGen is a tool for automatic generation of GPU kernels from Fortran source code.
 %if %fullrepack
 rm -rf $RPM_BUILD_DIR/llvm
 tar -xf $RPM_SOURCE_DIR/llvm-r136600.tar.gz
+%if (%polly_builtin == 0)
 cd $RPM_BUILD_DIR/llvm/tools
 tar -xf $RPM_SOURCE_DIR/polly-r137304.tar.gz
 cd $RPM_BUILD_DIR
+%else
+tar -xf $RPM_SOURCE_DIR/polly-builtin-r137304.tar.gz
+%endif
 rm -rf $RPM_BUILD_DIR/gcc-4.5
 tar -xf $RPM_SOURCE_DIR/gcc-4.5-r177629.tar.gz
 rm -rf $RPM_BUILD_DIR/dragonegg
@@ -67,6 +85,10 @@ tar -xf $RPM_SOURCE_DIR/kernelgen-r384.tar.gz
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
+%if (%polly_builtin == 1)
+%patch6 -p1
+%patch7 -p1
+%endif
 %endif
 
 
@@ -87,13 +109,22 @@ cd $RPM_BUILD_DIR/llvm
 mkdir build
 cp -rf include/ build/include/
 cd build
+%if %debug
+../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kgen --enable-targets=host,cbe --with-cloog=$RPM_BUILD_DIR/cloog --with-isl=$RPM_BUILD_DIR/cloog/isl --with-scoplib=$RPM_BUILD_DIR/scoplib-0.2.0
+make -j%{njobs} CXXFLAGS=-O0
+%else
 ../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kgen --enable-targets=host,cbe --with-cloog=$RPM_BUILD_DIR/cloog --with-isl=$RPM_BUILD_DIR/cloog/isl --with-scoplib=$RPM_BUILD_DIR/scoplib-0.2.0
 make -j%{njobs}
+%endif
 cd $RPM_BUILD_DIR/gcc-4.5
 mkdir build
 cd build/
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kgen --program-prefix=dragonegg- --enable-languages=fortran --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
+%if %debug
+make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%else
 make -j%{njobs}
+%endif
 %endif
 cd $RPM_BUILD_DIR/kernelgen/trunk
 ./configure
@@ -115,6 +146,8 @@ cd $RPM_BUILD_DIR/dragonegg
 GCC=$RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gcc LLVM_CONFIG=$RPM_BUILD_ROOT/opt/kgen/bin/llvm-config make clean
 GCC=$RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gcc LLVM_CONFIG=$RPM_BUILD_ROOT/opt/kgen/bin/llvm-config make
 cp dragonegg.so $RPM_BUILD_ROOT/opt/kgen/lib64/
+rm -rf $RPM_BUILD_ROOT/opt/kgen/lib/libLLVMPolly.a
+rm -rf $RPM_BUILD_ROOT/opt/kgen/include/polly/CodeGeneration.h
 rm $RPM_BUILD_ROOT/opt/kgen/bin/bugpoint
 rm $RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-cpp
 rm $RPM_BUILD_ROOT/opt/kgen/bin/dragonegg-gcc
