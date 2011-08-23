@@ -856,8 +856,6 @@ sub kgen()
 	@args = @base_args;
 	push(@args, "-ffree-line-length-none");
 	push(@args, $kernelgen_include_path);
-	$kernelgen_filename = $filename;
-	$kernelgen_filename =~ s/\.[^\.]*$/.host.$kernelgen_ext/;
 	system("rm -rf $kernelgen_filename.o");
 	$args[$ifilename] = $kernelgen_filename;
 	push(@args, "-o");
