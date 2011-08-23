@@ -160,32 +160,6 @@ kernelgen_status_t kernelgen_parse_args_aligned(
 	struct kernelgen_launch_config_t* launch,
 	int* nargs, va_list list);
 
-#include <stdint.h>
-
-#pragma pack(push, 1)
-
-// The built-in timer value type.
-struct kernelgen_time_t
-{
-	int64_t seconds;
-	int64_t nanoseconds;
-};
-
-#pragma pack(pop)
-
-void kernelgen_get_timer_resolution(struct kernelgen_time_t* val);
-
-// Get the built-in timer value.
-void kernelgen_get_time(struct kernelgen_time_t* val);
-
-// Get the built-in timer measured values difference.
-double kernelgen_get_time_diff(
-	struct kernelgen_time_t* val1, struct kernelgen_time_t* val2);
-
-// Print the built-in timer measured values difference.
-void kernelgen_print_time_diff(
-	struct kernelgen_time_t* val1, struct kernelgen_time_t* val2);
-
 // Parse module symbols for kernel executed on specific device.
 typedef kernelgen_status_t (*kernelgen_parse_modsyms_func_t)(
 	struct kernelgen_launch_config_t* launch,

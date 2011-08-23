@@ -204,7 +204,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 	}
 
 	// Launch OpenCL kernel and measure its execution time.
-	struct kernelgen_time_t start, finish;
+	kernelgen_time_t start, finish;
 	kernelgen_get_time(&start);
 	for (int i = 0; i < 3; i++)
 		opencl->blocks[i] *= opencl->threads[i];

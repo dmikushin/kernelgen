@@ -193,3 +193,9 @@ echo "  ARCH = 64" >>makefile.in
 echo "  OPENCL_LIBPATH = \$(OPENCL_LIBPATH64)" >>makefile.in
 echo "endif" >>makefile.in
 
+#echo "#" >>makefile.in
+#echo "# Use static version of CXX lib to be more" >>makefile.in
+#echo "# cross-platform." >>makefile.in
+#echo "#" >>makefile.in
+#echo "STATIC=" >>makefile.in
+#echo "#STATIC=-static-libstdc++" >>makefile.in

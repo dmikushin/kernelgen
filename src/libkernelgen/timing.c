@@ -30,7 +30,7 @@
 //#define CLOCKID CLOCK_THREAD_CPUTIME_ID
 
 // Get the built-in timer resolution.
-void kernelgen_get_timer_resolution(struct kernelgen_time_t* val)
+void kernelgen_get_timer_resolution(kernelgen_time_t* val)
 {
 	if ((sizeof(int64_t) == sizeof(time_t)) &&
 		(sizeof(int64_t) == sizeof(long)))
@@ -45,7 +45,7 @@ void kernelgen_get_timer_resolution(struct kernelgen_time_t* val)
 }
 
 // Get the built-in timer value.
-void kernelgen_get_time(struct kernelgen_time_t* val)
+void kernelgen_get_time(kernelgen_time_t* val)
 {
 	if ((sizeof(int64_t) == sizeof(time_t)) &&
 		(sizeof(int64_t) == sizeof(long)))
@@ -61,7 +61,7 @@ void kernelgen_get_time(struct kernelgen_time_t* val)
 
 // Get the built-in timer measured values difference.
 double kernelgen_get_time_diff(
-	struct kernelgen_time_t* val1, struct kernelgen_time_t* val2)
+	kernelgen_time_t* val1, kernelgen_time_t* val2)
 {
 	int64_t seconds = val2->seconds - val1->seconds;
 	int64_t nanoseconds = val2->nanoseconds - val1->nanoseconds;
@@ -77,7 +77,7 @@ double kernelgen_get_time_diff(
 
 // Print the built-in timer measured values difference.
 void kernelgen_print_time_diff(
-	struct kernelgen_time_t* val1, struct kernelgen_time_t* val2)
+	kernelgen_time_t* val1, kernelgen_time_t* val2)
 {
 	int64_t seconds = val2->seconds - val1->seconds;
 	int64_t nanoseconds = val2->nanoseconds - val1->nanoseconds;

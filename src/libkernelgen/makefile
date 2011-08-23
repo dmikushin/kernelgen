@@ -88,14 +88,14 @@ endif
 
 ifeq ($(HAVE_OPENCL), 1)
 32/libkernelgen.so: $(OBJECTS32)
-	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt $(OPENCL_LIBPATH32) -lOpenCL
+	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt $(OPENCL_LIBPATH32) -lOpenCL $(STATIC)
 64/libkernelgen.so: $(OBJECTS64)
-	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt $(OPENCL_LIBPATH64) -lOpenCL
+	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt $(OPENCL_LIBPATH64) -lOpenCL $(STATIC)
 else
 32/libkernelgen.so: $(OBJECTS32)
-	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt
+	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt $(STATIC)
 64/libkernelgen.so: $(OBJECTS64)
-	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt
+	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt $(STATIC)
 endif
 
 32/init.o: init.cpp init.h kernelgen.h kernelgen_int.h

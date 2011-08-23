@@ -163,6 +163,33 @@ kernelgen_status_t kernelgen_get_last_error();
 // Get text message for the specified error code.
 const char* kernelgen_get_error_string(kernelgen_status_t error);
 
+#include <stdint.h>
+
+#pragma pack(push, 1)
+
+// The built-in timer value type.
+typedef struct
+{
+	int64_t seconds;
+	int64_t nanoseconds;
+}
+kernelgen_time_t;
+
+#pragma pack(pop)
+
+void kernelgen_get_timer_resolution(kernelgen_time_t* val);
+
+// Get the built-in timer value.
+void kernelgen_get_time(kernelgen_time_t* val);
+
+// Get the built-in timer measured values difference.
+double kernelgen_get_time_diff(
+	kernelgen_time_t* val1, kernelgen_time_t* val2);
+
+// Print the built-in timer measured values difference.
+void kernelgen_print_time_diff(
+	kernelgen_time_t* val1, kernelgen_time_t* val2);
+
 #ifdef __cplusplus
 }
 #endif

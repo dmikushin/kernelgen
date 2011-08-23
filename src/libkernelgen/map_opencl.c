@@ -69,15 +69,32 @@ kernelgen_status_t kernelgen_load_regions_opencl(
 			(*nmapped)++;
 
 			kernelgen_print_debug(kernelgen_launch_verbose,
-				"symbol \"%s\" maps memory segment [%p .. %p] to [%p .. %p]\n",
-				reg->symbol->name, reg->base, reg->base + reg->size, reg->mapping, reg->mapping + reg->size);
+				"symbol \"%s\" maps memory segment [%p .. %p] to [%p .. %p + %zu]\n",
+				reg->symbol->name, reg->base, reg->base + reg->size, reg->mapping, reg->mapping, reg->size);
 		}
 		else
 		{
-			reg->mapping = reg->primary->mapping;
+			cl_buffer_region subregion;
+			subregion.origin = reg->shift;
+			subregion.size = reg->symbol->size;
+		
+			// OpenCL has no direct addressing on device, so it is not
+			// possible to apply shift directly to the mapping pointer.
+			// Every non-primary region needs a sub-buffer instead.
+			reg->mapping = clCreateSubBuffer(reg->primary->mapping, 0,
+				CL_BUFFER_CREATE_TYPE_REGION, &subregion, &result.value);
+			if (result.value != CL_SUCCESS)
+			{
+				kernelgen_print_error(kernelgen_launch_verbose,
+					"Cannot allocate device memory segment of size = %zu on device, status = %d: %s\n",
+					reg->symbol->size, result.value, kernelgen_get_error_string(result));
+				goto finish;
+			}
+
 			kernelgen_print_debug(kernelgen_launch_verbose,
 				"symbol \"%s\" memory segment [%p .. %p] reuses mapping created by symbol \"%s\"\n",
-				reg->symbol->name, reg->base, reg->base + reg->size, reg->primary->symbol->name);
+				reg->symbol->name, reg->base + reg->shift, reg->base + reg->shift + reg->symbol->size,
+				reg->primary->symbol->name);
 		}
 	}
 

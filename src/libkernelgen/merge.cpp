@@ -63,7 +63,9 @@ extern "C" kernelgen_status_t kernelgen_merge_regions(
 		
 		// The left border of second interval is inside
 		// first interval.
-		if ((size_t)reg2->base <= (size_t)reg1->base + reg1->size)
+		// XXX: temporary disabled regions concatenation
+		// due to bugs in AMD OpenCL (here "<" instead of "<=").
+		if ((size_t)reg2->base < (size_t)reg1->base + reg1->size)
 		{
 			// The right border of second interval is outside
 			// first interval (i.e. first does not contain second).

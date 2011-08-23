@@ -142,7 +142,7 @@ kernelgen_status_t kernelgen_launch_cuda(
 	}
 
 	// Launch CUDA kernel and measure its execution time.
-	struct kernelgen_time_t start, finish;
+	kernelgen_time_t start, finish;
 	kernelgen_get_time(&start);
 	cudaGetLastError();
 	status = cudaLaunch(l->kernel_name);
