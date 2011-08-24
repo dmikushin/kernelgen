@@ -40,6 +40,10 @@ kernelgen_status_t kernelgen_load_regions_opencl(
 	// The number of successfully mapped memory regions.
 	*nmapped = 0;
 	
+	int iplatform = kernelgen_thread_platform_index;
+	int idevice = kernelgen_thread_device_index;
+	cl_context context = kernelgen_contexts[iplatform][idevice];
+	
 	// For each interval pin memory region and
 	// map it to device memory.
 	for (int i = 0; i < count; i++)
@@ -53,7 +57,7 @@ kernelgen_status_t kernelgen_load_regions_opencl(
 		if (!reg->primary)
 		{
 			// Explicitly create device memory region and copy input data to it.
-			reg->mapping = clCreateBuffer(opencl->context,
+			reg->mapping = clCreateBuffer(context,
 				CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, reg->size,
 				reg->base, &result.value);
 			if (result.value != CL_SUCCESS)

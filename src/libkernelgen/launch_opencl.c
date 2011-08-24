@@ -40,14 +40,22 @@ kernelgen_status_t kernelgen_launch_opencl(
 	struct kernelgen_opencl_config_t* opencl =
 		(struct kernelgen_opencl_config_t*)l->specific;
 
-	// Setup kernel compute grid.
-	opencl->threads[0] = 1; opencl->threads[1] = 1; opencl->threads[2] = *ez - *bz + 1;
-	opencl->blocks[0] = *ex - *bx + 1; opencl->blocks[1] = *ey - *by + 1; opencl->blocks[2] = 1;
+	// Setup kernel 3D compute grid.
+	size_t threads[3], blocks[3];
+	threads[0] = 1; threads[1] = 1; threads[2] = *ez - *bz + 1;
+	blocks[0] = *ex - *bx + 1; blocks[1] = *ey - *by + 1; blocks[2] = 1;
+	for (int i = 0; i < 3; i++) blocks[i] *= threads[i];
 
 	// Being quiet optimistic initially...
 	kernelgen_status_t result;
 	result.value = CL_SUCCESS;
 	result.runmode = l->runmode;
+
+	int iplatform = kernelgen_thread_platform_index;
+	int idevice = kernelgen_thread_device_index;
+
+	cl_command_queue queue = kernelgen_queues[iplatform][idevice];
+	cl_context context = kernelgen_contexts[iplatform][idevice];
 
 	// Submit arguments to arguments list.
 	for (int i = 0; i < l->config->nargs; i++)
@@ -75,7 +83,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 			}
 			cl_event sync;
 			result.value = clEnqueueWriteBuffer(
-				opencl->command_queue, arg->mdesc->mapping, CL_FALSE,
+				queue, arg->mdesc->mapping, CL_FALSE,
 				0, sizeof(void*), &dataptr, 0, NULL, &sync);
 			if (result.value != CL_SUCCESS)
 			{
@@ -116,7 +124,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 		size_t size = 
 			(size_t)l->deps[l->config->nmodsyms - 1].dev_desc +
 			l->deps[l->config->nmodsyms - 1].desc_size;
-		modsyms_container = clCreateBuffer(opencl->context,
+		modsyms_container = clCreateBuffer(context,
 			CL_MEM_READ_WRITE, size, NULL, &result.value);
 		if (result.value != CL_SUCCESS)
 		{
@@ -166,7 +174,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 		// Copy dependency data to device memory.
 		cl_event sync;
 		result.value = clEnqueueWriteBuffer(
-			opencl->command_queue, modsyms_container, CL_FALSE,
+			queue, modsyms_container, CL_FALSE,
 			(size_t)dep->dev_desc, dep->desc_size, dep->desc, 0, NULL, &sync);
 		if (result.value != CL_SUCCESS)
 		{
@@ -206,12 +214,10 @@ kernelgen_status_t kernelgen_launch_opencl(
 	// Launch OpenCL kernel and measure its execution time.
 	kernelgen_time_t start, finish;
 	kernelgen_get_time(&start);
-	for (int i = 0; i < 3; i++)
-		opencl->blocks[i] *= opencl->threads[i];
 	cl_event sync;
 	result.value = clEnqueueNDRangeKernel(
-		opencl->command_queue, opencl->kernel, 3,
-		NULL, opencl->blocks, opencl->threads, 0, NULL, &sync);
+		queue, opencl->kernel, 3,
+		NULL, blocks, threads, 0, NULL, &sync);
 	if (result.value != CL_SUCCESS)
 	{
 		kernelgen_print_error(kernelgen_launch_verbose,
@@ -238,7 +244,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 		// Copy dependency data from device memory.
 		cl_event sync;
 		result.value = clEnqueueReadBuffer(
-			opencl->command_queue, modsyms_container, CL_FALSE,
+			queue, modsyms_container, CL_FALSE,
 			(size_t)dep->dev_desc, dep->desc_size, dep->desc, 0, NULL, &sync);
 		if (result.value != CL_SUCCESS)
 		{

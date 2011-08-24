@@ -67,11 +67,6 @@ extern "C"
 {
 #endif
 
-// Defines default kernel execution mode,
-// that is used, if per-kernel execution mode
-// is for specific kernel is undefined.
-extern int kernelgen_runmode;
-
 // Defines debug output options bit field.
 extern long kernelgen_debug_output;
 
@@ -94,7 +89,7 @@ enum kernelgen_error
 	kernelgen_error_not_found = 1022,
 	kernelgen_error_not_implemented = 1023,
 	kernelgen_error_ffi_setup = 1024,
-	kernelgen_error_results_mismatch = 1025
+	kernelgen_error_results_mismatch = 1025,
 };
 
 #define kernelgen_make_error(var, value_, runmode_) \
@@ -105,7 +100,15 @@ typedef char* kernelgen_specific_config_t;
 // Defines kernel configuration structure.
 struct kernelgen_kernel_config_t
 {
-	int runmode, compare;
+	// The kernel runmode. Either inherits initial per-process
+	// runmode or its individual environment setting.
+	// Note kernel runmode setting is unchanged during program
+	// execution, but actual kernel behavior is affected by the
+	// combination of per-kernel runmode setting and per-thread
+	// runmode executing entire kernel.
+	int runmode;
+	
+	int compare;
 
 	int iloop, nloops;
 	char* routine_name;
@@ -117,6 +120,11 @@ struct kernelgen_kernel_config_t
 	// The total number of arguments and dependencies.
 	int nargs, nmodsyms;
 	
+	// The indexes of platform and device kernel was
+	// last time executed on.
+	int last_platform_index;
+	int last_device_index;
+	
 	// Pointers to device-specific configs.
 	kernelgen_specific_config_t* specific;
 };
@@ -126,6 +134,13 @@ void kernelgen_kernel_init(
 	struct kernelgen_kernel_config_t* config,
 	int iloop, int nloops, char* name,
 	int nargs, int nmodsyms);
+
+// Assign device to the current host thread.
+kernelgen_status_t kernelgen_set_device(
+	int platform_index, int device_index);
+
+// Get runmode of the entire thread.
+int kernelgen_get_runmode();
 
 // Initialize kernel routine static dependencies.
 void kernelgen_kernel_init_deps_(

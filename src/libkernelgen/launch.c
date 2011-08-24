@@ -50,19 +50,28 @@ void kernelgen_launch_(
 		
 		// Although, specific kernel may have supported
 		// runmode disabled.
-		if (!(config->runmode & runmode)) continue;
+		if (!(config->runmode & runmode & kernelgen_thread_runmode)) continue;
 
 		// Kernel config structure.
 		struct kernelgen_launch_config_t* l = config->launch + irunmode;
 
 		kernelgen_print_debug(kernelgen_launch_verbose,
-			"Launching %s for device runmode \"%s\"\n",
-			l->kernel_name, kernelgen_runmodes_names[irunmode]);
+			"Launching %s for device %s:%d runmode \"%s\"\n", l->kernel_name,
+			kernelgen_platforms_names[kernelgen_thread_platform_index],
+			kernelgen_thread_device_index, kernelgen_runmodes_names[irunmode]);
 
 		// Being quiet optimistic initially...
 		kernelgen_status_t status;
 		status.value = kernelgen_success;
 		status.runmode = runmode;
+		
+		// If kernel was not previously executed on entire device,
+		// rebuild it.
+		kernelgen_status_t result = kernelgen_build[irunmode](l);
+		if (result.value != kernelgen_success)
+		{
+			goto failsafe;
+		}
 
 		va_list list;
 		va_start(list, nmodsyms);

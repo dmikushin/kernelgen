@@ -36,9 +36,6 @@ struct kernelgen_cuda_config_t
 	// Flag indicating if memory regions must be aligned
 	// before mapping onto device.
 	int aligned;
-
-	// CUDA kernel thread and block dimensions.
-	dim3 threads, blocks;
 };
 
 #ifdef __cplusplus

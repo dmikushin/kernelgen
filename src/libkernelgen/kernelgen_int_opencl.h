@@ -38,24 +38,6 @@ struct kernelgen_opencl_config_t
 	// before mapping onto device.
 	int aligned;
 	
-	// OpenCL kernel thread and block dimensions.
-	size_t threads[3], blocks[3];
-
-	// OpenCL platform ID.
-	cl_platform_id id;
-
-	// OpenCL devices count.
-	cl_uint ndevs;
-	
-	// OpenCL device ID.
-	cl_device_id device;
-	
-	// OpenCL device context.
-	cl_context context;
-	
-	// OpenCL command queue.
-	cl_command_queue command_queue;
-	
 	// OpenCL program,
 	cl_program program;
 	
@@ -71,3 +53,4 @@ struct kernelgen_opencl_config_t
 #endif // HAVE_OPENCL
 
 #endif // KERNELGEN_INT_OPENCL_H
+

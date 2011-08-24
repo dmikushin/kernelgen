@@ -48,6 +48,13 @@ kernelgen_status_t kernelgen_devaddr_opencl(
 	kernelgen_status_t result;
 	result.value = CL_SUCCESS;
 	result.runmode = l->runmode;
+
+	int iplatform = kernelgen_thread_platform_index;
+	int idevice = kernelgen_thread_device_index;
+
+	cl_command_queue queue = kernelgen_queues[iplatform][idevice];
+	cl_device_id device = kernelgen_devices[iplatform][idevice];
+	cl_context context = kernelgen_contexts[iplatform][idevice];
 	
 	const char* kernel_name = "kernelgen_devaddr_opencl_kernel";
 	
@@ -56,7 +63,7 @@ kernelgen_status_t kernelgen_devaddr_opencl(
 		// Load OpenCL program from source.
 		cl_int status = CL_SUCCESS;
 		cl_program program = clCreateProgramWithSource(
-			opencl->context, 1,
+			context, 1,
 			(const char**)&kernelgen_devaddr_opencl_kernel_source,
 			NULL, &result.value);
 		if ((result.value != CL_SUCCESS) || (status != CL_SUCCESS))
@@ -78,13 +85,13 @@ kernelgen_status_t kernelgen_devaddr_opencl(
 		}
 
 		result.value = clBuildProgram(program,
-			1, &opencl->device, NULL, NULL, NULL);
+			1, &device, NULL, NULL, NULL);
 		if (result.value != CL_SUCCESS)
 		{
 			kernelgen_print_error(kernelgen_launch_verbose,
 				"Cannot build program for kernel %s, status = %d: %s\n",
 				kernel_name, result.value, kernelgen_get_error_string(result));
-			result.value = clGetProgramBuildInfo(opencl->program, opencl->device,
+			result.value = clGetProgramBuildInfo(opencl->program, device,
 				CL_PROGRAM_BUILD_LOG, l->kernel_source_size,
 				&l->kernel_source, NULL);
 			if (result.value != CL_SUCCESS)
@@ -111,7 +118,7 @@ kernelgen_status_t kernelgen_devaddr_opencl(
 		}
 		
 		// Create device buffer.
-		dev_ptr_dev = clCreateBuffer(opencl->context,
+		dev_ptr_dev = clCreateBuffer(context,
 			CL_MEM_READ_WRITE, sizeof(ptrdiff_t), NULL, &result.value);
 		if (result.value != CL_SUCCESS)
 		{
@@ -134,16 +141,6 @@ kernelgen_status_t kernelgen_devaddr_opencl(
 			result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}
-	/*long loffset = offset;
-	result.value = clSetKernelArg(
-		kernel, 1, sizeof(long), &loffset);
-	if (result.value != CL_SUCCESS)
-	{
-		kernelgen_print_error(kernelgen_launch_verbose,
-			"Cannot setup kernel argument, status = %d: %s\n",
-			result.value, kernelgen_get_error_string(result));
-		goto finish;
-	}*/
 	result.value = clSetKernelArg(
 		kernel, 1, sizeof(void*), &dev_ptr_dev);
 	if (result.value != CL_SUCCESS)
@@ -157,7 +154,7 @@ kernelgen_status_t kernelgen_devaddr_opencl(
 	// Launch kernel.
 	cl_event sync;
 	result.value = clEnqueueTask(
-		opencl->command_queue, kernel, 0, NULL, &sync);
+		queue, kernel, 0, NULL, &sync);
 	if (result.value != CL_SUCCESS)
 	{
 		kernelgen_print_error(kernelgen_launch_verbose,
@@ -176,7 +173,7 @@ kernelgen_status_t kernelgen_devaddr_opencl(
 	
 	// Copy back the result.
 	result.value = clEnqueueReadBuffer(
-		opencl->command_queue, dev_ptr_dev, CL_FALSE,
+		queue, dev_ptr_dev, CL_FALSE,
 		0, sizeof(void*), dev_ptr, 0, NULL, &sync);
 	if (result.value != CL_SUCCESS)
 	{

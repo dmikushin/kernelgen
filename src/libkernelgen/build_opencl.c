@@ -33,14 +33,28 @@ kernelgen_status_t kernelgen_build_opencl(
 	kernelgen_status_t result;
 	result.value = CL_SUCCESS;
 	result.runmode = l->runmode;
+	
+	int iplatform = kernelgen_thread_platform_index;
+	int idevice = kernelgen_thread_device_index;
+	
+	// If kernel was previously compiled for entire
+	// platform/device, return now.
+	if ((l->config->last_platform_index == iplatform) &&
+		(l->config->last_device_index == idevice))
+		return result;
+	
+	// Otherwise, grab current device and context
+	// and rebuild the kernel.
+	cl_device_id device = kernelgen_devices[iplatform][idevice];
+	cl_context context = kernelgen_contexts[iplatform][idevice];
 
-	// Load OpenCL program from binary.
+	// Load OpenCL program from source.
 	cl_int status = CL_SUCCESS;
 	opencl->program = clCreateProgramWithBinary(
-		opencl->context, 1, &opencl->device, &l->kernel_binary_size,
+		context, 1, &device, &l->kernel_binary_size,
 		(const unsigned char **)&l->kernel_binary, &status, &result.value);
 	/*opencl->program = clCreateProgramWithSource(
-		opencl->context, 1, (const char**)&l->kernel_source,
+		context, 1, (const char**)&l->kernel_source,
 		&l->kernel_source_size, &result.value);*/
 	if ((result.value != CL_SUCCESS) || (status != CL_SUCCESS))
 	{
@@ -61,13 +75,13 @@ kernelgen_status_t kernelgen_build_opencl(
 	}
 
 	result.value = clBuildProgram(opencl->program,
-		1, &opencl->device, NULL, NULL, NULL);
+		1, &device, NULL, NULL, NULL);
 	if (result.value != CL_SUCCESS)
 	{
 		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot build program for kernel %s, status = %d: %s\n",
 			l->kernel_name, result.value, kernelgen_get_error_string(result));
-		result.value = clGetProgramBuildInfo(opencl->program, opencl->device,
+		result.value = clGetProgramBuildInfo(opencl->program, device,
 			CL_PROGRAM_BUILD_LOG, l->kernel_source_size,
 			&l->kernel_source, NULL);
 		if (result.value != CL_SUCCESS)

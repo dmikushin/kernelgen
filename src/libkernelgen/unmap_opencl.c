@@ -36,6 +36,10 @@ kernelgen_status_t kernelgen_save_regions_opencl(
 	result.value = CL_SUCCESS;
 	result.runmode = l->runmode;
 
+	int iplatform = kernelgen_thread_platform_index;
+	int idevice = kernelgen_thread_device_index;
+	cl_command_queue queue = kernelgen_queues[iplatform][idevice];
+
 	// Unregister pinned memory regions.
 	for (int i = 0; i < nmapped; i++)
 	{
@@ -46,7 +50,7 @@ kernelgen_status_t kernelgen_save_regions_opencl(
 			// Explicitly copy output data from device memory region and free it.
 			cl_event sync;
 			result.value = clEnqueueReadBuffer(
-				opencl->command_queue, reg->mapping, CL_FALSE,
+				queue, reg->mapping, CL_FALSE,
 				0, reg->size, reg->base, 0, NULL, &sync);
 			if (result.value != CL_SUCCESS)
 			{

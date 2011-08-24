@@ -27,10 +27,26 @@
 #include <gelf.h>
 #include <stdio.h>
 
+#ifdef HAVE_OPENCL
+#include <CL/cl.h>
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+// Defines per-process execution mode setting.
+extern int kernelgen_process_runmode;
+
+// Each host thread has individual runmode setting,
+// that is a combination of process runmode setting
+// and capabilities of the currently selected device.
+extern __thread int kernelgen_thread_runmode;
+
+// Each host thread keeps indexes of currently used platform and device.
+extern __thread int kernelgen_thread_platform_index;
+extern __thread int kernelgen_thread_device_index;
 
 // Set last kernel loop launching error.
 void kernelgen_set_last_error(kernelgen_status_t error);
@@ -47,7 +63,24 @@ extern int kernelgen_runmodes_count;
 // Defines supported runmodes collective bitmask.
 extern int kernelgen_runmodes_mask;
 
-struct kernelgen_memory_region_t;
+// Platforms handles and count.
+#ifdef HAVE_OPENCL
+extern cl_platform_id* kernelgen_platforms;
+#endif
+extern int kernelgen_platforms_count;
+extern char** kernelgen_platforms_names;
+
+// Devices handles and count.
+#ifdef HAVE_OPENCL
+extern cl_device_id** kernelgen_devices;
+#endif
+extern int* kernelgen_devices_count;
+
+// Devices contexts and command queues.
+#ifdef HAVE_OPENCL
+extern cl_context** kernelgen_contexts;
+extern cl_command_queue** kernelgen_queues;
+#endif
 
 // Defines memory region properties.
 struct kernelgen_memory_region_t

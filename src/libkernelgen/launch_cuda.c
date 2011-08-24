@@ -35,14 +35,15 @@ kernelgen_status_t kernelgen_launch_cuda(
 		(struct kernelgen_cuda_config_t*)l->specific;
 
 	// Setup kernel compute grid.
-	cuda->threads.x = 1; cuda->threads.y = 1; cuda->threads.z = *ez - *bz + 1;
-	cuda->blocks.x = *ex - *bx + 1; cuda->blocks.y = *ey - *by + 1; cuda->blocks.z = 1;
+	dim3 threads, blocks;
+	threads.x = 1; threads.y = 1; threads.z = *ez - *bz + 1;
+	blocks.x = *ex - *bx + 1; blocks.y = *ey - *by + 1; blocks.z = 1;
 
 	kernelgen_status_t result;
 
 	// Configure kernel compute grid.
 	cudaGetLastError();
-	cudaError_t status = cudaConfigureCall(cuda->blocks, cuda->threads, 0, 0);
+	cudaError_t status = cudaConfigureCall(blocks, threads, 0, 0);
 	if (status != cudaSuccess)
 	{
 		kernelgen_print_error(kernelgen_launch_verbose,
