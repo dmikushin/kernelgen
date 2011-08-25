@@ -29,16 +29,15 @@ real, intent(inout) :: xy(m, n)
 
 integer :: i, j, k
 
-do j = 1, n
+do 10 j = 1, n
   ! This is just a comment
-  do i = 1, m
+  do 10 i = 1, m
     k = 1
     do while (k <= 1)
       xy(i, j) = log(x(i, j))
       k = k + 1
     enddo
-  enddo
-enddo
+10 continue
 
 if (.true. .eqv. .false.) then
 

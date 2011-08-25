@@ -2,6 +2,7 @@ stage.01.xsl
 stage.02.xsl
 stage.03.xsl
 stage.04.xsl
+do-continue.xsl
 do-group.xsl
 do-links.xsl
 do-portable.xsl

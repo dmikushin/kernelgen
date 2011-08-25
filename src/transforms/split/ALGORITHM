@@ -6,6 +6,7 @@ SPLIT transormation pipeline
    stage.02.xsl : Split grouped definitions into individual.
    stage.03.xsl : Filter out definitions matching to inline functions, transform inline functions into new definitons.
    stage.04.xsl : In each individual definition mark definied symbol and group of symbols, used in type declaration.
+do-continue.xsl : Replace old-style do .. continue with do .. enddo
    do-group.xsl : Mark stacks of do-constructs (do-groups) for kernel loops.
    do-links.xsl : For each do-group link do-group and its do-s with common id.
 do-portable.xsl : For each do-group remove parts containing non-portable symbols.
