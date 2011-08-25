@@ -1,0 +1,130 @@
+--- a/llvm/autoconf/configure.ac	2011-08-10 20:26:01.000000000 +0400
++++ b/llvm/autoconf/configure.ac	2011-08-20 19:59:42.046845319 +0400
+@@ -121,7 +121,7 @@
+   fi
+ done
+ 
+-dnl Disable the build of polly, even if it is checked out into tools/polly.
++dnl Disable the build of polly, even if it is checked out into lib/Transforms/polly.
+ AC_ARG_ENABLE(polly,
+               AS_HELP_STRING([--enable-polly],
+                              [Use polly if available (default is YES)]),,
+@@ -134,11 +134,11 @@
+ esac
+ 
+ 
+-dnl Check if polly is checked out into tools/polly and configure it if
++dnl Check if polly is checked out into lib/Transforms/polly and configure it if
+ dnl available.
+-if (test -d ${srcdir}/tools/polly) && (test $ENABLE_POLLY -eq 1) ; then
++if (test -d ${srcdir}/lib/Transforms/polly) && (test $ENABLE_POLLY -eq 1) ; then
+   AC_SUBST(LLVM_HAS_POLLY,1)
+-  AC_CONFIG_SUBDIRS([tools/polly])
++  AC_CONFIG_SUBDIRS([lib/Transforms/polly])
+ fi
+ 
+ dnl===-----------------------------------------------------------------------===
+--- a/llvm/lib/Transforms/polly/lib/Makefile	2011-08-11 18:15:28.000000000 +0400
++++ b/llvm/lib/Transforms/polly/lib/Makefile	2011-08-20 20:49:10.930716211 +0400
+@@ -10,6 +10,7 @@
+ 
+ LIBRARYNAME=LLVMPolly
+ LOADABLE_MODULE = 1
++BUILD_ARCHIVE = 1
+ 
+ include $(LEVEL)/Makefile.config
+ 
+--- a/llvm/lib/Transforms/polly/configure	2011-08-11 18:15:28.000000000 +0400
++++ b/llvm/lib/Transforms/polly/configure	2011-08-20 19:35:48.251296004 +0400
+@@ -1790,8 +1790,8 @@
+ 
+ 
+ 
+-LLVM_SRC_ROOT="`(cd $srcdir/../..; pwd)`"
+-LLVM_OBJ_ROOT="`(cd ../..; pwd)`"
++LLVM_SRC_ROOT="`(cd $srcdir/../../..; pwd)`"
++LLVM_OBJ_ROOT="`(cd ../../..; pwd)`"
+ 
+ 
+ # Check whether --with-llvmsrc was given.
+--- a/llvm/lib/Transforms/polly/Makefile	2011-08-11 18:15:28.000000000 +0400
++++ b/llvm/lib/Transforms/polly/Makefile	2011-08-21 02:16:15.972986801 +0400
+@@ -15,3 +15,7 @@
+ # Include the Master Makefile that knows how to build all.
+ #
+ include $(LEVEL)/Makefile.common
++
++all::
++	@mkdir -p ../../../$(BuildMode)/lib
++	@ln -s -f ../../lib/Transforms/polly/$(BuildMode)/lib/LLVMPolly.a ../../../$(BuildMode)/lib/libLLVMPolly.a
+--- a/llvm/lib/Transforms/Makefile	2011-08-10 20:25:59.000000000 +0400
++++ b/llvm/lib/Transforms/Makefile	2011-08-20 20:27:24.329188300 +0400
+@@ -7,11 +7,15 @@
+ #
+ ##===----------------------------------------------------------------------===##
+ 
+-LEVEL = ../..
+-PARALLEL_DIRS = Utils Instrumentation Scalar InstCombine IPO Hello
++LEVEL := ../..
++PARALLEL_DIRS := Utils Instrumentation Scalar InstCombine IPO Hello
+ 
+ include $(LEVEL)/Makefile.config
+ 
++ifdef LLVM_HAS_POLLY
++  PARALLEL_DIRS += polly
++endif
++
+ # No support for plugins on windows targets
+ ifeq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW Minix))
+   PARALLEL_DIRS := $(filter-out Hello, $(PARALLEL_DIRS))
+--- a/llvm/tools/llvm-shlib/Makefile	2011-08-10 20:25:56.000000000 +0400
++++ b/llvm/tools/llvm-shlib/Makefile	2011-08-21 02:50:31.652208813 +0400
+@@ -29,6 +29,12 @@
+ 
+ include $(LEVEL)/Makefile.common
+ 
++ifdef LLVM_HAS_POLLY
++  include ../../lib/Transforms/polly/Makefile.config
++  LIBS += -L../../lib/Transforms/polly/$(BuildMode)/lib -lpollysupport -lpollyexchange -lpollyanalysis -lpollyjson \
++    $(POLLY_LD) $(POLLY_LIB)
++endif
++
+ # Include all archives in libLLVM.(so|dylib) except the ones that have
+ # their own dynamic libraries.
+ Archives := $(wildcard $(LibDir)/libLLVM*.a)
+--- a/llvm/tools/Makefile	2011-08-10 20:25:56.000000000 +0400
++++ b/llvm/tools/Makefile	2011-08-20 20:05:55.001821092 +0400
+@@ -61,9 +61,6 @@
+   endif
+ endif
+ 
+-ifdef LLVM_HAS_POLLY
+-  PARALLEL_DIRS += polly
+-endif
+ endif
+ 
+ # On Win32, loadable modules can be built with ENABLE_SHARED.
+--- a/llvm/configure	2011-08-10 20:26:01.000000000 +0400
++++ b/llvm/configure	2011-08-20 19:58:40.940179275 +0400
+@@ -827,7 +827,7 @@
+ projects/llvm-tv
+ projects/safecode
+ projects/llvm-kernel
+-tools/polly'
++lib/Transforms/polly'
+ 
+ # Initialize some variables set by options.
+ ac_init_help=
+@@ -2053,10 +2053,10 @@
+ esac
+ 
+ 
+-if (test -d ${srcdir}/tools/polly) && (test $ENABLE_POLLY -eq 1) ; then
++if (test -d ${srcdir}/lib/Transforms/polly) && (test $ENABLE_POLLY -eq 1) ; then
+   LLVM_HAS_POLLY=1
+ 
+-  subdirs="$subdirs tools/polly"
++  subdirs="$subdirs lib/Transforms/polly"
+ 
+ fi
+ 

@@ -1,0 +1,110 @@
+#!/usr/bin/perl -w
+
+##
+## KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+##
+## Copyright (c) 2011 Dmitry Mikushin
+##
+## This software is provided 'as-is', without any express or implied warranty.
+## In no event will the authors be held liable for any damages arising 
+## from the use of this software.
+## Permission is granted to anyone to use this software for any purpose, 
+## including commercial applications, and to alter it and redistribute it freely,
+## subject to the following restrictions:
+##
+## 1. The origin of this software must not be misrepresented;
+## you must not claim that you wrote the original software.
+## If you use this software in a product, an acknowledgment
+## in the product documentation would be appreciated but is not required.
+## 2. Altered source versions must be plainly marked as such,
+## and must not be misrepresented as being the original software.
+## 3. This notice may not be removed or altered from any source distribution.
+##
+
+#
+# Generate LLVM intermediate representation and optimize it.
+#
+sub kgen_ir
+{
+	my($filename) = shift;
+	my($dragonegg_compiler) = shift;
+	my($args) = shift;
+	my($llvm_opt) = shift;
+	my($complog) = shift;
+	my($errlog) = shift;
+	my($verbose) = shift;
+
+	#
+	# Generate LLVM IR.
+	#
+	my($ir_complog) = "";
+	my($ir_errlog) = "";
+	execlog(undef, \$ir_complog, \$ir_errlog,
+		$verbose, $dragonegg_compiler, @$args);
+	if (! -e "$filename.ir")
+	{
+		if ($ir_complog ne "")
+		{
+			$ir_complog =~ s/^/ir\t>> /;
+			$ir_complog =~ s/\n/\nir\t>> /g;
+			$ir_complog =~ s/ir\t>>\s$//;
+			$$complog .= $ir_complog;
+		}
+		if ($ir_errlog ne "")
+		{
+			$ir_errlog =~ s/^/ir\t>> /;
+			$ir_errlog =~ s/\n/\nir\t>> /g;
+			$ir_errlog =~ s/ir\t>>\s$//;
+			$$errlog .= $ir_errlog;
+		}
+		
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+	
+	#
+	# Pass optimizations on the generated LLVM IR.
+	#
+	my(@opt_args) = ("-std-compile-opts", "$filename.ir",
+		"-S", "-o", "$filename.opt.ir");
+	my($opt_complog) = "";
+	my($opt_errlog) = "";
+	execlog(undef, \$opt_complog, \$opt_errlog,
+		$verbose, $llvm_opt, @opt_args);
+	if (! -e "$filename.opt.ir")
+	{
+		if ($opt_complog ne "")
+		{
+			$opt_complog =~ s/^/opt\t>> /;
+			$opt_complog =~ s/\n/\nopt\t>> /g;
+			$opt_complog =~ s/opt\t>>\s$//;
+			$$complog .= $opt_complog;
+		}
+		if ($opt_errlog ne "")
+		{
+			$opt_errlog =~ s/^/opt\t>> /;
+			$opt_errlog =~ s/\n/\nopt\t>> /g;
+			$opt_errlog =~ s/opt\t>>\s$//;
+			$$errlog .= $opt_errlog;
+		}
+		
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+}
+
+1; 

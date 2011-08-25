@@ -1,0 +1,368 @@
+#!/usr/bin/perl -w
+
+##
+## KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+##
+## Copyright (c) 2011 Dmitry Mikushin
+##
+## This software is provided 'as-is', without any express or implied warranty.
+## In no event will the authors be held liable for any damages arising 
+## from the use of this software.
+## Permission is granted to anyone to use this software for any purpose, 
+## including commercial applications, and to alter it and redistribute it freely,
+## subject to the following restrictions:
+##
+## 1. The origin of this software must not be misrepresented;
+## you must not claim that you wrote the original software.
+## If you use this software in a product, an acknowledgment
+## in the product documentation would be appreciated but is not required.
+## 2. Altered source versions must be plainly marked as such,
+## and must not be misrepresented as being the original software.
+## 3. This notice may not be removed or altered from any source distribution.
+##
+
+#
+# Perform OpenCL-specific compilation process
+#
+sub kgen_opencl
+{
+	my($filename) = shift;
+	my($base_args) = shift;
+	my($ifilename) = shift;
+	my($dragonegg_compiler) = shift;
+	my($llvm_opt) = shift;
+	my($ir_embed) = shift;
+	my($llc_compiler) = shift;
+	my($compiler) = shift;
+	my($backend_skipopts) = shift;
+	my($complog) = shift;
+	my($errlog) = shift;
+	my($verbose) = shift;
+
+	$args[$ifilename] = $filename;
+	if ("ARCH" eq "64")
+	{
+		if (!grep(/-m32/, @$base_args))
+		{
+			$$errlog .= "OpenCL supports only 32-bit mode (compile with -m32)\n";
+			print STDERR BOLD, RED, "$$errlog", RESET;
+			print RESET, "";
+			return 1;			
+		}
+	}
+
+	#
+	# Load the list of options supported by target
+	# kernel compiler.
+	#
+	my(@compiler_opts) = split(
+		"\n", `cat KGEN_PREFIX/opts/$compiler.opts`);
+
+	#
+	# Create arguments list for ir stage.
+	#
+	my(@args) = @$base_args;
+	$args[$ifilename] = $filename;
+	push(@args, "-ffree-line-length-none");
+	push(@args, "-fplugin=DRAGONEGG_PREFIXdragonegg.so");
+	push(@args, "-O0");
+	push(@args, "-S");
+	push(@args, "-fopencl-math-builtins");
+	push(@args, "-fplugin-arg-dragonegg-emit-ir");
+	push(@args, "-fplugin-arg-dragonegg-no-builtins");
+	push(@args, "-o");
+	push(@args, "$filename.ir");
+
+	#
+	# Filter out -g option
+	#
+	@args = grep(!/-g/, @args);
+
+	#
+	# Generate and optimize IR.
+	#
+	if (kgen_ir($filename, $dragonegg_compiler, \@args,
+		$llvm_opt, $complog, $errlog, $verbose))
+	{
+		return 1;
+	}
+
+	#
+	# Generate object file with IR embedded into data section.
+	#
+	my($filename_ir_o) = "$filename.ir.o";
+	my(@ir_embed_args) = ("-Wk,--name=$name\_opencl", "-c", "$filename.opt.ir",
+		"-o", $filename_ir_o);
+	if (grep(/-m32/, @$base_args))
+	{
+		push(@ir_embed_args, "-m32");
+	}
+	execlog(undef, \$cbe_complog, \$cbe_errlog,
+		$verbose, $ir_embed, @ir_embed_args);
+	if (! -e "$filename_ir_o")
+	{
+		if ($ir_complog ne "")
+		{
+			$ir_complog =~ s/^/ir\t>> /;
+			$ir_complog =~ s/\n/\nir\t>> /g;
+			$ir_complog =~ s/ir\t>>\s$//;
+			$$complog .= $ir_complog;
+		}
+		if ($ir_errlog ne "")
+		{
+			$ir_errlog =~ s/^/ir\t>> /;
+			$ir_errlog =~ s/\n/\nir\t>> /g;
+			$ir_errlog =~ s/ir\t>>\s$//;
+			$$errlog .= $ir_errlog;
+		}
+		
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "Cannot embed IR\n", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+
+	#
+	# Generate and optimize IR again, now with loops
+	# headers omitted (i.e. body only).
+	# NOTE This mode is only for compatibility with basic
+	# kernels extraction; it will be removed with implementing
+	# fully LLVM-based kernels extraction.
+	#
+	push(@args, "-D__OPENCL_DEVICE_FUNC__");
+	if (kgen_ir($filename, $dragonegg_compiler, \@args,
+		$llvm_opt, $complog, $errlog, $verbose))
+	{
+		return 1;
+	}
+
+	#
+	# Use target extension.
+	#
+	my($filename_ir_c) = "$filename.ir.c";
+
+	#
+	# Generate C code out of *.bc using llvm backend.
+	#
+	my($cbe_complog) = "";
+	my($cbe_errlog) = "";
+	execlog(undef, \$cbe_complog, \$cbe_errlog, $verbose,
+		$llc_compiler, "-march=c", "$filename.opt.ir",
+		"-o", $filename_ir_c);
+	if (! -e $filename_ir_c)
+	{
+		if ($cbe_complog ne "")
+		{
+			$cbe_complog =~ s/^/cbe\t>> /;
+			$cbe_complog =~ s/\n/\ncbe\t>> /g;
+			$cbe_complog =~ s/cbe\t>>\s$//;
+			$$complog .= $cbe_complog;
+		}
+		if ($cbe_errlog ne "")
+		{
+			$cbe_errlog =~ s/^/cbe\t>> /;
+			$cbe_errlog =~ s/\n/\ncbe\t>> /g;
+			$cbe_errlog =~ s/cbe\t>>\s$//;
+			$$errlog .= $cbe_errlog;
+		}
+
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+
+	#
+	# In case of CUDA, change kernel loop routine attribute
+	# from __device__ to __global__.
+	#
+	open($kernelgen_fh, $filename_ir_c);
+	my($code) = "" . do { local $/; <$kernelgen_fh> };
+	close($kernelgen_fh);
+
+	#
+	# Double extension is named differently in case of AMD OpenCL.
+	#
+	if ("CUDA_PREFIX" eq "undefined")
+	{
+		$code =~ s/cl_khr_fp64/cl_amd_fp64/;
+	}
+
+	#
+	# Add structure emulating global variables to kernel
+	# function prototype (if structure exists).
+	#
+	if ($code =~ m/\$kernel_name\$_globals_t/)
+	{
+		$code =~ m/\#ifdef\s__CUDA_DEVICE_FUNC__\n__device__\n#endif\nvoid\s$name\_\((?<PROTO>[^\;]*)\)\;/s;
+		my($old_proto) = $+{PROTO};
+		my($new_proto) = $old_proto;
+		if ($new_proto ne "")
+		{
+			$new_proto .= ", ";
+		}
+		$new_proto .= "__global struct $name\_opencl_globals_t* $name\_opencl_globals";
+		$old_proto = quotemeta($old_proto);
+		$code =~ s/void\s$name\_\($old_proto/void $name\_($new_proto/gs;
+	}
+
+	$code =~ s/\#ifdef\s__CUDA_DEVICE_FUNC__\n__device__\n#endif\nvoid\s$name\_\(/#ifdef __OPENCL_DEVICE_FUNC__\n__kernel\n#endif\n#define $name\_ $name\_opencl\nvoid $name\_(/s;
+	
+	$code =~ s/void\s$name\_blockidx_x\(\n#ifdef\s__OPENCL_DEVICE_FUNC__\n__global\n#endif\s\/\/\s__OPENCL_DEVICE_FUNC__\nunsigned\sint\s\*,\sunsigned\sint\s,\sunsigned int\s\)\;/void $name\_blockidx_x(unsigned int* index, unsigned int start, unsigned int end) { *index = get_group_id(0) + start; }/s;
+
+	$code =~ s/void\s$name\_blockidx_y\(\n#ifdef\s__OPENCL_DEVICE_FUNC__\n__global\n#endif\s\/\/\s__OPENCL_DEVICE_FUNC__\nunsigned\sint\s\*,\sunsigned\sint\s,\sunsigned int\s\)\;/void $name\_blockidx_y(unsigned int* index, unsigned int start, unsigned int end) { *index = get_group_id(1) + start; }/s;
+
+	$code =~ s/void\s$name\_blockidx_z\(\n#ifdef\s__OPENCL_DEVICE_FUNC__\n__global\n#endif\s\/\/\s__OPENCL_DEVICE_FUNC__\nunsigned\sint\s\*,\sunsigned\sint\s,\sunsigned int\s\)\;/void $name\_blockidx_z(unsigned int* index, unsigned int start, unsigned int end) { *index = get_local_id(2) + start; }/s;
+	
+	#
+	# Replace $kernel_name$ with actual name.
+	#
+	$code =~ s/\$kernel_name\$/$name\_opencl/g;
+
+	open($kernelgen_fh, ">$filename_ir_c");
+	print $kernelgen_fh "$code";
+	close($kernelgen_fh);
+
+	my($filename_ir_cpp) = "$filename.ir.cl";
+
+	#
+	# Perform a standalong preprocessor pass.
+	#
+	@args = ();
+	foreach $arg (@$base_args)
+	{
+		if ($arg eq "-c")
+		{
+			push(@args, "-E");
+		}
+		else
+		{
+			push(@args, $arg);
+		}
+	}
+	$args[$ifilename] = $filename_ir_c;
+	push(@args, "-E");
+	if ("ARCH" eq "64")
+	{
+		push(@args, "-m32");
+	}
+	push(@args, "-D__OPENCL_DEVICE_FUNC__");
+	push(@args, "-o");
+	push(@args, "$filename_ir_cpp");
+
+	my($c_complog) = "";
+	my($c_errlog) = "";
+	execlog(undef, \$c_complog, \$c_errlog,
+		$verbose, "gcc", @args);
+	if ($c_complog ne "")
+	{
+		$c_complog =~ s/^/c\t>> /;
+		$c_complog =~ s/\n/\nc\t>> /g;
+		$c_complog =~ s/c\t>>\s$//;
+		$$complog .= $c_complog;
+	}
+	if ($c_errlog ne "")
+	{
+		$c_errlog =~ s/^/c\t>> /;
+		$c_errlog =~ s/\n/\nc\t>> /g;
+		$c_errlog =~ s/c\t>>\s$//;
+		$$errlog .= $c_errlog;
+	}
+	if (! -e "$filename_ir_cpp")
+	{
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+
+	#
+	# Finally, compile generated C to object output.
+	#
+	$$base_args[$ifilename] = $filename_ir_cpp;
+	@args = ();
+	foreach $arg (@$base_args)
+	{
+		#
+		# Filter non C language-specific options 
+		# 
+		my($compiler_ignored_opt) = 0;
+		foreach $opt (@$backend_skipopts) 
+		{
+			if ($arg =~ m/$opt/)
+			{
+				$compiler_ignored_opt = 1;
+				last;
+			}
+		}
+		if ($compiler_ignored_opt == 1)
+		{
+			next;
+		}
+		push(@args, $arg);
+	}
+	$$base_args[$ifilename] = $filename;
+
+	push(@args, "-Wk,--name=$name\_opencl");
+	push(@args, "-D__OPENCL_DEVICE_FUNC__");
+	push(@args, "-o");
+	push(@args, "$filename.o");
+
+	execlog(undef, \$c_complog, \$c_errlog,
+		$verbose, $compiler, @args);
+	if ($c_complog ne "")
+	{
+		$c_complog =~ s/^/c\t>> /;
+		$c_complog =~ s/\n/\nc\t>> /g;
+		$c_complog =~ s/c\t>>\s$//;
+		$$complog .= $c_complog;
+	}
+	if ($c_errlog ne "")
+	{
+		$c_errlog =~ s/^/c\t>> /;
+		$c_errlog =~ s/\n/\nc\t>> /g;
+		$c_errlog =~ s/c\t>>\s$//;
+		$$errlog .= $c_errlog;
+	}
+	if (! -e "$filename.o")
+	{
+		#
+		# Display error and stop processing compilation pipeline
+		# for entire kernel. Go directly to discarder.
+		# TODO: embed log into compiled object.
+		#
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, RED, "$$errlog", RESET;
+		print RESET, "";
+		return 1;
+	}
+	else
+	{
+		print STDOUT BOLD, YELLOW, "$$complog", RESET;
+		print STDERR BOLD, YELLOW, "$$errlog", RESET;
+		print RESET, "";
+	}
+
+	$$complog = "";
+	$$errlog = "";
+
+	return 0;
+}
+
+1;

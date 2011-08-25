@@ -1,0 +1,37 @@
+============================
+SPLIT transormation pipeline
+============================
+
+   stage.01.xsl : Put declaration statements type part into separate tag.
+   stage.02.xsl : Split grouped definitions into individual.
+   stage.03.xsl : Filter out definitions matching to inline functions, transform inline functions into new definitons.
+   stage.04.xsl : In each individual definition mark definied symbol and group of symbols, used in type declaration.
+   do-group.xsl : Mark stacks of do-constructs (do-groups) for kernel loops.
+   do-links.xsl : For each do-group link do-group and its do-s with common id.
+do-portable.xsl : For each do-group remove parts containing non-portable symbols.
+   do-ndims.xsl : For each do-group calculate its number of dimensions.
+    do-rate.xsl : For each stack of do loops select one group with the maximum number of dimensions, and discard all others.
+    do-grid.xsl : Assign compute grid axis to each portable do loop.
+    do-head.xsl : Add do-group head tag with used symbols, their definitions, modules and other data.
+   stage.06.xsl : For each do-construct exclude duplicates from used symbols list
+   stage.07.xsl : For each do-construct symbol in symbols list, add dependencies for their definitions and mark used definitions.
+   stage.08.xsl : Move definitions out of symbols lists.
+   stage.09.xsl : For each do-construct exclude duplicates from used symbols list
+   stage.10.xsl : Exclude duplicates from used declarations list
+   stage.11.xsl : Clone global symbols definitions down to symbols, for further filtering globally-defined symbols in next step.
+   stage.12.xsl : Mark globally defined symbols.
+     de-cpp.xsl : Remove Fortran include statements and preprocessor tags <cpp> and <unseen>.
+   stage.15.xsl : For each do-construct create an argument list and list of used modules symbols. Do not include definitions
+                  with "parameter" attribute to lists. In each declaration statement move the list of used symbols to declarations.
+                  Report defined modules.
+
+-> routines
+
+   routines.xsl : Extract loops routines, include only declarations for symbols used in entire routine. Apply default compute grid setup:
+                  instead of two most outer loops, assign their indexes with compute grid block indexes.
+ txt.output.xsl : Text output
+
+-> calls
+
+      calls.xsl : Put call <name>(<prototype>) and other stuff in addition to original do groups.
+ txt.output.xsl : Text output

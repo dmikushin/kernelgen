@@ -1,0 +1,248 @@
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-21 14:15:54.535693122 +0400
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-21 15:08:19.384354353 +0400
+@@ -52,6 +52,7 @@
+ #include "llvm/Support/MathExtras.h"
+ #include "llvm/Support/Host.h"
+ #include "llvm/Config/config.h"
++#include "polly/CodeGeneration.h"
+ #include <algorithm>
+ // Some ms header decided to define setjmp as _setjmp, undo this for this file.
+ #ifdef _MSC_VER
+@@ -80,6 +81,7 @@
+     IntrinsicLowering *IL;
+     Mangler *Mang;
+     LoopInfo *LI;
++    CodeGeneration *CG;
+     const Module *TheModule;
+     const MCAsmInfo* TAsm;
+     const MCRegisterInfo *MRI;
+--- a/llvm/lib/Target/CBackend/Makefile	2011-08-10 20:25:58.000000000 +0400
++++ b/llvm/lib/Target/CBackend/Makefile	2011-08-21 15:31:04.756989921 +0400
+@@ -14,3 +14,7 @@
+ include $(LEVEL)/Makefile.common
+ 
+ CompileCommonOpts += -Wno-format
++
++ifdef LLVM_HAS_POLLY
++  CPP.Flags += -I$(PROJ_SRC_ROOT)/include/llvm/Transforms/ -I$(PROJ_OBJ_ROOT)/lib/Transforms/polly/include
++endif
+--- a/llvm/include/llvm/Transforms/polly/CodeGeneration.h	1970-01-01 03:00:00.000000000 +0300
++++ b/llvm/include/llvm/Transforms/polly/CodeGeneration.h	2011-08-22 02:26:31.999123098 +0400
+@@ -0,0 +1,92 @@
++//===------ CodeGeneration.cpp - Code generate the Scops. -----------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// The CodeGeneration pass takes a Scop created by ScopInfo and translates it
++// back to LLVM-IR using Cloog.
++//
++// The Scop describes the high level memory behaviour of a control flow region.
++// Transformation passes can update the schedule (execution order) of statements
++// in the Scop. Cloog is used to generate an abstract syntax tree (clast) that
++// reflects the updated execution order. This clast is used to create new
++// LLVM-IR that is computational equivalent to the original control flow region,
++// but executes its code in the new execution order defined by the changed
++// scattering.
++//
++//===----------------------------------------------------------------------===//
++
++#define DEBUG_TYPE "polly-codegen"
++
++#include "polly/LinkAllPasses.h"
++#include "polly/Support/GICHelper.h"
++#include "polly/Support/ScopHelper.h"
++#include "polly/Dependences.h"
++#include "polly/ScopInfo.h"
++#include "polly/TempScopInfo.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/IRBuilder.h"
++#include "llvm/Analysis/LoopInfo.h"
++#include "llvm/Analysis/ScalarEvolutionExpander.h"
++#include "llvm/Transforms/Utils/BasicBlockUtils.h"
++#include "llvm/Target/TargetData.h"
++#include "llvm/Module.h"
++#include "llvm/ADT/SetVector.h"
++
++#include <vector>
++
++namespace polly {
++class CodeGeneration : public ScopPass {
++  Region *region;
++  Scop *S;
++  DominatorTree *DT;
++  ScalarEvolution *SE;
++  ScopDetection *SD;
++  TargetData *TD;
++  RegionInfo *RI;
++
++  std::vector<std::string> parallelLoops;
++
++  public:
++  static char ID;
++
++  CodeGeneration();
++
++  // Adding prototypes required if OpenMP is enabled.
++  void addOpenMPDefinitions(IRBuilder<> &Builder);
++
++  // Split the entry edge of the region and generate a new basic block on this
++  // edge. This function also updates ScopInfo and RegionInfo.
++  //
++  // @param region The region where the entry edge will be splitted.
++  BasicBlock *splitEdgeAdvanced(Region *region);
++
++  // Create a split block that branches either to the old code or to a new basic
++  // block where the new code can be inserted.
++  //
++  // @param builder A builder that will be set to point to a basic block, where
++  //                the new code can be generated.
++  // @return The split basic block.
++  BasicBlock *addSplitAndStartBlock(IRBuilder<> *builder);
++
++  // Merge the control flow of the newly generated code with the existing code.
++  //
++  // @param splitBlock The basic block where the control flow was split between
++  //                   old and new version of the Scop.
++  // @param builder    An IRBuilder that points to the last instruction of the
++  //                   newly generated code.
++  void mergeControlFlow(BasicBlock *splitBlock, IRBuilder<> *builder);
++
++  bool runOnScop(Scop &scop);
++
++  virtual void printScop(raw_ostream &OS) const;
++
++  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
++};
++}
++
+--- a/llvm/lib/Transforms/polly/lib/CodeGeneration.cpp	2011-08-11 18:15:28.000000000 +0400
++++ b/llvm/lib/Transforms/polly/lib/CodeGeneration.cpp	2011-08-22 02:26:43.590873050 +0400
+@@ -22,22 +22,8 @@
+ 
+ #define DEBUG_TYPE "polly-codegen"
+ 
+-#include "polly/LinkAllPasses.h"
+-#include "polly/Support/GICHelper.h"
+-#include "polly/Support/ScopHelper.h"
++#include "polly/CodeGeneration.h"
+ #include "polly/Cloog.h"
+-#include "polly/Dependences.h"
+-#include "polly/ScopInfo.h"
+-#include "polly/TempScopInfo.h"
+-#include "llvm/Support/CommandLine.h"
+-#include "llvm/Support/Debug.h"
+-#include "llvm/Support/IRBuilder.h"
+-#include "llvm/Analysis/LoopInfo.h"
+-#include "llvm/Analysis/ScalarEvolutionExpander.h"
+-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+-#include "llvm/Target/TargetData.h"
+-#include "llvm/Module.h"
+-#include "llvm/ADT/SetVector.h"
+ 
+ #define CLOOG_INT_GMP 1
+ #include "cloog/cloog.h"
+@@ -1275,25 +1261,12 @@
+ };
+ }
+ 
+-namespace {
+-class CodeGeneration : public ScopPass {
+-  Region *region;
+-  Scop *S;
+-  DominatorTree *DT;
+-  ScalarEvolution *SE;
+-  ScopDetection *SD;
+-  TargetData *TD;
+-  RegionInfo *RI;
+-
+-  std::vector<std::string> parallelLoops;
+-
+-  public:
+-  static char ID;
++namespace polly {
+ 
+-  CodeGeneration() : ScopPass(ID) {}
++  CodeGeneration::CodeGeneration() : ScopPass(ID) {}
+ 
+   // Adding prototypes required if OpenMP is enabled.
+-  void addOpenMPDefinitions(IRBuilder<> &Builder)
++  void CodeGeneration::addOpenMPDefinitions(IRBuilder<> &Builder)
+   {
+     Module *M = Builder.GetInsertBlock()->getParent()->getParent();
+     LLVMContext &Context = Builder.getContext();
+@@ -1348,7 +1321,7 @@
+   // edge. This function also updates ScopInfo and RegionInfo.
+   //
+   // @param region The region where the entry edge will be splitted.
+-  BasicBlock *splitEdgeAdvanced(Region *region) {
++  BasicBlock *CodeGeneration::splitEdgeAdvanced(Region *region) {
+     BasicBlock *newBlock;
+     BasicBlock *splitBlock;
+ 
+@@ -1380,7 +1353,7 @@
+   // @param builder A builder that will be set to point to a basic block, where
+   //                the new code can be generated.
+   // @return The split basic block.
+-  BasicBlock *addSplitAndStartBlock(IRBuilder<> *builder) {
++  BasicBlock *CodeGeneration::addSplitAndStartBlock(IRBuilder<> *builder) {
+     BasicBlock *splitBlock = splitEdgeAdvanced(region);
+ 
+     splitBlock->setName("polly.enterScop");
+@@ -1404,7 +1377,7 @@
+   //                   old and new version of the Scop.
+   // @param builder    An IRBuilder that points to the last instruction of the
+   //                   newly generated code.
+-  void mergeControlFlow(BasicBlock *splitBlock, IRBuilder<> *builder) {
++  void CodeGeneration::mergeControlFlow(BasicBlock *splitBlock, IRBuilder<> *builder) {
+     BasicBlock *mergeBlock;
+     Region *R = region;
+ 
+@@ -1426,7 +1399,7 @@
+       DT->changeImmediateDominator(mergeBlock, splitBlock);
+   }
+ 
+-  bool runOnScop(Scop &scop) {
++  bool CodeGeneration::runOnScop(Scop &scop) {
+     S = &scop;
+     region = &S->getRegion();
+     DT = &getAnalysis<DominatorTree>();
+@@ -1489,14 +1462,14 @@
+     return true;
+   }
+ 
+-  virtual void printScop(raw_ostream &OS) const {
++  void CodeGeneration::printScop(raw_ostream &OS) const {
+     for (std::vector<std::string>::const_iterator PI = parallelLoops.begin(),
+          PE = parallelLoops.end(); PI != PE; ++PI)
+       OS << "Parallel loop with iterator '" << *PI << "' generated\n";
+   }
+ 
+-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+-    AU.addRequired<CloogInfo>();
++  void CodeGeneration::getAnalysisUsage(AnalysisUsage &AU) const {
++    /*AU.addRequired<CloogInfo>();
+     AU.addRequired<Dependences>();
+     AU.addRequired<DominatorTree>();
+     AU.addRequired<ScalarEvolution>();
+@@ -1519,12 +1492,11 @@
+     AU.addPreserved<RegionInfo>();
+     AU.addPreserved<TempScopInfo>();
+     AU.addPreserved<ScopInfo>();
+-    AU.addPreservedID(IndependentBlocksID);
++    AU.addPreservedID(IndependentBlocksID);*/
+   }
+-};
+-}
+ 
+-char CodeGeneration::ID = 1;
++  char CodeGeneration::ID = 1;
++}
+ 
+ static RegisterPass<CodeGeneration>
+ Z("polly-codegen", "Polly - Create LLVM-IR from the polyhedral information");
