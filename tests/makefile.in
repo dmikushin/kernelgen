@@ -23,38 +23,50 @@ include ../../../makefile.in
 
 HAVE_CPU ?= 1
 
-CCOMP32 ?= $(CC) -I/home/marcusmae/opt/kgen/include
-FCOMP32 ?= kgen-gfortran -Wk,--host-compiler=$(FC)
+CCOMP32_FLAGS = -I/home/marcusmae/opt/kgen/include
+FCOMP32_FLAGS = -Wk,--host-compiler=$(FC)
 
 ifeq ($(HAVE_CPU), 1)
-FCOMP32 += -Wk,--cpu-compiler=gcc
+FCOMP32_FLAGS += -Wk,--cpu-compiler=gcc
 HAVE_CPU = cpu,
 else
 HAVE_CPU =
 endif
 
 ifeq ($(HAVE_CUDA), 1)
-FCOMP32 += -Wk,--cuda-compiler=nvcc
+FCOMP32_FLAGS += -Wk,--cuda-compiler=nvcc
 HAVE_CUDA = cuda,
 else
 HAVE_CUDA =
 endif
 
-CCOMP64 := $(CCOMP32)
-FCOMP64 := $(FCOMP32)
+CCOMP64_FLAGS := $(CCOMP32_FLAGS)
+FCOMP64_FLAGS := $(FCOMP32_FLAGS)
 
 ifeq ($(ARCH), 64)
-CCOMP32 += -m32
-FCOMP32 += -m32
+CCOMP32_FLAGS += -m32
+FCOMP32_FLAGS += -m32
 endif
 
 ifeq ($(HAVE_OPENCL), 1)
-FCOMP32 += -Wk,--opencl-compiler=kgen-opencl-embed
+FCOMP32_FLAGS += -Wk,--opencl-compiler=kgen-opencl-embed
 HAVE_OPENCL = opencl,
 else
 HAVE_OPENCL =
 endif
 
-FCOMP32 += -Wk,--kernel-target=$(HAVE_CPU)$(HAVE_CUDA)$(HAVE_OPENCL)
-FCOMP64 += -Wk,--kernel-target=$(HAVE_CPU)$(HAVE_CUDA)
- 
+FCOMP32_FLAGS += -Wk,--kernel-target=$(HAVE_CPU)$(HAVE_CUDA)$(HAVE_OPENCL)
+FCOMP64_FLAGS += -Wk,--kernel-target=$(HAVE_CPU)$(HAVE_CUDA)
+
+CCOMP32 = $(CC) $(CCOMP32_FLAGS)
+FCOMP32 = kgen-gfortran $(FCOMP32_FLAGS)
+
+CCOMP64 = $(CC) $(CCOMP64_FLAGS)
+FCOMP64 = kgen-gfortran $(FCOMP64_FLAGS)
+
+MPI_CCOMP32 = $(MPI_CC) $(CCOMP32_FLAGS)
+MPI_FCOMP32 = $(MPI_F90) $(FCOMP32_FLAGS)
+
+MPI_CCOMP64 = $(MPI_CC) $(CCOMP64_FLAGS)
+MPI_FCOMP64 = $(MPI_F90) $(FCOMP64_FLAGS)
+
