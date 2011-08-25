@@ -90,6 +90,7 @@ enum kernelgen_error
 	kernelgen_error_not_implemented = 1023,
 	kernelgen_error_ffi_setup = 1024,
 	kernelgen_error_results_mismatch = 1025,
+	kernelgen_error_compilation_failed = 1026
 };
 
 #define kernelgen_make_error(var, value_, runmode_) \

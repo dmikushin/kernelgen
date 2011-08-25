@@ -227,18 +227,6 @@ void kernelgen_kernel_init(
 		sprintf(kernel_source_name, kernel_name_fmt,
 			l->kernel_name, "ir");
 
-		// Build device-specific kernel binary symbol name.
-		length = snprintf(NULL, 0, kernel_name_fmt,
-			l->kernel_name, "binary");
-		if (length < 0)
-		{
-			// TODO: release resources!
-		}
-		length++;
-		char* kernel_binary_name = (char*)malloc(length);
-		sprintf(kernel_binary_name, kernel_name_fmt,
-			l->kernel_name, "binary");
-
 		// Load kernel source and binary from the
 		// entire ELF image.
 		int status = elf_read("/proc/self/exe", kernel_source_name,
@@ -247,15 +235,9 @@ void kernelgen_kernel_init(
 		{
 			// TODO: handle errors
 		}
-		status = elf_read("/proc/self/exe", kernel_binary_name,
-			&l->kernel_binary, &l->kernel_binary_size);
-		if (status)
-		{
-			// TODO: handle errors
-		}
-
-		free(kernel_source_name);
-		free(kernel_binary_name);
+		
+		l->kernel_binary = NULL;
+		l->kernel_binary_size = 0;
 	}
 	
 	free(kernel_basename);
@@ -572,6 +554,9 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 			}
 			kernelgen_devices_count[i] = devices_count;
 			total_devices_count += kernelgen_devices_count[i];
+			kernelgen_print_debug(kernelgen_launch_verbose,
+				"OpenCL platform %d: %s, %d devices\n",
+				i, kernelgen_platforms_names[i], kernelgen_devices_count[i]);
 		}
 		kernelgen_devices = (cl_device_id**)malloc(
 			sizeof(cl_device_id*) * kernelgen_platforms_count +

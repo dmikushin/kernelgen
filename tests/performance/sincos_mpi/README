@@ -1,0 +1,26 @@
+Test case to benchmark some simple trigonometry performance on device against CPU version.
+
+Sample output:
+
+[marcusmae@zacate sincos]$ kernelgen_debug_output=7 sincos_loop_1_kernelgen=4 32/sincos 256 256 256
+init.cpp:546 OpenCL engine uses device "Loveland"
+launch.c:60 Launching sincos_loop_1_kernelgen_opencl for device runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xff887dec, size = 4, desc = 0xff887dec
+parse_args.h:69 arg "unknown" ref = 0xff887de8, size = 4, desc = 0xff887de8
+parse_args.h:69 arg "unknown" ref = 0xff887de4, size = 4, desc = 0xff887de4
+parse_args.h:69 arg "unknown" ref = 0xe04fb008, size = 67108864, desc = 0xe04fb008
+parse_args.h:69 arg "unknown" ref = 0xf04ff008, size = 67108864, desc = 0xf04ff008
+parse_args.h:69 arg "unknown" ref = 0xe84fd008, size = 67108864, desc = 0xe84fd008
+map_opencl.c:73 symbol "unknown" maps memory segment [0xff887dec .. 0xff887df0] to [0x9a025e0 .. 0x9a025e0 + 4]
+map_opencl.c:73 symbol "unknown" maps memory segment [0xff887de8 .. 0xff887dec] to [0x9935c00 .. 0x9935c00 + 4]
+map_opencl.c:73 symbol "unknown" maps memory segment [0xff887de4 .. 0xff887de8] to [0x9969630 .. 0x9969630 + 4]
+map_opencl.c:73 symbol "unknown" maps memory segment [0xe04fb008 .. 0xe44fb008] to [0x996b370 .. 0x996b370 + 67108864]
+map_opencl.c:73 symbol "unknown" maps memory segment [0xf04ff008 .. 0xf44ff008] to [0x996df90 .. 0x996df90 + 67108864]
+map_opencl.c:73 symbol "unknown" maps memory segment [0xe84fd008 .. 0xec4fd008] to [0x996d250 .. 0x996d250 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.320339 sec
+regular time = 2.622802 sec
+max diff = 0.000000
+

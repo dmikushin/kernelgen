@@ -41,10 +41,11 @@ endif
 INCFFI = -I/usr/lib64/libffi-3.0.9/include -I/usr/include/i686-linux-gnu
 
 OBJECTS = \
-	init launch compare error timing merge parse_args \
+	init device launch compare error timing merge parse_args \
 	parse_modsyms_cpu parse_modsyms_cuda parse_modsyms_opencl \
 	map_cpu unmap_cpu map_cuda unmap_cuda map_opencl unmap_opencl \
-	build_cpu build_cuda build_opencl launch_cpu launch_cuda launch_opencl \
+	build_llvm build_cpu build_cuda build_opencl \
+	launch_cpu launch_cuda launch_opencl \
 	reset_cpu reset_cuda reset_opencl devaddr_opencl \
 	elf_read elf_write load_source kernelgen
 
@@ -102,6 +103,11 @@ endif
 	$(NVCC32) $(NVFLAGS) -c $< -o $@
 64/init.o: init.cpp init.h kernelgen.h kernelgen_int.h
 	$(NVCC64) $(NVFLAGS) -c $< -o $@
+
+32/device.o: device.c kernelgen.h kernelgen_int.h
+	$(CC32) $(CFLAGS) -c $< -o $@
+64/device.o: device.c kernelgen.h kernelgen_int.h
+	$(CC64) $(CFLAGS) -c $< -o $@
 
 32/launch.o: launch.c kernelgen.h kernelgen_int.h
 	$(NVCC32) $(NVFLAGS) -D_GNU_SOURCE -c $< -o $@
@@ -181,6 +187,11 @@ endif
 32/unmap_opencl.o: unmap_opencl.c
 	$(CC32) $(CFLAGS) -c $< -o $@
 64/unmap_opencl.o: unmap_opencl.c
+	$(CC64) $(CFLAGS) -c $< -o $@
+
+32/build_llvm.o: build_llvm.c
+	$(CC32) $(CFLAGS) -c $< -o $@
+64/build_llvm.o: build_llvm.c
 	$(CC64) $(CFLAGS) -c $< -o $@
 
 32/build_cpu.o: build_cpu.c

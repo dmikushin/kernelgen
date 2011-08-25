@@ -2,25 +2,195 @@ Test case to benchmark some simple trigonometry performance on device against CP
 
 Sample output:
 
-[marcusmae@zacate sincos]$ kernelgen_debug_output=7 sincos_loop_1_kernelgen=4 32/sincos 256 256 256
-init.cpp:546 OpenCL engine uses device "Loveland"
-launch.c:60 Launching sincos_loop_1_kernelgen_opencl for device runmode "opencl"
-parse_args.h:69 arg "unknown" ref = 0xff887dec, size = 4, desc = 0xff887dec
-parse_args.h:69 arg "unknown" ref = 0xff887de8, size = 4, desc = 0xff887de8
-parse_args.h:69 arg "unknown" ref = 0xff887de4, size = 4, desc = 0xff887de4
-parse_args.h:69 arg "unknown" ref = 0xe04fb008, size = 67108864, desc = 0xe04fb008
-parse_args.h:69 arg "unknown" ref = 0xf04ff008, size = 67108864, desc = 0xf04ff008
-parse_args.h:69 arg "unknown" ref = 0xe84fd008, size = 67108864, desc = 0xe84fd008
-map_opencl.c:73 symbol "unknown" maps memory segment [0xff887dec .. 0xff887df0] to [0x9a025e0 .. 0x9a025e0 + 4]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xff887de8 .. 0xff887dec] to [0x9935c00 .. 0x9935c00 + 4]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xff887de4 .. 0xff887de8] to [0x9969630 .. 0x9969630 + 4]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xe04fb008 .. 0xe44fb008] to [0x996b370 .. 0x996b370 + 67108864]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xf04ff008 .. 0xf44ff008] to [0x996df90 .. 0x996df90 + 67108864]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xe84fd008 .. 0xec4fd008] to [0x996d250 .. 0x996d250 + 67108864]
+[marcusmae@zacate sincos]$ kernelgen_runmode=4 kernelgen_debug_output=7 sincos_loop_1_kernelgen=4 32/sincos 256 256 256 10
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa2d6ea0 .. 0xa2d6ea0 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa05a498 .. 0xa05a498 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa2536b0 .. 0xa2536b0 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0xa206238 .. 0xa206238 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0xa216948 .. 0xa216948 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa214e48 .. 0xa214e48 + 67108864]
  Value of i after cycle =          257
  Value of j after cycle =          257
  Value of k after cycle =          257
-kernelgen time = 1.320339 sec
-regular time = 2.622802 sec
+kernelgen time = 1.395104 sec
+regular time = 2.617865 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa2536b0 .. 0xa2536b0 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa2d6ea0 .. 0xa2d6ea0 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0xa05a498 .. 0xa05a498 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0x9f53cb0 .. 0x9f53cb0 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0x9f55ef8 .. 0x9f55ef8 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.336275 sec
+regular time = 2.590059 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa2d6ea0 .. 0xa2d6ea0 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa05a498 .. 0xa05a498 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0xa2547a0 .. 0xa2547a0 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0xa2b5618 .. 0xa2b5618 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa217258 .. 0xa217258 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.374278 sec
+regular time = 2.581769 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa2d6ea0 .. 0xa2d6ea0 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa216b08 .. 0xa216b08 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0xa05a498 .. 0xa05a498 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0xa217258 .. 0xa217258 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa2b5618 .. 0xa2b5618 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.330745 sec
+regular time = 2.581119 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa2b5618 .. 0xa2b5618 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa05a498 .. 0xa05a498 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0xa216b08 .. 0xa216b08 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0xa217258 .. 0xa217258 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa057f40 .. 0xa057f40 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.340566 sec
+regular time = 2.579617 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa216a18 .. 0xa216a18 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa05a498 .. 0xa05a498 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0xa22eff8 .. 0xa22eff8 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0xa057f40 .. 0xa057f40 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa2063d8 .. 0xa2063d8 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.371617 sec
+regular time = 2.599361 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa216a18 .. 0xa216a18 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa22f920 .. 0xa22f920 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0x9f907e8 .. 0x9f907e8 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0xa22eff8 .. 0xa22eff8 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa2b8050 .. 0xa2b8050 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.341493 sec
+regular time = 2.586720 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa216a18 .. 0xa216a18 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa057f40 .. 0xa057f40 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0x9f90e40 .. 0x9f90e40 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0xa254248 .. 0xa254248 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa2196a8 .. 0xa2196a8 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.323881 sec
+regular time = 2.581818 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa252af8 .. 0xa252af8 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0x9f905e8 .. 0x9f905e8 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0xa216a18 .. 0xa216a18 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0x9f90710 .. 0x9f90710 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa2072f8 .. 0xa2072f8 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.384211 sec
+regular time = 2.606209 sec
+max diff = 0.000000
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffac162c, size = 4, desc = 0xffac162c
+parse_args.h:69 arg "unknown" ref = 0xffac1628, size = 4, desc = 0xffac1628
+parse_args.h:69 arg "unknown" ref = 0xffac1624, size = 4, desc = 0xffac1624
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac162c .. 0xffac1630] to [0xa216948 .. 0xa216948 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1628 .. 0xffac162c] to [0xa2e51d8 .. 0xa2e51d8 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffac1624 .. 0xffac1628] to [0xa216a18 .. 0xa216a18 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0xa057f40 .. 0xa057f40 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0xa059e38 .. 0xa059e38 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0xa059ec8 .. 0xa059ec8 + 67108864]
+ Value of i after cycle =          257
+ Value of j after cycle =          257
+ Value of k after cycle =          257
+kernelgen time = 1.374854 sec
+regular time = 2.608369 sec
 max diff = 0.000000
 

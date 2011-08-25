@@ -22,6 +22,7 @@
 #include <kernelgen.h>
 #include <malloc.h>
 #include <math.h>
+#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -59,6 +60,32 @@ int main(int argc, char* argv[])
 	{
 		x1[i] = rand() * invrmax; x2[i] = x1[i];
 		y1[i] = rand() * invrmax; y2[i] = y1[i];
+	}
+	
+	int mpi_status = MPI_Init(&argc, &argv);
+	if (mpi_status != MPI_SUCCESS)
+	{
+		fprintf(stderr, "Cannot initialize MPI, status = %d\n",
+			mpi_status);
+		return 1;
+	}
+	
+	int rank = 0;
+	mpi_status = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	if (mpi_status != MPI_SUCCESS)
+	{
+		fprintf(stderr, "Cannot get MPI process rank, status = %d\n",
+			mpi_status);
+		return 1;
+	}
+	
+	// Assign each MPI process with its own device.
+	kernelgen_status_t status = kernelgen_set_device(0, rank + 1);
+	if (status.value != kernelgen_success)
+	{
+		fprintf(stderr, "Cannot assign kernelgen device to MPI process: %s\n",
+			kernelgen_get_error_string(status));
+		return 1;
 	}
 	
 	// Perform specified number of tests.
@@ -100,10 +127,18 @@ int main(int argc, char* argv[])
 	free(y1); free(y2);
 	free(xy1); free(xy2);
 
-	kernelgen_status_t status = kernelgen_get_last_error();
+	status = kernelgen_get_last_error();
 	if (status.value != kernelgen_success)
 	{
 		fprintf(stderr, "%s\n", kernelgen_get_error_string(status));
+		return 1;
+	}
+
+	mpi_status = MPI_Finalize();
+	if (mpi_status != MPI_SUCCESS)
+	{
+		fprintf(stderr, "Cannot finalize MPI, status = %d\n",
+			mpi_status);
 		return 1;
 	}
 	

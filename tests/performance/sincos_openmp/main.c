@@ -24,6 +24,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define real float
 
@@ -31,34 +32,38 @@ void sincos_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
 
 int main(int argc, char* argv[])
 {
-	if (argc != 5)
+	if (argc != 6)
 	{
-		printf("Usage: %s <nx> <ny> <ns> <ntests>\n", argv[0]);
+		printf("Usage: %s <nx> <ny> <ns> <nthreads> <ntests>\n", argv[0]);
 		return 0;
 	}
 	
 	int nx = atoi(argv[1]);
 	int ny = atoi(argv[2]);
 	int nz = atoi(argv[3]);
-	int ntests = atoi(argv[4]);
+	int nthreads = atoi(argv[4]);
+	int ntests = atoi(argv[5]);
 	
-	if ((nx <= 0) || (ny <= 0) || (nz <= 0) || (ntests <= 0))
+	if ((nx <= 0) || (ny <= 0) || (nz <= 0) || (nthreads <= 0) || (ntests <= 0))
 	{
 		fprintf(stderr, "Invalid input arguments\n");
 		return 1;
 	}
-	
-	real* x1 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* x2 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* y1 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* y2 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* xy1 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* xy2 = (real*)malloc(sizeof(real) * nx * ny * nz);
+
+	size_t size = nx * ny * nz;	
+	real* x = (real*)malloc(sizeof(real) * size * (nthreads + 1));
+	real* y = (real*)malloc(sizeof(real) * size * (nthreads + 1));
+	real* xy = (real*)malloc(sizeof(real) * size * (nthreads + 1));
 	double invrmax = 1.0 / RAND_MAX;
-	for (int i = 0; i < nx * ny * nz; i++)
+	for (int i = 0; i < size; i++)
 	{
-		x1[i] = rand() * invrmax; x2[i] = x1[i];
-		y1[i] = rand() * invrmax; y2[i] = y1[i];
+		x[i] = rand() * invrmax;
+		y[i] = rand() * invrmax;
+	}
+	for (int ithread = 0; ithread < nthreads; ithread++)
+	{
+		memcpy(x + (ithread + 1) * size, x, size);
+		memcpy(y + (ithread + 1) * size, y, size);
 	}
 	
 	// Perform specified number of tests.
@@ -68,7 +73,17 @@ int main(int argc, char* argv[])
 		kernelgen_time_t start, end;
 		kernelgen_get_time(&start);
 		{
-			sincos_(&nx, &ny, &nz, x1, y1, xy1);
+			// Run the specified number of OpenMP threads.
+			#pragma omp parallel for
+			for (int ithread = 0; ithread < nthreads; ithread++)
+			{
+				// Assign work device to the current thread.
+				kernelgen_set_device(0, ithread);
+			
+				sincos_(&nx, &ny, &nz,
+					x + (ithread + 1) * size, y + (ithread + 1) * size,
+					xy + (ithread + 1) * size);
+			}
 		}
 		kernelgen_get_time(&end);
 		printf("kernelgen time = %f sec\n",
@@ -79,7 +94,7 @@ int main(int argc, char* argv[])
 		{
 			for (int i = 0; i < nx * ny * nz; i++)
 			{
-				xy2[i] = sin(x2[i]) + cos(y2[i]);
+				xy[i] = sin(x[i]) + cos(y[i]);
 			}
 		}
 		kernelgen_get_time(&end);
@@ -88,17 +103,20 @@ int main(int argc, char* argv[])
 	
 		// Compare results.
 		real maxabsdiff = 0.0;
-		for (int i = 0; i < nx * ny * nz; i++)
+		for (int ithread = 0; ithread < nthreads; ithread++)
 		{
-			real absdiff = fabs(xy1[i] - xy2[i]);
-			if (absdiff > maxabsdiff) maxabsdiff = absdiff;
+			for (int i = 0; i < nx * ny * nz; i++)
+			{
+				real absdiff = fabs(xy[i] - xy[i + size * (ithread + 1)]);
+				if (absdiff > maxabsdiff) maxabsdiff = absdiff;
+			}
 		}
 		printf("max diff = %f\n", maxabsdiff);
 	}
 
-	free(x1); free(x2);
-	free(y1); free(y2);
-	free(xy1); free(xy2);
+	free(x);
+	free(y);
+	free(xy);
 
 	kernelgen_status_t status = kernelgen_get_last_error();
 	if (status.value != kernelgen_success)

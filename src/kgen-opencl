@@ -81,6 +81,9 @@ sub kgen_opencl
 	#
 	# Generate and optimize IR.
 	#
+	# XXX: -D__OPENCL_DEVICE_FUNC__ is here TEMPORARY,
+	# need to generate IR for original loop, not only inner body.
+	push(@args, "-D__OPENCL_DEVICE_FUNC__");
 	if (kgen_ir($filename, $dragonegg_compiler, \@args,
 		$llvm_opt, $complog, $errlog, $verbose))
 	{
@@ -135,7 +138,7 @@ sub kgen_opencl
 	# kernels extraction; it will be removed with implementing
 	# fully LLVM-based kernels extraction.
 	#
-	push(@args, "-D__OPENCL_DEVICE_FUNC__");
+	#push(@args, "-D__OPENCL_DEVICE_FUNC__");
 	if (kgen_ir($filename, $dragonegg_compiler, \@args,
 		$llvm_opt, $complog, $errlog, $verbose))
 	{

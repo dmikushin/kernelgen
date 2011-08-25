@@ -22,6 +22,8 @@
 #include "kernelgen_int.h"
 #include "kernelgen_int_opencl.h"
 
+#include <string.h>
+
 kernelgen_status_t kernelgen_build_opencl(
 	struct kernelgen_launch_config_t* l)
 {
@@ -43,19 +45,67 @@ kernelgen_status_t kernelgen_build_opencl(
 		(l->config->last_device_index == idevice))
 		return result;
 	
-	// Otherwise, grab current device and context
-	// and rebuild the kernel.
+	// Otherwise, optimize kernel IR and rebuild it.
+	// TODO: optimize IR.
+	char* target_source;
+	size_t target_source_size = 0;
+	if (!strcmp(kernelgen_platforms_names[iplatform], "Advanced Micro Devices, Inc."))
+	{
+		// Double extension is named differently in case of AMD OpenCL.
+		kernelgen_build_llvm(l, "-m32 -D__OPENCL_DEVICE_FUNC__ -Dcl_khr_fp64=cl_amd_fp64",
+			&target_source, &target_source_size);
+	}
+	else
+	{
+		kernelgen_build_llvm(l, "-m32 -D__OPENCL_DEVICE_FUNC__",
+			&target_source, &target_source_size);
+	}
+
+	printf("%s\n", target_source);
+
+	/*#
+	# Add structure emulating global variables to kernel
+	# function prototype (if structure exists).
+	#
+	if ($code =~ m/\$kernel_name\$_globals_t/)
+	{
+		$code =~ m/\#ifdef\s__CUDA_DEVICE_FUNC__\n__device__\n#endif\nvoid\s$name\_\((?<PROTO>[^\;]*)\)\;/s;
+		my($old_proto) = $+{PROTO};
+		my($new_proto) = $old_proto;
+		if ($new_proto ne "")
+		{
+			$new_proto .= ", ";
+		}
+		$new_proto .= "__global struct $name\_opencl_globals_t* $name\_opencl_globals";
+		$old_proto = quotemeta($old_proto);
+		$code =~ s/void\s$name\_\($old_proto/void $name\_($new_proto/gs;
+	}
+
+	$code =~ s/\#ifdef\s__CUDA_DEVICE_FUNC__\n__device__\n#endif\nvoid\s$name\_\(/#ifdef __OPENCL_DEVICE_FUNC__\n__kernel\n#endif\n#define $name\_ $name\_opencl\nvoid $name\_(/s;
+	
+	$code =~ s/void\s$name\_blockidx_x\(\n#ifdef\s__OPENCL_DEVICE_FUNC__\n__global\n#endif\s\/\/\s__OPENCL_DEVICE_FUNC__\nunsigned\sint\s\*,\sunsigned\sint\s,\sunsigned int\s\)\;/void $name\_blockidx_x(unsigned int* index, unsigned int start, unsigned int end) { *index = get_group_id(0) + start; }/s;
+
+	$code =~ s/void\s$name\_blockidx_y\(\n#ifdef\s__OPENCL_DEVICE_FUNC__\n__global\n#endif\s\/\/\s__OPENCL_DEVICE_FUNC__\nunsigned\sint\s\*,\sunsigned\sint\s,\sunsigned int\s\)\;/void $name\_blockidx_y(unsigned int* index, unsigned int start, unsigned int end) { *index = get_group_id(1) + start; }/s;
+
+	$code =~ s/void\s$name\_blockidx_z\(\n#ifdef\s__OPENCL_DEVICE_FUNC__\n__global\n#endif\s\/\/\s__OPENCL_DEVICE_FUNC__\nunsigned\sint\s\*,\sunsigned\sint\s,\sunsigned int\s\)\;/void $name\_blockidx_z(unsigned int* index, unsigned int start, unsigned int end) { *index = get_local_id(2) + start; }/s;
+	
+	#
+	# Replace $kernel_name$ with actual name.
+	#
+	$code =~ s/\$kernel_name\$/$name\_opencl/g;*/
+	
+	// Grab current device and context and rebuild the kernel.
 	cl_device_id device = kernelgen_devices[iplatform][idevice];
 	cl_context context = kernelgen_contexts[iplatform][idevice];
 
 	// Load OpenCL program from source.
 	cl_int status = CL_SUCCESS;
-	opencl->program = clCreateProgramWithBinary(
+	/*opencl->program = clCreateProgramWithBinary(
 		context, 1, &device, &l->kernel_binary_size,
-		(const unsigned char **)&l->kernel_binary, &status, &result.value);
-	/*opencl->program = clCreateProgramWithSource(
-		context, 1, (const char**)&l->kernel_source,
-		&l->kernel_source_size, &result.value);*/
+		(const unsigned char **)&l->kernel_binary, &status, &result.value);*/
+	opencl->program = clCreateProgramWithSource(
+		context, 1, (const char**)&target_source,
+		&target_source_size, &result.value);
 	if ((result.value != CL_SUCCESS) || (status != CL_SUCCESS))
 	{
 		if (result.value != CL_SUCCESS)
@@ -81,10 +131,10 @@ kernelgen_status_t kernelgen_build_opencl(
 		kernelgen_print_error(kernelgen_launch_verbose,
 			"Cannot build program for kernel %s, status = %d: %s\n",
 			l->kernel_name, result.value, kernelgen_get_error_string(result));
-		result.value = clGetProgramBuildInfo(opencl->program, device,
+		status = clGetProgramBuildInfo(opencl->program, device,
 			CL_PROGRAM_BUILD_LOG, l->kernel_source_size,
-			&l->kernel_source, NULL);
-		if (result.value != CL_SUCCESS)
+			l->kernel_source, NULL);
+		if (status != CL_SUCCESS)
 		{
 			result.value = status;
 			kernelgen_print_error(kernelgen_launch_verbose,
@@ -107,6 +157,13 @@ kernelgen_status_t kernelgen_build_opencl(
 		goto finish;
 	}
 
+	// Mark the precompiled kernel exists for entire
+	// platform/device.
+	l->config->last_platform_index = iplatform;
+	l->config->last_device_index = idevice;
+	
+	free(target_source);
+
 finish:
 	kernelgen_set_last_error(result);
 	return result;
@@ -117,4 +174,4 @@ finish:
 	return result;
 #endif
 }
- 
+

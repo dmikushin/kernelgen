@@ -255,6 +255,11 @@ int gforsclae_elf_write(const char* filename, GElf_Ehdr* ehdr,
 int kernelgen_elf_write_many(const char* filename, GElf_Ehdr* ehdr,
 	int count, ...);
 
+// Build kernel from IR to target source code.
+kernelgen_status_t kernelgen_build_llvm(
+	struct kernelgen_launch_config_t* launch, const char* options,
+	char** target_source, size_t* target_source_size);
+
 #ifdef __cplusplus
 }
 #endif

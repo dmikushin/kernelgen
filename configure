@@ -4,6 +4,8 @@ DIR=`pwd`
 
 CC=`which gcc 2>/dev/null`
 CXX=`which g++ 2>/dev/null`
+MPI_CC=`which mpicc 2>/dev/null`
+MPI_F90=`which mpif90 2>/dev/null`
 FC=`which gfortran 2>/dev/null`
 NVCC=`which nvcc 2>/dev/null`
 
@@ -43,6 +45,20 @@ if [ "$FC" = "" ]; then
   exit
 else
   echo "FC=$FC -I$DIR/include" >>makefile.in
+fi
+
+if [ "$MPI_CC" = "" ]; then
+  echo "MPI C compiler is not available"
+  echo "MPI tests will be skipped"
+else
+  echo "MPI_CC=$MPI_CC -I$DIR/include" >>makefile.in
+fi
+
+if [ "$MPI_F90" = "" ]; then
+  echo "MPI Fortran compiler is not available"
+  echo "MPI tests will be skipped"
+else
+  echo "MPI_F90=$MPI_F90 -I$DIR/include" >>makefile.in
 fi
 
 if [ "$NVCC" = "" ]; then
