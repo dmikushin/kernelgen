@@ -72,3 +72,46 @@ kernelgen time = 0.355860 sec
 regular time = 1.138514 sec
 max diff = 0.000000
 
+[marcusmae@noisy sincos]$ kernelgen_debug_output=7 kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos 1024 1024 64
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device NVIDIA Corporation:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffa9f0ec, size = 4, desc = 0xffa9f0ec
+parse_args.h:69 arg "unknown" ref = 0xffa9f0e8, size = 4, desc = 0xffa9f0e8
+parse_args.h:69 arg "unknown" ref = 0xffa9f0e4, size = 4, desc = 0xffa9f0e4
+parse_args.h:69 arg "unknown" ref = 0x9fb19008, size = 268435456, desc = 0x9fb19008
+parse_args.h:69 arg "unknown" ref = 0xdfb1d008, size = 268435456, desc = 0xdfb1d008
+parse_args.h:69 arg "unknown" ref = 0xbfb1b008, size = 268435456, desc = 0xbfb1b008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffa9f0ec .. 0xffa9f0f0] to [0x9fb9e88 .. 0x9fb9e88 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffa9f0e8 .. 0xffa9f0ec] to [0x9faa810 .. 0x9faa810 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffa9f0e4 .. 0xffa9f0e8] to [0x9fba3d0 .. 0x9fba3d0 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0x9fb19008 .. 0xafb19008] to [0x9fba730 .. 0x9fba730 + 268435456]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdfb1d008 .. 0xefb1d008] to [0x9fbaaa8 .. 0x9fbaaa8 + 268435456]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xbfb1b008 .. 0xcfb1b008] to [0x9fb86f0 .. 0x9fb86f0 + 268435456]
+ Value of i after cycle =         1025
+ Value of j after cycle =         1025
+ Value of k after cycle =           65
+kernelgen time = 1.527659 sec
+regular time = 4.542534 sec
+max diff = 0.000000
+
+[marcusmae@noisy sincos]$ kernelgen_debug_output=7 kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos 1024 1024 64
+Cannot find symbol sincos_loop_1_kernelgen_cuda_binary in /proc/self/exe
+launch.c:61 Launching sincos_loop_1_kernelgen_cuda for device NVIDIA Corporation:0 runmode "cuda"
+parse_args.h:69 arg "unknown" ref = 0x7fffbc1f4abc, size = 4, desc = 0x7fffbc1f4abc
+parse_args.h:69 arg "unknown" ref = 0x7fffbc1f4ab8, size = 4, desc = 0x7fffbc1f4ab8
+parse_args.h:69 arg "unknown" ref = 0x7fffbc1f4ab4, size = 4, desc = 0x7fffbc1f4ab4
+parse_args.h:69 arg "unknown" ref = 0x7f08fb136010, size = 268435456, desc = 0x7f08fb136010
+parse_args.h:69 arg "unknown" ref = 0x7f093b13a010, size = 268435456, desc = 0x7f093b13a010
+parse_args.h:69 arg "unknown" ref = 0x7f091b138010, size = 268435456, desc = 0x7f091b138010
+map_cuda.h:102 symbol "unknown" maps memory segment [0x7fffbc1f4abc .. 0x7fffbc1f4ac0] to [0x200320000 .. 0x200320004]
+map_cuda.h:102 symbol "unknown" maps memory segment [0x7fffbc1f4ab8 .. 0x7fffbc1f4abc] to [0x200320200 .. 0x200320204]
+map_cuda.h:102 symbol "unknown" maps memory segment [0x7fffbc1f4ab4 .. 0x7fffbc1f4ab8] to [0x200320400 .. 0x200320404]
+map_cuda.h:102 symbol "unknown" maps memory segment [0x7f08fb136010 .. 0x7f090b136010] to [0x210480000 .. 0x220480000]
+map_cuda.h:102 symbol "unknown" maps memory segment [0x7f093b13a010 .. 0x7f094b13a010] to [0x2304a0000 .. 0x2404a0000]
+map_cuda.h:102 symbol "unknown" maps memory segment [0x7f091b138010 .. 0x7f092b138010] to [0x2504c0000 .. 0x2604c0000]
+ Value of i after cycle =         1025
+ Value of j after cycle =         1025
+ Value of k after cycle =           65
+kernelgen time = 1.110980 sec
+regular time = 3.471778 sec
+max diff = 0.000000
+

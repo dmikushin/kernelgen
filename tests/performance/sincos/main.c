@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 		real absdiff = fabs(xy1[i] - xy2[i]);
 		if (absdiff > maxabsdiff) maxabsdiff = absdiff;
 	}
-	printf("max diff = %f\n", maxabsdiff);
+	printf("max diff = %e\n", maxabsdiff);
 
 	free(x1); free(x2);
 	free(y1); free(y2);

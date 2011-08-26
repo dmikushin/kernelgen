@@ -467,10 +467,10 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 #ifndef OPENCL
 		// Create single NVIDIA platform and count available devices.
 		kernelgen_platforms_count = 1;
-		const char* nvidia = "NVIDIA";
+		const char* nvidia = "NVIDIA Corporation";
 		kernelgen_platforms_names = (char**)malloc(strlen(nvidia) + 1 + sizeof(char*));
-		strcpy(kernelgen_platforms_names + 1, nvidia);
 		kernelgen_platforms_names[0] = (char*)(kernelgen_platforms_names + 1);
+		strcpy(kernelgen_platforms_names[0], nvidia);
 		kernelgen_devices_count = (int*)malloc(sizeof(int));
 		kernelgen_devices_count[0] = 0;
 		cudaGetLastError();

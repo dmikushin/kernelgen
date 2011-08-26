@@ -44,7 +44,6 @@ kernelgen_status_t kernelgen_load_regions_cuda(
 		// memory region).
 		if (!reg->primary)
 		{
-#ifdef HAVE_MAPPING
 			// Register host memory segment incorporating entire kernel argument
 			// to be shared with device.
 			cudaGetLastError();
@@ -56,7 +55,7 @@ kernelgen_status_t kernelgen_load_regions_cuda(
 					reg->base, reg->base + reg->size, reg->symbol->name, status, cudaGetErrorString(status));
 				goto finish;
 			}
-
+#ifdef HAVE_MAPPING
 			// Increment mapped regions counter
 			// (to safely unregister in case of failure).
 			(*nmapped)++;

@@ -36,22 +36,11 @@ kernelgen_status_t kernelgen_save_regions_cuda(
 		
 		if (!reg->primary)
 		{
-#ifdef HAVE_MAPPING
-			cudaGetLastError();
-			int status = cudaHostUnregister(reg->base);
-			if (status != cudaSuccess)
-			{
-				kernelgen_print_error(kernelgen_launch_verbose,
-					"Cannot unregister host memory segment [%p .. %p] for symbol \"%s\", status = %d: %s\n",
-					reg->base, reg->base + reg->size, reg->symbol->name,
-					status, cudaGetErrorString(status));
-				result.value = status;
-				kernelgen_set_last_error(result);
-			}
-#else
+			int status = cudaSuccess;
+#ifndef HAVE_MAPPING
 			// Explicitly copy output data from device memory region and free it.
 			cudaGetLastError();
-			int status = cudaMemcpy(reg->base, reg->mapping, reg->size, cudaMemcpyDeviceToHost);
+			status = cudaMemcpy(reg->base, reg->mapping, reg->size, cudaMemcpyDeviceToHost);
 			if (status != cudaSuccess)
 			{
 				kernelgen_print_error(kernelgen_launch_verbose,
@@ -73,6 +62,17 @@ kernelgen_status_t kernelgen_save_regions_cuda(
 				kernelgen_set_last_error(result);
 			}
 #endif
+			cudaGetLastError();
+			status = cudaHostUnregister(reg->base);
+			if (status != cudaSuccess)
+			{
+				kernelgen_print_error(kernelgen_launch_verbose,
+					"Cannot unregister host memory segment [%p .. %p] for symbol \"%s\", status = %d: %s\n",
+					reg->base, reg->base + reg->size, reg->symbol->name,
+					status, cudaGetErrorString(status));
+				result.value = status;
+				kernelgen_set_last_error(result);
+			}
 		}
 	}
 	result.value = kernelgen_success;

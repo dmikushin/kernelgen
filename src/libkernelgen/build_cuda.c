@@ -20,13 +20,21 @@
  */
 
 #include "kernelgen_int.h"
+#include "kernelgen_int_cuda.h"
 
 kernelgen_status_t kernelgen_build_cuda(
 	struct kernelgen_launch_config_t* l)
 {
+#ifdef HAVE_CUDA
+	kernelgen_status_t result;
+	result.value = kernelgen_success;
+	result.runmode = l->runmode;
+	return result;
+#else
 	kernelgen_status_t result;
 	result.value = kernelgen_error_not_implemented;
 	result.runmode = l->runmode;
 	return result;
+#endif
 }
  
