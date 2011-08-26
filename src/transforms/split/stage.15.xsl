@@ -155,7 +155,7 @@ of compute grid loops.
 Take only those symbols, that are not indexes
 in nested loops.
 -->
-        <xsl:when test="count(../..//F:_do-block_/F:block/F:_do-head_/F:do-stmt/F:_iterator_/F:iterator/F:_var_[. = $name]) > 0"/>
+        <xsl:when test="count(../..//F:_do-block_/F:block/F:_do-head_/F:do-stmt/F:_iterator_/F:iterator/F:_var_/F:var-E/F:_S_/F:s[@N = $name]) > 0"/>
 <!--
 Take only those symbols, that are not used
 in assignments left side as scalars.

@@ -610,17 +610,38 @@ sub kgen()
 		$kernelgen_fortran_host_filename =~ s/\.[^\.]*$/.$name.host.$kernelgen_ext/;
 
 		#
+		# Create a temp filename for C++ host side code.
+		#
+		my($kernelgen_cxx_host_filename) = "$fileprefix$filename";
+		$kernelgen_cxx_host_filename =~ s/\.[^\.]*$/.$name.host.cpp/;
+
+		#
+		# Create a temp filename for CPU device side code.
+		#
+		my($kernelgen_c_device_filename) = "$fileprefix$filename";
+		$kernelgen_c_device_filename =~
+			s/\.[^\.]*$/.$name.c.device.$kernelgen_ext/;
+
+		#
+		# Create a temp filename for CUDA device side code.
+		#
+		my($kernelgen_cuda_device_filename) = "$fileprefix$filename";
+		$kernelgen_cuda_device_filename =~
+			s/\.[^\.]*$/.$name.cuda.device.$kernelgen_ext/;
+
+		#
+		# Create a temp filename for OpenCL device side code.
+		#
+		my($kernelgen_opencl_device_filename) = "$fileprefix$filename";
+		$kernelgen_opencl_device_filename =~
+			s/\.[^\.]*$/.$name.opencl.device.$kernelgen_ext/;
+
+		#
 		# Copy single kernel Fortran host content to the temp file.
 		#
 		open($kernelgen_fh, ">$kernelgen_fortran_host_filename");
 		print $kernelgen_fh $kernels{$name}{"host"}{"fortran"};
 		close($kernelgen_fh);
-
-		#
-		# Create a temp filename for C++ host side code.
-		#
-		my($kernelgen_cxx_host_filename) = "$fileprefix$filename";
-		$kernelgen_cxx_host_filename =~ s/\.[^\.]*$/.$name.host.cpp/;
 
 		#
 		# Copy single kernel C++ host content to the temp file.
@@ -717,11 +738,8 @@ sub kgen()
 		}
 
 		#
-		# Create a temp filename for CPU device side code.
+		# Compile CPU kernel.
 		#
-		my($kernelgen_c_device_filename) = "$fileprefix$filename";
-		$kernelgen_c_device_filename =~
-			s/\.[^\.]*$/.$name.c.device.$kernelgen_ext/;
 		if (grep(/cpu/, @targets))
 		{
 			#
@@ -741,11 +759,8 @@ sub kgen()
 		}
 
 		#
-		# Create a temp filename for CUDA device side code.
+		# Compile CUDA kernel.
 		#
-		my($kernelgen_cuda_device_filename) = "$fileprefix$filename";
-		$kernelgen_cuda_device_filename =~
-			s/\.[^\.]*$/.$name.cuda.device.$kernelgen_ext/;
 		if (grep(/cuda/, @targets))
 		{
 			#
@@ -765,11 +780,8 @@ sub kgen()
 		}
 
 		#
-		# Create a temp filename for OpenCL device side code.
+		# Compile OpenCL kernel.
 		#
-		my($kernelgen_opencl_device_filename) = "$fileprefix$filename";
-		$kernelgen_opencl_device_filename =~
-			s/\.[^\.]*$/.$name.opencl.device.$kernelgen_ext/;
 		if (grep(/opencl/, @targets))
 		{
 			#

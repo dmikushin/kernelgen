@@ -46,7 +46,7 @@ as at least one of do-contruct headers.
   <xsl:variable name="label">
     <xsl:value-of select="F:_stmt-label_/F:label-ref/@label"/>
   </xsl:variable>
-  <xsl:if test="count(../F:do-construct[F:_stmt-label_/F:label-ref/@label = $label]) = 0">
+  <xsl:if test="count(../F:do-construct[F:_do-block_/F:block/F:_do-head_/F:do-stmt/F:_label_/F:label-ref/@label = $label]) = 0">
     <xsl:copy-of select="."/>
   </xsl:if>
 </xsl:template>

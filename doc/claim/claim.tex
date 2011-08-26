@@ -34,6 +34,8 @@ KernelGen is open source-to-source translator with Fortran frontend, multiple ba
 
 \section{Motivation}
 
+During last 5 years GPGPU technologies became wide-spread. Although mature programming models exist as well as publicly available compiling toolchains, most of applications ported to GPUs are rather simple or utilize GPU computations only for a small subset of code. In simple cases   In complex applications such subsets are often selected by locality criteria: it's much simpler to port a single functional block of program, that has little dependencies on other blocks.
+
 FF
 
 \section{Code generator}
@@ -54,6 +56,8 @@ FF
 \subsection{Backend}
 
 FF
+
+\subsection{Runtime vs compile-time generation}
 
 \section{Runtime library}
 
