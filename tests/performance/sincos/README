@@ -2,25 +2,24 @@ Test case to benchmark some simple trigonometry performance on device against CP
 
 Sample output:
 
-[marcusmae@zacate sincos]$ kernelgen_debug_output=7 sincos_loop_1_kernelgen=4 32/sincos 256 256 256
-init.cpp:546 OpenCL engine uses device "Loveland"
-launch.c:60 Launching sincos_loop_1_kernelgen_opencl for device runmode "opencl"
-parse_args.h:69 arg "unknown" ref = 0xff887dec, size = 4, desc = 0xff887dec
-parse_args.h:69 arg "unknown" ref = 0xff887de8, size = 4, desc = 0xff887de8
-parse_args.h:69 arg "unknown" ref = 0xff887de4, size = 4, desc = 0xff887de4
-parse_args.h:69 arg "unknown" ref = 0xe04fb008, size = 67108864, desc = 0xe04fb008
-parse_args.h:69 arg "unknown" ref = 0xf04ff008, size = 67108864, desc = 0xf04ff008
-parse_args.h:69 arg "unknown" ref = 0xe84fd008, size = 67108864, desc = 0xe84fd008
-map_opencl.c:73 symbol "unknown" maps memory segment [0xff887dec .. 0xff887df0] to [0x9a025e0 .. 0x9a025e0 + 4]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xff887de8 .. 0xff887dec] to [0x9935c00 .. 0x9935c00 + 4]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xff887de4 .. 0xff887de8] to [0x9969630 .. 0x9969630 + 4]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xe04fb008 .. 0xe44fb008] to [0x996b370 .. 0x996b370 + 67108864]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xf04ff008 .. 0xf44ff008] to [0x996df90 .. 0x996df90 + 67108864]
-map_opencl.c:73 symbol "unknown" maps memory segment [0xe84fd008 .. 0xec4fd008] to [0x996d250 .. 0x996d250 + 67108864]
- Value of i after cycle =          257
- Value of j after cycle =          257
- Value of k after cycle =          257
-kernelgen time = 1.320339 sec
-regular time = 2.622802 sec
+[marcusmae@zacate sincos]$ kernelgen_debug_output=7 kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos 512 512 64
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xfffc061c, size = 4, desc = 0xfffc061c
+parse_args.h:69 arg "unknown" ref = 0xfffc0618, size = 4, desc = 0xfffc0618
+parse_args.h:69 arg "unknown" ref = 0xfffc0614, size = 4, desc = 0xfffc0614
+parse_args.h:69 arg "unknown" ref = 0xdf2d7008, size = 67108864, desc = 0xdf2d7008
+parse_args.h:69 arg "unknown" ref = 0xef2db008, size = 67108864, desc = 0xef2db008
+parse_args.h:69 arg "unknown" ref = 0xe72d9008, size = 67108864, desc = 0xe72d9008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xfffc061c .. 0xfffc0620] to [0x93ae9a8 .. 0x93ae9a8 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xfffc0618 .. 0xfffc061c] to [0x942b908 .. 0x942b908 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xfffc0614 .. 0xfffc0618] to [0x9399d90 .. 0x9399d90 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdf2d7008 .. 0xe32d7008] to [0x9437500 .. 0x9437500 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xef2db008 .. 0xf32db008] to [0x939f4b0 .. 0x939f4b0 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] to [0x93da320 .. 0x93da320 + 67108864]
+ Value of i after cycle =          513
+ Value of j after cycle =          513
+ Value of k after cycle =           65
+kernelgen time = 1.423255 sec
+regular time = 2.642751 sec
 max diff = 0.000000
 
