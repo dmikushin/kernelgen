@@ -1,0 +1,2417 @@
+WRF 3.3 RRTM block
+==================
+
+Currently KernelGen cannot handle DIMENSION statement correctly.
+To workaround the issue, module_ra_rrtm.f90 was patched a little bit.
+
+Currently KernelGen is able to recognize 112 loops in module_ra_rrtm.f90
+Compilation log of the latest KernelGen toolkit below:
+
+[marcusmae@zacate opencl]$ make
+kgen-gfortran -Wk,--keep -Wk,--opencl-compiler=kgen-opencl-embed -Wk,--kernel-target=opencl -m32 -c module_model_constants.f90 -o module_model_constants.o
+kernelgen	>> module_model_constants.f90:4: defines module "module_model_constants"
+kgen-gfortran -Wk,--keep -Wk,--opencl-compiler=kgen-opencl-embed -Wk,--kernel-target=opencl -m32 -c module_wrf_error.f90 -o module_wrf_error.o
+kernelgen	>> module_wrf_error.f90:4: defines module "module_wrf_error"
+kgen-gfortran -Wk,--keep -Wk,--opencl-compiler=kgen-opencl-embed -Wk,--kernel-target=opencl -m32 -c module_ra_rrtm.f90 -o module_ra_rrtm.o
+kernelgen	>> module_ra_rrtm.f90:3989: locally nonportable symbol EXIT
+kernelgen	>> module_ra_rrtm.f90:1946: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:1948: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:1953: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:1961: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:1966: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:1975: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:1982: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:1991: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2004: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2014: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2022: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2031: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2049: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2208: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2219: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2244: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2245: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2247: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2249: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2259: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2261: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2263: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2275: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2277: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2279: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2290: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2294: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2325: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2326: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2328: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2330: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2340: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2342: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2344: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2356: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2358: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2360: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2370: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2372: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2374: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2385: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2388: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2424: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2426: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2428: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2430: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2443: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2445: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2447: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2449: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2462: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2464: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2467: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2479: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2481: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2483: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2494: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2498: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2527: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2529: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2531: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2533: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2546: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2548: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2550: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2552: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2565: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2567: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2569: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2579: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2581: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2583: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2593: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2595: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2597: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2626: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2628: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2630: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2632: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2645: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2647: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2649: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2651: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2664: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2666: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2668: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2678: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2680: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2682: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2692: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2694: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2696: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2707: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2709: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2739: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2740: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2742: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2744: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2756: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2758: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2760: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2771: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2776: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2809: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2811: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2813: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2815: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2828: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2829: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2831: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2833: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2845: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2847: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2849: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2859: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2861: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2863: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2874: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2877: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2922: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2923: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2925: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2927: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2939: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2940: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2942: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2944: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2956: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2958: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2960: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2971: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:2980: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3021: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3023: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3025: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3027: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3040: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3041: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3043: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3045: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3057: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3059: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3061: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3071: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3073: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3075: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3087: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3089: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3091: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3102: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3104: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3125: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3126: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3128: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3130: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3142: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3143: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3145: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3147: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3160: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3163: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3191: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3192: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3194: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3196: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3208: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3209: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3211: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3213: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3225: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3227: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3229: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3240: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3243: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3267: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3269: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3271: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3273: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3286: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3288: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3290: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3300: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3302: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3304: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3327: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3329: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3331: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3333: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3346: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3348: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3350: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3360: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3362: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3364: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3391: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3392: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3394: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3396: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3408: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3409: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3411: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3413: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3425: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3427: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3429: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3440: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3443: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3466: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3468: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3470: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3472: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3485: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3487: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3489: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3499: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3501: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3503: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3526: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3528: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3530: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3532: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3545: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3547: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3549: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3559: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3561: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3563: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3591: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3649: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3653: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3657: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3660: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3664: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3669: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3673: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3674: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3910: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3923: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3924: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3927: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3942: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3958: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3980: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:3987: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4011: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4016: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4024: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4040: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4041: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4045: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4053: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4057: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4064: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4175: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4303: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4307: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4322: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4325: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4407: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4410: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4427: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4443: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4453: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4566: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4606: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4628: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4659: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4738: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4756: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4776: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4802: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4883: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4901: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4922: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:4939: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5016: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5020: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5037: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5038: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5107: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5125: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5146: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5149: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5272: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5284: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5302: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5313: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5414: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5466: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5487: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5490: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5544: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5547: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5558: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5561: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5625: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5629: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5643: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5646: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5714: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5732: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5752: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5753: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5817: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5835: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5855: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5856: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5916: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5920: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5934: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:5937: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6008: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6026: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6046: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6047: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6111: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6129: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6149: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6150: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6270: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6279: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6287: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6298: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6307: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6320: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6329: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6335: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6364: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6381: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6388: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6401: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6411: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6416: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6430: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6453: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6613: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6614: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6693: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6779: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6794: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6802: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6805: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6808: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6816: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:6822: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtm.f90:1946: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2208: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2219: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2244: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2275: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2290: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2325: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2356: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2370: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2385: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2424: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2443: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2462: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2479: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2494: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2527: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2546: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2565: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2579: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2593: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2626: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2645: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2664: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2678: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2692: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2707: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2739: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2756: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2771: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2809: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2828: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2845: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2859: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2874: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2922: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2939: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2956: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2971: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3021: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3040: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3057: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3071: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3087: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3102: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3125: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3142: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3160: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3191: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3208: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3225: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3240: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3267: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3286: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3300: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3327: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3346: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3360: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3391: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3408: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3425: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3440: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3466: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3485: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3499: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3526: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3545: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3559: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3591: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3649: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3653: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3657: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3660: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3664: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3669: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3673: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3910: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3923: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3942: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3958: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3980: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:3987: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4011: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4016: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4024: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4040: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4053: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4057: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4064: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4175: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4303: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4322: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4407: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4443: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4566: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4628: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4738: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4776: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4883: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:4922: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5016: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5037: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5107: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5146: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5272: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5302: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5414: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5487: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5544: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5558: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5625: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5643: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5714: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5752: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5817: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5855: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5916: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:5934: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6008: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6046: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6111: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6149: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6270: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6279: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6298: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6320: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6329: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6401: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6411: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6453: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6613: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6693: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6779: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6794: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:6802: selecting this loop
+kernelgen	>> module_ra_rrtm.f90:2: defines module "module_ra_rrtm"
+c	>> module_ra_rrtm.taugb3_loop_2_kernelgen.host.F90:84.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:5) :: fracrefbc3_kernelgen_1, fracrefbc3_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb3_loop_2_kernelgen.host.F90:138.94:
+c	>> 
+c	>> refbc3_kernelgen_1 - fracrefbc3_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+ir	>> module_ra_rrtm.rrtm_lookuptable_loop_1_kernelgen.opencl.device.F90:35.21:
+ir	>> 
+ir	>>             GOTO 2010
+ir	>>                      1
+ir	>> Error: Label 2010 referenced at (1) is never defined
+c	>> module_ra_rrtm.taugb5_loop_2_kernelgen.host.F90:70.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:5) :: fracrefbc5_kernelgen_1, fracrefbc5_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb5_loop_2_kernelgen.host.F90:112.94:
+c	>> 
+c	>> refbc5_kernelgen_1 - fracrefbc5_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb7_loop_1_kernelgen.host.F90:80.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc7_kernelgen_1, selfrefc7_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb7_loop_1_kernelgen.host.F90:82.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:9) :: fracrefac7_kernelgen_1, fracrefac7_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb7_loop_1_kernelgen.host.F90:126.92:
+c	>> 
+c	>> lfrefc7_kernelgen_1 - selfrefc7_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb7_loop_1_kernelgen.host.F90:130.94:
+c	>> 
+c	>> refac7_kernelgen_1 - fracrefac7_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb9_loop_1_kernelgen.host.F90:93.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc9_kernelgen_1, selfrefc9_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb9_loop_1_kernelgen.host.F90:95.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:9) :: fracrefac9_kernelgen_1, fracrefac9_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb9_loop_1_kernelgen.host.F90:151.92:
+c	>> 
+c	>> lfrefc9_kernelgen_1 - selfrefc9_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb9_loop_1_kernelgen.host.F90:155.94:
+c	>> 
+c	>> refac9_kernelgen_1 - fracrefac9_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.rtrn_loop_3_kernelgen.host.F90:33.28:
+c	>> 
+c	>> real(4), dimension(1:181, 1:) :: totplnk_kernelgen_1, totplnk_kernelgen_2
+c	>>                             1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.rtrn_loop_3_kernelgen.host.F90:61.88:
+c	>> 
+c	>> l(totplnk_kernelgen_1 - totplnk_kernelgen_2)) .ge. maxdiff .or. abs(minval(totp
+c	>>                                                                            1             
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb3_loop_1_kernelgen.host.F90:93.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc3_kernelgen_1, selfrefc3_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb3_loop_1_kernelgen.host.F90:96.27:
+c	>> 
+c	>> real(4), dimension(1:, 1:10) :: fracrefac3_kernelgen_1, fracrefac3_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb3_loop_1_kernelgen.host.F90:150.92:
+c	>> 
+c	>> lfrefc3_kernelgen_1 - selfrefc3_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb3_loop_1_kernelgen.host.F90:156.94:
+c	>> 
+c	>> refac3_kernelgen_1 - fracrefac3_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb15_loop_1_kernelgen.host.F90:80.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc15_kernelgen_1, selfrefc15_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb15_loop_1_kernelgen.host.F90:81.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:9) :: fracrefac15_kernelgen_1, fracrefac15_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb15_loop_1_kernelgen.host.F90:125.94:
+c	>> 
+c	>> refc15_kernelgen_1 - selfrefc15_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb15_loop_1_kernelgen.host.F90:127.96:
+c	>> 
+c	>> fac15_kernelgen_1 - fracrefac15_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                     
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> Warning: '&' not allowed by itself in line 69
+c	>> Warning: '&' not allowed by itself in line 73
+c	>> Warning: '&' not allowed by itself in line 99
+c	>> Warning: '&' not allowed by itself in line 103
+c	>> Warning: '&' not allowed by itself in line 109
+c	>> Warning: '&' not allowed by itself in line 113
+c	>> Warning: '&' not allowed by itself in line 119
+c	>> Warning: '&' not allowed by itself in line 123
+c	>> Warning: '&' not allowed by itself in line 132
+c	>> Warning: '&' not allowed by itself in line 136
+c	>> Warning: '&' not allowed by itself in line 142
+c	>> Warning: '&' not allowed by itself in line 146
+c	>> Warning: '&' not allowed by itself in line 152
+c	>> Warning: '&' not allowed by itself in line 156
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:64.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:66.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:68.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:70.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:94.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:96.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:98.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:100.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:104.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:106.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:108.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:110.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:114.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:116.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:118.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:120.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:127.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:129.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:131.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:133.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:137.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:139.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:141.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:143.11:
+c	>> 
+c	>>           :: &
+c	>>            1
+c	>> Error: Invalid character in name at (1)
+c	>> module_ra_rrtm.rrtmlwrad_loop_1_kernelgen.host.F90:147.5:
+c	>> 
+c	>> REAL, DIMENSION( ims:ime, kms:kme, jms:jme )&
+c	>>      1
+c	>> Error: Invalid character in name at (1)
+c	>> Fatal Error: Error count reached limit of 25.
+c	>> module_ra_rrtm.taugb4_loop_1_kernelgen.host.F90:76.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc4_kernelgen_1, selfrefc4_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb4_loop_1_kernelgen.host.F90:77.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:9) :: fracrefac4_kernelgen_1, fracrefac4_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb4_loop_1_kernelgen.host.F90:119.92:
+c	>> 
+c	>> lfrefc4_kernelgen_1 - selfrefc4_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb4_loop_1_kernelgen.host.F90:121.94:
+c	>> 
+c	>> refac4_kernelgen_1 - fracrefac4_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb11_loop_1_kernelgen.host.F90:72.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc11_kernelgen_1, selfrefc11_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb11_loop_1_kernelgen.host.F90:113.94:
+c	>> 
+c	>> refc11_kernelgen_1 - selfrefc11_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb8_loop_1_kernelgen.host.F90:89.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc8_kernelgen_1, selfrefc8_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb8_loop_1_kernelgen.host.F90:144.92:
+c	>> 
+c	>> lfrefc8_kernelgen_1 - selfrefc8_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb5_loop_1_kernelgen.host.F90:80.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc5_kernelgen_1, selfrefc5_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb5_loop_1_kernelgen.host.F90:82.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:9) :: fracrefac5_kernelgen_1, fracrefac5_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb5_loop_1_kernelgen.host.F90:126.92:
+c	>> 
+c	>> lfrefc5_kernelgen_1 - selfrefc5_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb5_loop_1_kernelgen.host.F90:130.94:
+c	>> 
+c	>> refac5_kernelgen_1 - fracrefac5_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb6_loop_1_kernelgen.host.F90:80.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc6_kernelgen_1, selfrefc6_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb6_loop_1_kernelgen.host.F90:128.92:
+c	>> 
+c	>> lfrefc6_kernelgen_1 - selfrefc6_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb2_loop_1_kernelgen.host.F90:92.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc2_kernelgen_1, selfrefc2_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb2_loop_1_kernelgen.host.F90:94.27:
+c	>> 
+c	>> real(4), dimension(1:, 1:13) :: fracrefac2_kernelgen_1, fracrefac2_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb2_loop_1_kernelgen.host.F90:152.92:
+c	>> 
+c	>> lfrefc2_kernelgen_1 - selfrefc2_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb2_loop_1_kernelgen.host.F90:156.94:
+c	>> 
+c	>> refac2_kernelgen_1 - fracrefac2_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> clBuildProgram returned -11: Program build failure
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(324): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_3;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(326): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_12;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(331): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_7_2e_preheader;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(333): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_9;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(337): warning: 
+c	>>           double-precision constant is represented as single-precision
+c	>>           constant because double is not enabled
+c	>>     *((&(*llvm_cbe_wtsm).array[((signed int )0u)])) = 0x0p+0;
+c	>>                                                       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(339): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_9;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(341): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_8_2e_lr_2e_ph;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(350): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>     goto llvm_cbe_9;
+c	>>     ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(355): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_10_2e_preheader;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(357): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_return;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(364): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>     goto llvm_cbe_10;
+c	>>     ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(375): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_return;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(377): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_11;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(383): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>     goto llvm_cbe_10;
+c	>>     ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(389): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_13_2e_preheader;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(391): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_return;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(395): warning: 
+c	>>           double-precision constant is represented as single-precision
+c	>>           constant because double is not enabled
+c	>>     *((&(rrtm_lookuptable_loop_4_kernelgen_opencl_globals->__module_ra_rrtm_MOD_rwgt).array[((signed int )(((unsigned int )(((unsigned int )(llvm_cbe_tmp__1 << 4u)) + ((unsigned int )4294967280u)))))])) = 0x1p+0;
+c	>>                                                                                                                                                                                                              ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(397): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_return;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(399): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_14_2e_lr_2e_ph;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(406): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>     goto llvm_cbe_14;
+c	>>     ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(411): warning: 
+c	>>           double-precision constant is represented as single-precision
+c	>>           constant because double is not enabled
+c	>>     *((&(rrtm_lookuptable_loop_4_kernelgen_opencl_globals->__module_ra_rrtm_MOD_rwgt).array[((signed int )(((unsigned int )(((unsigned int )llvm_cbe_tmp3) + ((unsigned int )llvm_cbe_indvar)))))])) = 0x1p+0;
+c	>>                                                                                                                                                                                                        ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(414): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_return;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(417): warning: 
+c	>>           goto statement may cause irreducible control flow
+c	>>       goto llvm_cbe_14;
+c	>>       ^
+c	>> 
+c	>> module_ra_rrtm.rrtm_lookuptable_loop_4_kernelgen.opencl.device.F90.ir.c(301): warning: 
+c	>>           variable "llvm_cbe_tmp__4" was set but never used
+c	>>   unsigned char *llvm_cbe_tmp__4;
+c	>>                  ^
+c	>> 
+c	>> Error: Undeclared function index 1025
+c	>> 
+c	>> module_ra_rrtm.taugb13_loop_1_kernelgen.host.F90:76.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc13_kernelgen_1, selfrefc13_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb13_loop_1_kernelgen.host.F90:77.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:9) :: fracrefac13_kernelgen_1, fracrefac13_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb13_loop_1_kernelgen.host.F90:119.94:
+c	>> 
+c	>> refc13_kernelgen_1 - selfrefc13_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb13_loop_1_kernelgen.host.F90:121.96:
+c	>> 
+c	>> fac13_kernelgen_1 - fracrefac13_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                     
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb4_loop_2_kernelgen.host.F90:65.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:6) :: fracrefbc4_kernelgen_1, fracrefbc4_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb4_loop_2_kernelgen.host.F90:103.94:
+c	>> 
+c	>> refbc4_kernelgen_1 - fracrefbc4_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb14_loop_1_kernelgen.host.F90:72.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc14_kernelgen_1, selfrefc14_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb14_loop_1_kernelgen.host.F90:113.94:
+c	>> 
+c	>> refc14_kernelgen_1 - selfrefc14_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb12_loop_1_kernelgen.host.F90:76.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc12_kernelgen_1, selfrefc12_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb12_loop_1_kernelgen.host.F90:77.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:9) :: fracrefac12_kernelgen_1, fracrefac12_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb12_loop_1_kernelgen.host.F90:119.94:
+c	>> 
+c	>> refc12_kernelgen_1 - selfrefc12_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb12_loop_1_kernelgen.host.F90:121.96:
+c	>> 
+c	>> fac12_kernelgen_1 - fracrefac12_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                     
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb1_loop_1_kernelgen.host.F90:75.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc1_kernelgen_1, selfrefc1_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb1_loop_1_kernelgen.host.F90:119.92:
+c	>> 
+c	>> lfrefc1_kernelgen_1 - selfrefc1_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                 
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb16_loop_1_kernelgen.host.F90:76.27:
+c	>> 
+c	>> real(4), dimension(1:10, 1:) :: selfrefc16_kernelgen_1, selfrefc16_kernelgen_2
+c	>>                            1
+c	>> Error: Bad array specification for an explicitly shaped array at (1)
+c	>> module_ra_rrtm.taugb16_loop_1_kernelgen.host.F90:77.26:
+c	>> 
+c	>> real(4), dimension(1:, 1:9) :: fracrefac16_kernelgen_1, fracrefac16_kernelgen_2
+c	>>                           1
+c	>> Error: Bad array specification for assumed shape array at (1)
+c	>> module_ra_rrtm.taugb16_loop_1_kernelgen.host.F90:119.94:
+c	>> 
+c	>> refc16_kernelgen_1 - selfrefc16_kernelgen_2)) .ge. maxdiff .or. abs(minval(self
+c	>>                                                                            1                   
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+c	>> module_ra_rrtm.taugb16_loop_1_kernelgen.host.F90:121.96:
+c	>> 
+c	>> fac16_kernelgen_1 - fracrefac16_kernelgen_2)) .ge. maxdiff .or. abs(minval(frac
+c	>>                                                                            1                     
+c	>> Error: 'array' argument of 'minval' intrinsic at (1) must be an array
+kgen-gfortran -Wk,--keep -Wk,--opencl-compiler=kgen-opencl-embed -Wk,--kernel-target=opencl -m32 -c module_ra_rrtmg_lw.f90 -o module_ra_rrtmg_lw.o
+kernelgen	>> module_ra_rrtmg_lw.f90:9277: locally nonportable symbol EXIT
+kernelgen	>> module_ra_rrtmg_lw.f90:9430: locally nonportable symbol EXIT
+kernelgen	>> module_ra_rrtmg_lw.f90:911: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:915: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:943: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:964: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:983: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:990: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1085: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1096: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1233: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1242: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1251: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1260: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1267: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1278: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1285: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1294: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1307: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1309: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1314: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1317: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1324: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1327: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1364: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1438: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1667: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1684: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1694: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1710: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1716: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1813: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1835: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1856: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:2046: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:2061: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3212: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3224: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3240: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3248: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3279: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3286: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3300: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3304: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3399: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3498: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3561: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3607: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3694: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3777: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3834: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3863: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3960: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4050: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4114: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4143: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4182: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4196: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4215: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4301: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4399: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4462: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4474: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4518: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4532: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4557: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4569: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4664: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4762: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4825: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4837: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4864: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4869: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4883: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4887: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4917: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4924: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4941: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4947: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5023: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5106: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5163: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5260: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5364: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5433: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5435: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5457: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5462: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5476: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5479: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5562: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5653: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5716: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5783: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5866: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5923: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5926: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5982: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5994: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5997: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6000: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6006: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6011: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6152: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6153: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6155: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6157: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6164: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6166: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6168: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6176: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6178: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6180: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6187: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6189: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6191: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6198: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6200: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6203: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6213: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6216: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6239: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6240: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6242: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6244: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6251: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6253: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6255: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6263: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6265: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6267: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6274: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6276: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6278: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6286: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6289: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6314: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6318: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6320: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6329: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6333: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6335: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6344: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6347: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6349: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6357: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6360: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6362: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6370: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6372: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6374: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6381: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6383: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6385: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6392: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6394: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6396: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6403: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6405: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6407: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6429: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6433: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6435: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6444: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6448: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6450: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6459: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6461: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6463: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6470: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6472: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6474: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6481: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6483: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6485: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6492: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6494: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6496: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6520: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6524: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6526: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6535: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6539: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6541: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6550: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6553: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6555: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6563: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6565: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6567: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6574: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6576: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6578: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6585: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6587: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6589: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6596: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6598: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6600: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6608: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6610: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6634: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6637: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6639: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6647: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6649: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6651: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6658: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6660: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6662: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6669: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6671: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6673: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6681: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6685: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6712: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6716: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6718: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6727: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6730: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6732: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6740: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6743: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6745: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6753: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6755: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6757: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6764: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6766: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6768: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6775: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6777: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6779: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6786: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6788: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6790: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6798: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6800: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6830: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6833: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6835: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6843: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6846: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6848: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6856: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6858: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6860: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6867: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6869: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6871: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6878: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6880: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6886: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6902: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6907: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6936: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6940: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6942: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6951: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6954: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6956: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6964: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6967: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6969: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6977: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6979: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6981: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6988: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6990: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6992: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6999: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7001: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7003: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7010: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7012: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7014: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7022: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7024: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7047: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7050: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7052: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7060: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7063: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7065: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7073: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7075: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7077: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7084: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7086: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7088: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7096: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7099: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7126: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7129: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7131: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7139: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7142: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7144: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7152: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7154: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7157: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7166: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7168: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7170: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7177: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7179: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7181: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7189: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7192: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7215: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7219: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7221: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7230: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7232: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7234: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7241: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7243: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7245: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7252: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7254: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7256: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7282: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7286: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7288: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7297: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7300: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7303: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7313: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7315: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7317: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7324: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7326: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7328: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7335: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7337: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7339: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7347: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7349: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7355: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7357: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7359: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7383: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7386: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7388: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7396: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7399: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7401: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7409: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7411: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7413: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7420: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7422: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7424: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7432: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7435: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7458: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7462: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7464: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7473: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7476: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7478: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7486: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7488: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7490: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7497: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7499: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7501: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7508: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7510: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7512: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7534: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7538: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7540: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7549: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7552: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7554: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7562: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7564: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7566: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7573: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7575: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7577: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7585: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7587: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7593: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7595: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7597: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8440: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8472: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8478: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8489: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8495: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8665: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8680: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8686: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8688: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8692: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8697: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8705: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8709: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8719: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8720: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9276: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9278: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9282: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9290: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9294: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9302: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9308: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9316: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9324: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9335: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9346: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9354: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9362: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9370: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9379: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9391: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9422: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9428: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9450: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9454: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9466: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9469: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9473: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9481: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9483: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9489: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9497: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9507: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9520: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9544: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9549: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9555: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9567: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9571: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9577: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9587: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9615: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9622: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9640: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9697: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9701: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9705: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9708: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9712: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9716: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9720: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9721: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9798: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:10290: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:10316: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_lw.f90:911: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:915: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:943: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:964: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:983: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:990: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1085: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1096: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1233: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1242: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1251: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1260: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1267: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1278: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1285: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1294: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1307: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1314: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1324: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1327: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1364: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1438: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1667: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1684: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1710: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:1856: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:2046: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3212: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3240: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3279: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3300: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3399: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3561: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3694: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3834: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3960: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4114: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4182: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4215: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4301: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4462: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4518: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4557: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4664: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4825: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4864: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4883: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4917: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:4941: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5023: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5163: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5260: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5433: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5457: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5476: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5562: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5716: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5783: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5923: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5982: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:5994: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6152: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6176: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6187: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6198: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6213: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6239: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6263: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6274: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6286: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6314: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6329: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6344: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6357: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6370: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6381: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6392: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6403: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6429: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6444: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6459: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6470: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6481: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6492: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6520: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6535: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6550: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6563: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6574: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6585: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6596: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6608: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6634: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6647: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6658: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6669: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6681: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6712: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6727: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6740: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6753: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6764: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6775: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6786: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6798: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6830: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6843: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6856: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6867: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6878: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6902: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6936: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6951: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6964: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6977: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6988: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:6999: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7010: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7022: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7047: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7060: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7073: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7084: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7096: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7126: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7139: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7152: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7166: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7177: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7189: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7215: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7230: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7241: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7252: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7282: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7297: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7313: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7324: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7335: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7347: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7355: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7383: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7396: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7409: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7420: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7432: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7458: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7473: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7486: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7497: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7508: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7534: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7549: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7562: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7573: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7585: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:7593: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8472: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8478: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8489: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8495: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8665: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8680: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8686: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8705: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8709: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:8719: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9278: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9282: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9290: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9294: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9302: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9308: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9316: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9324: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9335: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9346: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9354: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9362: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9370: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9379: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9391: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9422: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9428: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9450: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9454: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9466: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9469: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9473: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9481: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9489: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9497: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9507: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9520: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9544: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9549: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9555: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9567: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9571: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9587: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9615: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9622: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9640: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9697: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9701: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9705: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9708: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9712: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9716: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9720: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:9798: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:10290: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:10316: selecting this loop
+kernelgen	>> module_ra_rrtmg_lw.f90:3: defines module "parkind"
+kernelgen	>> module_ra_rrtmg_lw.f90:11: defines module "parrrtm"
+kernelgen	>> module_ra_rrtmg_lw.f90:54: defines module "rrlw_cld"
+kernelgen	>> module_ra_rrtmg_lw.f90:65: defines module "rrlw_con"
+kernelgen	>> module_ra_rrtmg_lw.f90:75: defines module "rrlw_kg01"
+kernelgen	>> module_ra_rrtmg_lw.f90:92: defines module "rrlw_kg02"
+kernelgen	>> module_ra_rrtmg_lw.f90:108: defines module "rrlw_kg03"
+kernelgen	>> module_ra_rrtmg_lw.f90:127: defines module "rrlw_kg04"
+kernelgen	>> module_ra_rrtmg_lw.f90:142: defines module "rrlw_kg05"
+kernelgen	>> module_ra_rrtmg_lw.f90:163: defines module "rrlw_kg06"
+kernelgen	>> module_ra_rrtmg_lw.f90:184: defines module "rrlw_kg07"
+kernelgen	>> module_ra_rrtmg_lw.f90:207: defines module "rrlw_kg08"
+kernelgen	>> module_ra_rrtmg_lw.f90:240: defines module "rrlw_kg09"
+kernelgen	>> module_ra_rrtmg_lw.f90:263: defines module "rrlw_kg10"
+kernelgen	>> module_ra_rrtmg_lw.f90:282: defines module "rrlw_kg11"
+kernelgen	>> module_ra_rrtmg_lw.f90:305: defines module "rrlw_kg12"
+kernelgen	>> module_ra_rrtmg_lw.f90:320: defines module "rrlw_kg13"
+kernelgen	>> module_ra_rrtmg_lw.f90:343: defines module "rrlw_kg14"
+kernelgen	>> module_ra_rrtmg_lw.f90:362: defines module "rrlw_kg15"
+kernelgen	>> module_ra_rrtmg_lw.f90:379: defines module "rrlw_kg16"
+kernelgen	>> module_ra_rrtmg_lw.f90:398: defines module "rrlw_ref"
+kernelgen	>> module_ra_rrtmg_lw.f90:406: defines module "rrlw_tbl"
+kernelgen	>> module_ra_rrtmg_lw.f90:417: defines module "rrlw_vsn"
+kernelgen	>> module_ra_rrtmg_lw.f90:426: defines module "rrlw_wvn"
+kernelgen	>> module_ra_rrtmg_lw.f90:448: defines module "mersennetwister"
+kernelgen	>> module_ra_rrtmg_lw.f90:620: defines module "mcica_random_numbers"
+kernelgen	>> module_ra_rrtmg_lw.f90:678: defines module "mcica_subcol_gen_lw"
+kernelgen	>> module_ra_rrtmg_lw.f90:1020: defines module "rrtmg_lw_cldprmc"
+kernelgen	>> module_ra_rrtmg_lw.f90:1154: defines module "rrtmg_lw_rtrnmc"
+kernelgen	>> module_ra_rrtmg_lw.f90:1537: defines module "rrtmg_lw_setcoef"
+kernelgen	>> module_ra_rrtmg_lw.f90:2718: defines module "rrtmg_lw_taumol"
+kernelgen	>> module_ra_rrtmg_lw.f90:6449: defines module "rrtmg_lw_init"
+kernelgen	>> module_ra_rrtmg_lw.f90:9308: defines module "rrtmg_lw_rad"
+kernelgen	>> module_ra_rrtmg_lw.f90:9771: defines module "module_ra_rrtmg_lw"
+c	>> module_ra_rrtmg_lw.host.F90:3504.61:
+c	>> 
+c	>>                             ka_mn2o, kb_mn2o, selfref, forref
+c	>>                                                              1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3504.61:
+c	>> 
+c	>>                             ka_mn2o, kb_mn2o, selfref, forref
+c	>>                                                              1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3513.61:
+c	>> 
+c	>>                             ka_mn2o, kb_mn2o, selfref, forref
+c	>>                                                              1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3513.61:
+c	>> 
+c	>>                             ka_mn2o, kb_mn2o, selfref, forref
+c	>>                                                              1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3522.43:
+c	>> 
+c	>>                             selfref, forref
+c	>>                                            1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3522.43:
+c	>> 
+c	>>                             selfref, forref
+c	>>                                            1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3531.43:
+c	>> 
+c	>>                             selfref, forref
+c	>>                                            1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3531.43:
+c	>> 
+c	>>                             selfref, forref
+c	>>                                            1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3540.57:
+c	>> 
+c	>>                             ka_mo3, selfref, forref, ccl4
+c	>>                                                          1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3540.57:
+c	>> 
+c	>>                             ka_mo3, selfref, forref, ccl4
+c	>>                                                          1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3549.57:
+c	>> 
+c	>>                             ka_mo3, selfref, forref, ccl4
+c	>>                                                          1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3549.57:
+c	>> 
+c	>>                             ka_mo3, selfref, forref, ccl4
+c	>>                                                          1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3576.61:
+c	>> 
+c	>>                             ka_mco2, kb_mco2, selfref, forref
+c	>>                                                              1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3585.61:
+c	>> 
+c	>>                             ka_mco2, kb_mco2, selfref, forref
+c	>>                                                              1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3614.61:
+c	>> 
+c	>>                             ka_mn2o, kb_mn2o, selfref, forref
+c	>>                                                              1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3623.61:
+c	>> 
+c	>>                             ka_mn2o, kb_mn2o, selfref, forref
+c	>>                                                              1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3664.43:
+c	>> 
+c	>>                             selfref, forref
+c	>>                                            1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3673.43:
+c	>> 
+c	>>                             selfref, forref
+c	>>                                            1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3682.68:
+c	>> 
+c	>>                             ka_mco2, ka_mco, kb_mo3, selfref, forref
+c	>>                                                                     1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3691.68:
+c	>> 
+c	>>                             ka_mco2, ka_mco, kb_mo3, selfref, forref
+c	>>                                                                     1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3716.51:
+c	>> 
+c	>>                             ka_mn2, selfref, forref
+c	>>                                                    1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3725.51:
+c	>> 
+c	>>                             ka_mn2, selfref, forref
+c	>>                                                    1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3734.43:
+c	>> 
+c	>>                             selfref, forref
+c	>>                                            1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_lw.host.F90:3743.43:
+c	>> 
+c	>>                             selfref, forref
+c	>>                                            1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+kgen-gfortran -Wk,--keep -Wk,--opencl-compiler=kgen-opencl-embed -Wk,--kernel-target=opencl -m32 -c module_ra_rrtmg_sw.f90 -o module_ra_rrtmg_sw.o
+kernelgen	>> module_ra_rrtmg_sw.f90:864: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:873: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:882: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:891: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:898: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:909: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:916: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:925: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:938: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:940: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:945: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:948: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:955: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:959: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1002: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1106: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1111: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1359: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1585: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1819: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1839: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1860: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1866: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1906: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1926: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1947: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1968: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2018: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2040: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2062: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2066: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2106: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2128: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2150: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2154: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2195: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2203: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2220: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2225: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2269: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2291: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2313: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2332: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2383: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2406: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2429: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2434: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2475: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2482: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2499: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2537: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2558: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2583: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2586: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2628: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2633: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2645: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2682: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2689: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2725: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2728: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2739: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2744: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2785: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2803: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2817: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2837: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2882: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2888: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2905: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2911: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2964: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2971: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2974: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2977: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2983: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2988: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3194: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3198: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3200: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3209: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3212: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3214: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3222: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3224: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3226: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3233: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3235: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3237: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3245: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3247: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3267: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3271: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3273: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3282: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3286: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3288: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3297: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3299: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3301: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3308: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3310: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3312: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3319: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3321: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3323: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3344: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3348: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3350: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3359: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3362: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3364: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3372: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3374: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3376: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3383: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3385: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3387: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3394: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3396: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3398: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3419: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3423: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3425: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3434: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3437: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3439: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3447: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3449: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3451: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3458: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3460: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3462: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3469: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3471: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3473: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3494: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3495: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3497: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3499: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3506: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3508: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3510: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3518: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3520: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3522: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3529: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3531: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3533: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3541: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3544: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3566: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3570: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3572: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3581: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3585: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3587: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3596: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3598: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3600: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3607: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3609: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3611: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3618: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3620: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3622: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3643: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3647: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3649: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3658: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3661: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3663: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3671: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3673: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3675: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3682: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3684: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3686: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3693: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3695: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3697: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3718: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3721: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3723: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3731: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3733: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3735: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3742: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3744: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3746: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3754: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3757: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3783: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3787: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3789: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3798: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3801: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3803: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3811: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3813: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3815: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3822: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3824: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3826: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3834: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3838: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3848: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3850: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3853: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3880: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3883: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3885: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3894: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3899: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3923: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3926: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3948: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3949: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3951: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3953: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3960: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3962: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3964: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3973: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3976: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3998: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4002: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4004: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4013: portable 3-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4017: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4019: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4028: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4030: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4032: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4056: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4057: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4059: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4061: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4068: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4070: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4072: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4080: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4082: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4084: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4091: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4093: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4095: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4103: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4107: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:5768: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:5782: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:5791: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6056: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6078: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6082: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6103: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6166: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6203: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6570: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6592: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6598: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6609: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6624: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6629: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6645: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6653: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6680: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6694: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6698: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6898: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6905: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6921: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6927: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6939: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6940: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7468: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7479: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7483: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7492: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7496: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7504: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7510: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7518: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7526: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7537: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7548: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7556: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7564: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7572: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7581: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7597: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7620: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7628: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7630: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7637: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7645: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7655: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7668: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7694: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7699: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7705: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7719: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7732: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7739: portable 2-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7768: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7775: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7841: portable 1-dimensional loop
+kernelgen	>> module_ra_rrtmg_sw.f90:864: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:873: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:882: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:891: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:898: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:909: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:916: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:925: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:938: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:945: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:955: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:959: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1002: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1106: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1111: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1359: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1585: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1819: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1860: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1906: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:1947: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2018: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2062: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2106: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2150: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2195: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2220: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2269: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2313: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2383: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2429: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2475: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2499: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2537: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2583: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2628: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2645: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2682: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2689: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2725: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2739: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2785: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2817: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2882: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2905: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2964: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:2971: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3194: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3209: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3222: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3233: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3245: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3267: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3282: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3297: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3308: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3319: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3344: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3359: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3372: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3383: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3394: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3419: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3434: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3447: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3458: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3469: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3494: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3518: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3529: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3541: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3566: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3581: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3596: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3607: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3618: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3643: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3658: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3671: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3682: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3693: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3718: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3731: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3742: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3754: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3783: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3798: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3811: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3822: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3834: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3848: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3880: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3894: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3923: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3948: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3973: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3998: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4013: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4028: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4056: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4080: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4091: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:4103: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:5768: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:5782: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:5791: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6056: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6078: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6592: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6598: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6609: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6624: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6645: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6653: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6680: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6694: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6698: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6898: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6905: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6921: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6927: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:6939: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7468: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:7841: selecting this loop
+kernelgen	>> module_ra_rrtmg_sw.f90:3: defines module "parrrsw"
+kernelgen	>> module_ra_rrtmg_sw.f90:55: defines module "rrsw_aer"
+kernelgen	>> module_ra_rrtmg_sw.f90:63: defines module "rrsw_cld"
+kernelgen	>> module_ra_rrtmg_sw.f90:72: defines module "rrsw_con"
+kernelgen	>> module_ra_rrtmg_sw.f90:82: defines module "rrsw_kg16"
+kernelgen	>> module_ra_rrtmg_sw.f90:99: defines module "rrsw_kg17"
+kernelgen	>> module_ra_rrtmg_sw.f90:116: defines module "rrsw_kg18"
+kernelgen	>> module_ra_rrtmg_sw.f90:133: defines module "rrsw_kg19"
+kernelgen	>> module_ra_rrtmg_sw.f90:150: defines module "rrsw_kg20"
+kernelgen	>> module_ra_rrtmg_sw.f90:169: defines module "rrsw_kg21"
+kernelgen	>> module_ra_rrtmg_sw.f90:186: defines module "rrsw_kg22"
+kernelgen	>> module_ra_rrtmg_sw.f90:203: defines module "rrsw_kg23"
+kernelgen	>> module_ra_rrtmg_sw.f90:219: defines module "rrsw_kg24"
+kernelgen	>> module_ra_rrtmg_sw.f90:240: defines module "rrsw_kg25"
+kernelgen	>> module_ra_rrtmg_sw.f90:256: defines module "rrsw_kg26"
+kernelgen	>> module_ra_rrtmg_sw.f90:266: defines module "rrsw_kg27"
+kernelgen	>> module_ra_rrtmg_sw.f90:283: defines module "rrsw_kg28"
+kernelgen	>> module_ra_rrtmg_sw.f90:298: defines module "rrsw_kg29"
+kernelgen	>> module_ra_rrtmg_sw.f90:317: defines module "rrsw_ref"
+kernelgen	>> module_ra_rrtmg_sw.f90:324: defines module "rrsw_tbl"
+kernelgen	>> module_ra_rrtmg_sw.f90:335: defines module "rrsw_vsn"
+kernelgen	>> module_ra_rrtmg_sw.f90:344: defines module "rrsw_wvn"
+kernelgen	>> module_ra_rrtmg_sw.f90:362: defines module "mcica_subcol_gen_sw"
+kernelgen	>> module_ra_rrtmg_sw.f90:733: defines module "rrtmg_sw_cldprmc"
+kernelgen	>> module_ra_rrtmg_sw.f90:998: defines module "rrtmg_sw_reftra"
+kernelgen	>> module_ra_rrtmg_sw.f90:1197: defines module "rrtmg_sw_setcoef"
+kernelgen	>> module_ra_rrtmg_sw.f90:1433: defines module "rrtmg_sw_taumol"
+kernelgen	>> module_ra_rrtmg_sw.f90:3181: defines module "rrtmg_sw_init"
+kernelgen	>> module_ra_rrtmg_sw.f90:6256: defines module "rrtmg_sw_vrtqdr"
+kernelgen	>> module_ra_rrtmg_sw.f90:6352: defines module "rrtmg_sw_spcvmc"
+kernelgen	>> module_ra_rrtmg_sw.f90:6750: defines module "rrtmg_sw_rad"
+kernelgen	>> module_ra_rrtmg_sw.f90:7428: defines module "module_ra_rrtmg_sw"
+c	>> module_ra_rrtmg_sw.host.F90:1804.60:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, strrat
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_sw.host.F90:1811.60:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, strrat
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_sw.host.F90:1846.60:
+c	>> 
+c	>>                             sfluxref, absch4, rayl, layreffr
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> module_ra_rrtmg_sw.host.F90:1853.60:
+c	>> 
+c	>>                             sfluxref, absch4, rayl, layreffr
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> module_ra_rrtmg_sw.host.F90:1860.60:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, strrat
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_sw.host.F90:1867.60:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, strrat
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_sw.host.F90:1888.60:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, givfac
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> module_ra_rrtmg_sw.host.F90:1895.60:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, givfac
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> module_ra_rrtmg_sw.host.F90:1918.68:
+c	>> 
+c	>>                             sfluxref, abso3a, abso3b, rayl, layreffr
+c	>>                                                                     1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> module_ra_rrtmg_sw.host.F90:1925.68:
+c	>> 
+c	>>                             sfluxref, abso3a, abso3b, rayl, layreffr
+c	>>                                                                     1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> module_ra_rrtmg_sw.host.F90:1944.62:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, scalekur
+c	>>                                                               1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> module_ra_rrtmg_sw.host.F90:1951.62:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, scalekur
+c	>>                                                               1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> module_ra_rrtmg_sw.host.F90:1958.60:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, strrat
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_sw.host.F90:1965.60:
+c	>> 
+c	>>                             sfluxref, rayl, layreffr, strrat
+c	>>                                                             1
+c	>> Error: Rank mismatch in array reference at (1) (4/3)
+c	>> module_ra_rrtmg_sw.host.F90:1972.68:
+c	>> 
+c	>>                             sfluxref, absh2o, absco2, rayl, layreffr
+c	>>                                                                     1
+c	>> Error: Rank mismatch in array reference at (1) (3/4)
+c	>> mod
