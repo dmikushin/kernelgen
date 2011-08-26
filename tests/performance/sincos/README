@@ -2,6 +2,9 @@ Test case to benchmark some simple trigonometry performance on device against CP
 
 Sample output:
 
+AMD E-350 (integrated HD6310):
+==============================
+
 [marcusmae@zacate sincos]$ kernelgen_debug_output=7 kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos 512 512 64
 launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device Advanced Micro Devices, Inc.:0 runmode "opencl"
 parse_args.h:69 arg "unknown" ref = 0xfffc061c, size = 4, desc = 0xfffc061c
@@ -21,5 +24,51 @@ map_opencl.c:77 symbol "unknown" maps memory segment [0xe72d9008 .. 0xeb2d9008] 
  Value of k after cycle =           65
 kernelgen time = 1.423255 sec
 regular time = 2.642751 sec
+max diff = 0.000000
+
+AMD Phenom II X6 1055T + Tesla C2070:
+=====================================
+
+[marcusmae@noisy sincos]$ kernelgen_debug_output=7 kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos 512 512 64
+Cannot find symbol sincos_loop_1_kernelgen_cuda_binary in /proc/self/exe
+launch.c:61 Launching sincos_loop_1_kernelgen_cuda for device NVIDIA Corporation:0 runmode "cuda"
+parse_args.h:69 arg "unknown" ref = 0x7fff7c887fbc, size = 4, desc = 0x7fff7c887fbc
+parse_args.h:69 arg "unknown" ref = 0x7fff7c887fb8, size = 4, desc = 0x7fff7c887fb8
+parse_args.h:69 arg "unknown" ref = 0x7fff7c887fb4, size = 4, desc = 0x7fff7c887fb4
+parse_args.h:69 arg "unknown" ref = 0x7f2b53447010, size = 67108864, desc = 0x7f2b53447010
+parse_args.h:69 arg "unknown" ref = 0x7f2b6344b010, size = 67108864, desc = 0x7f2b6344b010
+parse_args.h:69 arg "unknown" ref = 0x7f2b5b449010, size = 67108864, desc = 0x7f2b5b449010
+map_cuda.h:103 symbol "unknown" maps memory segment [0x7fff7c887fbc .. 0x7fff7c887fc0] to [0x200300000 .. 0x200300004]
+map_cuda.h:103 symbol "unknown" maps memory segment [0x7fff7c887fb8 .. 0x7fff7c887fbc] to [0x200300200 .. 0x200300204]
+map_cuda.h:103 symbol "unknown" maps memory segment [0x7fff7c887fb4 .. 0x7fff7c887fb8] to [0x200300400 .. 0x200300404]
+map_cuda.h:103 symbol "unknown" maps memory segment [0x7f2b53447010 .. 0x7f2b57447010] to [0x200400000 .. 0x204400000]
+map_cuda.h:103 symbol "unknown" maps memory segment [0x7f2b6344b010 .. 0x7f2b6744b010] to [0x204400000 .. 0x208400000]
+map_cuda.h:103 symbol "unknown" maps memory segment [0x7f2b5b449010 .. 0x7f2b5f449010] to [0x208400000 .. 0x20c400000]
+ Value of i after cycle =          513
+ Value of j after cycle =          513
+ Value of k after cycle =           65
+kernelgen time = 0.278434 sec
+regular time = 0.870026 sec
+max diff = 0.000000
+
+[marcusmae@noisy sincos]$ kernelgen_debug_output=7 kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos 512 512 64
+launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device NVIDIA Corporation:0 runmode "opencl"
+parse_args.h:69 arg "unknown" ref = 0xffa536ac, size = 4, desc = 0xffa536ac
+parse_args.h:69 arg "unknown" ref = 0xffa536a8, size = 4, desc = 0xffa536a8
+parse_args.h:69 arg "unknown" ref = 0xffa536a4, size = 4, desc = 0xffa536a4
+parse_args.h:69 arg "unknown" ref = 0xdbb85008, size = 67108864, desc = 0xdbb85008
+parse_args.h:69 arg "unknown" ref = 0xebb89008, size = 67108864, desc = 0xebb89008
+parse_args.h:69 arg "unknown" ref = 0xe3b87008, size = 67108864, desc = 0xe3b87008
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffa536ac .. 0xffa536b0] to [0x9f79e88 .. 0x9f79e88 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffa536a8 .. 0xffa536ac] to [0x9f6a810 .. 0x9f6a810 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xffa536a4 .. 0xffa536a8] to [0x9f7a3d0 .. 0x9f7a3d0 + 4]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xdbb85008 .. 0xdfb85008] to [0x9f7a730 .. 0x9f7a730 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xebb89008 .. 0xefb89008] to [0x9f7aaa8 .. 0x9f7aaa8 + 67108864]
+map_opencl.c:77 symbol "unknown" maps memory segment [0xe3b87008 .. 0xe7b87008] to [0x9f786f0 .. 0x9f786f0 + 67108864]
+ Value of i after cycle =          513
+ Value of j after cycle =          513
+ Value of k after cycle =           65
+kernelgen time = 0.355860 sec
+regular time = 1.138514 sec
 max diff = 0.000000
 
