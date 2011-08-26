@@ -22,17 +22,17 @@
 include ../makefile.in
 
 TESTS = \
-	public/szlogical/szlogical \
-	public/axpy/axpy \
-	public/logexp/logexp \
-	public/allocatable/allocatable \
-	public/module/module \
-	public/mixed/mixed \
-	public/multidim/multidim \
-	public/sincos/sincos \
-	public/shape/shape \
-	public/derived/derived \
-	public/inline/inline
+	behavior/szlogical/szlogical \
+	behavior/axpy/axpy \
+	behavior/logexp/logexp \
+	behavior/allocatable/allocatable \
+	behavior/module/module \
+	behavior/mixed/mixed \
+	behavior/multidim/multidim \
+	behavior/sincos/sincos \
+	behavior/shape/shape \
+	behavior/derived/derived \
+	behavior/inline/inline
 
 all: $(TESTS)
 
@@ -47,49 +47,49 @@ tests32: $(TESTS)
 tests64: $(TESTS)
 	./runtests 64
 
-public/szlogical/szlogical:
-	cd public/szlogical && $(MAKE)
+behavior/szlogical/szlogical:
+	cd behavior/szlogical && $(MAKE)
 
-public/axpy/axpy:
-	cd public/axpy && $(MAKE)
+behavior/axpy/axpy:
+	cd behavior/axpy && $(MAKE)
 
-public/logexp/logexp:
-	cd public/logexp && $(MAKE)
+behavior/logexp/logexp:
+	cd behavior/logexp && $(MAKE)
 
-public/allocatable/allocatable:
-	cd public/allocatable && $(MAKE)
+behavior/allocatable/allocatable:
+	cd behavior/allocatable && $(MAKE)
 
-public/module/module:
-	cd public/module && $(MAKE)
+behavior/module/module:
+	cd behavior/module && $(MAKE)
 
-public/mixed/mixed:
-	cd public/mixed && $(MAKE)
+behavior/mixed/mixed:
+	cd behavior/mixed && $(MAKE)
 
-public/multidim/multidim:
-	cd public/multidim && $(MAKE)
+behavior/multidim/multidim:
+	cd behavior/multidim && $(MAKE)
 
-public/sincos/sincos:
-	cd public/sincos && $(MAKE)
+behavior/sincos/sincos:
+	cd behavior/sincos && $(MAKE)
 
-public/shape/shape:
-	cd public/shape && $(MAKE)
+behavior/shape/shape:
+	cd behavior/shape && $(MAKE)
 
-public/derived/derived:
-	cd public/derived && $(MAKE)
+behavior/derived/derived:
+	cd behavior/derived && $(MAKE)
 
-public/inline/inline:
-	cd public/inline && $(MAKE)
+behavior/inline/inline:
+	cd behavior/inline && $(MAKE)
 
 clean:
-	cd public/szlogical && $(MAKE) clean
-	cd public/axpy && $(MAKE) clean
-	cd public/logexp && $(MAKE) clean
-	cd public/allocatable && $(MAKE) clean
-	cd public/module && $(MAKE) clean
-	cd public/mixed && $(MAKE) clean
-	cd public/multidim && $(MAKE) clean
-	cd public/sincos && $(MAKE) clean
-	cd public/shape && $(MAKE) clean
-	cd public/derived && $(MAKE) clean
-	cd public/inline && $(MAKE) clean
+	cd behavior/szlogical && $(MAKE) clean
+	cd behavior/axpy && $(MAKE) clean
+	cd behavior/logexp && $(MAKE) clean
+	cd behavior/allocatable && $(MAKE) clean
+	cd behavior/module && $(MAKE) clean
+	cd behavior/mixed && $(MAKE) clean
+	cd behavior/multidim && $(MAKE) clean
+	cd behavior/sincos && $(MAKE) clean
+	cd behavior/shape && $(MAKE) clean
+	cd behavior/derived && $(MAKE) clean
+	cd behavior/inline && $(MAKE) clean
 
