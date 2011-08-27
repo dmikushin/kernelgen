@@ -34,24 +34,37 @@ KernelGen is open source-to-source translator with Fortran frontend, multiple ba
 
 \section{Motivation}
 
-During last 5 years GPGPU technologies became wide-spread. Although mature programming models exist as well as publicly available compiling toolchains, most of applications ported to GPUs are rather simple or utilize GPU computations only for a small subset of code. In simple cases   In complex applications such subsets are often selected by locality criteria: it's much simpler to port a single functional block of program, that has little dependencies on other blocks.
+During last 5 years GPGPU technologies became wide-spread. Although mature programming models exist as well as publicly available compilation toolkits, most of applications ported to GPUs (considering real ones, not highly-tuned benchmarks) are rather simple or utilize GPU computations only for a small subset of code. There is a number of reasons behind this situation:
 
-FF
+\begin{enumerate}
+\item In complex applications it is often impossible to identify and port a single compute-intensive block of code, as soon as computations are distributed between multiple major units. For example in case of WRF or COSMO weather prediction models time of single block typically never exceeds ~10-15\% of total time. Thus, single block port cannot deliver impressive overall speedup. Still, choosing a well-localized block with minimum external dependencies is the only way to accomplish GPU port and present results shortly.
+\item Consider the application block is ported. Then how to integrate it to the usual application development process, if core team has no much knowledge in GPU computations? How much support it would take to keep block updated? Without integration port becomes a branched case study.
+\end{enumerate}
+
+This effort is dedicated to implementing hybrid CPU-GPGPU extendable Fortran compiler that can fully conserve original CPU source code, and therefore minimize implicit complications in user-side development process. Fully automatic compilation should not be confused with various existing directive-based approaches (PGI, HMPP), that still require too much hand-coding.
+
+\section{Strategy}
+
+No doubt, developing toolchain for automatic GPU kernels generation is a very complex long-term task. To move forward step-wise, the problem could be represented as a number of ring passes. On the first round we would need a rough mechanism for identifying computational loops and moving them into separate functions (host-device code split). Second, there should be a rough generator translating Fortran code into representation, that could be chained to existing GPU code compilers. Next we need previously implemented loop identification tool to insert calls to special runtime library functions that would invoke kernels and pass their data dependencies between host and device memories. During passed rounds a set of behavior tests should be collected for regressions checks. Next important group of rounds are optimizations. Toolchain needs to provide an approach for applying kernel code analysis and recompilation in runtime, taking in account additional information like actual compute grids sizes. With this mechanism implemented, a round of optimization passes development can start. According to known practices, the most important optimizations should be loops interchanging and tiling for threads and shared memory utilization. For better code coverage several specific limitations also need to be relaxed, such as inlining external calls in GPU kerenls. At this point complete functional prototype will be created, and development could switch back onto improving rough base components.
+
+KernelGen, the compilation toolchain being developed, follows above plan and currently reached the step of implementing optimization passes. It means the tool already ports simple loops pretty well and can handle a large subsets of real source codes, falling back to host compiler in places where rough host-device split fails.
 
 \section{Code generator}
 
-FF
+The whole host and device code generation process is depicted on Fig.~\ref{fig:pipeline}. Note it covers only static pipeline, when device code is compiled in binary form. KernelGen currenly also implements embedding kernel code IR for further compilation and optimization in runtime.
 
 \begin{figure}
 \centering
 \includegraphics[scale=0.5]{figures/pipeline.pdf}
-\caption{KernelGen code generation pipeline}
+\caption{KernelGen static code generation pipeline}
 \label{fig:pipeline}
 \end{figure}
 
 \subsection{Kernels selection}
 
-FF
+To identify compute kernels and move them into separate compilation units, Fortran source code is marked up with XML into pretty-printed AST and transformed to target representation using a set of XSL transformations. XML markup is performed using g95-xml, a tool written by Philippe Marguinaud based on g95 compiler parser. Surprisingly, XSLT suited very well for fast development of rough implementation, thanks to its functional nature and builtin tree flow. However, this method is evil for human reading, quite slow on huge compilation units and suffers from various fails, such as g95 language support issues or unhandled program logic cases in XSLT. The tool is known to provide good support for Fortran 90/95 and some features of Fortran 2003, like inline functions.
+
+It is planned XML-based parser on some further step will likely be replaced by direct kernels generation out of LLVM IR. Although, currently it is not clear how to set up a split point with LLVM in a way that host code would still be Fortran, in order to utilize external Fortran compilers, other than LLVM over DragonEgg.
 
 \subsection{Backend}
 
