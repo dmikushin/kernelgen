@@ -62,29 +62,51 @@ The whole host and device code generation process is depicted on Fig.~\ref{fig:p
 
 \subsection{Kernels selection}
 
-To identify compute kernels and move them into separate compilation units, Fortran source code is marked up with XML into pretty-printed AST and transformed to target representation using a set of XSL transformations. XML markup is performed using g95-xml, a tool written by Philippe Marguinaud based on g95 compiler parser. Surprisingly, XSLT suited very well for fast development of rough implementation, thanks to its functional nature and builtin tree flow. However, this method is evil for human reading, quite slow on huge compilation units and suffers from various fails, such as g95 language support issues or unhandled program logic cases in XSLT. The tool is known to provide good support for Fortran 90/95 and some features of Fortran 2003, like inline functions.
+To identify compute kernels and move them into separate compilation units, Fortran source code is marked up with XML into pretty-printed AST and transformed to target representation using a set of XSL transformations. XML markup is performed using g95-xml, a tool written by Philippe Marguinaud based on g95 compiler parser. Surprisingly, XSLT suited very well for fast development of rough implementation, thanks to its functional nature and builtin tree flow. However, XSL language is not very human-readable, processing is quite slow on huge compilation units and suffers from various fails, such as g95 language support issues or unhandled program logic cases in XSLT. The tool is known to provide good support for Fortran 90/95 and some features of Fortran 2003, like inline functions.
 
 It is planned XML-based parser on some further step will likely be replaced by direct kernels generation out of LLVM IR. Although, currently it is not clear how to set up a split point with LLVM in a way that host code would still be Fortran, in order to utilize external Fortran compilers, other than LLVM over DragonEgg.
 
 \subsection{Backend}
 
-FF
+The kernel selection step provides host and device code as output, both in Fortran. Free compilers from standard Fortran to GPU assembly do not exist, although there is good progress in generating PTX assembly and OpenCL code from LLVM IR. Still, while direct IR code generators for CUDA and OpenCL are too incomplete, the LLVM C backend was patched to work as device code generator:
+
+$$
+Fortran~code\xrightarrow{dragonegg}LLVM~IR\xrightarrow{C~backend}CUDA~or~OpenCL\xrightarrow{compiler}device~code
+$$
 
 \subsection{Runtime vs compile-time generation}
 
+Device code could be either generated during compile time or postponed for runtime. During compile time certain problems cannot be solved, like inlining kernels dependencies, and optimization capabilities are limited. Currently KernelGen generates kernels binaries at compile time and embeds them into executable image together with original IR code, that could be used for runtime recompilation.
+
 \section{Runtime library}
 
-FF
+KernelGen runtime library is a background layer organizing interaction between host and device code. The whole execution process is depicted on Fig~\ref{fig:execution}. Currently runtime implements the following calls:
+
+\begin{itemize}
+\item \emph{set\_device} -- select device platform and ID to execute entire host thread kernels on
+\item \emph{launch} -- launch device kernel with a given compute grid ranges and data dependencies. This call is inserted in places of original host loops ported to GPUs.
+\item \emph{parse\_args/parse\_deps} -- parse the kernel data dependencies and represent them with a set of non-overlapping memory regions.
+\item \emph{map/unmap} -- share the set of data dependencies with the specified pointers, sizes and Fortran array descriptors between host and device either by zero-copy access or explicit copying.
+\item \emph{build} -- build kernel in runtime from LLVM IR or OpenCL binary.
+\item \emph{compare} -- compare results of kernel execution and its equivalent host implementation.
+\end{itemize}
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.4]{figures/execution.pdf}
+\caption{Execution model}
+\label{fig:execution}
+\end{figure}
 
 \subsection{Multithreading and MPI support}
+
+To track current status and configuration properties, each kernel needs a unique handle. In multithreaded applications such handle must be also unique for each thread running entire kernel and be kept in thread local storage, as soon as different threads may utilize different devices with specific parameters. KernelGen runtime API provides a \emph{set\_device} call to assign specific devices to application threads or processes.
+
+\subsection{Results comparison}
 
 FF
 
 \section{Examples}
-
-FF
-
-\section{Special features}
 
 FF
 
@@ -101,13 +123,6 @@ This work is a deep fusion of open-source software, business opportunities and s
 \includegraphics[scale=0.5]{figures/portability.pdf}
 \caption{Multiple targets support in a single executable.}
 \label{fig:portability}
-\end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[scale=0.4]{figures/execution.pdf}
-\caption{Execution model}
-\label{fig:execution}
 \end{figure}
 
 \end{document}
