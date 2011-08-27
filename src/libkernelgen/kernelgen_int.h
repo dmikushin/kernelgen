@@ -25,6 +25,7 @@
 #include "kernelgen.h"
 
 #include <gelf.h>
+#include <pthread.h>
 #include <stdio.h>
 
 #ifdef HAVE_OPENCL
@@ -35,6 +36,9 @@
 extern "C"
 {
 #endif
+
+// Defines thread ID to control clonning.
+extern __thread pthread_t kernelgen_thread_id;
 
 // Defines per-process execution mode setting.
 extern int kernelgen_process_runmode;
@@ -47,6 +51,9 @@ extern __thread int kernelgen_thread_runmode;
 // Each host thread keeps indexes of currently used platform and device.
 extern __thread int kernelgen_thread_platform_index;
 extern __thread int kernelgen_thread_device_index;
+
+// Pop the last kernelgen error.
+kernelgen_status_t kernelgen_pop_last_error();
 
 // Set last kernel loop launching error.
 void kernelgen_set_last_error(kernelgen_status_t error);
@@ -254,6 +261,13 @@ int gforsclae_elf_write(const char* filename, GElf_Ehdr* ehdr,
 // could be taken from the specified reference executable, if not NULL.
 int kernelgen_elf_write_many(const char* filename, GElf_Ehdr* ehdr,
 	int count, ...);
+
+// Read environment variables and setup device-dependent runtime
+// global configuration. These part is separated from contructor-init,
+// as soon as processes or threads may get forked, and devices cannot
+// work correctly in child processes, if they were already initialized
+// in parent.
+void kernelgen_init_thread();
 
 #ifdef __cplusplus
 }

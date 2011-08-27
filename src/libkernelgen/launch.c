@@ -38,6 +38,14 @@ void kernelgen_launch_(
 	int* bx, int* ex, int* by, int* ey, int* bz, int* ez,
 	int* nargs, int* nmodsyms, ...)
 {
+	// Discard error status.
+	while (kernelgen_pop_last_error().value != kernelgen_success);
+	
+	// Initialize devices.
+	// TODO: thread-safe!
+	if (kernelgen_thread_id != pthread_self())
+		kernelgen_init_thread();
+	
 	// For each used runmode, populate its corresponding launch
 	// config, handle data and execute the kernel.
 	// NOTE We skip first runmode index, as it is always stands for

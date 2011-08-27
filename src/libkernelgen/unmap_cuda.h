@@ -62,6 +62,7 @@ kernelgen_status_t kernelgen_save_regions_cuda(
 				kernelgen_set_last_error(result);
 			}
 #endif
+#if 0
 			cudaGetLastError();
 			status = cudaHostUnregister(reg->base);
 			if (status != cudaSuccess)
@@ -73,6 +74,7 @@ kernelgen_status_t kernelgen_save_regions_cuda(
 				result.value = status;
 				kernelgen_set_last_error(result);
 			}
+#endif
 		}
 	}
 	result.value = kernelgen_success;

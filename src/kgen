@@ -969,9 +969,9 @@ sub kgen()
 
 	if ($fileprefix ne "")
 	{
-		`rm $fileprefix*`;
+		`rm -rf $fileprefix*`;
 	}
-	system("rm", "$output\_kgen");
+	system("rm", "-rf", "$output\_kgen");
 }
 
 1;

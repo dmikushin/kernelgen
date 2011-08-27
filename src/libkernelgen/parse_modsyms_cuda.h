@@ -173,7 +173,8 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 				// In comparison mode clone allocatable dependency
 				// reference.
 				dep->ref = malloc(dep->size);
-				memcpy(dep->ref, dep->sref, dep->size);
+				if (dep->sref)
+					memcpy(dep->ref, dep->sref, dep->size);
 			}
 			
 			// There is no need to setup mapped region for module

@@ -49,7 +49,7 @@
 { \
 	if (kernelgen_debug_output & mask) \
 	{ \
-		fprintf(stdout, "%s:%d ", __FILE__, __LINE__); \
+		fprintf(stdout, "%s:%d kernelgen message (debug) ", __FILE__, __LINE__); \
 		fprintf(stdout, __VA_ARGS__); \
 	} \
 }
@@ -57,7 +57,7 @@
 { \
 	if (kernelgen_error_output & mask) \
 	{ \
-		fprintf(stderr, "%s:%d ", __FILE__, __LINE__); \
+		fprintf(stderr, "%s:%d kernelgen message (error) ", __FILE__, __LINE__); \
 		fprintf(stderr, __VA_ARGS__); \
 	} \
 }

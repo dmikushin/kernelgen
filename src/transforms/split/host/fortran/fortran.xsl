@@ -296,9 +296,23 @@ Add modules symbols declarations.
             </xsl:variable>
             <xsl:text>,&#32;dimension(</xsl:text>
             <xsl:for-each select="//F:fortran95/F:G-S-lst/F:G-var[@N = $global-name]/F:_array-spec_/F:array-spec/F:shape-spec-lst/F:shape-spec">
-              <xsl:value-of select=".//F:_lower-bound_/F:literal-E/@val"/>
+              <xsl:variable name="lower-bound">
+                <xsl:value-of select=".//F:_lower-bound_/F:literal-E/@val"/>
+                <xsl:value-of select=".//F:_lower-bound_/F:var-E/F:_S_/F:s/@N"/>
+              </xsl:variable>
+              <xsl:if test="$lower-bound = &quot;&quot;">
+                <xsl:text>~ERROR~</xsl:text>
+              </xsl:if>
+              <xsl:value-of select="$lower-bound"/>
               <xsl:text>:</xsl:text>
-              <xsl:value-of select=".//F:_upper-bound_/F:literal-E/@val"/>
+              <xsl:variable name="upper-bound">
+                <xsl:value-of select=".//F:_upper-bound_/F:literal-E/@val"/>
+                <xsl:value-of select=".//F:_upper-bound_/F:var-E/F:_S_/F:s/@N"/>
+              </xsl:variable>
+              <xsl:if test="$upper-bound = &quot;&quot;">
+                <xsl:text>~ERROR~</xsl:text>
+              </xsl:if>
+              <xsl:value-of select="$upper-bound"/>
               <xsl:if test="following-sibling::F:shape-spec">
                 <xsl:text>,&#32;</xsl:text>
               </xsl:if>

@@ -33,6 +33,9 @@
 #include <string.h>
 #include <unistd.h>
 
+// Defines thread ID to control clonning.
+__thread pthread_t kernelgen_thread_id = -1;
+
 // Defines per-process execution mode setting.
 int kernelgen_process_runmode;
 
@@ -326,7 +329,204 @@ void kernelgen_kernel_free_deps(
 	}
 }
 
-// Read environment variables and setup runtime global configuration.
+// Read environment variables and setup device-dependent runtime
+// global configuration. These part is separated from contructor-init,
+// as soon as processes or threads may get forked, and devices cannot
+// work correctly in child processes, if they were already initialized
+// in parent.
+void kernelgen_init_thread()
+{
+	// Initially per-thread runmode setting is same to
+	// per-process.
+	kernelgen_thread_runmode = kernelgen_process_runmode;
+	
+	kernelgen_status_t result;
+#ifdef HAVE_OPENCL
+	// Being quiet optimistic initially...
+	result.value = CL_SUCCESS;
+	result.runmode = KERNELGEN_RUNMODE_DEVICE_OPENCL;
+	
+	// Get OpenCL platforms count.
+	cl_uint platforms_count = 0;
+	result.value = clGetPlatformIDs(0, NULL, &platforms_count);
+	if (result.value != CL_SUCCESS)
+	{
+		kernelgen_print_error(kernelgen_launch_verbose,
+			"clGetPlatformIDs returned %d: %s\n", (int)result.value,
+			kernelgen_get_error_string(result));
+		kernelgen_set_last_error(result);
+		// TODO: release resources!
+		return;
+	}
+	kernelgen_platforms_count = platforms_count;
+	
+	// Get OpenCL platforms IDs.
+	kernelgen_platforms = (cl_platform_id*)malloc(
+		sizeof(cl_platform_id) * kernelgen_platforms_count);
+	result.value = clGetPlatformIDs(kernelgen_platforms_count,
+		kernelgen_platforms, NULL);
+	if (result.value != CL_SUCCESS)
+	{
+		kernelgen_print_error(kernelgen_launch_verbose,
+			"clGetPlatformIDs returned %d: %s\n", (int)result.value,
+			kernelgen_get_error_string(result));
+		kernelgen_set_last_error(result);
+		// TODO: release resources!
+		return;
+	}
+	
+	// Get OpenCL platforms names.
+	size_t total_names_length = 0;
+	for (int i = 0; i < kernelgen_platforms_count; i++)
+	{
+		size_t length;
+		clGetPlatformInfo(kernelgen_platforms[i],
+			CL_PLATFORM_VENDOR, 0, NULL, &length);
+		total_names_length += length;
+	}
+	kernelgen_platforms_names = (char**)malloc(
+		sizeof(char*) * kernelgen_platforms_count +
+		total_names_length);
+	for (int i = 0, offset = 0; i < kernelgen_platforms_count; i++)
+	{
+		size_t length;
+		clGetPlatformInfo(kernelgen_platforms[i],
+			CL_PLATFORM_VENDOR, 0, NULL, &length);
+		kernelgen_platforms_names[i] = offset +
+			(char*)(kernelgen_platforms_names + kernelgen_platforms_count);
+		clGetPlatformInfo(kernelgen_platforms[i],
+			CL_PLATFORM_VENDOR, length,
+			kernelgen_platforms_names[i], NULL);
+		offset += length;
+	}
+
+	// Get OpenCL devices.
+	int total_devices_count = 0;
+	kernelgen_devices_count = (int*)malloc(
+		sizeof(int) * kernelgen_platforms_count);
+	for (int i = 0; i < kernelgen_platforms_count; i++)
+	{
+		cl_uint devices_count = 0;
+		result.value = clGetDeviceIDs(kernelgen_platforms[i],
+			CL_DEVICE_TYPE_ALL, 0, NULL, &devices_count);
+		if (result.value != CL_SUCCESS)
+		{
+			kernelgen_print_error(kernelgen_launch_verbose,
+				"clGetDeviceIDs returned %d: %s\n", (int)result.value,
+				kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
+			// TODO: release resources!
+			return;
+		}
+		kernelgen_devices_count[i] = devices_count;
+		total_devices_count += kernelgen_devices_count[i];
+	}
+	kernelgen_devices = (cl_device_id**)malloc(
+		sizeof(cl_device_id*) * kernelgen_platforms_count +
+		sizeof(cl_device_id) * total_devices_count);
+	for (int i = 0, offset = 0; i < kernelgen_platforms_count; i++)
+	{
+		kernelgen_devices[i] = offset +
+			(cl_device_id*)(kernelgen_devices + kernelgen_platforms_count);
+		result.value = clGetDeviceIDs(
+			kernelgen_platforms[i], CL_DEVICE_TYPE_ALL,
+			kernelgen_devices_count[i], kernelgen_devices[i], NULL);
+		if (result.value != CL_SUCCESS)
+		{
+			kernelgen_print_error(kernelgen_launch_verbose,
+				"clGetDeviceIDs returned %d: %s\n", (int)result.value,
+				kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
+			// TODO: release resources!
+			return;
+		}
+		offset += kernelgen_devices_count[i];
+	}
+
+	// Get OpenCL devices contexts and command queues.
+	kernelgen_contexts = (cl_context**)malloc(
+		sizeof(cl_context*) * kernelgen_platforms_count +
+		sizeof(cl_context) * total_devices_count);
+	kernelgen_queues = (cl_command_queue**)malloc(
+		sizeof(cl_command_queue*) * kernelgen_platforms_count +
+		sizeof(cl_command_queue) * total_devices_count);
+	size_t szproperties =
+		2 * sizeof(cl_context_properties) + sizeof(cl_platform_id);
+	cl_context_properties* properties = (cl_context_properties*)malloc(szproperties);
+	for (int i = 0, offset = 0; i < kernelgen_platforms_count; i++)
+	{
+		memset(properties, 0, szproperties);
+		*properties = CL_CONTEXT_PLATFORM;
+		*(cl_platform_id*)(properties + 1) = kernelgen_platforms[i];
+		kernelgen_contexts[i] = offset +
+			(cl_context*)(kernelgen_contexts + kernelgen_platforms_count);
+		kernelgen_queues[i] = offset +
+			(cl_command_queue*)(kernelgen_queues + kernelgen_platforms_count);
+		for (int j = 0; j < kernelgen_devices_count[i]; j++)
+		{
+			kernelgen_contexts[i][j] = clCreateContext(
+				properties, 1, kernelgen_devices[i] + j,
+				NULL, NULL, &result.value);
+			if (result.value != CL_SUCCESS)
+			{
+				kernelgen_print_error(kernelgen_launch_verbose,
+					"clCreateContext returned %d: %s\n", (int)result.value,
+					kernelgen_get_error_string(result));
+				kernelgen_set_last_error(result);
+				// TODO: release resources!
+				return;
+			}
+
+			kernelgen_queues[i][j] = clCreateCommandQueue(
+				kernelgen_contexts[i][j], kernelgen_devices[i][j],
+				0, &result.value);
+			if (result.value != CL_SUCCESS)
+			{
+				kernelgen_print_error(kernelgen_launch_verbose,
+					"clCreateCommandQueue returned %d: %s\n", (int)result.value,
+					kernelgen_get_error_string(result));
+				kernelgen_set_last_error(result);
+				// TODO: release resources!
+				return;
+			}
+		}
+		offset += kernelgen_devices_count[i];
+	}
+	free(properties);
+
+	// TODO: disable runmode if no devices found.
+#else
+#ifdef HAVE_CUDA
+	// Create single NVIDIA platform and count available devices.
+	kernelgen_platforms_count = 1;
+	const char* nvidia = "NVIDIA Corporation";
+	kernelgen_platforms_names = (char**)malloc(strlen(nvidia) + 1 + sizeof(char*));
+	kernelgen_platforms_names[0] = (char*)(kernelgen_platforms_names + 1);
+	strcpy(kernelgen_platforms_names[0], nvidia);
+	kernelgen_devices_count = (int*)malloc(sizeof(int));
+	kernelgen_devices_count[0] = 0;
+	cudaGetLastError();
+	result.value = cudaGetDeviceCount(kernelgen_devices_count);
+	if (result.value != cudaSuccess)
+	{
+		kernelgen_print_error(kernelgen_launch_verbose,
+			"Cannot get CUDA device count, status = %d: %s\n",
+			result.value, kernelgen_get_error_string(result));
+		kernelgen_set_last_error(result);
+		return;
+	}
+	
+	// TODO: disable runmode if no devices found.
+#endif
+#endif
+
+	// Assign thread id to thread-local variable
+	// to mark thread config initialized.
+	kernelgen_thread_id = pthread_self();
+}
+
+// Read environment variables and setup device-independent runtime
+// global configuration.
 __attribute__ ((__constructor__(101))) void kernelgen_init()
 {
 	// Count supported runmodes
@@ -422,11 +622,7 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 		if (runmode & kernelgen_runmodes_mask)
 			kernelgen_process_runmode = runmode;
 	}
-	
-	// Initially per-thread runmode setting is same to
-	// per-process.
-	kernelgen_thread_runmode = kernelgen_process_runmode;
-	
+
 	// By default disable all debug output.
 	kernelgen_debug_output = 0;
 
@@ -450,7 +646,6 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 	specific_configs[1] = NULL;
 	{
 		int i = 2;
-		kernelgen_status_t result;
 #ifdef HAVE_CUDA
 		struct kernelgen_cuda_config_t* cuda =
 			(struct kernelgen_cuda_config_t*)(
@@ -463,195 +658,25 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 #else
 		cuda->aligned = 0;
 #endif
-
-#ifndef OPENCL
-		// Create single NVIDIA platform and count available devices.
-		kernelgen_platforms_count = 1;
-		const char* nvidia = "NVIDIA Corporation";
-		kernelgen_platforms_names = (char**)malloc(strlen(nvidia) + 1 + sizeof(char*));
-		kernelgen_platforms_names[0] = (char*)(kernelgen_platforms_names + 1);
-		strcpy(kernelgen_platforms_names[0], nvidia);
-		kernelgen_devices_count = (int*)malloc(sizeof(int));
-		kernelgen_devices_count[0] = 0;
-		cudaGetLastError();
-		result.value = cudaGetDeviceCount(kernelgen_devices_count);
-		if (result.value != cudaSuccess)
-		{
-			kernelgen_print_error(kernelgen_launch_verbose,
-				"Cannot get CUDA device count, status = %d: %s\n",
-				result.value, kernelgen_get_error_string(result));
-			kernelgen_set_last_error(result);
-			return;
-		}
-		
-		// TODO: disable runmode if no devices found.
 #endif
-#endif
-#ifdef HAVE_OPENCL	
+#ifdef HAVE_OPENCL
 		struct kernelgen_opencl_config_t* opencl =
 			(struct kernelgen_opencl_config_t*)(
 			(kernelgen_specific_config_t)(specific_configs) + offset);
 		specific_configs[i++] = (kernelgen_specific_config_t)offset;
 		offset += sizeof(struct kernelgen_opencl_config_t);
-
-		// Being quiet optimistic initially...
-		result.value = CL_SUCCESS;
-		result.runmode = KERNELGEN_RUNMODE_DEVICE_OPENCL;
-		
-		// Get OpenCL platforms count.
-		cl_uint platforms_count = 0;
-		result.value = clGetPlatformIDs(0, NULL, &platforms_count);
-		if (result.value != CL_SUCCESS)
-		{
-			kernelgen_print_error(kernelgen_launch_verbose,
-				"clGetPlatformIDs returned %d: %s\n", (int)result.value,
-				kernelgen_get_error_string(result));
-			kernelgen_set_last_error(result);
-			// TODO: release resources!
-			return;
-		}
-		kernelgen_platforms_count = platforms_count;
-		
-		// Get OpenCL platforms IDs.
-		kernelgen_platforms = (cl_platform_id*)malloc(
-			sizeof(cl_platform_id) * kernelgen_platforms_count);
-		result.value = clGetPlatformIDs(kernelgen_platforms_count,
-			kernelgen_platforms, NULL);
-		if (result.value != CL_SUCCESS)
-		{
-			kernelgen_print_error(kernelgen_launch_verbose,
-				"clGetPlatformIDs returned %d: %s\n", (int)result.value,
-				kernelgen_get_error_string(result));
-			kernelgen_set_last_error(result);
-			// TODO: release resources!
-			return;
-		}
-		
-		// Get OpenCL platforms names.
-		size_t total_names_length = 0;
-		for (int i = 0; i < kernelgen_platforms_count; i++)
-		{
-			size_t length;
-			clGetPlatformInfo(kernelgen_platforms[i],
-				CL_PLATFORM_VENDOR, 0, NULL, &length);
-			total_names_length += length;
-		}
-		kernelgen_platforms_names = (char**)malloc(
-			sizeof(char*) * kernelgen_platforms_count +
-			total_names_length);
-		for (int i = 0, offset = 0; i < kernelgen_platforms_count; i++)
-		{
-			size_t length;
-			clGetPlatformInfo(kernelgen_platforms[i],
-				CL_PLATFORM_VENDOR, 0, NULL, &length);
-			kernelgen_platforms_names[i] = offset +
-				(char*)(kernelgen_platforms_names + kernelgen_platforms_count);
-			clGetPlatformInfo(kernelgen_platforms[i],
-				CL_PLATFORM_VENDOR, length,
-				kernelgen_platforms_names[i], NULL);
-			offset += length;
-		}
-
-		// Get OpenCL devices.
-		int total_devices_count = 0;
-		kernelgen_devices_count = (int*)malloc(
-			sizeof(int) * kernelgen_platforms_count);
-		for (int i = 0; i < kernelgen_platforms_count; i++)
-		{
-			cl_uint devices_count = 0;
-			result.value = clGetDeviceIDs(kernelgen_platforms[i],
-				CL_DEVICE_TYPE_ALL, 0, NULL, &devices_count);
-			if (result.value != CL_SUCCESS)
-			{
-				kernelgen_print_error(kernelgen_launch_verbose,
-					"clGetDeviceIDs returned %d: %s\n", (int)result.value,
-					kernelgen_get_error_string(result));
-				kernelgen_set_last_error(result);
-				// TODO: release resources!
-				return;
-			}
-			kernelgen_devices_count[i] = devices_count;
-			total_devices_count += kernelgen_devices_count[i];
-		}
-		kernelgen_devices = (cl_device_id**)malloc(
-			sizeof(cl_device_id*) * kernelgen_platforms_count +
-			sizeof(cl_device_id) * total_devices_count);
-		for (int i = 0, offset = 0; i < kernelgen_platforms_count; i++)
-		{
-			kernelgen_devices[i] = offset +
-				(cl_device_id*)(kernelgen_devices + kernelgen_platforms_count);
-			result.value = clGetDeviceIDs(
-				kernelgen_platforms[i], CL_DEVICE_TYPE_ALL,
-				kernelgen_devices_count[i], kernelgen_devices[i], NULL);
-			if (result.value != CL_SUCCESS)
-			{
-				kernelgen_print_error(kernelgen_launch_verbose,
-					"clGetDeviceIDs returned %d: %s\n", (int)result.value,
-					kernelgen_get_error_string(result));
-				kernelgen_set_last_error(result);
-				// TODO: release resources!
-				return;
-			}
-			offset += kernelgen_devices_count[i];
-		}
-
-		// Get OpenCL devices contexts and command queues.
-		kernelgen_contexts = (cl_context**)malloc(
-			sizeof(cl_context*) * kernelgen_platforms_count +
-			sizeof(cl_context) * total_devices_count);
-		kernelgen_queues = (cl_command_queue**)malloc(
-			sizeof(cl_command_queue*) * kernelgen_platforms_count +
-			sizeof(cl_command_queue) * total_devices_count);
-		size_t szproperties =
-			2 * sizeof(cl_context_properties) + sizeof(cl_platform_id);
-		cl_context_properties* properties = (cl_context_properties*)malloc(szproperties);
-		for (int i = 0, offset = 0; i < kernelgen_platforms_count; i++)
-		{
-			memset(properties, 0, szproperties);
-			*properties = CL_CONTEXT_PLATFORM;
-			*(cl_platform_id*)(properties + 1) = kernelgen_platforms[i];
-			kernelgen_contexts[i] = offset +
-				(cl_context*)(kernelgen_contexts + kernelgen_platforms_count);
-			kernelgen_queues[i] = offset +
-				(cl_command_queue*)(kernelgen_queues + kernelgen_platforms_count);
-			for (int j = 0; j < kernelgen_devices_count[i]; j++)
-			{
-				kernelgen_contexts[i][j] = clCreateContext(
-					properties, 1, kernelgen_devices[i] + j,
-					NULL, NULL, &result.value);
-				if (result.value != CL_SUCCESS)
-				{
-					kernelgen_print_error(kernelgen_launch_verbose,
-						"clCreateContext returned %d: %s\n", (int)result.value,
-						kernelgen_get_error_string(result));
-					kernelgen_set_last_error(result);
-					// TODO: release resources!
-					return;
-				}
-
-				kernelgen_queues[i][j] = clCreateCommandQueue(
-					kernelgen_contexts[i][j], kernelgen_devices[i][j],
-					0, &result.value);
-				if (result.value != CL_SUCCESS)
-				{
-					kernelgen_print_error(kernelgen_launch_verbose,
-						"clCreateCommandQueue returned %d: %s\n", (int)result.value,
-						kernelgen_get_error_string(result));
-					kernelgen_set_last_error(result);
-					// TODO: release resources!
-					return;
-				}
-			}
-			offset += kernelgen_devices_count[i];
-		}
-		free(properties);
-
-		// TODO: disable runmode if no devices found.
 #endif
 	}
 }
 
-// Release resources used by runtime global configuration.
+// Release resources used by device-dependent runtime
+// global configuration.
+void kernelgen_free_thread()
+{
+}
+
+// Release resources used by device-independent runtime
+// global configuration.
 __attribute__ ((__destructor__(101))) void kernelgen_free()
 {
 	free(kernelgen_parse_modsyms);
@@ -665,6 +690,6 @@ __attribute__ ((__destructor__(101))) void kernelgen_free()
 		free(kernelgen_runmodes_names[i]);
 	free(kernelgen_runmodes_names);
 
-	// TODO: cleanup OpenCL/CUDA devices info.
+	// Release OpenCL/CUDA devices.
+	kernelgen_free_thread();
 }
-
