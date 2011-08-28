@@ -41,7 +41,7 @@ endif
 INCFFI = -I/usr/lib64/libffi-3.0.9/include -I/usr/include/i686-linux-gnu
 
 OBJECTS = \
-	init launch compare error timing merge parse_args \
+	init launch compare stats error timing merge parse_args \
 	parse_modsyms_cpu parse_modsyms_cuda parse_modsyms_opencl \
 	map_cpu unmap_cpu map_cuda unmap_cuda map_opencl unmap_opencl \
 	build_cpu build_cuda build_opencl launch_cpu launch_cuda launch_opencl \
@@ -112,6 +112,11 @@ endif
 	$(CC32) $(CFLAGS) $(INCFFI) -c $< -o $@
 64/compare.o: compare.c kernelgen.h kernelgen_int.h
 	$(CC64) $(CFLAGS) $(INCFFI) -c $< -o $@
+
+32/stats.o: stats.cpp kernelgen.h kernelgen_int.h
+	$(CXX32) $(CXXFLAGS) $(INCFFI) -c $< -o $@
+64/stats.o: stats.cpp kernelgen.h kernelgen_int.h
+	$(CXX64) $(CXXFLAGS) $(INCFFI) -c $< -o $@
 
 32/error.o: error.cpp kernelgen.h
 	$(NVCC32) $(NVFLAGS) -c $< -o $@

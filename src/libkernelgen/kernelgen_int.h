@@ -171,13 +171,12 @@ struct kernelgen_launch_config_t
 	// TODO: this is a temporary flag.
 	int deps_init;
 	
-	// Kernel working time in seconds
-	// (without accounting time of data transfers).
-	double time;
-	
 	// Pointer to collection of device-specific
 	// kernel launch properties.
 	kernelgen_specific_config_t specific;
+
+	// Kernel launching statistics.
+	struct kernelgen_launch_stats_t* stats;
 };
 
 #pragma pack(pop)

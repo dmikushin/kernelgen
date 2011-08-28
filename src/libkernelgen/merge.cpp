@@ -42,7 +42,9 @@ extern "C" kernelgen_status_t kernelgen_merge_regions(
 	list<struct kernelgen_memory_region_t*> lregs;
 	for (int i = 0; i < count; i++)
 	{	
-		lregs.push_back(regs + i);
+		// TODO: eliminate this check
+		if (regs[i].base) 
+			lregs.push_back(regs + i);
 		regs[i].primary = NULL;
 	}
 	

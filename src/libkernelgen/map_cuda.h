@@ -44,6 +44,9 @@ kernelgen_status_t kernelgen_load_regions_cuda(
 		// memory region).
 		if (!reg->primary)
 		{
+			// TODO: eliminate this check
+			if (!reg->base) continue;
+			
 			// Register host memory segment incorporating entire kernel argument
 			// to be shared with device.
 #if 0

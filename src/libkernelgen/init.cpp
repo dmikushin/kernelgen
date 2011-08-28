@@ -22,6 +22,7 @@
 #include "kernelgen_int_cuda.h"
 #include "kernelgen_int_opencl.h"
 #include "init.h"
+#include "stats.h"
 
 #include <fcntl.h>
 #include <gelf.h>
@@ -161,6 +162,11 @@ void kernelgen_kernel_init(
 		(struct kernelgen_launch_config_t*)malloc(
 			sizeof(struct kernelgen_launch_config_t) *
 			kernelgen_runmodes_count);
+	
+	// For each runmode allocate space to keep execution
+	// statistics.
+	config->stats = new struct kernelgen_launch_stats_t[
+		kernelgen_runmodes_count]; 
 
 	const char* kernel_name_fmt = "%s_%s";
 	for (int irunmode = 1; irunmode < kernelgen_runmodes_count; irunmode++)
@@ -178,6 +184,7 @@ void kernelgen_kernel_init(
 		l->config = config;
 		l->specific = (kernelgen_specific_config_t)config->specific +
 			(size_t)(config->specific[irunmode]);
+		l->stats = config->stats + irunmode;
 		
 		// Build device-specific kernel name.
 		length = snprintf(NULL, 0, kernel_name_fmt,
@@ -244,13 +251,13 @@ void kernelgen_kernel_init(
 
 		// Load kernel source and binary from the
 		// entire ELF image.
-		int status = elf_read("/proc/self/exe", kernel_source_name,
+		int status = elf_read("/home/marcusmae/Models/cosmo/bin/cosmo", kernel_source_name,
 			&l->kernel_source, &l->kernel_source_size);
 		if (status)
 		{
 			// TODO: handle errors
 		}
-		status = elf_read("/proc/self/exe", kernel_binary_name,
+		status = elf_read("/home/marcusmae/Models/cosmo/bin/cosmo", kernel_binary_name,
 			&l->kernel_binary, &l->kernel_binary_size);
 		if (status)
 		{
@@ -301,6 +308,7 @@ void kernelgen_kernel_free(
 	free(config->routine_name);
 	free(config->launch);
 	free(config->specific);
+	delete[] config->stats;
 }
 
 // Release resources used by kernel routine static dependencies.
@@ -673,6 +681,7 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 // global configuration.
 void kernelgen_free_thread()
 {
+	// TODO: release OpenCL/CUDA devices.
 }
 
 // Release resources used by device-independent runtime

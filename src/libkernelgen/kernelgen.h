@@ -97,6 +97,9 @@ enum kernelgen_error
 
 typedef char* kernelgen_specific_config_t;
 
+// Defines kernel launching statistics.
+struct kernelgen_launch_stats_t;
+
 // Defines kernel configuration structure.
 struct kernelgen_kernel_config_t
 {
@@ -127,6 +130,9 @@ struct kernelgen_kernel_config_t
 	
 	// Pointers to device-specific configs.
 	kernelgen_specific_config_t* specific;
+
+	// Kernel launching statistics.
+	struct kernelgen_launch_stats_t* stats;
 };
 
 // Initialize kernel routine configuration.

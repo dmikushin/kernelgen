@@ -21,6 +21,7 @@
 
 #include "kernelgen_int.h"
 #include "kernelgen_int_opencl.h"
+#include "stats.h"
 
 #include <malloc.h>
 #include <string.h>
@@ -212,8 +213,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 	}
 
 	// Launch OpenCL kernel and measure its execution time.
-	kernelgen_time_t start, finish;
-	kernelgen_get_time(&start);
+	kernelgen_record_time_start(l->stats);
 	cl_event sync;
 	result.value = clEnqueueNDRangeKernel(
 		queue, opencl->kernel, 3,
@@ -233,8 +233,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 			l->kernel_name, result.value, kernelgen_get_error_string(result));
 		goto finish;
 	}
-	kernelgen_get_time(&finish);
-	l->time = kernelgen_get_time_diff(&start, &finish);
+	kernelgen_record_time_finish(l->stats);
 
 	// Copy kernel dependencies data from device memory.
 	for (int i = 0; i < l->config->nmodsyms; i++)

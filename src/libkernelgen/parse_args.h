@@ -68,45 +68,50 @@ kernelgen_status_t kernelgen_parse_args(
 			"arg \"%s\" ref = %p, size = %zu, desc = %p\n", arg->name, arg->ref, arg->size,
 			(arg->desc == arg->ref) ? arg->desc : *(void**)arg->desc);
 
-		// In comparison mode clone argument reference.
-		if (compare)
-		{
-			// Backup reference into shadowed reference.
-			arg->sref = arg->ref;
-			
-			arg->ref = malloc(arg->size);
-			memcpy(arg->ref, arg->sref, arg->size);
-			if (arg->desc == arg->sref) arg->desc = arg->ref;
-			
-			kernelgen_print_debug(kernelgen_launch_verbose,
-				"arg \"%s\" ref = %p, size = %zu duplicated to %p for results comparison\n",
-				arg->name, arg->sref, arg->size, arg->ref);
-		}
-
 		// Start with filling ref region.
 		struct kernelgen_memory_region_t* reg = arg->mref;
-		
-		// Pin region to the parent kernel argument.
-		reg->symbol = arg;
 
-		reg->size = arg->size;
-		reg->shift = 0;
-		reg->base = arg->ref;
+		// Argument data reference may be uninitialized.
+		// In this case argument is skipped.
+		if (arg->ref)
+		{
+			// In comparison mode clone argument reference.
+			if (compare)
+			{
+				// Backup reference into shadowed reference.
+				arg->sref = arg->ref;
+				
+				arg->ref = malloc(arg->size);
+				memcpy(arg->ref, arg->sref, arg->size);
+				if (arg->desc == arg->sref) arg->desc = arg->ref;
+				
+				kernelgen_print_debug(kernelgen_launch_verbose,
+					"arg \"%s\" ref = %p, size = %zu duplicated to %p for results comparison\n",
+					arg->name, arg->sref, arg->size, arg->ref);
+			}
+		
+			// Pin region to the parent kernel argument.
+			reg->symbol = arg;
+
+			reg->size = arg->size;
+			reg->shift = 0;
+			reg->base = arg->ref;
 #ifdef HAVE_ALIGNING
-		// Compute HAVE_ALIGNING address.
-		reg->shift = (size_t)arg->ref % SZPAGE;
-		reg->base = arg->ref - reg->shift;
+			// Compute HAVE_ALIGNING address.
+			reg->shift = (size_t)arg->ref % SZPAGE;
+			reg->base = arg->ref - reg->shift;
 
-		// Compute HAVE_ALIGNING size: account overheads to page left and right borders.
-		if (arg->size % SZPAGE)
-			reg->size += SZPAGE - arg->size % SZPAGE;
-		while ((size_t)reg->base + reg->size < (size_t)arg->ref + arg->size)
-			reg->size += SZPAGE;
+			// Compute HAVE_ALIGNING size: account overheads to page left and right borders.
+			if (arg->size % SZPAGE)
+				reg->size += SZPAGE - arg->size % SZPAGE;
+			while ((size_t)reg->base + reg->size < (size_t)arg->ref + arg->size)
+				reg->size += SZPAGE;
 #endif
-		l->args_nregions++;
-		reg++;
-		
-		arg->allocatable = 0;
+			l->args_nregions++;
+			reg++;
+			
+			arg->allocatable = 0;
+		}
 
 		if (arg->ref == arg->desc) continue;
 		

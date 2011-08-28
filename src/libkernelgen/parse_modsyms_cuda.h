@@ -68,7 +68,7 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 		
 		if (!l->deps_init)
 		{
-			const char* filename = "/proc/self/exe";
+			const char* filename = "/home/marcusmae/Models/cosmo/bin/cosmo";
 
 			int fd = open(filename, O_RDONLY);
 			if (fd < 0)
@@ -163,6 +163,9 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 				
 				// Dereference dep packed descriptior.
 				dep->desc = *(void**)dep->desc;
+				
+				// Backup data array reference stored in descriptor.
+				dep->dev_ref = *(void**)(dep->desc);
 			}
 			
 			if (compare)
@@ -172,9 +175,11 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 				
 				// In comparison mode clone allocatable dependency
 				// reference.
-				dep->ref = malloc(dep->size);
 				if (dep->sref)
+				{
+					dep->ref = malloc(dep->size);
 					memcpy(dep->ref, dep->sref, dep->size);
+				}
 			}
 			
 			// There is no need to setup mapped region for module
@@ -266,15 +271,17 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 			{
 				// Get the address for the same name as found, but
 				// in the device memory.
+				// NOTE it is allowed to fail searching for device symbol.
+				// It means symbol is not really used in device code
+				// (optimized out, etc.), but kernel should still work
+				// without it.
 				dep->dev_desc = NULL;
 				cudaGetLastError();
-				result.value = cudaGetSymbolAddress(&dep->dev_desc, dep->name);
-				if (result.value != cudaSuccess)
+				cudaError_t status = cudaGetSymbolAddress(&dep->dev_desc, dep->name);
+				if (status != cudaSuccess)
 				{
-					kernelgen_print_error(kernelgen_launch_verbose,
-						"Cannot get address of symbol \"%s\" on device, status = %d: %s\n",
-						dep->name, result.value, kernelgen_get_error_string(result));
-					goto finish;
+					kernelgen_print_debug(kernelgen_launch_verbose,
+						"Cannot get address of symbol \"%s\" on device\n", dep->name);
 				}
 			}
 

@@ -20,6 +20,7 @@
  */
 
 #include "kernelgen_int.h"
+#include "stats.h"
 
 #include <malloc.h>
 #include <stdarg.h>
@@ -197,6 +198,12 @@ void kernelgen_launch_(
 		config->runmode &= ~runmode;
 		
 		kernelgen_set_last_error(status);
-	}	
+	}
+
+	// In comparison mode this function call preceedes
+	// regular CPU kernel invocation. Start timer to
+	// measure its execution time.
+	if (config->runmode != KERNELGEN_RUNMODE_HOST)
+		kernelgen_record_time_start(config->stats);
 }
 

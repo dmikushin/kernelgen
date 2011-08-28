@@ -36,6 +36,9 @@ kernelgen_status_t kernelgen_save_regions_cuda(
 		
 		if (!reg->primary)
 		{
+			// TODO: eliminate this check
+			if (!reg->base) continue;
+
 			int status = cudaSuccess;
 #ifndef HAVE_MAPPING
 			// Explicitly copy output data from device memory region and free it.

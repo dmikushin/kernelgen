@@ -20,6 +20,7 @@
  */
 
 #include "kernelgen_int.h"
+#include "stats.h"
 
 #include <assert.h>
 #include <ffi.h>
@@ -35,6 +36,11 @@ void kernelgen_compare_(
 	struct kernelgen_kernel_config_t* config,
 	kernelgen_compare_function_t compare, double* maxdiff)
 {
+	// In comparison mode this function call follows
+	// regular CPU kernel invocation. Stop previously
+	// started timer measuring its execution time.
+	kernelgen_record_time_finish(config->stats);
+	
 	int count = 2 * (config->nargs + config->nmodsyms);
 	
 	// For each used runmode, populate its corresponding launch
@@ -56,7 +62,7 @@ void kernelgen_compare_(
 
 		// Kernel config structure.
 		struct kernelgen_launch_config_t* l = config->launch + irunmode;
-
+	
 		kernelgen_print_debug(kernelgen_compare_verbose,
 			"Checking %s for device runmode \"%s\"\n",
 			l->kernel_name, kernelgen_runmodes_names[irunmode]);
@@ -94,6 +100,14 @@ void kernelgen_compare_(
 		{
 			struct kernelgen_kernel_symbol_t* dep = l->deps + j;
 			values[i + 1] = dep->allocatable ? &dep->sdesc : &dep->sref;
+			
+			// If module symbol is not defined on device,
+			// use host's for unification (then there will be
+			// a fictive self-comparison for this argument).
+			if (!*(void**)(values[i + 1]))
+			{
+				values[i + 1] = dep->allocatable ? &dep->desc : &dep->ref;
+			}
 		}
 		for (int i = config->nargs + config->nmodsyms,
 			j = 0; i < 2 * config->nargs + config->nmodsyms; i++, j++)
@@ -130,6 +144,11 @@ void kernelgen_compare_(
 		{
 			kernelgen_print_debug(kernelgen_compare_verbose,
 				"correct results for kernel %s\n", l->kernel_name);
+
+			// Check if executing entire kernel on device
+			// is worthless by performance criteria.
+			if (kernelgen_discard(config, config->stats, l->stats))
+				l->config->runmode &= ~runmode;
 		}
 
 	finish:

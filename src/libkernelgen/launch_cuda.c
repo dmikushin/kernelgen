@@ -21,6 +21,7 @@
 
 #include "kernelgen_int.h"
 #include "kernelgen_int_cuda.h"
+#include "stats.h"
 
 #include <malloc.h>
 #include <string.h>
@@ -102,49 +103,53 @@ kernelgen_status_t kernelgen_launch_cuda(
 	for (int i = 0; i < l->config->nmodsyms; i++)
 	{
 		struct kernelgen_kernel_symbol_t* dep = l->deps + i;
-		
-		// If memory region is for allocatable descriptor,
-		// then the corresponding data vector it contains
-		// must be replaced with device-mapped and restored
-		// back after kernel completion.
-		if (dep->allocatable)
-		{		
-			// In comparison mode clone dependency descriptor.
-			if (l->config->compare)
-			{
-				// Backup descriptor into shadowed descriptor.
-				dep->sdesc = dep->desc;
-				
-				dep->desc = malloc(dep->desc_size);
-				memcpy(dep->desc, dep->sdesc, dep->desc_size);
-				*(void**)dep->desc = dep->ref;
 
-				kernelgen_print_debug(kernelgen_launch_verbose,
-					"dep \"%s\" desc = %p, size = %zu duplicated to %p for results comparison\n",
-					dep->name, dep->sdesc, dep->desc_size, dep->desc);
-			}
-
-			void** dataptr = (void**)(dep->desc);
-			dep->dev_ref = *dataptr;
-			*dataptr = dep->mref->mapping + dep->mref->shift;
-		}
-		
-		// Copy dependency data to device memory.
-		cudaGetLastError();
-		status = cudaMemcpy(dep->dev_desc, dep->desc, dep->desc_size,
-			cudaMemcpyHostToDevice);
-		if (status != cudaSuccess)
+		// If symbol is defined on device
+		if (dep->dev_desc)
 		{
-			kernelgen_print_error(kernelgen_launch_verbose,
-				"Cannot copy kernel dependency, status = %d: %s\n",
-				status, cudaGetErrorString(status));
-			goto finish;
+			// If memory region is for allocatable descriptor,
+			// then the corresponding data vector it contains
+			// must be replaced with device-mapped and restored
+			// back after kernel completion.
+			if (dep->allocatable)
+			{		
+				// In comparison mode clone dependency descriptor.
+				if (l->config->compare)
+				{
+					// Backup descriptor into shadowed descriptor.
+					dep->sdesc = dep->desc;
+					
+					dep->desc = malloc(dep->desc_size);
+					memcpy(dep->desc, dep->sdesc, dep->desc_size);
+					*(void**)dep->desc = dep->ref;
+
+					kernelgen_print_debug(kernelgen_launch_verbose,
+						"dep \"%s\" desc = %p, size = %zu duplicated to %p for results comparison\n",
+						dep->name, dep->sdesc, dep->desc_size, dep->desc);
+				}
+
+				// Replace host data array reference in descriptor
+				// with its clone in device memory.
+				void** dataptr = (void**)(dep->desc);
+				*dataptr = dep->mref->mapping + dep->mref->shift;
+			}
+			
+			// Copy dependency data to device memory.
+			cudaGetLastError();
+			status = cudaMemcpy(dep->dev_desc, dep->desc, dep->desc_size,
+				cudaMemcpyHostToDevice);
+			if (status != cudaSuccess)
+			{
+				kernelgen_print_error(kernelgen_launch_verbose,
+					"Cannot copy kernel dependency, status = %d: %s\n",
+					status, cudaGetErrorString(status));
+				goto finish;
+			}
 		}
 	}
 
 	// Launch CUDA kernel and measure its execution time.
-	kernelgen_time_t start, finish;
-	kernelgen_get_time(&start);
+	kernelgen_record_time_start(l->stats);
 	cudaGetLastError();
 	status = cudaLaunch(l->kernel_name);
 	if (status != cudaSuccess)
@@ -163,24 +168,27 @@ kernelgen_status_t kernelgen_launch_cuda(
 			l->kernel_name, status, cudaGetErrorString(status));
 		goto finish;
 	}
-	kernelgen_get_time(&finish);
-	l->time = kernelgen_get_time_diff(&start, &finish);
+	kernelgen_record_time_finish(l->stats);
 
 	// Copy kernel dependencies data from device memory.
 	for (int i = 0; i < l->config->nmodsyms; i++)
 	{
 		struct kernelgen_kernel_symbol_t* dep = l->deps + i;
-
-		// Copy dependency data from device memory.
-		cudaGetLastError();
-		status = cudaMemcpy(dep->desc, dep->dev_desc, dep->desc_size,
-			cudaMemcpyDeviceToHost);
-		if (status != cudaSuccess)
+		
+		// If symbol is defined on device.
+		if (dep->dev_desc)
 		{
-			kernelgen_print_error(kernelgen_launch_verbose,
-				"Cannot copy kernel dependency data from device, status = %d: %s\n",
-				status, cudaGetErrorString(status));
-			goto finish;
+			// Copy dependency data from device memory.
+			cudaGetLastError();
+			status = cudaMemcpy(dep->desc, dep->dev_desc, dep->desc_size,
+				cudaMemcpyDeviceToHost);
+			if (status != cudaSuccess)
+			{
+				kernelgen_print_error(kernelgen_launch_verbose,
+					"Cannot copy kernel dependency data from device, status = %d: %s\n",
+					status, cudaGetErrorString(status));
+				goto finish;
+			}
 		}
 	}
 
