@@ -139,7 +139,7 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 		}
 
 		// Fill used modules symbols array.
-		for (int i = 0; i < config->nmodsyms; i++)
+		for (int i = 0, offset = 0; i < config->nmodsyms; i++)
 		{
 			struct kernelgen_kernel_symbol_t* dep = l->deps + i;
 			dep->index = config->nargs + i;
@@ -267,27 +267,13 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 			kernelgen_print_debug(kernelgen_launch_verbose,
 				"found module symbol %s at address %p\n", dep->name, dep->desc);
 
-			if (!l->deps_init)
-			{
-				// Get the address for the same name as found, but
-				// in the device memory.
-				// NOTE it is allowed to fail searching for device symbol.
-				// It means symbol is not really used in device code
-				// (optimized out, etc.), but kernel should still work
-				// without it.
-				dep->dev_desc = NULL;
-				cudaGetLastError();
-				cudaError_t status = cudaGetSymbolAddress(&dep->dev_desc, dep->name);
-				if (status != cudaSuccess)
-				{
-					kernelgen_print_debug(kernelgen_launch_verbose,
-						"Cannot get address of symbol \"%s\" on device\n", dep->name);
-				}
-			}
-
-			kernelgen_print_debug(kernelgen_launch_verbose,
-				"found module symbol %s device counterpart at address %p, size = %zu\n",
-				dep->name, dep->dev_desc, dep->size);
+			// All module symbols are packed into the common
+			// structure for synchronization.
+			// At this point let's just put in dev_desc the entire
+			// symbol offset from the beginning of the structure.
+			// TODO: handle alignments!
+			dep->dev_desc = (void*)(size_t)offset;
+			offset += dep->desc_size;
 		}
 
 		if (!l->deps_init)

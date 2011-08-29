@@ -236,10 +236,11 @@ kernelgen_status_t kernelgen_parse_modsyms_opencl(
 				"found module symbol %s, size = %zu at address %p\n",
 				dep->name, dep->desc_size, dep->desc);
 
-			// In case of OpenCL all module symbols are
-			// packed into the common structure for synchronization.
+			// All module symbols will be packed into the common
+			// structure for synchronization.
 			// At this point let's just put in dev_desc the entire
 			// symbol offset from the beginning of the structure.
+			// TODO: handle alignments!
 			dep->dev_desc = (void*)offset;
 			offset += dep->desc_size;
 		}

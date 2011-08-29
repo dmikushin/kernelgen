@@ -178,6 +178,24 @@ sub kgen_cuda
 	my($code) = "" . do { local $/; <$kernelgen_fh> };
 	close($kernelgen_fh);
 
+	#
+	# Add structure emulating global variables to kernel
+	# function prototype (if structure exists).
+	#
+	if ($code =~ m/\$kernel_name\$_globals_t/)
+	{
+		$code =~ m/\#ifdef\s__CUDA_DEVICE_FUNC__\n__device__\n#endif\nvoid\s$name\_\((?<PROTO>[^\;]*)\)\;/s;
+		my($old_proto) = $+{PROTO};
+		my($new_proto) = $old_proto;
+		if ($new_proto ne "")
+		{
+			$new_proto .= ", ";
+		}
+		$new_proto .= "struct $name\_cuda_globals_t* $name\_cuda_globals";
+		$old_proto = quotemeta($old_proto);
+		$code =~ s/void\s$name\_\($old_proto/void $name\_($new_proto/gs;
+	}
+
 	$code =~ s/\#ifdef\s__CUDA_DEVICE_FUNC__\n__device__\n#endif\nvoid\s$name\_\(/#ifdef __CUDA_DEVICE_FUNC__\nextern "C" __global__\n#endif\n#define $name\_ $name\_cuda\nvoid $name\_(/s;
 	
 	$code =~ s/void\s$name\_blockidx_x\(\n#ifdef\s__OPENCL_DEVICE_FUNC__\n__global\n#endif\s\/\/\s__OPENCL_DEVICE_FUNC__\nunsigned\sint\s\*,\sunsigned\sint\s,\sunsigned int\s\)\;/static void $name\_blockidx_x(unsigned int* index, unsigned int start, unsigned int end) { *index = blockIdx.x + start; }/s;

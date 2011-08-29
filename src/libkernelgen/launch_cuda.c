@@ -99,52 +99,90 @@ kernelgen_status_t kernelgen_launch_cuda(
 		}
 	}
 
+	// Create CUDA device module symbols container.
+	// TODO: do it once during initialization.
+	void* modsyms_container = NULL;
+	if (l->config->nmodsyms)
+	{
+		// All module symbols are packed into the common
+		// structure for synchronization.
+		// At this point let's just put in dev_desc the entire
+		// symbol offset from the beginning of the structure.
+		size_t size = 
+			(size_t)l->deps[l->config->nmodsyms - 1].dev_desc +
+			l->deps[l->config->nmodsyms - 1].desc_size;
+		result.value = cudaMalloc((void**)&modsyms_container, size);
+		if (result.value != cudaSuccess)
+		{
+			kernelgen_print_error(kernelgen_launch_verbose,
+				"Cannot allocate device memory segment of size = %zu on device, status = %d: %s\n",
+				size, result.value, kernelgen_get_error_string(result));
+			goto finish;
+		}
+	}
+
 	// Copy kernel dependencies data to device memory.
 	for (int i = 0; i < l->config->nmodsyms; i++)
 	{
 		struct kernelgen_kernel_symbol_t* dep = l->deps + i;
 
-		// If symbol is defined on device
-		if (dep->dev_desc)
-		{
-			// If memory region is for allocatable descriptor,
-			// then the corresponding data vector it contains
-			// must be replaced with device-mapped and restored
-			// back after kernel completion.
-			if (dep->allocatable)
-			{		
-				// In comparison mode clone dependency descriptor.
-				if (l->config->compare)
-				{
-					// Backup descriptor into shadowed descriptor.
-					dep->sdesc = dep->desc;
-					
-					dep->desc = malloc(dep->desc_size);
-					memcpy(dep->desc, dep->sdesc, dep->desc_size);
-					*(void**)dep->desc = dep->ref;
-
-					kernelgen_print_debug(kernelgen_launch_verbose,
-						"dep \"%s\" desc = %p, size = %zu duplicated to %p for results comparison\n",
-						dep->name, dep->sdesc, dep->desc_size, dep->desc);
-				}
-
-				// Replace host data array reference in descriptor
-				// with its clone in device memory.
-				void** dataptr = (void**)(dep->desc);
-				*dataptr = dep->mref->mapping + dep->mref->shift;
-			}
-			
-			// Copy dependency data to device memory.
-			cudaGetLastError();
-			status = cudaMemcpy(dep->dev_desc, dep->desc, dep->desc_size,
-				cudaMemcpyHostToDevice);
-			if (status != cudaSuccess)
+		// If memory region is for allocatable descriptor,
+		// then the corresponding data vector it contains
+		// must be replaced with device-mapped and restored
+		// back after kernel completion.
+		if (dep->allocatable)
+		{		
+			// In comparison mode clone dependency descriptor.
+			if (l->config->compare)
 			{
-				kernelgen_print_error(kernelgen_launch_verbose,
-					"Cannot copy kernel dependency, status = %d: %s\n",
-					status, cudaGetErrorString(status));
-				goto finish;
+				// Backup descriptor into shadowed descriptor.
+				dep->sdesc = dep->desc;
+				
+				dep->desc = malloc(dep->desc_size);
+				memcpy(dep->desc, dep->sdesc, dep->desc_size);
+				*(void**)dep->desc = dep->ref;
+
+				kernelgen_print_debug(kernelgen_launch_verbose,
+					"dep \"%s\" desc = %p, size = %zu duplicated to %p for results comparison\n",
+					dep->name, dep->sdesc, dep->desc_size, dep->desc);
 			}
+
+			// Replace host data array reference in descriptor
+			// with its clone in device memory.
+			void** dataptr = (void**)(dep->desc);
+			*dataptr = dep->mref->mapping + dep->mref->shift;
+		}
+		
+		// Copy dependency data to device memory.
+		result.value = cudaMemcpy(
+			modsyms_container + (size_t)dep->dev_desc,
+			dep->desc, dep->desc_size, cudaMemcpyHostToDevice);
+		if (result.value != cudaSuccess)
+		{
+			kernelgen_print_error(kernelgen_launch_verbose,
+				"Cannot copy data from [%p .. %p] to [%p + %zu .. %p + %zu] for symbol \"%s\", status = %d: %s\n",
+				dep->desc, dep->desc + dep->desc_size,
+				modsyms_container, (size_t)dep->dev_desc,
+				modsyms_container, (size_t)dep->dev_desc + dep->desc_size,
+				result.value, kernelgen_get_error_string(result));
+			goto finish;
+		}
+	}
+
+	// Submit CUDA device module symbols container
+	// as the last kernel argument.
+	if (l->config->nmodsyms)
+	{
+		// Submit argument.
+		cudaGetLastError();
+		status = cudaSetupArgument(&modsyms_container,
+			sizeof(void*), l->config->nargs * sizeof(void*));
+		if (status != cudaSuccess)
+		{
+			kernelgen_print_error(kernelgen_launch_verbose,
+				"Cannot setup kernel argument, status = %d: %s\n",
+				status, cudaGetErrorString(status));
+			goto finish;
 		}
 	}
 
@@ -174,21 +212,35 @@ kernelgen_status_t kernelgen_launch_cuda(
 	for (int i = 0; i < l->config->nmodsyms; i++)
 	{
 		struct kernelgen_kernel_symbol_t* dep = l->deps + i;
-		
-		// If symbol is defined on device.
-		if (dep->dev_desc)
+
+		// Copy dependency data from device memory.
+		cl_event sync;
+		result.value = cudaMemcpy(
+			dep->desc, modsyms_container + (size_t)dep->dev_desc,
+			dep->desc_size, cudaMemcpyDeviceToHost);
+		if (result.value != cudaSuccess)
 		{
-			// Copy dependency data from device memory.
-			cudaGetLastError();
-			status = cudaMemcpy(dep->desc, dep->dev_desc, dep->desc_size,
-				cudaMemcpyDeviceToHost);
-			if (status != cudaSuccess)
-			{
-				kernelgen_print_error(kernelgen_launch_verbose,
-					"Cannot copy kernel dependency data from device, status = %d: %s\n",
-					status, cudaGetErrorString(status));
-				goto finish;
-			}
+			kernelgen_print_error(kernelgen_launch_verbose,
+				"Cannot copy data from [%p + %zu .. %p + %zu] to [%p .. %p] for symbol \"%s\", status = %d: %s\n",
+				modsyms_container, (size_t)dep->dev_desc,
+				modsyms_container, (size_t)dep->dev_desc + dep->desc_size,
+				dep->desc, dep->desc + dep->desc_size,
+				result.value, kernelgen_get_error_string(result));
+			goto finish;
+		}
+	}
+
+	// Release CUDA device module symbols container.
+	// TODO: do it once during initialization.
+	if (l->config->nmodsyms)
+	{
+		result.value = cudaFree(modsyms_container);
+		if (result.value != cudaSuccess)
+		{
+			kernelgen_print_error(kernelgen_launch_verbose,
+				"Cannot free device module symbols container, status = %d: %s\n",
+				result.value, kernelgen_get_error_string(result));
+			kernelgen_set_last_error(result);
 		}
 	}
 
