@@ -1,5 +1,6 @@
 \documentclass[a4,12pt]{article}
 \usepackage[T1]{fontenc}
+\usepackage{epigraph}
 \usepackage{textcomp}
 \usepackage[utf8]{inputenc}
 \usepackage[english]{babel}
@@ -32,9 +33,14 @@ KernelGen is open source-to-source translator with Fortran frontend, multiple ba
 
 \end{abstract}
 
+\pagebreak
+
+\setlength{\epigraphwidth}{8cm}
+\epigraph{Those that can, do. Those that can't, complain.}{Torvalds, Linus}
+
 \section{Motivation}
 
-During last 5 years GPGPU technologies became wide-spread. Although mature programming models exist as well as publicly available compilation toolkits, most of applications ported to GPUs (considering real ones, not highly-tuned benchmarks) are rather simple or utilize GPU computations only for a small subset of code. There is a number of reasons behind this situation:
+During last 5 years GPGPU technologies became wide-spread. Although mature programming models exist as well as publicly available compilation toolkits, most of applications ported to GPUs (considering real ones, not highly-tuned benchmarks) are rather simple or utilize GPU computations only for small subsets of code. There is a number of reasons behind this situation:
 
 \begin{enumerate}
 \item In complex applications it is often impossible to identify and port a single compute-intensive block of code, as soon as computations are distributed between multiple major units. For example in case of WRF or COSMO weather prediction models time of single block typically never exceeds ~10-15\% of total time. Thus, single block port cannot deliver impressive overall speedup. Still, choosing a well-localized block with minimum external dependencies is the only way to accomplish GPU port and present results shortly.
@@ -51,7 +57,7 @@ KernelGen, the compilation toolchain being developed, follows above plan and cur
 
 \section{Code generator}
 
-The whole host and device code generation process is depicted on Fig.~\ref{fig:pipeline}. Note it covers only static pipeline, when device code is compiled in binary form. KernelGen currenly also implements embedding kernel code IR for further compilation and optimization in runtime.
+The whole host and device code generation process is depicted on Fig.~\ref{fig:pipeline}. Note it covers only static pipeline, where device code is compiled in binary form. KernelGen currenly also implements embedding kernel code IR for further compilation and optimization in runtime.
 
 \begin{figure}
 \centering
@@ -77,6 +83,10 @@ $$
 \subsection{Runtime vs compile-time generation}
 
 Device code could be either generated during compile time or postponed for runtime. During compile time certain problems cannot be solved, like inlining kernels dependencies, and optimization capabilities are limited. Currently KernelGen generates kernels binaries at compile time and embeds them into executable image together with original IR code, that could be used for runtime recompilation.
+
+\subsection{Bitness}
+
+As soon as the generated device code data is transparently shared with host and most OpenCL devices are 32-bit, in case of OpenCL backend current implementation is limited to 32-bit support. It should be possible to convert structured bitness-dependent data on-the-fly, but it's a complex task, and known practices should be studied first. Relaxing this limitation is very important.
 
 \section{Runtime library}
 
