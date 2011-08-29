@@ -68,7 +68,7 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 		
 		if (!l->deps_init)
 		{
-			const char* filename = "/home/marcusmae/Models/cosmo/bin/cosmo";
+			const char* filename = "/proc/self/exe";
 
 			int fd = open(filename, O_RDONLY);
 			if (fd < 0)

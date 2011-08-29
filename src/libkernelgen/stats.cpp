@@ -21,6 +21,8 @@
 
 #include "stats.h"
 
+long kernelgen_stats_verbose = 1 << 3;
+
 // Record start measured execution marker.
 extern "C" void kernelgen_record_time_start(struct kernelgen_launch_stats_t* stats)
 {
@@ -38,13 +40,32 @@ extern "C" void kernelgen_record_time_finish(struct kernelgen_launch_stats_t* st
 	stats->time.push_back(time);
 }
 
-extern "C" int kernelgen_discard(struct kernelgen_kernel_config_t* config,
+extern "C" int kernelgen_discard(struct kernelgen_launch_config_t* l,
 	struct kernelgen_launch_stats_t* host, struct kernelgen_launch_stats_t* device)
 {
-	kernelgen_print_debug(kernelgen_compare_verbose,
-		"%s host time = %f sec, device time = %f sec\n",
-		config->routine_name, host->time.back(), device->time.back());
+	// Discard kernel, if there were 10 invocations,
+	// slower than host version.
+	if (host->time.size() == 10)
+	{	
+		double avg_host = 0.0, avg_device = 0.0;
+		
+		for (std::list<double>::iterator it = host->time.begin();
+			it != host->time.end(); it++)
+			avg_host += *it;
+		for (std::list<double>::iterator it = device->time.begin();
+			it != device->time.end(); it++)
+			avg_device += *it;
+		
+		if (avg_host <= avg_device)
+			return 1;
+		
+		host->time.clear();
+		device->time.clear();
+
+		kernelgen_print_debug(kernelgen_stats_verbose,
+			"%s host time = %f sec, device time = %f sec\n",
+			l->kernel_name, avg_host, avg_device);
+	}
 	
 	return 0;
 }
-

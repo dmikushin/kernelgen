@@ -142,13 +142,13 @@ void kernelgen_compare_(
 		}
 		else
 		{
-			kernelgen_print_debug(kernelgen_compare_verbose,
-				"correct results for kernel %s\n", l->kernel_name);
-
 			// Check if executing entire kernel on device
 			// is worthless by performance criteria.
-			if (kernelgen_discard(config, config->stats, l->stats))
+			if (kernelgen_discard(l, config->stats, l->stats))
 				l->config->runmode &= ~runmode;
+			else
+				kernelgen_print_debug(kernelgen_compare_verbose,
+					"correct results for kernel %s\n", l->kernel_name);
 		}
 
 	finish:

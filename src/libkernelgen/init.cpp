@@ -100,6 +100,8 @@ static unsigned int count_bits(unsigned n)
 	return n;
 }
 
+long kernelgen_init_verbose = 1 << 2;
+
 // Initialize kernel routine configuration.
 void kernelgen_kernel_init(
 	struct kernelgen_kernel_config_t* config,
@@ -251,17 +253,20 @@ void kernelgen_kernel_init(
 
 		// Load kernel source and binary from the
 		// entire ELF image.
-		int status = elf_read("/home/marcusmae/Models/cosmo/bin/cosmo", kernel_source_name,
+		int status = elf_read("/proc/self/exe", kernel_source_name,
 			&l->kernel_source, &l->kernel_source_size);
 		if (status)
 		{
 			// TODO: handle errors
 		}
-		status = elf_read("/home/marcusmae/Models/cosmo/bin/cosmo", kernel_binary_name,
-			&l->kernel_binary, &l->kernel_binary_size);
-		if (status)
+		if (runmode != KERNELGEN_RUNMODE_DEVICE_CUDA)
 		{
-			// TODO: handle errors
+			status = elf_read("/proc/self/exe", kernel_binary_name,
+				&l->kernel_binary, &l->kernel_binary_size);
+			if (status)
+			{
+				// TODO: handle errors
+			}
 		}
 
 		free(kernel_source_name);
@@ -270,8 +275,6 @@ void kernelgen_kernel_init(
 	
 	free(kernel_basename);
 }
-
-long kernelgen_kernel_init_deps_verbose = 1 << 2;
 
 // Initialize kernel routine static dependencies.
 void kernelgen_kernel_init_deps_(
@@ -359,7 +362,7 @@ void kernelgen_init_thread()
 	result.value = clGetPlatformIDs(0, NULL, &platforms_count);
 	if (result.value != CL_SUCCESS)
 	{
-		kernelgen_print_error(kernelgen_launch_verbose,
+		kernelgen_print_error(kernelgen_init_verbose,
 			"clGetPlatformIDs returned %d: %s\n", (int)result.value,
 			kernelgen_get_error_string(result));
 		kernelgen_set_last_error(result);
@@ -375,7 +378,7 @@ void kernelgen_init_thread()
 		kernelgen_platforms, NULL);
 	if (result.value != CL_SUCCESS)
 	{
-		kernelgen_print_error(kernelgen_launch_verbose,
+		kernelgen_print_error(kernelgen_init_verbose,
 			"clGetPlatformIDs returned %d: %s\n", (int)result.value,
 			kernelgen_get_error_string(result));
 		kernelgen_set_last_error(result);
@@ -419,7 +422,7 @@ void kernelgen_init_thread()
 			CL_DEVICE_TYPE_ALL, 0, NULL, &devices_count);
 		if (result.value != CL_SUCCESS)
 		{
-			kernelgen_print_error(kernelgen_launch_verbose,
+			kernelgen_print_error(kernelgen_init_verbose,
 				"clGetDeviceIDs returned %d: %s\n", (int)result.value,
 				kernelgen_get_error_string(result));
 			kernelgen_set_last_error(result);
@@ -441,7 +444,7 @@ void kernelgen_init_thread()
 			kernelgen_devices_count[i], kernelgen_devices[i], NULL);
 		if (result.value != CL_SUCCESS)
 		{
-			kernelgen_print_error(kernelgen_launch_verbose,
+			kernelgen_print_error(kernelgen_init_verbose,
 				"clGetDeviceIDs returned %d: %s\n", (int)result.value,
 				kernelgen_get_error_string(result));
 			kernelgen_set_last_error(result);
@@ -477,7 +480,7 @@ void kernelgen_init_thread()
 				NULL, NULL, &result.value);
 			if (result.value != CL_SUCCESS)
 			{
-				kernelgen_print_error(kernelgen_launch_verbose,
+				kernelgen_print_error(kernelgen_init_verbose,
 					"clCreateContext returned %d: %s\n", (int)result.value,
 					kernelgen_get_error_string(result));
 				kernelgen_set_last_error(result);
@@ -490,7 +493,7 @@ void kernelgen_init_thread()
 				0, &result.value);
 			if (result.value != CL_SUCCESS)
 			{
-				kernelgen_print_error(kernelgen_launch_verbose,
+				kernelgen_print_error(kernelgen_init_verbose,
 					"clCreateCommandQueue returned %d: %s\n", (int)result.value,
 					kernelgen_get_error_string(result));
 				kernelgen_set_last_error(result);
@@ -517,8 +520,21 @@ void kernelgen_init_thread()
 	result.value = cudaGetDeviceCount(kernelgen_devices_count);
 	if (result.value != cudaSuccess)
 	{
-		kernelgen_print_error(kernelgen_launch_verbose,
+		kernelgen_print_error(kernelgen_init_verbose,
 			"Cannot get CUDA device count, status = %d: %s\n",
+			result.value, kernelgen_get_error_string(result));
+		kernelgen_set_last_error(result);
+		return;
+	}
+	
+	// NOTE While there is no good threading/tiling within blocks,
+	// prefer larger L1 cache.
+	cudaGetLastError();
+	cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+	if (result.value != cudaSuccess)
+	{
+		kernelgen_print_error(kernelgen_init_verbose,
+			"Cannot set CUDA device cahce config, status = %d: %s\n",
 			result.value, kernelgen_get_error_string(result));
 		kernelgen_set_last_error(result);
 		return;

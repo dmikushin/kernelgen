@@ -245,6 +245,7 @@ sub kgen_cuda
 	push(@args, "-D__CUDA_DEVICE_FUNC__");
 	#push(@args, "--keep");
 	#push(@args, "-G");
+	push(@args, "-O3");
 	push(@args, "--ptxas-options=\"-v\"");
 	push(@args, "-arch=sm_20");
 

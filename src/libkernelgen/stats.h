@@ -45,7 +45,7 @@ void kernelgen_record_time_start(struct kernelgen_launch_stats_t* stats);
 // and time result.
 void kernelgen_record_time_finish(struct kernelgen_launch_stats_t* stats);
 
-int kernelgen_discard(struct kernelgen_kernel_config_t* config,
+int kernelgen_discard(struct kernelgen_launch_config_t* l,
 	struct kernelgen_launch_stats_t* host, struct kernelgen_launch_stats_t* device);
 
 #ifdef __cplusplus
