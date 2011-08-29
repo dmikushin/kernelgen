@@ -51,13 +51,13 @@ This effort is dedicated to implementing hybrid CPU-GPGPU extendable Fortran com
 
 \section{Strategy}
 
-No doubt, developing toolchain for automatic GPU kernels generation is a very complex long-term task. To move forward step-wise, the problem could be represented as a number of ring passes. On the first round we would need a rough mechanism for identifying computational loops and moving them into separate functions (host-device code split). Second, there should be a rough generator translating Fortran code into representation, that could be chained to existing GPU code compilers. Next we need previously implemented loop identification tool to insert calls to special runtime library functions that would invoke kernels and pass their data dependencies between host and device memories. During passed rounds a set of behavior tests should be collected for regressions checks. Next important group of rounds are optimizations. Toolchain needs to provide an approach for applying kernel code analysis and recompilation in runtime, taking in account additional information like actual compute grids sizes. With this mechanism implemented, a round of optimization passes development can start. According to known practices, the most important optimizations should be loops interchanging and tiling for threads and shared memory utilization. For better code coverage several specific limitations also need to be relaxed, such as inlining external calls in GPU kerenls. At this point complete functional prototype will be created, and development could switch back onto improving rough base components.
+No doubt, developing toolchain for automatic GPU kernels generation is a very complex long-term task. To move forward step-wise, the problem could be represented as a number of ring passes. On the first round we would need a rough mechanism for identifying computational loops and moving them into separate functions (host-device code split). Second, there should be a rough generator translating Fortran code into representation, that could be chained to existing GPU code compilers. Next we need previously implemented loop identification tool to insert calls to special runtime library functions that would invoke kernels and pass their data dependencies between host and device memories. During passed rounds a set of behavior tests should be collected for regressions checks. Next important group of rounds are optimizations. Toolchain needs to provide an approach for applying kernel code analysis and recompilation in runtime, taking in account additional information like actual compute grids sizes. With this mechanism implemented, a round of optimization passes development can start. According to known practices, the most important optimizations should be loops interchanging and tiling for threads and shared memory utilization. For better code coverage several specific limitations also need to be relaxed, such as inlining external calls in GPU kernels. At this point complete functional prototype will be created, and development could switch back onto improving rough base components.
 
 KernelGen, the compilation toolchain being developed, follows above plan and currently reached the step of implementing optimization passes. It means the tool already ports simple loops pretty well and can handle a large subsets of real source codes, falling back to host compiler in places where rough host-device split fails.
 
 \section{Code generator}
 
-The whole host and device code generation process is depicted on Fig.~\ref{fig:pipeline}. Note it covers only static pipeline, where device code is compiled in binary form. KernelGen currenly also implements embedding kernel code IR for further compilation and optimization in runtime.
+The whole host and device code generation process is depicted on Fig.~\ref{fig:pipeline}. Note it covers only static pipeline, where device code is compiled in binary form. KernelGen currently also implements embedding kernel code IR for further compilation and optimization in runtime.
 
 \begin{figure}
 \centering
@@ -114,25 +114,71 @@ To track current status and configuration properties, each kernel needs a unique
 
 \subsection{Results comparison}
 
-FF
+In complex software it's hard to perform accurate results comparison due to various noise - differences in compilers, order of operations, etc. Moreover, on long scales model trajectories tend to deviate too much to distinguish error from natural chaos. To overcome these effects, KernelGen includes a special subsystem for micro-scale testing. For each kernel a special routine performing input and output data comparison can be automatically generated. If difference exceeds the specified fixed value, kernel will be marked as erroneous and fallback to CPU implementation.
 
 \section{Examples}
 
-FF
+Consider the following plain Fortran subroutine:
 
-\section{Conclusions}
+\begin{code}
+subroutine sincos(nx, ny, nz, x, y, xy)
+implicit none
+integer, intent(in) :: nx, ny, nz
+real, intent(in) :: x(nx, ny, nz), y(nx, ny, nz)
+real, intent(inout) :: xy(nx, ny, nz)
+integer :: i, j, k
+do k = 1, nz
+  do j = 1, ny
+    do i = 1, nx
+      xy(i, j, k) = sin(x(i, j, k)) + cos(y(i, j, k))
+    enddo
+  enddo
+enddo
+end subroutine sincos
+\end{code}
 
-FF
-
-\section{Acknowledgments}
-
-This work is a deep fusion of open-source software, business opportunities and scientific customers interests. With support and good will of Dr Gdaly Rivin and Dr Vladimir Krupchatnikov (Roshydromet, Russian Met Office) it became possible to start analyzing the needs of state-of-art weather forecasting models and build a comfortable tool specifically for scientific developers. Also with great support of various communities it became possible to reach the present state from ground level with minimum resources just in 5 months. I'd like to thank Roshydromet fellows Artem Petrov for coordination, testing and development, Dr Yulia Martynova for testing KernelGen with WRF model. I'm grateful to Sergey Kovylov of NVIDIA for constant support, Philippe Marguinaud of Meteo France for discussions and bug fixes in g95xml, Alexander Myltsev for testing and polishing build process, LLVM developers and specially Duncan Sands for discussions and bug fixes in C backend, GFortran team and specially Dr Tobias Burnus for Fortran consults and suggestions, Polly/LLVM team and specially Tobias Grosser for intensive discussions on optimizations related to polyhedral analysis. Thanks to Christopher Bergström of Pathscale for discussions and criticism.
+KernelGen is capable to translate it to CUDA or OpenCL kernel. Fig.~\ref{fig:sincos_perf} shows the performance of this test on $512\times 512\times 64$ grid on various hardware. AMD E-350 uses AMD APP SDK 2.5, NVIDIA Tesla -- CUDA 4.0. More specific language constructs are also supported: allocatable arrays, derived types and modules.
 
 \begin{figure}
 \centering
-\includegraphics[scale=0.5]{figures/portability.pdf}
-\caption{Multiple targets support in a single executable.}
-\label{fig:portability}
+\includegraphics[scale=0.8]{figures/sincos.pdf}
+\caption{Performance of sincos kernel generated by KernelGen on AMD and NVIDIA GPUs compared to 1 CPU core.}
+\label{fig:sincos_perf}
 \end{figure}
+
+Above test is more for simple illustration. KernelGen can handle much more complicated computational software. For 250,000 lines of COSMO regional weather prediction model it generates 1,901 kernels. Not all kernels can give performance benefit, it should be noted once again KernelGen misses several important optimization techniques for tiling and loops interchanging. Still, on Tesla it is already able to beat single 1055T core, showing up to 1.3x speedup on certain kernels.
+
+\section{Conclusions}
+
+Preliminary implementation of GPU kernels generator out of Fortran source code has been developed. Even without important optimizations, it is already able to show speedups against CPU cores on GPUs from the corresponding classes of systems. Real test cases has been studied, current runtime library is stable enough to operate thousands of kernels.
+
+\section{Resources}
+
+Project source code is hosted on hpcforge.org. To fetch the most recent version, checkout the svn repository (as of 29 Aug 2011 9 AM EST the newest one was r414):
+
+\begin{code}
+svn checkout
+  svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen
+\end{code}
+
+Another option is to download and install prebuilt rpm binaries found on the project main page:
+\begin{code}
+https://hpcforge.org/projects/kernelgen/
+\end{code}
+
+To build from source code, use instructions listed at 
+\begin{code}
+https://hpcforge.org/plugins/mediawiki/wiki/kernelgen/index.php/Compiling
+\end{code}
+
+Project source code includes behavior and performance tests, to build them follow steps listed at 
+\begin{code}
+https://hpcforge.org/plugins/mediawiki/wiki/kernelgen/index.php/Testing.
+\end{code}
+By default make scripts should build both CUDA and OpenCL tests for 32-bit mode and only CUDA for 64-bit mode. Add compiler option \emph{\-Wk,\-\-keep} to keep intermediate files with extracted kernel, IR and device code in the current directory.
+
+\section{Acknowledgments}
+
+This work is a deep fusion of open-source software, business opportunities and scientific customers interests. With support and good will of Dr Gdaly Rivin and Dr Vladimir Krupchatnikov (Roshydromet, Russian Met Office) it became possible to start analyzing the needs of state-of-art weather forecasting models and focus on tool specifically for scientific development. Also with great support of various communities it became possible to reach the present state from ground level with minimum resources just in 5 months. I'd like to thank Roshydromet fellows Artem Petrov for coordination, testing and development, Dr Yulia Martynova for testing KernelGen with WRF model. I'm grateful to Sergey Kovylov of NVIDIA for constant support, Philippe Marguinaud of Meteo France for discussions and bug fixes in g95xml, Alexander Myltsev for testing and polishing build process, LLVM developers and specially Duncan Sands for discussions and bug fixes in C backend, GFortran team and specially Dr Tobias Burnus for Fortran consults and suggestions, Polly/LLVM team and specially Tobias Grosser for intensive discussions on optimizations related to polyhedral analysis. Thanks to Christopher Bergström of Pathscale for discussions and criticism.
 
 \end{document}
