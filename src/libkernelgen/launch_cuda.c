@@ -214,7 +214,6 @@ kernelgen_status_t kernelgen_launch_cuda(
 		struct kernelgen_kernel_symbol_t* dep = l->deps + i;
 
 		// Copy dependency data from device memory.
-		cl_event sync;
 		result.value = cudaMemcpy(
 			dep->desc, modsyms_container + (size_t)dep->dev_desc,
 			dep->desc_size, cudaMemcpyDeviceToHost);

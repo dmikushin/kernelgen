@@ -271,9 +271,9 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 			// structure for synchronization.
 			// At this point let's just put in dev_desc the entire
 			// symbol offset from the beginning of the structure.
-			// TODO: handle alignments!
 			dep->dev_desc = (void*)(size_t)offset;
 			offset += dep->desc_size;
+			if (offset % 16) offset += 16 - offset % 16;
 		}
 
 		if (!l->deps_init)
