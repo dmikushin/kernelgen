@@ -254,8 +254,8 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 			}
 
 			kernelgen_print_debug(kernelgen_launch_verbose,
-				"dep \"%s\" ref = %p, size = %zu, desc = %p\n",
-				dep->name, dep->sref, dep->size, dep->desc);
+				"dep \"%s\" ref = %p, size = %zu, desc = %p, desc_size = %zu\n",
+				dep->name, dep->sref, dep->size, dep->desc, dep->desc_size);
 			
 			if (compare || dep->allocatable)
 			{
@@ -274,6 +274,7 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 			dep->dev_desc = (void*)(size_t)offset;
 			offset += dep->desc_size;
 			if (offset % 16) offset += 16 - offset % 16;
+			printf("offset = %d\n", offset);
 		}
 
 		if (!l->deps_init)

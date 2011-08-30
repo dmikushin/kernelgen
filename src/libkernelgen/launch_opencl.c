@@ -184,7 +184,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 				dep->desc, dep->desc + dep->desc_size,
 				modsyms_container, (size_t)dep->dev_desc,
 				modsyms_container, (size_t)dep->dev_desc + dep->desc_size,
-				result.value, kernelgen_get_error_string(result));
+				dep->name, result.value, kernelgen_get_error_string(result));
 			goto finish;
 		}
 		result.value = clWaitForEvents(1, &sync);
@@ -252,7 +252,7 @@ kernelgen_status_t kernelgen_launch_opencl(
 				modsyms_container, (size_t)dep->dev_desc,
 				modsyms_container, (size_t)dep->dev_desc + dep->desc_size,
 				dep->desc, dep->desc + dep->desc_size,
-				result.value, kernelgen_get_error_string(result));
+				dep->name, result.value, kernelgen_get_error_string(result));
 			goto finish;
 		}
 		result.value = clWaitForEvents(1, &sync);

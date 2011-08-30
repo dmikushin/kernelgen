@@ -527,7 +527,7 @@ void kernelgen_init_thread()
 		return;
 	}
 	
-	// NOTE While there is no good threading/tiling within blocks,
+	/*// NOTE While there is no good threading/tiling within blocks,
 	// prefer larger L1 cache.
 	cudaGetLastError();
 	cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
@@ -538,7 +538,7 @@ void kernelgen_init_thread()
 			result.value, kernelgen_get_error_string(result));
 		kernelgen_set_last_error(result);
 		return;
-	}
+	}*/
 	
 	// TODO: disable runmode if no devices found.
 #endif
