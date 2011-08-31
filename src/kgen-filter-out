@@ -15,7 +15,7 @@ my(%kernels) = ();
 my(@lines) = split("\n", `cat kernelgen.stats`);
 foreach $line (@lines)
 {
-	if ($line =~ m/^R\t(?<NAME>\w+)/)
+	if ($line =~ m/^C\t(?<NAME>\w+)/)
 	{
 		my($kernel) = $+{NAME};
 		if (!exists($kernels{$kernel}))

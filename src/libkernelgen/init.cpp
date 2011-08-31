@@ -153,10 +153,6 @@ void kernelgen_kernel_init(
 	config->last_platform_index = -1;
 	config->last_device_index = -1;
 	
-	// Check how many bits set in runmode.
-	config->compare = (count_bits(config->runmode) > 1) &&
-		(config->runmode & KERNELGEN_RUNMODE_HOST);
-
 	// Copy device-specific configs to entire kernel config.
 	config->specific = (kernelgen_specific_config_t*)
 		malloc(specific_configs_size);
@@ -205,7 +201,26 @@ void kernelgen_kernel_init(
 		l->kernel_name = (char*)malloc(length);
 		sprintf(l->kernel_name, kernel_name_fmt,
 			kernel_basename, kernelgen_runmodes_names[irunmode]);
+
+		// If kernel is in filter-out list, demote to host-only runmode.
+		int filter_out = 1;
+		if (kernelgen_filter_out)
+		{
+			for (int i = 0; kernelgen_filter_out[i] != EOF;
+				i += strlen(kernelgen_filter_out + i) + 1)
+			{
+				// If entire kernel name is in filter-out list,
+				// disable entire runmode for it.
+				if (!strcmp(l->kernel_name, kernelgen_filter_out + i))
+				{
+					filter_out = 0;
+					break;
+				}
+			}
+		}
+		if (filter_out) config->runmode &= ~runmode;
 		
+	
 		// Allocate array to hold memory regions.
 		// Maximum possible length is x2 times number of arguments
 		// plus number of modules symbols, in case all arguments
@@ -278,6 +293,10 @@ void kernelgen_kernel_init(
 		free(kernel_source_name);
 		free(kernel_binary_name);
 	}
+
+	// Check how many bits set in runmode.
+	config->compare = (count_bits(config->runmode) > 1) &&
+		(config->runmode & KERNELGEN_RUNMODE_HOST);
 	
 	free(kernel_basename);
 }
@@ -668,7 +687,45 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 	// By default do not apply any filters to kernels being
 	// executed.
 	kernelgen_filter = getenv("kernelgen_filter");
+	if (kernelgen_filter)
+	{
+		size_t size = 0;
+		char* source = NULL;
+		if (kernelgen_load_source(kernelgen_filter, &source, &size))
+			kernelgen_filter = NULL;
+		else
+		{
+			kernelgen_filter = (char*)malloc(size + 1);
+			memcpy(kernelgen_filter, source, size);
+			free(source);
+			for (int i = 0; i < size; i++)
+			{
+				if (kernelgen_filter[i] == '\n')
+					kernelgen_filter[i] = '\0';
+			}
+			kernelgen_filter[size] = EOF;
+		}
+	}
 	kernelgen_filter_out = getenv("kernelgen_filter_out");
+	if (kernelgen_filter_out)
+	{
+		size_t size = 0;
+		char* source = NULL;
+		if (kernelgen_load_source(kernelgen_filter_out, &source, &size))
+			kernelgen_filter_out = NULL;
+		else
+		{
+			kernelgen_filter_out = (char*)malloc(size + 1);
+			memcpy(kernelgen_filter_out, source, size);
+			free(source);
+			for (int i = 0; i < size; i++)
+			{
+				if (kernelgen_filter_out[i] == '\n')
+					kernelgen_filter_out[i] = '\0';
+			}
+			kernelgen_filter_out[size] = EOF;
+		}
+	}
 	
 	// By default do not dump info about kernels being executed.
 	kernelgen_stats_output = 0;
@@ -734,4 +791,8 @@ __attribute__ ((__destructor__(101))) void kernelgen_free()
 
 	// Release OpenCL/CUDA devices.
 	kernelgen_free_thread();
+
+	// Release filter lists.
+	free(kernelgen_filter);
+	free(kernelgen_filter_out);
 }
