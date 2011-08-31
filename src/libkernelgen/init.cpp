@@ -56,6 +56,10 @@ int kernelgen_runmodes_mask;
 
 long kernelgen_debug_output;
 long kernelgen_error_output;
+long kernelgen_stats_output;
+
+char* kernelgen_filter;
+char* kernelgen_filter_out;
 
 kernelgen_parse_modsyms_func_t* kernelgen_parse_modsyms;
 kernelgen_load_regions_func_t* kernelgen_load_regions;
@@ -169,6 +173,7 @@ void kernelgen_kernel_init(
 	// statistics.
 	config->stats = new struct kernelgen_launch_stats_t[
 		kernelgen_runmodes_count]; 
+	config->stats->started = 0;
 
 	const char* kernel_name_fmt = "%s_%s";
 	for (int irunmode = 1; irunmode < kernelgen_runmodes_count; irunmode++)
@@ -187,6 +192,7 @@ void kernelgen_kernel_init(
 		l->specific = (kernelgen_specific_config_t)config->specific +
 			(size_t)(config->specific[irunmode]);
 		l->stats = config->stats + irunmode;
+		l->stats->started = 0;
 		
 		// Build device-specific kernel name.
 		length = snprintf(NULL, 0, kernel_name_fmt,
@@ -658,6 +664,17 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 	
 	char* cerror = getenv("kernelgen_error_output");
 	if (cerror) kernelgen_error_output = atoi(cerror);
+
+	// By default do not apply any filters to kernels being
+	// executed.
+	kernelgen_filter = getenv("kernelgen_filter");
+	kernelgen_filter_out = getenv("kernelgen_filter_out");
+	
+	// By default do not dump info about kernels being executed.
+	kernelgen_stats_output = 0;
+	
+	char* cstats = getenv("kernelgen_stats_output");
+	if (cstats) kernelgen_stats_output = atoi(cstats);
 
 	// Create array of pointers to device-specific configs.
 	// Initialize device-specific settings.

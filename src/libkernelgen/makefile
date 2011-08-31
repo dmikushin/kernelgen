@@ -21,8 +21,10 @@
 
 include ../../makefile.in
 
-CFLAGS = -g -fPIC -std=c99
-CXXFLAGS = -g -fPIC
+OPT ?= 0
+
+CFLAGS = -g -fPIC -std=c99 -O$(OPT)
+CXXFLAGS = -g -fPIC -O$(OPT)
 
 FC = gfortran
 DFC = dragonegg-gfortran

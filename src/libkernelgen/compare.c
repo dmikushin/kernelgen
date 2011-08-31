@@ -132,20 +132,34 @@ void kernelgen_compare_(
 		// Decode and interpret the received result value.
 		if ((int)fresult)
 		{
+			kernelgen_print_stats(KERNELGEN_STATS_FASTER,
+				"W\t%s\t%d\n", l->kernel_name, runmode);
+			
 			kernelgen_print_error(kernelgen_compare_verbose,
 				"wrong results for kernel %s\n", l->kernel_name);
-			
+		
 			// If result is wrong for the current runmode,
 			// disable it.
 			status = kernelgen_error_results_mismatch;
-			l->config->runmode &= ~runmode;
+			config->runmode &= ~runmode;
+
+			// TODO: need to recalculate compare here.
+			config->compare = 0;
 		}
 		else
 		{
+			kernelgen_print_stats(KERNELGEN_STATS_SLOWER,
+				"C\t%s\t%d\n", l->kernel_name, runmode);
+		
 			// Check if executing entire kernel on device
 			// is worthless by performance criteria.
 			if (kernelgen_discard(l, config->stats, l->stats))
+			{
 				l->config->runmode &= ~runmode;
+				
+				// TODO: need to recalculate compare here.
+				config->compare = 0;
+			}
 			else
 				kernelgen_print_debug(kernelgen_compare_verbose,
 					"correct results for kernel %s\n", l->kernel_name);

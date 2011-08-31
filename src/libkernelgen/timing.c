@@ -53,6 +53,8 @@ void kernelgen_get_time(kernelgen_time_t* val)
 	else
 	{
 		struct timespec t;
+		val->seconds = 0;
+		val->nanoseconds = 0;
 		clock_gettime(CLOCKID, &t);
 		val->seconds = t.tv_sec;
 		val->nanoseconds = t.tv_nsec;

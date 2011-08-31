@@ -152,11 +152,18 @@ void kernelgen_launch_(
 			if (dep->allocatable)
 				*(void**)(dep->desc) = dep->dev_ref;
 		}
+
+		kernelgen_print_stats(KERNELGEN_STATS_RUNNING,
+			"R\t%s\t%d\n", l->kernel_name, runmode);
 		
 		continue;
 	
 	failsafe :
 
+		kernelgen_print_stats(KERNELGEN_STATS_FAILING,
+			"F\t%s\t%d\n", l->kernel_name, runmode);
+
+		// TODO: check this conition
 		if (config->runmode & KERNELGEN_RUNMODE_HOST)
 		{
 			for (int i = 0; i < config->nargs; i++)
@@ -197,13 +204,16 @@ void kernelgen_launch_(
 		// Disable the failing runmode.
 		config->runmode &= ~runmode;
 		
+		// TODO: need to recalculate compare here.
+		config->compare = 0;
+		
 		kernelgen_set_last_error(status);
 	}
 
 	// In comparison mode this function call preceedes
 	// regular CPU kernel invocation. Start timer to
 	// measure its execution time.
-	if (config->runmode != KERNELGEN_RUNMODE_HOST)
+	if (config->compare)
 		kernelgen_record_time_start(config->stats);
 }
 

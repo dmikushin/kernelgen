@@ -21,11 +21,18 @@
 
 #include "stats.h"
 
+#include <assert.h>
+
+// Stats output file descriptor.
+FILE* kernelgen_stats_output_file = NULL;
+
 long kernelgen_stats_verbose = 1 << 3;
 
 // Record start measured execution marker.
 extern "C" void kernelgen_record_time_start(struct kernelgen_launch_stats_t* stats)
 {
+	assert((stats->started == 0) && "Timer was already started!");
+	stats->started = 1;
 	kernelgen_get_time(&stats->start);
 }
 
@@ -33,11 +40,13 @@ extern "C" void kernelgen_record_time_start(struct kernelgen_launch_stats_t* sta
 // and time result.
 extern "C" void kernelgen_record_time_finish(struct kernelgen_launch_stats_t* stats)
 {
+	assert((stats->started == 1) && "Timer was not started!");
 	kernelgen_time_t finish;
 	kernelgen_get_time(&finish);
 
 	double time = kernelgen_get_time_diff(&stats->start, &finish);
 	stats->time.push_back(time);
+	stats->started = 0;
 }
 
 extern "C" int kernelgen_discard(struct kernelgen_launch_config_t* l,
@@ -57,7 +66,11 @@ extern "C" int kernelgen_discard(struct kernelgen_launch_config_t* l,
 			avg_device += *it;
 		
 		if (avg_host <= avg_device)
+		{
+			kernelgen_print_stats(KERNELGEN_STATS_SLOWER,
+				"-\t%s\t%f\t%f\n", l->kernel_name, avg_host, avg_device);
 			return 1;
+		}
 		
 		host->time.clear();
 		device->time.clear();
@@ -65,6 +78,9 @@ extern "C" int kernelgen_discard(struct kernelgen_launch_config_t* l,
 		kernelgen_print_debug(kernelgen_stats_verbose,
 			"%s host time = %f sec, device time = %f sec\n",
 			l->kernel_name, avg_host, avg_device);
+		
+		kernelgen_print_stats(KERNELGEN_STATS_FASTER,
+			"+\t%s\t%f\t%f\n", l->kernel_name, avg_host, avg_device);
 	}
 	
 	return 0;

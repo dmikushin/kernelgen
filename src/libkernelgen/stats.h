@@ -23,6 +23,47 @@
 
 #include "kernelgen_int.h"
 
+#include <stdio.h>
+
+// Flag identifying kernel running on device without errors.
+#define KERNELGEN_STATS_RUNNING		 1
+
+// Flag identifying kernel failing to run on device.
+#define KERNELGEN_STATS_FAILING		(1 << 1)
+
+// Flag identifying kernel showing correct results in comparison
+// to control loop version result.
+#define KERNELGEN_STATS_CORRECT		(1 << 2)
+
+// Flag identifying kernel showing wrong results in comparison
+// to control loop version result.
+#define KERNELGEN_STATS_WRONG		(1 << 3)
+
+// Flag identifying dumping stats for kernels that are faster
+// on device, than on host.
+#define KERNELGEN_STATS_FASTER		(1 << 4)
+
+// Flag identifying dumping stats for kernels that are slower
+// on device, than on host.
+#define KERNELGEN_STATS_SLOWER		(1 << 5)
+
+// Stats output file descriptor.
+extern FILE* kernelgen_stats_output_file;
+
+#define kernelgen_print_stats(mask, ...) \
+{ \
+	if (kernelgen_stats_output & mask) \
+	{ \
+		if (!kernelgen_stats_output_file) \
+		{ \
+			kernelgen_stats_output_file = \
+				fopen("kernelgen.stats", "w"); \
+		} \
+		fprintf(kernelgen_stats_output_file, __VA_ARGS__); \
+		fflush(kernelgen_stats_output_file); \
+	} \
+}
+
 #ifdef __cplusplus
 
 #include <list>
@@ -30,6 +71,7 @@
 // Defines kernel launching statistics.
 struct kernelgen_launch_stats_t
 {
+	int started;
 	kernelgen_time_t start;
 	std::list<double> time;
 };

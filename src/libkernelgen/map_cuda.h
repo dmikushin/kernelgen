@@ -117,7 +117,7 @@ kernelgen_status_t kernelgen_load_regions_cuda(
 
 finish:
 
-	// If something goes wrong, unmap previously mapped regions.
+	// If something went wrong, unmap previously mapped regions.
 	if (status != cudaSuccess)
 	{
 		kernelgen_save_regions_cuda(l, *nmapped);

@@ -73,6 +73,17 @@ extern long kernelgen_debug_output;
 // Defines error output options bit field.
 extern long kernelgen_error_output;
 
+// Defines stats output options bit field.
+extern long kernelgen_stats_output;
+
+// Defines filename containing list of kernels
+// to be used, one name per line.
+extern char* kernelgen_filter;
+
+// Defines filename containing list of kernels
+// to be skipped, one name per line.
+extern char* kernelgen_filter_out;
+
 // Defines kernelgen error status structure.
 typedef struct
 {

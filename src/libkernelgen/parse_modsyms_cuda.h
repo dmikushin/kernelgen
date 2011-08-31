@@ -273,8 +273,6 @@ kernelgen_status_t kernelgen_parse_modsyms_cuda(
 			// symbol offset from the beginning of the structure.
 			dep->dev_desc = (void*)(size_t)offset;
 			offset += dep->desc_size;
-			if (offset % 16) offset += 16 - offset % 16;
-			printf("offset = %d\n", offset);
 		}
 
 		if (!l->deps_init)
