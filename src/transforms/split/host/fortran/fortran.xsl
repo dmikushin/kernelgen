@@ -219,13 +219,14 @@ Insert comparison routine header.
       <xsl:text>_kernelgen_2</xsl:text>
     </xsl:for-each>
     <xsl:text>)</xsl:text>
-    <xsl:text>&#10;</xsl:text>
+    <xsl:text>&#10;USE&#32;KERNELGEN&#10;</xsl:text>
     <xsl:copy-of select="$use-stmts"/>
     <xsl:copy-of select="$implicit-none-stmts"/>
     <xsl:text>integer&#32;::&#32;</xsl:text>
     <xsl:value-of select="$compare-routine-name"/>
     <xsl:text>&#10;</xsl:text>
-    <xsl:text>real(8)&#32;::&#32;maxdiff&#10;</xsl:text>
+    <xsl:text>type(kernelgen_compare_maxdiff_t)&#32;::&#32;maxdiff&#10;</xsl:text>
+    <xsl:text>real(8)&#32;::&#32;diff&#10;</xsl:text>
 <!--
 Add declarations. Take only those declarations, that define
 symbols from routine's list of used symbols. Recognized types
@@ -385,19 +386,26 @@ Compare each pair of routine arguments.
           <xsl:text>&#32;+&#32;1&#10;</xsl:text>
         </xsl:when>
         <xsl:when test="$type = &quot;real&quot;">
-          <xsl:text>if&#32;(abs(</xsl:text>
-          <xsl:value-of select="$max"/>
-          <xsl:text>(</xsl:text>
+          <xsl:text>diff&#32;=&#32;sqrt(</xsl:text>
+          <xsl:if test="$is-array != &quot;&quot;">
+            <xsl:text>sum</xsl:text>
+          </xsl:if>
+          <xsl:text>((</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>&#32;-&#32;</xsl:text>
+          <xsl:text>_kernelgen&#32;/&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_kernelgen))&#32;.ge.&#32;maxdiff&#32;.or.&#32;abs(</xsl:text>
-          <xsl:value-of select="$min"/>
-          <xsl:text>(</xsl:text>
+          <xsl:text>&#32;-&#32;1.0)**2)</xsl:text>
+          <xsl:if test="$is-array != &quot;&quot;">
+            <xsl:text>&#32;/&#32;size(</xsl:text>
+            <xsl:value-of select="@N"/>
+            <xsl:text>)</xsl:text>
+          </xsl:if>
+          <xsl:text>)</xsl:text>
+          <xsl:text>&#10;print&#32;*,&#32;&quot;diff(</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>&#32;-&#32;</xsl:text>
-          <xsl:value-of select="@N"/>
-          <xsl:text>_kernelgen))&#32;.ge.&#32;maxdiff)&#32;&amp;&#10;&#32;&#32;</xsl:text>
+          <xsl:text>)&#32;=&#32;&quot;,&#32;diff&#10;</xsl:text>
+          <xsl:text>if&#32;((diff&#32;.ne.&#32;diff)&#32;.or.&#32;</xsl:text>
+          <xsl:text>(diff&#32;.ge.&#32;maxdiff%single))&#32;&amp;&#10;&#32;&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
           <xsl:text>&#32;=&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
@@ -452,19 +460,26 @@ Compare each pair of routine data dependencies.
           <xsl:text>&#32;+&#32;1&#10;</xsl:text>
         </xsl:when>
         <xsl:when test="@T = &quot;real&quot;">
-          <xsl:text>if&#32;(abs(</xsl:text>
-          <xsl:value-of select="$max"/>
-          <xsl:text>(</xsl:text>
+          <xsl:text>diff = sqrt(</xsl:text>
+          <xsl:if test="@dimension > 0">
+            <xsl:text>sum</xsl:text>
+          </xsl:if>
+          <xsl:text>((</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_kernelgen_1&#32;-&#32;</xsl:text>
+          <xsl:text>_kernelgen_2&#32;/&#32;</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_kernelgen_2))&#32;.ge.&#32;maxdiff&#32;.or.&#32;abs(</xsl:text>
-          <xsl:value-of select="$min"/>
-          <xsl:text>(</xsl:text>
+          <xsl:text>_kernelgen_1&#32;-&#32;1.0)**2)</xsl:text>
+          <xsl:if test="@dimension > 0">
+            <xsl:text>&#32;/&#32;size(</xsl:text>
+            <xsl:value-of select="@N"/>
+            <xsl:text>_kernelgen_1)</xsl:text>
+          </xsl:if>
+          <xsl:text>)</xsl:text>
+          <xsl:text>&#10;print&#32;*,&#32;&quot;diff(</xsl:text>
           <xsl:value-of select="@N"/>
-          <xsl:text>_kernelgen_1&#32;-&#32;</xsl:text>
-          <xsl:value-of select="@N"/>
-          <xsl:text>_kernelgen_2))&#32;.ge.&#32;maxdiff)&#32;&amp;&#10;&#32;&#32;</xsl:text>
+          <xsl:text>)&#32;=&#32;&quot;,&#32;diff&#10;</xsl:text>
+          <xsl:text>if&#32;((diff&#32;.ne.&#32;diff)&#32;.or.&#32;</xsl:text>
+          <xsl:text>(diff&#32;.ge.&#32;maxdiff%single))&#32;&amp;&#10;&#32;&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>
           <xsl:text>&#32;=&#32;</xsl:text>
           <xsl:value-of select="$compare-routine-name"/>

@@ -38,9 +38,9 @@ endif
 	$(CCOMP64) -g -std=c99 -I/opt/kgen/include64 -c $< -o $@
 
 32/axpy.o: axpy.f90
-	$(FCOMP32) -g -c $< -o $@
+	$(FCOMP32) -Wk,--keep -g -c $< -o $@
 64/axpy.o: axpy.f90
-	$(FCOMP64) -g -c $< -o $@
+	$(FCOMP64) -Wk,--keep -g -c $< -o $@
 
 clean:
 	rm -rf 32/*.o 32/*.mod 32/axpy 64/*.o 64/*.mod 64/axpy \

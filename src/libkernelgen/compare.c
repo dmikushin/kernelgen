@@ -34,7 +34,8 @@ long kernelgen_compare_verbose = 1 << 1;
 // regular host loop.
 void kernelgen_compare_(
 	struct kernelgen_kernel_config_t* config,
-	kernelgen_compare_function_t compare, double* maxdiff)
+	kernelgen_compare_function_t compare,
+	struct kernelgen_compare_diffs_t* maxdiff)
 {
 	// In comparison mode this function call follows
 	// regular CPU kernel invocation. Stop previously

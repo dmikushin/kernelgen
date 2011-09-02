@@ -119,6 +119,10 @@ kernelgen_status_t kernelgen_launch_cuda(
 				size, result.value, kernelgen_get_error_string(result));
 			goto finish;
 		}
+
+		kernelgen_print_debug(kernelgen_launch_verbose,
+			"created module symbols container for %s at [%p, %p + %zu]\n",
+			l->kernel_name, modsyms_container, modsyms_container, size);
 	}
 
 	// Copy kernel dependencies data to device memory.
@@ -167,6 +171,12 @@ kernelgen_status_t kernelgen_launch_cuda(
 				dep->name, result.value, kernelgen_get_error_string(result));
 			goto finish;
 		}
+
+		kernelgen_print_debug(kernelgen_launch_verbose,
+			"Symbol \"%s\" copied from [%p .. %p] to [%p + %zu .. %p + %zu]\n",
+			dep->name, dep->desc, dep->desc + dep->desc_size,
+			modsyms_container, (size_t)dep->dev_desc,
+			modsyms_container, (size_t)dep->dev_desc + dep->desc_size);
 	}
 
 	// Submit CUDA device module symbols container

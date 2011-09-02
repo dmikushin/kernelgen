@@ -32,6 +32,7 @@ real, intent(inout) :: xy(nx, ny, nz)
 integer :: i, j, k
 
 array1 = 1
+array2 = 1
 
 !#define value1 array1(mod(i, 10) + 1, mod(j, 10) + 1, mod(k, 10) + 1)
 

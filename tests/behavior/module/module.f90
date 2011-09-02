@@ -22,6 +22,7 @@
 module container
 
 integer :: m, n
+character :: symbol
 real, allocatable, dimension(:,:) :: x, y, xy
 
 contains
@@ -34,6 +35,7 @@ integer :: i, j
 
 do j = 1, n
   do i = 1, m
+    if ((i .eq. 1) .and. (j .eq. 1)) symbol = 'a'
     xy(i, j) = log(x(i, j))
   enddo
 enddo
@@ -51,6 +53,7 @@ integer :: i, j
 
 do j = 1, n
   do i = 1, m
+    if ((i .eq. 1) .and. (j .eq. 1)) symbol = 'b'
     xy(i, j) = xy(i, j) + exp(y(i, j))
   enddo
 enddo

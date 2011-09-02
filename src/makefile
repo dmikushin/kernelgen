@@ -54,7 +54,6 @@ kgen-embed: libkernelgen
 clean:
 	cd g95xml_tree && $(MAKE) clean
 	cd g95xml_refids && $(MAKE) clean
-	cd detectgrid && $(MAKE) clean
 	cd libkernelgen && $(MAKE) clean
 	cd kgen-embed && $(MAKE) clean
 

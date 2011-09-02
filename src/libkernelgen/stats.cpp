@@ -54,7 +54,7 @@ extern "C" int kernelgen_discard(struct kernelgen_launch_config_t* l,
 {
 	// Discard kernel, if there were 10 invocations,
 	// slower than host version.
-	if (host->time.size() == 10)
+	if (host->time.size() == 100)
 	{	
 		double avg_host = 0.0, avg_device = 0.0;
 		

@@ -182,11 +182,20 @@ extern long kernelgen_launch_verbose;
 // The type of function performing kernel-specific results comparison.
 typedef int (*kernelgen_compare_function_t)(double* maxdiff, ...);
 
+// Defines maximum differences for the
+// floating-point values comparison
+struct kernelgen_compare_diffs_t
+{
+	float real4;
+	double real8;
+};
+
 // Compare currently cached kernel results with results of the 
 // regular host loop.
 void kernelgen_compare_(
 	struct kernelgen_kernel_config_t* config,
-	kernelgen_compare_function_t compare, double* maxdiff);
+	kernelgen_compare_function_t compare,
+	struct kernelgen_compare_diffs_t* maxdiff);
 extern long kernelgen_compare_verbose;
 
 // Get last kernel loop launching error.

@@ -203,9 +203,9 @@ void kernelgen_kernel_init(
 			kernel_basename, kernelgen_runmodes_names[irunmode]);
 
 		// If kernel is in filter-out list, demote to host-only runmode.
-		int filter_out = 1;
 		if (kernelgen_filter_out)
 		{
+			int filter_out = 1;
 			for (int i = 0; kernelgen_filter_out[i] != EOF;
 				i += strlen(kernelgen_filter_out + i) + 1)
 			{
@@ -217,9 +217,8 @@ void kernelgen_kernel_init(
 					break;
 				}
 			}
+			if (filter_out) config->runmode &= ~runmode;
 		}
-		if (filter_out) config->runmode &= ~runmode;
-		
 	
 		// Allocate array to hold memory regions.
 		// Maximum possible length is x2 times number of arguments
