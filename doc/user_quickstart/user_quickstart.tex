@@ -1,0 +1,135 @@
+\documentclass[a4,12pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphics}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{fancyvrb}
+\usepackage{verbatim}
+\usepackage{cmap}
+%\renewcommand{\familydefault}{\sfdefault}
+\textwidth=16cm
+\oddsidemargin=0.1cm
+\linespread{1.2}
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\DefineVerbatimEnvironment{code}{Verbatim}{frame=single, fontsize=\small}
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+
+\begin{tabular}{ l @{\hspace{1.2cm}}r }
+\includegraphics[scale=0.3]{rhm.jpg} & \includegraphics[scale=0.9]{sibnigmi.jpg}\\[3cm]
+\end{tabular}
+
+% Title
+\HRule \\[0.4cm]
+{ \huge \bfseries KernelGen -- multi-target kernels generator for Fortran programs}\\[0.4cm]
+
+\HRule \\[0.5cm]
+
+\textsc{\Large User quick start guide}\\[1.5cm]
+
+
+% Author and supervisor
+\begin{minipage}{0.4\textwidth}
+\begin{flushleft} \large
+\end{flushleft}
+\end{minipage}
+\begin{minipage}{0.4\textwidth}
+\begin{flushright}
+\large Dmitry.~N.~Mikushin \\
+{\small maemarcus@gmail.com} \\[0.5cm]
+\end{flushright}
+\end{minipage}
+
+\vfill
+
+% Bottom of the page
+{\large \today}
+
+\end{center}
+
+\end{titlepage}
+
+\section{Prerequisites}
+
+KernelGen relies on other software and was tested on systems with 64-bit Fedora and Ubuntu. The lists of corresponding packages below are known to satisfy external dependencies:
+
+\begin{itemize}
+\item Fedora
+\begin{itemize}
+\item perl-XML-LibXSLT
+\item perl-IPC-Run3
+\item libffi-devel
+\item gcc-gfortran
+\end{itemize}
+\item Debian / Ubuntu
+\begin{itemize}
+\item libxml-xslt-perl
+\item libxml-libxslt-perl
+\item libipc-run3-perl
+\item libffi-dev
+\item gfortran
+\end{itemize}
+\end{itemize}
+
+\section{Supported hardware}
+
+KernelGen supports kernels generation both for CUDA and OpenCL. In case of non-NVIDIA GPUs, CUDA will not be available, however OpenCL code generation should work well. Due to this segmentation, there are two different versions of KernelGen binaries: one is for CUDA+OpenCL and another -- for OpenCL only. If you have NVIDIA GPU, install package kernelgen-0.1-cuda.x86\_64.rpm, otherwise install package kernelgen-0.1-opencl.x86\_64.rpm.
+
+\section{Installation}
+
+Download kernelgen-0.1-cuda.x86\_64.rpm or kernelgen-0.1-opencl.x86\_64.rpm package from project files, depending on your target hardware. On Fedora install package using \emph{rpm} or \emph{yum}:
+
+\begin{code}
+[marcusmae@noisy x86_64]\$ sudo yum install kernelgen-0.1-cuda.x86_64.rpm
+Loaded plugins: langpacks, presto, refresh-packagekit
+Setting up Install Process
+Examining kernelgen-0.1-cuda.x86_64.rpm: kernelgen-0.1-cuda.x86_64
+Marking kernelgen-0.1-cuda.x86_64.rpm to be installed
+Resolving Dependencies
+--> Running transaction check
+---> Package kernelgen.x86_64 0:0.1-cuda will be installed
+--> Finished Dependency Resolution
+
+Dependencies Resolved
+
+===============================================================================
+ Package              Arch      Version     Repository                   Size
+===============================================================================
+Installing:
+ kernelgen            x86_64    0.1-cuda    /kernelgen-0.1-cuda.x86_64   54 M
+
+Transaction Summary
+===============================================================================
+Install       1 Package(s)
+
+Total size: 54 M
+Installed size: 54 M
+Is this ok [y/N]: y
+Downloading Packages:
+Running rpm_check_debug
+Running Transaction Test
+Transaction Test Succeeded
+Running Transaction
+  Installing : kernelgen-0.1-cuda.x86_64                                                                                                         1/1 
+
+Installed:
+  kernelgen.x86_64 0:0.1-cuda                                                                                                                        
+
+Complete!
+\end{code}
+
+On Ubuntu systems you can use \emph{alien} first to convert .rpm package to .deb, and then install it in the same way with \emph{dpkg}.
+
+KernelGen will be installed to \emph{/opt/kgen}, paths to compiler should be automatically added to shell profile, and dynamic libraries should be added to \emph{ldconfig} index.
+
+\end{document}
