@@ -132,4 +132,46 @@ On Ubuntu systems you can use \emph{alien} first to convert .rpm package to .deb
 
 KernelGen will be installed to \emph{/opt/kgen}, paths to compiler should be automatically added to shell profile, and dynamic libraries should be added to \emph{ldconfig} index.
 
+\section{Testing}
+
+Samples for KernelGen are kept together with the main library in the source repository. You should be able to check out its contents using subversion client:
+
+\begin{code}
+svn co svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen
+\end{code}
+
+To determine system capabilities, navigate to source folder and execute configure script: 
+
+\begin{code}
+marcusmae@msiwind:~/Programming$ cd kernelgen/src/
+marcusmae@msiwind:~/Programming/kernelgen/src$ ./configure
+\end{code}
+
+Script should create makefile.in file, and/or warn you about issues encountered. The following message indicates there is no usable CUDA compiler in system. But project could be still built in OpenCL-only mode. 
+
+\begin{code}
+NVIDIA CUDA compiler is not available
+CUDA support will be disabled
+\end{code}
+
+\subsection{Testing correct behavior}
+
+\subsection{Testing performance}
+
+\section{User interface}
+
+\subsection{Compiler interface}
+
+\subsection{Runtime interface}
+
+Environment bit fields:
+
+\begin{itemize}
+\item kernelgen\_runmode=<num>
+\item kernelgen\_debug\_output=<num>
+\item kernelgen\_error\_output=<num>
+\item kernelgen\_filter=<filename>
+\item kernelgen\_filter\_out=<filename>
+\end{itemize}
+
 \end{document}

@@ -1,0 +1,43 @@
+#!/usr/bin/perl -w
+
+if (scalar(@ARGV) != 2)
+{
+	print "Kernelgen log summary\n";
+	print "Usage: kgen-kernels-count <kernelgen.stats> <kind>\n";
+	exit 0;
+}
+
+my($filename) = $ARGV[0];
+my($kind) = $ARGV[1];
+
+if ($kind eq "A")
+{
+	$kind = "\\w";
+}
+
+if ($kind eq "+")
+{
+	$kind = "\\+";
+}
+
+if ($kind eq "-")
+{
+	$kind = "\\-";
+}
+
+my(%kernels) = ();
+
+my(@lines) = split("\n", `cat kernelgen.stats`);
+foreach $line (@lines)
+{
+	if ($line =~ m/^$kind\t(?<NAME>\w+)/)
+	{
+		my($kernel) = $+{NAME};
+		if (!exists($kernels{$kernel}))
+		{
+			$kernels{$kernel} = 1;
+			print "$kernel\n";
+		}
+	}
+}
+
