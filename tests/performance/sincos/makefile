@@ -29,6 +29,10 @@ else
 all: 32/sincos
 endif
 
+PGFCOMP = pgfortran -Mnomain -Minfo=accel -ta=nvidia
+PGFCOMP32 = $(PGFCOMP) -I/opt/kgen/include -m32 -L/opt/kgen/lib64 -lkernelgen
+PGFCOMP64 = $(PGFCOMP) -I/opt/kgen/include64 -L/opt/kgen/lib64 -lkernelgen
+
 32/sincos: 32/sincos.o 32/main.o
 	$(FCOMP32) 32/main.o 32/sincos.o -o $@
 64/sincos: 64/sincos.o 64/main.o
@@ -44,6 +48,22 @@ endif
 64/sincos.o: sincos.f90
 	$(FCOMP64) -O$(OPT) -g -c $< -o $@
 
+pgi/32/sincos: pgi/32/sincos.o pgi/32/main.o
+	$(PGFCOMP32) pgi/32/main.o pgi/32/sincos.o -o $@
+pgi/64/sincos: pgi/64/sincos.o pgi/64/main.o
+	$(PGFCOMP64) pgi/64/main.o pgi/64/sincos.o -o $@
+
+pgi/32/main.o: main.c
+	$(PGFCOMP32) -O$(OPT) -g -c $< -o $@
+pgi/64/main.o: main.c
+	$(PGFCOMP64) -O$(OPT) -g -c $< -o $@
+
+pgi/32/sincos.o: sincos.f90
+	$(PGFCOMP32) -O$(OPT) -g -c $< -o $@
+pgi/64/sincos.o: sincos.f90
+	$(PGFCOMP64) -O$(OPT) -g -c $< -o $@
+
 clean:
 	rm -rf 32/*.o 32/*.mod 32/sincos 64/*.o 64/*.mod 64/sincos \
+	rm -rf pgi/32/*.o pgi/32/*.mod pgi/32/sincos pgi/64/*.o pgi/64/*.mod pgi/64/sincos \
 	*.bc* *.o *.mod *_kernelgen.* *.host.*

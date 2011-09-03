@@ -29,6 +29,7 @@ real, intent(inout) :: xy(nx, ny, nz)
 
 integer :: i, j, k
 
+!$acc region
 do k = 1, nz
   do j = 1, ny
     do i = 1, nx
@@ -36,10 +37,7 @@ do k = 1, nz
     enddo
   enddo
 enddo
-
-print *, 'Value of i after cycle = ', i
-print *, 'Value of j after cycle = ', j
-print *, 'Value of k after cycle = ', k
+!$acc end region
 
 end subroutine sincos
 

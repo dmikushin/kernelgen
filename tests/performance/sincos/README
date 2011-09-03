@@ -115,3 +115,14 @@ kernelgen time = 1.110980 sec
 regular time = 3.471778 sec
 max diff = 0.000000
 
+[marcusmae@noisy sincos]$ kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos 512 512 64
+kernelgen time = 0.371966 sec
+regular time = 0.864041 sec
+max diff = 1.192093e-07
+
+[marcusmae@noisy sincos]$ pgi/64/sincos 512 512 64
+kernelgen time = 0.158552 sec
+regular time = 0.633663 sec
+max diff = 1.192093e-07
+
+
