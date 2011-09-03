@@ -68,19 +68,22 @@ void kernelgen_compare_(
 			"Checking %s for device runmode \"%s\"\n",
 			l->kernel_name, kernelgen_runmodes_names[irunmode]);
 
-		void** values = (void**)malloc(sizeof(void*) * (count + 1));
-		values[0] = &maxdiff;
+		void** values = (void**)malloc(sizeof(void*) * (count + 2));
+		int verbose = kernelgen_compare_verbose & kernelgen_debug_output;
+		void* pverbose = &verbose;
+		values[0] = &pverbose;
+		values[1] = &maxdiff;
 		
 		// Set call arguments types (all void in our case).
-		ffi_type** types = (ffi_type**)malloc(sizeof(ffi_type*) * (count + 1));
-		for (int i = 0; i < count + 1; i++)
+		ffi_type** types = (ffi_type**)malloc(sizeof(ffi_type*) * (count + 2));
+		for (int i = 0; i < count + 2; i++)
 			types[i] = &ffi_type_pointer;
 		
 		// Get the ffi_cif handle.
 		ffi_cif cif;
 		ffi_status fstatus;
 		if ((fstatus = ffi_prep_cif(&cif, FFI_DEFAULT_ABI,
-			count + 1, &ffi_type_sint, types)) != FFI_OK)
+			count + 2, &ffi_type_sint, types)) != FFI_OK)
 		{
 			kernelgen_print_error(kernelgen_compare_verbose,
 				"Cannot get ffi_cif handle, status = %d", fstatus);
@@ -94,33 +97,33 @@ void kernelgen_compare_(
 		for (int i = 0, j = 0; i < config->nargs; i++, j++)
 		{
 			struct kernelgen_kernel_symbol_t* arg = l->args + j;
-			values[i + 1] = arg->allocatable ? &arg->sdesc : &arg->sref;
+			values[i + 2] = arg->allocatable ? &arg->sdesc : &arg->sref;
 		}
 		for (int i = config->nargs, j = 0;
 			i < config->nargs + config->nmodsyms; i++, j++)
 		{
 			struct kernelgen_kernel_symbol_t* dep = l->deps + j;
-			values[i + 1] = dep->allocatable ? &dep->sdesc : &dep->sref;
+			values[i + 2] = dep->allocatable ? &dep->sdesc : &dep->sref;
 			
 			// If module symbol is not defined on device,
 			// use host's for unification (then there will be
 			// a fictive self-comparison for this argument).
-			if (!*(void**)(values[i + 1]))
+			if (!*(void**)(values[i + 2]))
 			{
-				values[i + 1] = dep->allocatable ? &dep->desc : &dep->ref;
+				values[i + 2] = dep->allocatable ? &dep->desc : &dep->ref;
 			}
 		}
 		for (int i = config->nargs + config->nmodsyms,
 			j = 0; i < 2 * config->nargs + config->nmodsyms; i++, j++)
 		{
 			struct kernelgen_kernel_symbol_t* arg = l->args + j;
-			values[i + 1] = arg->allocatable ? &arg->desc : & arg->ref;
+			values[i + 2] = arg->allocatable ? &arg->desc : & arg->ref;
 		}
 		for (int i = 2 * config->nargs + config->nmodsyms,
 			j = 0; i < count; i++, j++)
 		{
 			struct kernelgen_kernel_symbol_t* dep = l->deps + j;
-			values[i + 1] = dep->allocatable ? &dep->desc : &dep->ref;
+			values[i + 2] = dep->allocatable ? &dep->desc : &dep->ref;
 		}
 
 		// Invoke the comparison function.

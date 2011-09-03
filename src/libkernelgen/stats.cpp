@@ -69,7 +69,7 @@ extern "C" int kernelgen_discard(struct kernelgen_launch_config_t* l,
 		{
 			kernelgen_print_stats(KERNELGEN_STATS_SLOWER,
 				"-\t%s\t%f\t%f\n", l->kernel_name, avg_host, avg_device);
-			return 1;
+			return 0;
 		}
 		
 		host->time.clear();
