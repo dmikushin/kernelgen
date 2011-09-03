@@ -27,7 +27,7 @@ if ($kind eq "-")
 
 my(%kernels) = ();
 
-my(@lines) = split("\n", `cat kernelgen.stats`);
+my(@lines) = split("\n", `cat $filename`);
 foreach $line (@lines)
 {
 	if ($line =~ m/^$kind\t(?<NAME>\w+)/)

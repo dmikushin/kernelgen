@@ -11,7 +11,7 @@ my($filename) = $ARGV[0];
 
 my(%kernels) = ();
 
-my(@lines) = split("\n", `cat kernelgen.stats`);
+my(@lines) = split("\n", `cat $filename`);
 foreach $line (@lines)
 {
 	if ($line =~ m/^(\+|\-)\t(?<NAME>\w+)\t(?<CPU>[^\t]+)\t(?<GPU>[^\t]+)/)
