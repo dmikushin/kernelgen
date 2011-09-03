@@ -1,5 +1,5 @@
---- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-19 22:08:00.939238011 +0400
-+++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-19 21:30:01.951332125 +0400
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-09-03 10:02:30.661060771 +0400
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-08-29 13:19:20.016843690 +0400
 @@ -520,7 +520,7 @@
      }
      Out << '}';
@@ -104,12 +104,13 @@
  
        << "\n\n/* Support for floating point constants */\n"
        << "typedef unsigned long long ConstantDoubleTy;\n"
-@@ -1751,12 +1804,19 @@
+@@ -1751,12 +1804,18 @@
    // Global variable declarations...
    if (!M.global_empty()) {
      Out << "\n/* External Global Variable Declarations */\n";
-+    Out << "#ifdef __OPENCL_DEVICE_FUNC__\n#pragma pack(push, 1)\nstruct $kernel_name$_globals_t {\n";
-+    Out << "#endif // __OPENCL_DEVICE_FUNC__\n";
++    Out << "#if defined(__OPENCL_DEVICE_FUNC__) || defined(__CUDA_DEVICE_FUNC__)\n" <<
++      "struct $kernel_name$_globals_t {\n";
++    Out << "#endif // __OPENCL_DEVICE_FUNC__ || __CUDA_DEVICE_FUNC__\n";
      for (Module::global_iterator I = M.global_begin(), E = M.global_end();
           I != E; ++I) {
  
@@ -117,27 +118,29 @@
            I->hasCommonLinkage())
 -        Out << "extern ";
 +      {
-+        Out << "#ifdef __CUDA_DEVICE_FUNC__\n#define " << GetValueName(I) << " " <<
-+          GetValueName(I) << "_$kernel_name$\n__device__\n#else\n" <<
-+          "#ifndef __OPENCL_DEVICE_FUNC__\nextern\n#endif // __OPENCL_DEVICE_FUNC__\n" <<
-+          "#endif // __CUDA_DEVICE_FUNC__\n";
++        Out << "#if !defined(__OPENCL_DEVICE_FUNC__) && !defined(__CUDA_DEVICE_FUNC__)\n" <<
++          "extern\n#endif // __OPENCL_DEVICE_FUNC__ && __CUDA_DEVICE_FUNC__\n";
 +      }
        else if (I->hasDLLImportLinkage())
          Out << "__declspec(dllimport) ";
        else
-@@ -1771,14 +1831,24 @@
+@@ -1770,15 +1829,27 @@
+ 
        if (I->hasExternalWeakLinkage())
           Out << " __EXTERNAL_WEAK__";
-       Out << ";\n";
+-      Out << ";\n";
++      Out << "\n#if defined(__OPENCL_DEVICE_FUNC__) || defined(__CUDA_DEVICE_FUNC__)\n" <<
++        "__attribute__((aligned(16)))\n#endif // __OPENCL_DEVICE_FUNC__ || __CUDA_DEVICE_FUNC__\n;\n";
 +      if (I->hasExternalLinkage() || I->hasExternalWeakLinkage() ||
 +          I->hasCommonLinkage())
 +      {
-+        Out << "#ifdef __OPENCL_DEVICE_FUNC__\n#define " << GetValueName(I) << " " <<
-+          "($kernel_name$_globals->" << GetValueName(I) << ")\n#endif // __OPENCL_DEVICE_FUNC__\n";
++        Out << "#if defined(__OPENCL_DEVICE_FUNC__) || defined(__CUDA_DEVICE_FUNC__)\n" <<
++          "#define " << GetValueName(I) << " " << "($kernel_name$_globals->" <<
++          GetValueName(I) << ")\n#endif // __OPENCL_DEVICE_FUNC__ || __CUDA_DEVICE_FUNC__\n";
 +      }
      }
-+    Out << "#ifdef __OPENCL_DEVICE_FUNC__\n};\n#pragma pack(pop)\n";
-+    Out << "#endif // __OPENCL_DEVICE_FUNC__\n";
++    Out << "#if defined(__OPENCL_DEVICE_FUNC__) || defined(__CUDA_DEVICE_FUNC__)\n" <<
++      "};\n" << "#endif // __OPENCL_DEVICE_FUNC__ || __CUDA_DEVICE_FUNC__\n";
    }
  
    // Function declarations
@@ -150,7 +153,7 @@
  
    // Store the intrinsics which will be declared/defined below.
    SmallVector<const Function*, 8> intrinsicsToDefine;
-@@ -1802,6 +1872,12 @@
+@@ -1802,6 +1873,12 @@
          I->getName() == "longjmp" || I->getName() == "_setjmp")
        continue;
  
@@ -163,7 +166,7 @@
      if (I->hasExternalWeakLinkage())
        Out << "extern ";
      printFunctionSignature(I, true);
-@@ -1820,6 +1896,9 @@
+@@ -1820,6 +1897,9 @@
        Out << " LLVM_ASM(\"" << I->getName().substr(1) << "\")";
  
      Out << ";\n";
@@ -173,18 +176,18 @@
    }
  
    // Output the global variable declarations
-@@ -1835,7 +1914,9 @@
+@@ -1835,7 +1915,9 @@
          if (I->hasLocalLinkage())
            Out << "static ";
          else
 -          Out << "extern ";
 +        {
-+          Out << "#ifndef __CUDA_DEVICE_FUNC__\nextern";
++          Out << "#ifndef __CUDA_DEVICE_FUNC__\nextern ";
 +        }
  
          // Thread Local Storage
          if (I->isThreadLocal())
-@@ -1855,6 +1936,9 @@
+@@ -1855,6 +1937,9 @@
          if (I->hasHiddenVisibility())
            Out << " __HIDDEN__";
          Out << ";\n";
@@ -194,16 +197,16 @@
        }
    }
  
-@@ -1868,6 +1952,8 @@
+@@ -1868,6 +1953,8 @@
          if (getGlobalVariableClass(I))
            continue;
  
-+        Out << "#ifndef __CUDA_DEVICE_FUNC__\nextern";
++        Out << "#ifndef __CUDA_DEVICE_FUNC__\nextern ";
 +
          if (I->hasLocalLinkage())
            Out << "static ";
          else if (I->hasDLLImportLinkage())
-@@ -1918,6 +2004,7 @@
+@@ -1918,6 +2005,7 @@
            }
          }
          Out << ";\n";
@@ -211,7 +214,7 @@
        }
    }
  
-@@ -1926,34 +2013,20 @@
+@@ -1926,34 +2014,20 @@
  
    // Emit some helper functions for dealing with FCMP instruction's
    // predicates
@@ -260,7 +263,7 @@
  
    // Emit definitions of the intrinsics.
    for (SmallVector<const Function*, 8>::const_iterator
-@@ -2002,6 +2075,7 @@
+@@ -2002,6 +2076,7 @@
    if (FPC->getType() == Type::getDoubleTy(FPC->getContext())) {
      double Val = FPC->getValueAPF().convertToDouble();
      uint64_t i = FPC->getValueAPF().bitcastToAPInt().getZExtValue();
@@ -268,7 +271,7 @@
      Out << "static const ConstantDoubleTy FPConstant" << FPCounter++
      << " = 0x" << utohexstr(i)
      << "ULL;    /* " << Val << " */\n";
-@@ -2009,6 +2083,7 @@
+@@ -2009,6 +2084,7 @@
      float Val = FPC->getValueAPF().convertToFloat();
      uint32_t i = (uint32_t)FPC->getValueAPF().bitcastToAPInt().
      getZExtValue();
@@ -276,7 +279,7 @@
      Out << "static const ConstantFloatTy FPConstant" << FPCounter++
      << " = 0x" << utohexstr(i)
      << "U;    /* " << Val << " */\n";
-@@ -2016,6 +2091,7 @@
+@@ -2016,6 +2092,7 @@
      // api needed to prevent premature destruction
      APInt api = FPC->getValueAPF().bitcastToAPInt();
      const uint64_t *p = api.getRawData();
@@ -284,7 +287,7 @@
      Out << "static const ConstantFP80Ty FPConstant" << FPCounter++
      << " = { 0x" << utohexstr(p[0])
      << "ULL, 0x" << utohexstr((uint16_t)p[1]) << ",{0,0,0}"
-@@ -2024,6 +2100,7 @@
+@@ -2024,6 +2101,7 @@
               FPC->getType() == Type::getFP128Ty(FPC->getContext())) {
      APInt api = FPC->getValueAPF().bitcastToAPInt();
      const uint64_t *p = api.getRawData();
@@ -292,7 +295,7 @@
      Out << "static const ConstantFP128Ty FPConstant" << FPCounter++
      << " = { 0x"
      << utohexstr(p[0]) << ", 0x" << utohexstr(p[1])
-@@ -2044,7 +2121,13 @@
+@@ -2044,7 +2122,13 @@
    Out << "  unsigned int Int32;\n";
    Out << "  unsigned long long Int64;\n";
    Out << "  float Float;\n";
@@ -306,7 +309,7 @@
    Out << "} llvmBitCastUnion;\n";
  
    // Get all of the struct types used in the module.
-@@ -2247,9 +2330,9 @@
+@@ -2247,9 +2331,9 @@
    // Finish printing arguments... if this is a vararg function, print the ...,
    // unless there are no known types, in which case, we just emit ().
    //
@@ -318,7 +321,7 @@
      FunctionInnards << "void"; // ret() -> ret(void) in C.
    }
    FunctionInnards << ')';
-@@ -3477,9 +3560,9 @@
+@@ -3477,9 +3561,9 @@
    bool IsUnaligned = Alignment &&
      Alignment < TD->getABITypeAlignment(OperandType);
  
@@ -330,7 +333,7 @@
      Out << "((";
      if (IsUnaligned)
        Out << "struct __attribute__ ((packed, aligned(" << Alignment << "))) {";
-@@ -3490,15 +3573,15 @@
+@@ -3490,15 +3574,15 @@
        Out << "*";
      }
      Out << ")";
