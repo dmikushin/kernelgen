@@ -29,8 +29,10 @@ else
 all: 32/sincos
 endif
 
+FFLAGS = -Wk,--keep -Wk,--verbose
+
 PGFCOMP = pgfortran -Mnomain -Minfo=accel -ta=nvidia
-PGFCOMP32 = $(PGFCOMP) -I/opt/kgen/include -m32 -L/opt/kgen/lib64 -lkernelgen
+PGFCOMP32 = $(PGFCOMP) -I/opt/kgen/include -m32 -L/opt/kgen/lib -lkernelgen
 PGFCOMP64 = $(PGFCOMP) -I/opt/kgen/include64 -L/opt/kgen/lib64 -lkernelgen
 
 32/sincos: 32/sincos.o 32/main.o
@@ -44,9 +46,9 @@ PGFCOMP64 = $(PGFCOMP) -I/opt/kgen/include64 -L/opt/kgen/lib64 -lkernelgen
 	$(CCOMP64) -O$(OPT) -g -std=c99 -I/opt/kgen/include64 -c $< -o $@
 
 32/sincos.o: sincos.f90
-	$(FCOMP32) -O$(OPT) -g -c $< -o $@
+	$(FCOMP32) $(FFLAGS) -O$(OPT) -g -c $< -o $@
 64/sincos.o: sincos.f90
-	$(FCOMP64) -O$(OPT) -g -c $< -o $@
+	$(FCOMP64) $(FFLAGS) -O$(OPT) -g -c $< -o $@
 
 pgi/32/sincos: pgi/32/sincos.o pgi/32/main.o
 	$(PGFCOMP32) pgi/32/main.o pgi/32/sincos.o -o $@
