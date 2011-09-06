@@ -8,21 +8,22 @@ if (scalar(@ARGV) != 2)
 }
 
 my($filename) = $ARGV[0];
-my($kind) = $ARGV[1];
+my($kind1) = $ARGV[1];
+my($kind2) = "F";
 
-if ($kind eq "A")
+if ($kind1 eq "A")
 {
-	$kind = "\\w";
+	$kind1 = "\\w";
 }
 
-if ($kind eq "+")
+if ($kind1 eq "+")
 {
-	$kind = "\\+";
+	$kind1 = "\\+";
 }
 
-if ($kind eq "-")
+if ($kind1 eq "-")
 {
-	$kind = "\\-";
+	$kind1 = "\\-";
 }
 
 my(%kernels) = ();
@@ -30,14 +31,31 @@ my(%kernels) = ();
 my(@lines) = split("\n", `cat $filename`);
 foreach $line (@lines)
 {
-	if ($line =~ m/^$kind\t(?<NAME>\w+)/)
+	if ($line =~ m/^$kind1\t(?<NAME>\w+)/)
 	{
 		my($kernel) = $+{NAME};
 		if (!exists($kernels{$kernel}))
 		{
 			$kernels{$kernel} = 1;
-			print "$kernel\n";
 		}
+	}
+}
+foreach $line (@lines)
+{
+	if ($line =~ m/^$kind2\t(?<NAME>\w+)/)
+	{
+		my($kernel) = $+{NAME};
+		if (exists($kernels{$kernel}))
+		{
+			$kernels{$kernel} = 0;
+		}
+	}
+}
+foreach $kernel (keys %kernels)
+{
+	if ($kernels{$kernel} != 0)
+	{
+		print "$kernel\n";
 	}
 }
 
