@@ -29,41 +29,67 @@ else
 all: 32/sincos
 endif
 
-FFLAGS = -Wk,--keep -Wk,--verbose
+#
+# Optinal flags for kernelgen compiler to keep intermediate
+# files and be more verbose
+#
+KGFFLAGS = # -Wk,--keep -Wk,--verbose
+KGFCOMP32 = $(FCOMP32)
+KGFCOMP64 = $(FCOMP64)
 
-PGFCOMP = pgfortran -Mnomain -Minfo=accel -ta=nvidia
+#
+# Regular GNU Fortran compiler
+#
+GFCOMP32 = gfortran -m32
+GFCOMP64 = gfortran
+
+#
+# PGI Fortran Compiler with PGI Accelerator technology enabled
+#
+PGFFLAGS = -Mnomain -Minfo=accel -ta=nvidia
+PGFCOMP = pgfortran
 PGFCOMP32 = $(PGFCOMP) -I/opt/kgen/include -m32 -L/opt/kgen/lib -lkernelgen
 PGFCOMP64 = $(PGFCOMP) -I/opt/kgen/include64 -L/opt/kgen/lib64 -lkernelgen
 
-32/sincos: 32/sincos.o 32/main.o
-	$(FCOMP32) 32/main.o 32/sincos.o -o $@
-64/sincos: 64/sincos.o 64/main.o
-	$(FCOMP64) 64/main.o 64/sincos.o -o $@
+32/sincos: 32/sincos.o 32/sincos_serial.o 32/main.o
+	$(KGFCOMP32) 32/main.o 32/sincos_serial.o 32/sincos.o -o $@
+64/sincos: 64/sincos.o 64/sincos_serial.o 64/main.o
+	$(KGFCOMP64) 64/main.o 64/sincos_serial.o 64/sincos.o -o $@
 
 32/main.o: main.c
 	$(CCOMP32) -O$(OPT) -g -std=c99 -I/opt/kgen/include -c $< -o $@
 64/main.o: main.c
 	$(CCOMP64) -O$(OPT) -g -std=c99 -I/opt/kgen/include64 -c $< -o $@
 
-32/sincos.o: sincos.f90
-	$(FCOMP32) $(FFLAGS) -O$(OPT) -g -c $< -o $@
-64/sincos.o: sincos.f90
-	$(FCOMP64) $(FFLAGS) -O$(OPT) -g -c $< -o $@
+32/sincos.o: sincos.F90
+	$(KGFCOMP32) $(KGFFLAGS) -O$(OPT) -g -c $< -o $@
+64/sincos.o: sincos.F90
+	$(KGFCOMP64) $(KGFFLAGS) -O$(OPT) -g -c $< -o $@
 
-pgi/32/sincos: pgi/32/sincos.o pgi/32/main.o
-	$(PGFCOMP32) pgi/32/main.o pgi/32/sincos.o -o $@
-pgi/64/sincos: pgi/64/sincos.o pgi/64/main.o
-	$(PGFCOMP64) pgi/64/main.o pgi/64/sincos.o -o $@
+32/sincos_serial.o: sincos.F90
+	$(GFCOMP32) -DSERIAL -O$(OPT) -g -c $< -o $@
+64/sincos_serial.o: sincos.F90
+	$(GFCOMP64) -DSERIAL -O$(OPT) -g -c $< -o $@
+
+pgi/32/sincos: pgi/32/sincos.o pgi/32/sincos_serial.o pgi/32/main.o
+	$(PGFCOMP32) $(PGFFLAGS) pgi/32/main.o pgi/32/sincos.o pgi/32/sincos_serial.o -o $@
+pgi/64/sincos: pgi/64/sincos.o pgi/64/sincos_serial.o pgi/64/main.o
+	$(PGFCOMP64) $(PGFFLAGS) pgi/64/main.o pgi/64/sincos.o pgi/64/sincos_serial.o -o $@
 
 pgi/32/main.o: main.c
 	$(PGFCOMP32) -O$(OPT) -g -c $< -o $@
 pgi/64/main.o: main.c
 	$(PGFCOMP64) -O$(OPT) -g -c $< -o $@
 
-pgi/32/sincos.o: sincos.f90
-	$(PGFCOMP32) -O$(OPT) -g -c $< -o $@
-pgi/64/sincos.o: sincos.f90
-	$(PGFCOMP64) -O$(OPT) -g -c $< -o $@
+pgi/32/sincos.o: sincos.F90
+	$(PGFCOMP32) $(PGFFLAGS) -O$(OPT) -g -c $< -o $@
+pgi/64/sincos.o: sincos.F90
+	$(PGFCOMP64) $(PGFFLAGS) -O$(OPT) -g -c $< -o $@
+
+pgi/32/sincos_serial.o: sincos.F90
+	$(PGFCOMP32) -DSERIAL -O$(OPT) -g -c $< -o $@
+pgi/64/sincos_serial.o: sincos.F90
+	$(PGFCOMP64) -DSERIAL -o$(OPT) -g -c $< -o $@
 
 clean:
 	rm -rf 32/*.o 32/*.mod 32/sincos 64/*.o 64/*.mod 64/sincos \

@@ -66,23 +66,25 @@ int main(int argc, char* argv[])
 	// Measure time of regular CPU version.
 	kernelgen_get_time(&start);
 	{
-		for (int i = 0; i < nx * ny * nz; i++)
-		{
-			xy2[i] = sin(x2[i]) + cos(y2[i]);
-		}
+		sincos_serial_(&nx, &ny, &nz, x2, y2, xy2);
 	}
 	kernelgen_get_time(&end);
 	printf("regular time = %f sec\n",
 		kernelgen_get_time_diff(&start, &end));
 	
 	// Compare results.
-	real maxabsdiff = 0.0;
+	real maxabsdiff = fabs(xy1[0] - xy2[0]);
+	int imaxabsdiff = 0;
 	for (int i = 0; i < nx * ny * nz; i++)
 	{
 		real absdiff = fabs(xy1[i] - xy2[i]);
-		if (absdiff > maxabsdiff) maxabsdiff = absdiff;
+		if (absdiff > maxabsdiff)
+		{
+			maxabsdiff = absdiff;
+			imaxabsdiff = i;
+		}
 	}
-	printf("max diff = %e\n", maxabsdiff);
+	printf("max diff = %e @ %d\n", maxabsdiff, imaxabsdiff);
 
 	free(x1); free(x2);
 	free(y1); free(y2);

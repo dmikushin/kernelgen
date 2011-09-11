@@ -19,7 +19,13 @@
  ! 3. This notice may not be removed or altered from any source distribution.
  !
 
-subroutine sincos(nx, ny, nz, x, y, xy)
+#ifdef SERIAL
+#define subname sincos_serial
+#else
+#define subname sincos
+#endif 
+
+subroutine subname(nx, ny, nz, x, y, xy)
 
 implicit none
 
@@ -39,5 +45,5 @@ do k = 1, nz
 enddo
 !$acc end region
 
-end subroutine sincos
+end subroutine subname
 
