@@ -7,12 +7,6 @@ LLC = $(PREFIX)/bin/llc
 
 all: matmul.regular matmul.normalopt matmul.polly
 
-####################
-#
-# Fortran 90 version
-#
-####################
-
 matmul.regular: matmul.F90
 	$(FCOMP) $(PRINT) -O3 $< -o $@
 

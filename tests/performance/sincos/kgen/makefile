@@ -34,12 +34,12 @@ test32:
 	@echo "KernelGen serial 32-bit"
 	32/sincos $(DIMS)
 	@echo "KernelGen OpenCL 32-bit"
-	kernelgen_runmode=2 sincos_loop_1_kernelgen=2 32/sincos $(DIMS)
-	@echo "KernelGen CUDA 32-bit"
 	kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos $(DIMS)
+	@echo "KernelGen CUDA 32-bit"
+	kernelgen_runmode=2 sincos_loop_1_kernelgen=2 32/sincos $(DIMS)
 
 test64:
 	@echo "KernelGen serial 64-bit"
 	64/sincos $(DIMS)
 	@echo "KernelGen CUDA 64-bit"
-	kernelgen_runmode=4 sincos_loop_1_kernelgen=4 64/sincos $(DIMS)
+	kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos $(DIMS)
