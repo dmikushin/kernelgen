@@ -29,6 +29,8 @@
 
 void sincos_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
 
+void sincos_serial_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
+
 int main(int argc, char* argv[])
 {
 	if (argc != 4)

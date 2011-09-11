@@ -19,79 +19,21 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-OPT = 3
+LEVEL = ../../../..
 
-include ../../makefile.in
+include ../../../makefile.in
 
-ifeq ($(ARCH), 64)
-all: 32/sincos 64/sincos
-else
-all: 32/sincos
-endif
+SERFCOMP = pgfortran
+SERCCOMP = gcc
+PARFCOMP32 = pgfortran -Mnomain -Minfo=accel -ta=nvidia -m32 -I/opt/kgen/include -L/opt/kgen/lib -lkernelgen
+PARFCOMP64 = pgfortran -Mnomain -Minfo=accel -ta=nvidia -I/opt/kgen/include64 -L/opt/kgen/lib64 -lkernelgen
 
-#
-# Optinal flags for kernelgen compiler to keep intermediate
-# files and be more verbose
-#
-KGFFLAGS = # -Wk,--keep -Wk,--verbose
-KGFCOMP32 = $(FCOMP32)
-KGFCOMP64 = $(FCOMP64)
+include ../makefile.in
 
-#
-# Regular GNU Fortran compiler
-#
-GFCOMP32 = gfortran -m32
-GFCOMP64 = gfortran
+test32:
+	@echo "PGI Accelerator 32-bit"
+	32/sincos $(DIMS)
 
-#
-# PGI Fortran Compiler with PGI Accelerator technology enabled
-#
-PGFFLAGS = -Mnomain -Minfo=accel -ta=nvidia
-PGFCOMP = pgfortran
-PGFCOMP32 = $(PGFCOMP) -I/opt/kgen/include -m32 -L/opt/kgen/lib -lkernelgen
-PGFCOMP64 = $(PGFCOMP) -I/opt/kgen/include64 -L/opt/kgen/lib64 -lkernelgen
-
-32/sincos: 32/sincos.o 32/sincos_serial.o 32/main.o
-	$(KGFCOMP32) 32/main.o 32/sincos_serial.o 32/sincos.o -o $@
-64/sincos: 64/sincos.o 64/sincos_serial.o 64/main.o
-	$(KGFCOMP64) 64/main.o 64/sincos_serial.o 64/sincos.o -o $@
-
-32/main.o: main.c
-	$(CCOMP32) -O$(OPT) -g -std=c99 -I/opt/kgen/include -c $< -o $@
-64/main.o: main.c
-	$(CCOMP64) -O$(OPT) -g -std=c99 -I/opt/kgen/include64 -c $< -o $@
-
-32/sincos.o: sincos.F90
-	$(KGFCOMP32) $(KGFFLAGS) -O$(OPT) -g -c $< -o $@
-64/sincos.o: sincos.F90
-	$(KGFCOMP64) $(KGFFLAGS) -O$(OPT) -g -c $< -o $@
-
-32/sincos_serial.o: sincos.F90
-	$(GFCOMP32) -DSERIAL -O$(OPT) -g -c $< -o $@
-64/sincos_serial.o: sincos.F90
-	$(GFCOMP64) -DSERIAL -O$(OPT) -g -c $< -o $@
-
-pgi/32/sincos: pgi/32/sincos.o pgi/32/sincos_serial.o pgi/32/main.o
-	$(PGFCOMP32) $(PGFFLAGS) pgi/32/main.o pgi/32/sincos.o pgi/32/sincos_serial.o -o $@
-pgi/64/sincos: pgi/64/sincos.o pgi/64/sincos_serial.o pgi/64/main.o
-	$(PGFCOMP64) $(PGFFLAGS) pgi/64/main.o pgi/64/sincos.o pgi/64/sincos_serial.o -o $@
-
-pgi/32/main.o: main.c
-	$(PGFCOMP32) -O$(OPT) -g -c $< -o $@
-pgi/64/main.o: main.c
-	$(PGFCOMP64) -O$(OPT) -g -c $< -o $@
-
-pgi/32/sincos.o: sincos.F90
-	$(PGFCOMP32) $(PGFFLAGS) -O$(OPT) -g -c $< -o $@
-pgi/64/sincos.o: sincos.F90
-	$(PGFCOMP64) $(PGFFLAGS) -O$(OPT) -g -c $< -o $@
-
-pgi/32/sincos_serial.o: sincos.F90
-	$(PGFCOMP32) -DSERIAL -O$(OPT) -g -c $< -o $@
-pgi/64/sincos_serial.o: sincos.F90
-	$(PGFCOMP64) -DSERIAL -o$(OPT) -g -c $< -o $@
-
-clean:
-	rm -rf 32/*.o 32/*.mod 32/sincos 64/*.o 64/*.mod 64/sincos \
-	rm -rf pgi/32/*.o pgi/32/*.mod pgi/32/sincos pgi/64/*.o pgi/64/*.mod pgi/64/sincos \
-	*.bc* *.o *.mod *_kernelgen.* *.host.*
+test64:
+	@echo "PGI Accelerator 64-bit"
+	64/sincos $(DIMS)
