@@ -33,15 +33,15 @@ void sincos_serial_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
 
 int main(int argc, char* argv[])
 {
-	if (argc != 4)
+	if (argc != 7)
 	{
-		printf("Usage: %s <nx> <ny> <ns>\n", argv[0]);
+		printf("Usage: %s <bx> <by> <bs> <tx> <ty> <ts>\n", argv[0]);
 		return 0;
 	}
-	
-	int nx = atoi(argv[1]);
-	int ny = atoi(argv[2]);
-	int nz = atoi(argv[3]);
+
+	int bx = atoi(argv[1]), by = atoi(argv[2]), bz = atoi(argv[3]);
+	int tx = atoi(argv[4]), ty = atoi(argv[5]), tz = atoi(argv[6]);
+	int nx = bx * tx, ny = by * ty, nz = bz * tz;	
 	real* x1 = (real*)malloc(sizeof(real) * nx * ny * nz);
 	real* x2 = (real*)malloc(sizeof(real) * nx * ny * nz);
 	real* y1 = (real*)malloc(sizeof(real) * nx * ny * nz);
@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
 		sincos_(&nx, &ny, &nz, x1, y1, xy1);
 	}
 	kernelgen_get_time(&end);
-	printf("kernelgen time = %f sec\n",
+	printf("gpu time = %f sec\n",
 		kernelgen_get_time_diff(&start, &end));
 	
 	// Measure time of regular CPU version.
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
 		sincos_serial_(&nx, &ny, &nz, x2, y2, xy2);
 	}
 	kernelgen_get_time(&end);
-	printf("regular time = %f sec\n",
+	printf("cpu time = %f sec\n",
 		kernelgen_get_time_diff(&start, &end));
 	
 	// Compare results.

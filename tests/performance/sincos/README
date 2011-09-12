@@ -29,124 +29,67 @@ max diff = 0.000000
 AMD Phenom II X6 1055T + Tesla C2070:
 =====================================
 
-[marcusmae@noisy sincos]$ kernelgen_debug_output=7 kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos 512 512 64
-Cannot find symbol sincos_loop_1_kernelgen_cuda_binary in /proc/self/exe
-launch.c:61 Launching sincos_loop_1_kernelgen_cuda for device NVIDIA Corporation:0 runmode "cuda"
-parse_args.h:69 arg "unknown" ref = 0x7fff7c887fbc, size = 4, desc = 0x7fff7c887fbc
-parse_args.h:69 arg "unknown" ref = 0x7fff7c887fb8, size = 4, desc = 0x7fff7c887fb8
-parse_args.h:69 arg "unknown" ref = 0x7fff7c887fb4, size = 4, desc = 0x7fff7c887fb4
-parse_args.h:69 arg "unknown" ref = 0x7f2b53447010, size = 67108864, desc = 0x7f2b53447010
-parse_args.h:69 arg "unknown" ref = 0x7f2b6344b010, size = 67108864, desc = 0x7f2b6344b010
-parse_args.h:69 arg "unknown" ref = 0x7f2b5b449010, size = 67108864, desc = 0x7f2b5b449010
-map_cuda.h:103 symbol "unknown" maps memory segment [0x7fff7c887fbc .. 0x7fff7c887fc0] to [0x200300000 .. 0x200300004]
-map_cuda.h:103 symbol "unknown" maps memory segment [0x7fff7c887fb8 .. 0x7fff7c887fbc] to [0x200300200 .. 0x200300204]
-map_cuda.h:103 symbol "unknown" maps memory segment [0x7fff7c887fb4 .. 0x7fff7c887fb8] to [0x200300400 .. 0x200300404]
-map_cuda.h:103 symbol "unknown" maps memory segment [0x7f2b53447010 .. 0x7f2b57447010] to [0x200400000 .. 0x204400000]
-map_cuda.h:103 symbol "unknown" maps memory segment [0x7f2b6344b010 .. 0x7f2b6744b010] to [0x204400000 .. 0x208400000]
-map_cuda.h:103 symbol "unknown" maps memory segment [0x7f2b5b449010 .. 0x7f2b5f449010] to [0x208400000 .. 0x20c400000]
- Value of i after cycle =          513
- Value of j after cycle =          513
- Value of k after cycle =           65
-kernelgen time = 0.278434 sec
-regular time = 0.870026 sec
-max diff = 0.000000
+KernelGen serial 32-bit
+32/sincos 128 128 4 4 4 16
+gpu time = 1.134187 sec
+cpu time = 1.134014 sec
+max diff = 0.000000e+00 @ 0
 
-[marcusmae@noisy sincos]$ kernelgen_debug_output=7 kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos 512 512 64
-launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device NVIDIA Corporation:0 runmode "opencl"
-parse_args.h:69 arg "unknown" ref = 0xffa536ac, size = 4, desc = 0xffa536ac
-parse_args.h:69 arg "unknown" ref = 0xffa536a8, size = 4, desc = 0xffa536a8
-parse_args.h:69 arg "unknown" ref = 0xffa536a4, size = 4, desc = 0xffa536a4
-parse_args.h:69 arg "unknown" ref = 0xdbb85008, size = 67108864, desc = 0xdbb85008
-parse_args.h:69 arg "unknown" ref = 0xebb89008, size = 67108864, desc = 0xebb89008
-parse_args.h:69 arg "unknown" ref = 0xe3b87008, size = 67108864, desc = 0xe3b87008
-map_opencl.c:77 symbol "unknown" maps memory segment [0xffa536ac .. 0xffa536b0] to [0x9f79e88 .. 0x9f79e88 + 4]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xffa536a8 .. 0xffa536ac] to [0x9f6a810 .. 0x9f6a810 + 4]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xffa536a4 .. 0xffa536a8] to [0x9f7a3d0 .. 0x9f7a3d0 + 4]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xdbb85008 .. 0xdfb85008] to [0x9f7a730 .. 0x9f7a730 + 67108864]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xebb89008 .. 0xefb89008] to [0x9f7aaa8 .. 0x9f7aaa8 + 67108864]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xe3b87008 .. 0xe7b87008] to [0x9f786f0 .. 0x9f786f0 + 67108864]
- Value of i after cycle =          513
- Value of j after cycle =          513
- Value of k after cycle =           65
-kernelgen time = 0.355860 sec
-regular time = 1.138514 sec
-max diff = 0.000000
+KernelGen OpenCL 32-bit
+kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos 128 128 4 4 4 16
+gpu time = 0.443252 sec
+cpu time = 1.134842 sec
+max diff = 2.384186e-07 @ 4349389
 
-[marcusmae@noisy sincos]$ kernelgen_debug_output=7 kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos 1024 1024 64
-launch.c:61 Launching sincos_loop_1_kernelgen_opencl for device NVIDIA Corporation:0 runmode "opencl"
-parse_args.h:69 arg "unknown" ref = 0xffa9f0ec, size = 4, desc = 0xffa9f0ec
-parse_args.h:69 arg "unknown" ref = 0xffa9f0e8, size = 4, desc = 0xffa9f0e8
-parse_args.h:69 arg "unknown" ref = 0xffa9f0e4, size = 4, desc = 0xffa9f0e4
-parse_args.h:69 arg "unknown" ref = 0x9fb19008, size = 268435456, desc = 0x9fb19008
-parse_args.h:69 arg "unknown" ref = 0xdfb1d008, size = 268435456, desc = 0xdfb1d008
-parse_args.h:69 arg "unknown" ref = 0xbfb1b008, size = 268435456, desc = 0xbfb1b008
-map_opencl.c:77 symbol "unknown" maps memory segment [0xffa9f0ec .. 0xffa9f0f0] to [0x9fb9e88 .. 0x9fb9e88 + 4]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xffa9f0e8 .. 0xffa9f0ec] to [0x9faa810 .. 0x9faa810 + 4]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xffa9f0e4 .. 0xffa9f0e8] to [0x9fba3d0 .. 0x9fba3d0 + 4]
-map_opencl.c:77 symbol "unknown" maps memory segment [0x9fb19008 .. 0xafb19008] to [0x9fba730 .. 0x9fba730 + 268435456]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xdfb1d008 .. 0xefb1d008] to [0x9fbaaa8 .. 0x9fbaaa8 + 268435456]
-map_opencl.c:77 symbol "unknown" maps memory segment [0xbfb1b008 .. 0xcfb1b008] to [0x9fb86f0 .. 0x9fb86f0 + 268435456]
- Value of i after cycle =         1025
- Value of j after cycle =         1025
- Value of k after cycle =           65
-kernelgen time = 1.527659 sec
-regular time = 4.542534 sec
-max diff = 0.000000
+KernelGen CUDA 32-bit
+kernelgen_runmode=2 sincos_loop_1_kernelgen=2 32/sincos 128 128 4 4 4 16
+gpu time = 0.366451 sec
+cpu time = 1.134415 sec
+max diff = 1.192093e-07 @ 17
 
-[marcusmae@noisy sincos]$ kernelgen_debug_output=7 kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos 1024 1024 64
-Cannot find symbol sincos_loop_1_kernelgen_cuda_binary in /proc/self/exe
-launch.c:61 Launching sincos_loop_1_kernelgen_cuda for device NVIDIA Corporation:0 runmode "cuda"
-parse_args.h:69 arg "unknown" ref = 0x7fffbc1f4abc, size = 4, desc = 0x7fffbc1f4abc
-parse_args.h:69 arg "unknown" ref = 0x7fffbc1f4ab8, size = 4, desc = 0x7fffbc1f4ab8
-parse_args.h:69 arg "unknown" ref = 0x7fffbc1f4ab4, size = 4, desc = 0x7fffbc1f4ab4
-parse_args.h:69 arg "unknown" ref = 0x7f08fb136010, size = 268435456, desc = 0x7f08fb136010
-parse_args.h:69 arg "unknown" ref = 0x7f093b13a010, size = 268435456, desc = 0x7f093b13a010
-parse_args.h:69 arg "unknown" ref = 0x7f091b138010, size = 268435456, desc = 0x7f091b138010
-map_cuda.h:102 symbol "unknown" maps memory segment [0x7fffbc1f4abc .. 0x7fffbc1f4ac0] to [0x200320000 .. 0x200320004]
-map_cuda.h:102 symbol "unknown" maps memory segment [0x7fffbc1f4ab8 .. 0x7fffbc1f4abc] to [0x200320200 .. 0x200320204]
-map_cuda.h:102 symbol "unknown" maps memory segment [0x7fffbc1f4ab4 .. 0x7fffbc1f4ab8] to [0x200320400 .. 0x200320404]
-map_cuda.h:102 symbol "unknown" maps memory segment [0x7f08fb136010 .. 0x7f090b136010] to [0x210480000 .. 0x220480000]
-map_cuda.h:102 symbol "unknown" maps memory segment [0x7f093b13a010 .. 0x7f094b13a010] to [0x2304a0000 .. 0x2404a0000]
-map_cuda.h:102 symbol "unknown" maps memory segment [0x7f091b138010 .. 0x7f092b138010] to [0x2504c0000 .. 0x2604c0000]
- Value of i after cycle =         1025
- Value of j after cycle =         1025
- Value of k after cycle =           65
-kernelgen time = 1.110980 sec
-regular time = 3.471778 sec
-max diff = 0.000000
+CUDA 32-bit
+32/sincos 128 128 4 4 4 16 0
+gpu time = 0.168064 sec
+cpu time = 1.130674 sec
+max diff = 1.192093e-07 @ 17
 
-[marcusmae@noisy sincos]$ kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos 512 512 64
-kernelgen time = 0.371966 sec
-regular time = 0.864041 sec
-max diff = 1.192093e-07
+PGI Accelerator 32-bit
+32/sincos 128 128 4 4 4 16
+gpu time = 0.162604 sec
+cpu time = 1.133331 sec
+max diff = 2.384186e-07 @ 1487
 
-[marcusmae@noisy sincos]$ pgi/64/sincos 512 512 64
-kernelgen time = 0.158552 sec
-regular time = 0.633663 sec
-max diff = 1.192093e-07
+KernelGen serial 64-bit
+64/sincos 128 128 4 4 4 16
+gpu time = 0.663560 sec
+cpu time = 0.642710 sec
+max diff = 0.000000e+00 @ 0
 
-[marcusmae@noisy sincos]$ kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos 512 512 64
-kernelgen time = 0.371868 sec
-regular time = 0.866027 sec
-max diff = 1.192093e-07
+KernelGen CUDA 64-bit
+kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos 128 128 4 4 4 16
+gpu time = 0.369378 sec
+cpu time = 0.643688 sec
+max diff = 2.384186e-07 @ 310
 
-[marcusmae@noisy sincos]$ kernelgen_runmode=2 sincos_loop_1_kernelgen=2 32/sincos 512 512 64
-kernelgen time = 0.369379 sec
-regular time = 1.152998 sec
-max diff = 1.192093e-07
+CUDA 64-bit
+64/sincos 128 128 4 4 4 16 0
+gpu time = 0.163355 sec
+cpu time = 0.641843 sec
+max diff = 2.384186e-07 @ 310
 
-[marcusmae@noisy sincos]$ pgi/64/sincos 512 512 64
-kernelgen time = 0.157609 sec
-regular time = 0.625250 sec
-max diff = 1.192093e-07
+PGI Accelerator 64-bit
+64/sincos 128 128 4 4 4 16
+gpu time = 0.157514 sec
+cpu time = 0.498875 sec
+max diff = 2.384186e-07 @ 1487
 
-[marcusmae@noisy sincos]$ pgi/32/sincos 512 512 64
-kernelgen time = 0.161444 sec
-regular time = 1.241768 sec
-max diff = 1.192093e-07
+[marcusmae@noisy sincos]$ cuda/32/sincos 512 512 64 1 1 1 1
+gpu time = 0.454515 sec
+cpu time = 1.129890 sec
+max diff = 1.192093e-07 @ 17
 
-[marcusmae@noisy sincos]$ kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos 512 512 64
-kernelgen time = 0.447010 sec
-regular time = 1.134225 sec
-max diff = 1.192093e-07
+[marcusmae@noisy sincos]$ cuda/64/sincos 512 512 64 1 1 1 1
+gpu time = 0.450221 sec
+cpu time = 0.642180 sec
+max diff = 2.384186e-07 @ 310
 

@@ -32,8 +32,9 @@ include ../makefile.in
 
 test32:
 	@echo "PGI Accelerator 32-bit"
-	32/sincos $(DIMS)
+	32/sincos $(BLOCKS) $(THREADS)
 
 test64:
 	@echo "PGI Accelerator 64-bit"
-	64/sincos $(DIMS)
+	64/sincos $(BLOCKS) $(THREADS)
+

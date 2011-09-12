@@ -19,19 +19,25 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
+OPT ?= 3
+
 LEVEL = ../../..
 
 include ../../makefile.in
 
-DIMS = 512 512 64
+BLOCKS = 128 128 4
+THREADS = 4 4 16
 
-all: kgen/sincos pgi/sincos
+all: kgen/sincos cuda/sincos pgi/sincos
 
 kgen/sincos:
-	cd kgen && $(MAKE)
+	cd kgen && $(MAKE) OPT=$(OPT)
+
+cuda/sincos:
+	cd cuda && $(MAKE) OPT=$(OPT)
 
 pgi/sincos:
-	cd pgi && $(MAKE)
+	cd pgi && $(MAKE) OPT=$(OPT)
 
 ifeq ($(ARCH), 64)
 test: test32 test64
@@ -39,15 +45,18 @@ else
 test: test32
 endif
 
-test32: kgen/sincos pgi/sincos
-	cd kgen && $(MAKE) test32 DIMS="$(DIMS)"
-	cd pgi && $(MAKE) test32 DIMS="$(DIMS)"
+test32: kgen/sincos cuda/sincos pgi/sincos
+	cd kgen && $(MAKE) test32 BLOCKS="$(BLOCKS)" THREADS="$(THREADS)"
+	cd cuda && $(MAKE) test32 BLOCKS="$(BLOCKS)" THREADS="$(THREADS)"
+	cd pgi && $(MAKE) test32 BLOCKS="$(BLOCKS)" THREADS="$(THREADS)"
 
-test64: kgen/sincos pgi/sincos
-	cd kgen && $(MAKE) test64 DIMS="$(DIMS)"
-	cd pgi && $(MAKE) test64 DIMS="$(DIMS)"
+test64: kgen/sincos cuda/sincos pgi/sincos
+	cd kgen && $(MAKE) test64 BLOCKS="$(BLOCKS)" THREADS="$(THREADS)"
+	cd cuda && $(MAKE) test64 BLOCKS="$(BLOCKS)" THREADS="$(THREADS)"
+	cd pgi && $(MAKE) test64 BLOCKS="$(BLOCKS)" THREADS="$(THREADS)"
 
 clean:
 	cd kgen && $(MAKE) clean
+	cd cuda && $(MAKE) clean
 	cd pgi && $(MAKE) clean
 

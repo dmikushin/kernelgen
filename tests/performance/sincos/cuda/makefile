@@ -23,24 +23,30 @@ LEVEL = ../../../..
 
 include ../../../makefile.in
 
-SERFCOMP = gfortran
-SERCCOMP = gcc
-PARFCOMP32 = $(FCOMP32)
-PARFCOMP64 = $(FCOMP64)
+NVCC32 = nvcc -arch=sm_20 --ptxas-options="-v" -I/opt/kgen/include -L/opt/kgen/lib -lkernelgen
+NVCC64 = nvcc -arch=sm_20 --ptxas-options="-v" -I/opt/kgen/include64 -L/opt/kgen/lib64 -lkernelgen
 
-include ../makefile.in
+ifeq ($(ARCH), 64)
+NVCC32 += -m32
+all: 32/sincos 64/sincos
+else
+all: 32/sincos
+endif
+
+32/sincos: sincos.cu
+	$(NVCC32) -g -O$(OPT) $< -o $@
+
+64/sincos: sincos.cu
+	$(NVCC64) -g -O$(OPT) $< -o $@
 
 test32:
-	@echo "KernelGen serial 32-bit"
-	32/sincos $(BLOCKS) $(THREADS)
-	@echo "KernelGen OpenCL 32-bit"
-	kernelgen_runmode=4 sincos_loop_1_kernelgen=4 32/sincos $(BLOCKS) $(THREADS)
-	@echo "KernelGen CUDA 32-bit"
-	kernelgen_runmode=2 sincos_loop_1_kernelgen=2 32/sincos $(BLOCKS) $(THREADS)
+	@echo "CUDA 32-bit"
+	32/sincos $(BLOCKS) $(THREADS) 0
 
 test64:
-	@echo "KernelGen serial 64-bit"
-	64/sincos $(BLOCKS) $(THREADS)
-	@echo "KernelGen CUDA 64-bit"
-	kernelgen_runmode=2 sincos_loop_1_kernelgen=2 64/sincos $(BLOCKS) $(THREADS)
+	@echo "CUDA 64-bit"
+	64/sincos $(BLOCKS) $(THREADS) 0
+
+clean:
+	rm -rf 32/sincos 64/sincos
 
