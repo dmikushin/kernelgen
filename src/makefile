@@ -35,7 +35,7 @@ frontend:
 	cd frontend && $(MAKE)
 
 runtime:
-	cd libkernelgen && $(MAKE)
+	cd runtime && $(MAKE)
 
 clean:
 	cd frontend && $(MAKE) clean

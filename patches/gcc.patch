@@ -5,7 +5,7 @@
  nodist_libsubinclude_HEADERS = omp.h
  if USE_FORTRAN
 -nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod
-+nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.dragonegg.mod omp_lib_kinds.dragonegg.mod
++nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.kernelgen.mod omp_lib_kinds.kernelgen.mod
  endif
  
  LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
@@ -14,10 +14,10 @@
  	$(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LTLDFLAGS) -o $@
  
 -omp_lib_kinds.mod: omp_lib.mod
-+omp_lib_kinds.dragonegg.mod: omp_lib.dragonegg.mod
++omp_lib_kinds.kernelgen.mod: omp_lib.kernelgen.mod
  	:
 -omp_lib.mod: omp_lib.f90
-+omp_lib.dragonegg.mod: omp_lib.f90
++omp_lib.kernelgen.mod: omp_lib.f90
  	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
  fortran.lo: libgomp_f.h
  fortran.o: libgomp_f.h
@@ -28,7 +28,7 @@
  nodist_noinst_HEADERS = libgomp_f.h
  nodist_libsubinclude_HEADERS = omp.h
 -@USE_FORTRAN_TRUE@nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod
-+@USE_FORTRAN_TRUE@nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.dragonegg.mod omp_lib_kinds.dragonegg.mod
++@USE_FORTRAN_TRUE@nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.kernelgen.mod omp_lib_kinds.kernelgen.mod
  LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
  LINK = $(LIBTOOL) --tag CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link \
  	$(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LTLDFLAGS) -o $@
@@ -37,10 +37,10 @@
  vpath % $(strip $(search_path))
  
 -omp_lib_kinds.mod: omp_lib.mod
-+omp_lib_kinds.dragonegg.mod: omp_lib.dragonegg.mod
++omp_lib_kinds.kernelgen.mod: omp_lib.kernelgen.mod
  	:
 -omp_lib.mod: omp_lib.f90
-+omp_lib.dragonegg.mod: omp_lib.f90
++omp_lib.kernelgen.mod: omp_lib.f90
  	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
  fortran.lo: libgomp_f.h
  fortran.o: libgomp_f.h
@@ -51,7 +51,7 @@
  #include "cpp.h"
  
 -#define MODULE_EXTENSION ".mod"
-+#define MODULE_EXTENSION ".dragonegg.mod"
++#define MODULE_EXTENSION ".kernelgen.mod"
  
  /* Don't put any single quote (') in MOD_VERSION, 
     if yout want it to be recognized.  */
