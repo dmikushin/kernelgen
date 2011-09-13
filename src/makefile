@@ -21,7 +21,7 @@
 
 include ../makefile.in
 
-PREFIX = /opt/kernelgen
+PREFIX = $(PREFIX)/opt/kernelgen
 CUDA_PREFIX = undefined
 ifeq ($(HAVE_CUDA), 1)
 CUDA_PREFIX = /opt/cuda
