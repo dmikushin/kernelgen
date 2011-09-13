@@ -1,0 +1,246 @@
+--- a/gcc-4.5/gcc/fortran/mathbuiltins.def	2011-07-31 22:01:17.128422022 +0400
++++ b/gcc-4.5/gcc/fortran/mathbuiltins.def	2011-07-31 18:50:34.817657100 +0400
+@@ -23,31 +23,31 @@
+ 
+    Use DEFINE_MATH_BUILTIN_C if the complex versions of the builtin are
+    also available.  */
+-DEFINE_MATH_BUILTIN_C (ACOS,  "acos",   0)
+-DEFINE_MATH_BUILTIN_C (ACOSH, "acosh",  0)
+-DEFINE_MATH_BUILTIN_C (ASIN,  "asin",   0)
+-DEFINE_MATH_BUILTIN_C (ASINH, "asinh",  0)
+-DEFINE_MATH_BUILTIN_C (ATAN,  "atan",   0)
+-DEFINE_MATH_BUILTIN_C (ATANH, "atanh",  0)
+-DEFINE_MATH_BUILTIN   (ATAN2, "atan2",  1)
+-DEFINE_MATH_BUILTIN_C (COS,   "cos",    0)
+-DEFINE_MATH_BUILTIN_C (COSH,  "cosh",   0)
+-DEFINE_MATH_BUILTIN_C (EXP,   "exp",    0)
+-DEFINE_MATH_BUILTIN_C (LOG,   "log",    0)
+-DEFINE_MATH_BUILTIN_C (LOG10, "log10",  0)
+-DEFINE_MATH_BUILTIN_C (SIN,   "sin",    0)
+-DEFINE_MATH_BUILTIN_C (SINH,  "sinh",   0)
+-DEFINE_MATH_BUILTIN_C (SQRT,  "sqrt",   0)
+-DEFINE_MATH_BUILTIN_C (TAN,   "tan",    0)
+-DEFINE_MATH_BUILTIN_C (TANH,  "tanh",   0)
+-DEFINE_MATH_BUILTIN   (J0,    "j0",     0)
+-DEFINE_MATH_BUILTIN   (J1,    "j1",     0)
+-DEFINE_MATH_BUILTIN   (JN,    "jn",     2)
+-DEFINE_MATH_BUILTIN   (Y0,    "y0",     0)
+-DEFINE_MATH_BUILTIN   (Y1,    "y1",     0)
+-DEFINE_MATH_BUILTIN   (YN,    "yn",     2)
+-DEFINE_MATH_BUILTIN   (ERF,   "erf",    0)
+-DEFINE_MATH_BUILTIN   (ERFC,  "erfc",   0)
+-DEFINE_MATH_BUILTIN   (TGAMMA,"tgamma", 0)
+-DEFINE_MATH_BUILTIN   (LGAMMA,"lgamma", 0)
+-DEFINE_MATH_BUILTIN   (HYPOT, "hypot",  1)
++DEFINE_MATH_BUILTIN_C (ACOS,   "acos",   0, true, 1)
++DEFINE_MATH_BUILTIN_C (ACOSH,  "acosh",  0, true, 1)
++DEFINE_MATH_BUILTIN_C (ASIN,   "asin",   0, true, 1)
++DEFINE_MATH_BUILTIN_C (ASINH,  "asinh",  0, true, 1)
++DEFINE_MATH_BUILTIN_C (ATAN,   "atan",   0, true, 1)
++DEFINE_MATH_BUILTIN_C (ATANH,  "atanh",  0, true, 1)
++DEFINE_MATH_BUILTIN   (ATAN2,  "atan2",  1, true, 1)
++DEFINE_MATH_BUILTIN_C (COS,    "cos",    0, true, 1)
++DEFINE_MATH_BUILTIN_C (COSH,   "cosh",   0, true, 1)
++DEFINE_MATH_BUILTIN_C (EXP,    "exp",    0, true, 1)
++DEFINE_MATH_BUILTIN_C (LOG,    "log",    0, true, 1)
++DEFINE_MATH_BUILTIN_C (LOG10,  "log10",  0, true, 1)
++DEFINE_MATH_BUILTIN_C (SIN,    "sin",    0, true, 1)
++DEFINE_MATH_BUILTIN_C (SINH,   "sinh",   0, true, 1)
++DEFINE_MATH_BUILTIN_C (SQRT,   "sqrt",   0, true, 1)
++DEFINE_MATH_BUILTIN_C (TAN,    "tan",    0, true, 1)
++DEFINE_MATH_BUILTIN_C (TANH,   "tanh",   0, true, 1)
++DEFINE_MATH_BUILTIN   (J0,     "j0",     0, true, 0)
++DEFINE_MATH_BUILTIN   (J1,     "j1",     0, true, 0)
++DEFINE_MATH_BUILTIN   (JN,     "jn",     2, true, 0)
++DEFINE_MATH_BUILTIN   (Y0,     "y0",     0, true, 0)
++DEFINE_MATH_BUILTIN   (Y1,     "y1",     0, true, 0)
++DEFINE_MATH_BUILTIN   (YN,     "yn",     2, true, 0)
++DEFINE_MATH_BUILTIN   (ERF,    "erf",    0, true, 1)
++DEFINE_MATH_BUILTIN   (ERFC,   "erfc",   0, true, 1)
++DEFINE_MATH_BUILTIN   (TGAMMA, "tgamma", 0, true, 1)
++DEFINE_MATH_BUILTIN   (LGAMMA, "lgamma", 0, true, 1)
++DEFINE_MATH_BUILTIN   (HYPOT,  "hypot",  1, true, 1)
+--- a/gcc-4.5/gcc/common.opt	2011-07-31 22:05:13.724225605 +0400
++++ b/gcc-4.5/gcc/common.opt	2011-07-31 21:19:10.732805730 +0400
+@@ -1571,4 +1571,8 @@
+ Common RejectNegative Negative(shared)
+ Create a position independent executable
+ 
++fopencl-math-builtins
++Common Var(flag_opencl_math_builtins)
++Emit Fortran math builtins in a way compatible with OpenCL
++
+ ; This comment is to ensure we retain the blank line above.
+--- a/gcc-4.5/gcc/fortran/f95-lang.c	2011-07-31 22:07:56.095659799 +0400
++++ b/gcc-4.5/gcc/fortran/f95-lang.c	2011-07-31 20:29:31.478320815 +0400
+@@ -617,20 +617,22 @@
+ }
+ 
+ 
+-#define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase) \
++#define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase, const, compat) \
+     gfc_define_builtin ("__builtin_" name "l", tbase##longdouble[argtype], \
+-                       BUILT_IN_ ## code ## L, name "l", true); \
++			BUILT_IN_ ## code ## L, \
++			(compat && flag_opencl_math_builtins) ? name : name "l", const); \
+     gfc_define_builtin ("__builtin_" name, tbase##double[argtype], \
+-			BUILT_IN_ ## code, name, true); \
++			BUILT_IN_ ## code, name, const); \
+     gfc_define_builtin ("__builtin_" name "f", tbase##float[argtype], \
+-			BUILT_IN_ ## code ## F, name "f", true);
++			BUILT_IN_ ## code ## F, \
++			(compat && flag_opencl_math_builtins) ? name : name "f", const);
+ 
+-#define DEFINE_MATH_BUILTIN(code, name, argtype) \
+-    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
++#define DEFINE_MATH_BUILTIN(code, name, argtype, const, compat) \
++    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_, const, compat)
+ 
+-#define DEFINE_MATH_BUILTIN_C(code, name, argtype) \
+-    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_) \
+-    DO_DEFINE_MATH_BUILTIN (C##code, "c" name, argtype, mfunc_c)
++#define DEFINE_MATH_BUILTIN_C(code, name, argtype, const, compat) \
++    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_, const, compat) \
++    DO_DEFINE_MATH_BUILTIN (C##code, "c" name, argtype, mfunc_c, const, 0)
+ 
+ 
+ /* Create function types for builtin functions.  */
+@@ -777,21 +779,15 @@
+ 
+ #include "mathbuiltins.def"
+ 
++  DEFINE_MATH_BUILTIN (ROUND, "round", 0, true, 1);
++  DEFINE_MATH_BUILTIN (TRUNC, "trunc", 0, true, 1);
++  DEFINE_MATH_BUILTIN (COPYSIGN, "copysign", 1, true, 1);
++  DEFINE_MATH_BUILTIN (NEXTAFTER, "nextafter", 1, true, 1);
++  DEFINE_MATH_BUILTIN (FREXP, "frexp", 4, false, 1);
++  DEFINE_MATH_BUILTIN (FABS, "fabs", 0, true, 1);
++
+   /* We define these separately as the fortran versions have different
+      semantics (they return an integer type) */
+-  gfc_define_builtin ("__builtin_roundl", mfunc_longdouble[0], 
+-		      BUILT_IN_ROUNDL, "roundl", true);
+-  gfc_define_builtin ("__builtin_round", mfunc_double[0], 
+-		      BUILT_IN_ROUND, "round", true);
+-  gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
+-		      BUILT_IN_ROUNDF, "roundf", true);
+-
+-  gfc_define_builtin ("__builtin_truncl", mfunc_longdouble[0],
+-		      BUILT_IN_TRUNCL, "truncl", true);
+-  gfc_define_builtin ("__builtin_trunc", mfunc_double[0],
+-                      BUILT_IN_TRUNC, "trunc", true);
+-  gfc_define_builtin ("__builtin_truncf", mfunc_float[0],
+-                      BUILT_IN_TRUNCF, "truncf", true);
+ 
+   gfc_define_builtin ("__builtin_cabsl", func_clongdouble_longdouble, 
+ 		      BUILT_IN_CABSL, "cabsl", true);
+@@ -799,48 +795,10 @@
+ 		      BUILT_IN_CABS, "cabs", true);
+   gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 
+ 		      BUILT_IN_CABSF, "cabsf", true);
+- 
+-  gfc_define_builtin ("__builtin_copysignl", mfunc_longdouble[1], 
+-		      BUILT_IN_COPYSIGNL, "copysignl", true);
+-  gfc_define_builtin ("__builtin_copysign", mfunc_double[1], 
+-		      BUILT_IN_COPYSIGN, "copysign", true);
+-  gfc_define_builtin ("__builtin_copysignf", mfunc_float[1], 
+-		      BUILT_IN_COPYSIGNF, "copysignf", true);
+- 
+-  gfc_define_builtin ("__builtin_nextafterl", mfunc_longdouble[1], 
+-		      BUILT_IN_NEXTAFTERL, "nextafterl", true);
+-  gfc_define_builtin ("__builtin_nextafter", mfunc_double[1], 
+-		      BUILT_IN_NEXTAFTER, "nextafter", true);
+-  gfc_define_builtin ("__builtin_nextafterf", mfunc_float[1], 
+-		      BUILT_IN_NEXTAFTERF, "nextafterf", true);
+- 
+-  gfc_define_builtin ("__builtin_frexpl", mfunc_longdouble[4], 
+-		      BUILT_IN_FREXPL, "frexpl", false);
+-  gfc_define_builtin ("__builtin_frexp", mfunc_double[4], 
+-		      BUILT_IN_FREXP, "frexp", false);
+-  gfc_define_builtin ("__builtin_frexpf", mfunc_float[4], 
+-		      BUILT_IN_FREXPF, "frexpf", false);
+- 
+-  gfc_define_builtin ("__builtin_fabsl", mfunc_longdouble[0], 
+-		      BUILT_IN_FABSL, "fabsl", true);
+-  gfc_define_builtin ("__builtin_fabs", mfunc_double[0], 
+-		      BUILT_IN_FABS, "fabs", true);
+-  gfc_define_builtin ("__builtin_fabsf", mfunc_float[0], 
+-		      BUILT_IN_FABSF, "fabsf", true);
+- 
+-  gfc_define_builtin ("__builtin_scalbnl", mfunc_longdouble[5], 
+-		      BUILT_IN_SCALBNL, "scalbnl", true);
+-  gfc_define_builtin ("__builtin_scalbn", mfunc_double[5], 
+-		      BUILT_IN_SCALBN, "scalbn", true);
+-  gfc_define_builtin ("__builtin_scalbnf", mfunc_float[5], 
+-		      BUILT_IN_SCALBNF, "scalbnf", true);
+- 
+-  gfc_define_builtin ("__builtin_fmodl", mfunc_longdouble[1], 
+-		      BUILT_IN_FMODL, "fmodl", true);
+-  gfc_define_builtin ("__builtin_fmod", mfunc_double[1], 
+-		      BUILT_IN_FMOD, "fmod", true);
+-  gfc_define_builtin ("__builtin_fmodf", mfunc_float[1], 
+-		      BUILT_IN_FMODF, "fmodf", true);
++
++  DEFINE_MATH_BUILTIN (SCALBN, "scalbn", 5, true, 0);
++
++  DEFINE_MATH_BUILTIN (FMOD, "fmod", 1, true, 1);
+ 
+   gfc_define_builtin ("__builtin_huge_vall", mfunc_longdouble[3], 
+ 		      BUILT_IN_HUGE_VALL, "__builtin_huge_vall", true);
+@@ -875,18 +833,8 @@
+ 		      "llroundl", true);
+ 
+   /* These are used to implement the ** operator.  */
+-  gfc_define_builtin ("__builtin_powl", mfunc_longdouble[1], 
+-		      BUILT_IN_POWL, "powl", true);
+-  gfc_define_builtin ("__builtin_pow", mfunc_double[1], 
+-		      BUILT_IN_POW, "pow", true);
+-  gfc_define_builtin ("__builtin_powf", mfunc_float[1], 
+-		      BUILT_IN_POWF, "powf", true);
+-  gfc_define_builtin ("__builtin_cpowl", mfunc_clongdouble[1], 
+-		      BUILT_IN_CPOWL, "cpowl", true);
+-  gfc_define_builtin ("__builtin_cpow", mfunc_cdouble[1], 
+-		      BUILT_IN_CPOW, "cpow", true);
+-  gfc_define_builtin ("__builtin_cpowf", mfunc_cfloat[1], 
+-		      BUILT_IN_CPOWF, "cpowf", true);
++  DEFINE_MATH_BUILTIN_C (POW, "pow", 1, true, 1);
++  
+   gfc_define_builtin ("__builtin_powil", mfunc_longdouble[2], 
+ 		      BUILT_IN_POWIL, "powil", true);
+   gfc_define_builtin ("__builtin_powi", mfunc_double[2], 
+@@ -897,12 +845,8 @@
+ 
+   if (TARGET_C99_FUNCTIONS)
+     {
+-      gfc_define_builtin ("__builtin_cbrtl", mfunc_longdouble[0],
+-			  BUILT_IN_CBRTL, "cbrtl", true);
+-      gfc_define_builtin ("__builtin_cbrt", mfunc_double[0],
+-			  BUILT_IN_CBRT, "cbrt", true);
+-      gfc_define_builtin ("__builtin_cbrtf", mfunc_float[0],
+-			  BUILT_IN_CBRTF, "cbrtf", true);
++      DEFINE_MATH_BUILTIN (CBRT, "cbrt", 0, true, 1);
++
+       gfc_define_builtin ("__builtin_cexpil", func_longdouble_clongdouble, 
+ 		          BUILT_IN_CEXPIL, "cexpil", true);
+       gfc_define_builtin ("__builtin_cexpi", func_double_cdouble,
+--- a/gcc-4.5/gcc/fortran/trans-intrinsic.c	2011-07-31 22:09:22.993749869 +0400
++++ b/gcc-4.5/gcc/fortran/trans-intrinsic.c	2011-07-31 19:43:06.692151047 +0400
+@@ -90,7 +90,7 @@
+ /* ??? The NARGS==1 hack here is based on the fact that (c99 at least)
+    defines complex variants of all of the entries in mathbuiltins.def
+    except for atan2.  */
+-#define DEFINE_MATH_BUILTIN(ID, NAME, ARGTYPE) \
++#define DEFINE_MATH_BUILTIN(ID, NAME, ARGTYPE, NOT_USED1, NOT_USED2) \
+   { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, \
+     BUILT_IN_ ## ID ## L, BUILT_IN_ ## ID ## L, (enum built_in_function) 0, \
+     (enum built_in_function) 0, (enum built_in_function) 0, \
+@@ -98,7 +98,7 @@
+     NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, \
+     NULL_TREE},
+ 
+-#define DEFINE_MATH_BUILTIN_C(ID, NAME, ARGTYPE) \
++#define DEFINE_MATH_BUILTIN_C(ID, NAME, ARGTYPE, NOT_USED1, NOT_USED2) \
+   { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, \
+     BUILT_IN_ ## ID ## L, BUILT_IN_ ## ID ## L, BUILT_IN_C ## ID ## F, \
+     BUILT_IN_C ## ID, BUILT_IN_C ## ID ## L, BUILT_IN_C ## ID ## L, true, \
+ 
