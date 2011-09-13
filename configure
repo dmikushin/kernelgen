@@ -1,0 +1,201 @@
+#!/bin/sh
+
+DIR=`pwd`
+
+CC=`which gcc 2>/dev/null`
+CXX=`which g++ 2>/dev/null`
+FC=`which gfortran 2>/dev/null`
+NVCC=`which nvcc 2>/dev/null`
+
+HAVE_NVIDIA_OPENCL=0
+HAVE_AMD_OPENCL=0
+
+OPENCL_LIBPATH32=
+OPENCL_LIBPATH64=
+
+rm -rf makefile.in
+
+if [ ! -d $DIR/include ]; then
+  echo "Cannot locate include directory"
+  echo "Please check $DIR/include folder exists"
+  exit
+fi
+
+if [ "$CC" = "" ]; then
+  echo "C compiler is not available"
+  echo "Please check your compiler"
+  exit
+else
+  echo "CC=$CC -I$DIR/include" >>makefile.in
+fi
+
+if [ "$CXX" = "" ]; then
+  echo "C++ compiler is not available"
+  echo "Please check your compiler"
+  exit
+else
+  echo "CXX=$CXX -I$DIR/include" >>makefile.in
+fi
+
+if [ "$FC" = "" ]; then
+  echo "Fortran compiler is not available"
+  echo "Please check your compiler"
+  exit
+else
+  echo "FC=$FC -I$DIR/include" >>makefile.in
+fi
+
+if [ "$NVCC" = "" ]; then
+  echo "NVIDIA CUDA compiler is not available"
+  echo "CUDA support will be disabled"
+else
+  echo "NVCC=$NVCC -I$DIR/include" >>makefile.in
+  HAVE_NVIDIA_OPENCL=1
+fi
+
+if [ "$HAVE_NVIDIA_OPENCL" = "0" ]; then
+  if [ -f /opt/AMDAPP/lib/x86_64/libOpenCL.so ]; then
+    echo "HAVE_OPENCL=1" >>makefile.in
+    OPENCL_LIBPATH32=-L/opt/AMDAPP/lib/x86
+    OPENCL_LIBPATH64=-L/opt/AMDAPP/lib/x86_64/
+    HAVE_AMD_OPENCL=1
+  fi
+fi
+
+foo=`mktemp foo_$$XXX`
+
+if [ "$CC" != "" ]; then
+
+cat > ${foo}.c <<EOF 
+int main(int argc, char ** argv)
+{
+	return (0);
+}
+EOF
+
+$CC -o ${foo} ${foo}.c > /dev/null 2>&1
+CC_arch="`file ${foo} | grep -o -E '[0-9]{2}-bit|i386'`"
+rm ${foo} 2>/dev/null
+rm ${foo}.c 2>/dev/null
+
+if [ "$CC_arch" = "" ]; then
+  echo "C compiler \"$CC\" is not usable"
+  echo "Please check your compiler"
+  exit
+fi
+
+fi
+
+if [ "$CXX" != "" ]; then
+
+cat > ${foo}.cpp <<EOF 
+int main(int argc, char ** argv)
+{
+	return (0);
+}
+EOF
+
+$CXX -o ${foo} ${foo}.cpp > /dev/null 2>&1
+CXX_arch="`file ${foo} | grep -o -E '[0-9]{2}-bit|i386'`"
+rm ${foo} 2>/dev/null
+rm ${foo}.cpp 2>/dev/null
+
+if [ "$CXX_arch" = "" ]; then
+  echo "C++ compiler \"$CXX\" is not usable"
+  echo "Please check your compiler"
+  exit
+fi
+
+fi
+
+if [ "$FC" != "" ]; then
+
+cat > ${foo}.f90 <<EOF
+program test_exit
+integer :: STATUS = 0
+call EXIT(STATUS)
+end program test_exit
+EOF
+
+$FC -o ${foo} ${foo}.f90 > /dev/null 2>&1
+FC_arch="`file ${foo} | grep -o -E '[0-9]{2}-bit|i386'`"
+rm ${foo} 2>/dev/null
+rm ${foo}.f90 2>/dev/null
+
+if [ "$FC_arch" = "" ]; then
+  echo "Fortran compiler \"$FC\" is not usable"
+  echo "Please check your compiler"
+  exit
+fi
+
+fi
+
+if [ "$NVCC" != "" ]; then
+
+cat > ${foo}.cu <<EOF
+__global__ void kernel(int* value)
+{
+	*value = 1.0;
+}
+
+__device__ int value[1];
+
+int main()
+{
+	kernel<<<1, 1, 1>>>(value);
+	return 0;
+}
+EOF
+
+$NVCC -o ${foo} ${foo}.cu > /dev/null 2>&1
+NVCC_arch="`file ${foo} | grep -o -E '[0-9]{2}-bit|i386'`"
+rm ${foo} 2>/dev/null
+rm ${foo}.cu 2>/dev/null
+
+if [ "$NVCC_arch" = "" ]; then
+  echo "NVIDIA CUDA compiler \"$NVCC\" is not usable"
+  echo "CUDA support will be disabled"
+  echo "HAVE_CUDA=0" >>makefile.in
+  HAVE_NVIDIA_OPENCL=0
+else
+  echo "HAVE_CUDA=1" >>makefile.in
+fi
+
+fi
+
+if [ "$HAVE_NVIDIA_OPENCL" = "1" ]; then
+  echo "HAVE_NVIDIA_OPENCL=1" >>makefile.in
+  echo "HAVE_AMD_OPENCL=0" >>makefile.in
+fi
+
+if [ "$HAVE_AMD_OPENCL" = "1" ]; then
+  echo "HAVE_NVIDIA_OPENCL=1" >>makefile.in
+  echo "HAVE_AMD_OPENCL=1" >>makefile.in
+fi
+
+if [ "$HAVE_NVIDIA_OPENCL" = "0" ] && [ "$HAVE_AMD_OPENCL" = "0" ]; then
+  echo "HAVE_NVIDIA_OPENCL=0" >>makefile.in
+  echo "HAVE_AMD_OPENCL=0" >>makefile.in
+  echo "HAVE_OPENCL=0" >>makefile.in
+  echo "OpenCL library is not available"
+  echo "OpenCL support will be disabled"
+else
+  echo "HAVE_OPENCL=1" >>makefile.in
+fi
+
+echo "OPENCL_LIBPATH32 = $OPENCL_LIBPATH32" >>makefile.in
+echo "OPENCL_LIBPATH64 = $OPENCL_LIBPATH64" >>makefile.in
+
+echo "ARCH = 32" >>makefile.in
+echo "OPENCL_LIBPATH = \$(OPENCL_LIBPATH32)" >>makefile.in
+echo "ifeq (\$(shell uname -m), x86_64)" >>makefile.in
+echo "  ARCH = 64" >>makefile.in
+echo "  OPENCL_LIBPATH = \$(OPENCL_LIBPATH64)" >>makefile.in
+echo "endif" >>makefile.in
+
+#echo "#" >>makefile.in
+#echo "# Use static version of CXX lib to be more" >>makefile.in
+#echo "# cross-platform." >>makefile.in
+#echo "#" >>makefile.in
+#echo "STATIC=" >>makefile.in
+#echo "#STATIC=-static-libstdc++" >>makefile.in
