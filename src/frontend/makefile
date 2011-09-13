@@ -1,7 +1,7 @@
 all: kernelgen
 
 kernelgen: kernelgen.o execute.o
-	g++ kernelgen.o execute.o -o $@ -L/opt/kgen/lib -lLLVM-3.0svn
+	g++ kernelgen.o execute.o -o $@ -L/opt/kernelgen/lib -lLLVM-3.0svn
 
 kernelgen.o: kernelgen.cpp
 	g++ -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -c $< -o $@

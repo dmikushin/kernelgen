@@ -19,7 +19,7 @@ Summary:        Compiler with automatic generation of GPU kernels from Fortran s
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.5-r177629.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r453.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r454.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -60,7 +60,7 @@ rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r453.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r454.tar.gz
 
 
 %if %fullrepack
@@ -133,7 +133,6 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/bin/bugpoint
 rm $RPM_BUILD_ROOT/opt/kernelgen/bin/kernelgen-cpp
 rm $RPM_BUILD_ROOT/opt/kernelgen/bin/kernelgen-gccbug
 rm $RPM_BUILD_ROOT/opt/kernelgen/bin/kernelgen-gcov
-rm $RPM_BUILD_ROOT/opt/kernelgen/bin/kernelgen-gfortran
 rm $RPM_BUILD_ROOT/opt/kernelgen/bin/lli
 rm $RPM_BUILD_ROOT/opt/kernelgen/bin/llvm-ar
 rm $RPM_BUILD_ROOT/opt/kernelgen/bin/llvm-as
@@ -1186,8 +1185,7 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man7/fsf-funding.7
 rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man7/gfdl.7
 rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man7/gpl.7
 cd $RPM_BUILD_DIR/kernelgen/branches/accurate
-PREFIX=$RPM_BUILD_ROOT make install
-
+ROOT=$RPM_BUILD_ROOT make install
 
 %clean
 #rm -rf $RPM_BUILD_DIR/cloog
@@ -1202,6 +1200,7 @@ PREFIX=$RPM_BUILD_ROOT make install
 /opt/kernelgen/bin/cloog
 /opt/kernelgen/bin/kernelgen
 /opt/kernelgen/bin/kernelgen-gcc
+/opt/kernelgen/bin/kernelgen-gfortran
 /opt/kernelgen/bin/llc
 /opt/kernelgen/bin/opt
 /opt/kernelgen/bin/llvm-extract
@@ -1227,9 +1226,9 @@ PREFIX=$RPM_BUILD_ROOT make install
 /opt/kernelgen/lib/LLVMPolly.so
 
 %post
-echo "export PATH=\$PATH:/opt/kernelgen/bin" >>/etc/profile.d/kgen.sh
-echo "/opt/kernelgen/lib" >>/etc/ld.so.conf.d/kgen.conf
-echo "/opt/kernelgen/lib64" >>/etc/ld.so.conf.d/kgen.conf
+echo "export PATH=\$PATH:/opt/kernelgen/bin" >>/etc/profile.d/kernelgen.sh
+echo "/opt/kernelgen/lib" >>/etc/ld.so.conf.d/kernelgen.conf
+echo "/opt/kernelgen/lib64" >>/etc/ld.so.conf.d/kernelgen.conf
 
 
 %changelog

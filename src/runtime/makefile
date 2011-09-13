@@ -27,7 +27,7 @@ CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT)
 
 FC = gfortran
-DFC = dragonegg-gfortran
+KFC = kernelgen-gfortran
 FFLAGS = -g -fPIC
 
 ifeq ($(HAVE_CUDA), 1)
@@ -57,24 +57,24 @@ ifeq ($(ARCH), 32)
 CC32 = $(CC)
 CXX32 = $(CXX)
 FC32 = $(FC) -J32
-DFC32 = $(DFC) -J32
+KFC32 = $(KFC) -J32
 NVCC32 = $(NVCC)
 CC64 = $(CC)
 CXX64 = $(CXX)
 FC64 = $(FC) -J64
-DFC64 = $(DFC) -J64
+KFC64 = $(KFC) -J64
 NVCC64 = $(NVCC)
 all: 32/libkernelgen.so 32/merge_test
 else
 CC32 = $(CC) -m32
 CXX32 = $(CXX) -m32
 FC32 = $(FC) -m32 -J32
-DFC32 = $(DFC) -m32 -J32
+KFC32 = $(KFC) -m32 -J32
 NVCC32 = $(NVCC) -m32
 CC64 = $(CC)
 CXX64 = $(CXX)
 FC64 = $(FC) -J64
-DFC64 = $(DFC) -J64
+KFC64 = $(KFC) -J64
 NVCC64 = $(NVCC)
 all: 32/libkernelgen.so 32/merge_test 64/libkernelgen.so 64/merge_test
 endif
@@ -241,10 +241,10 @@ endif
 	$(CC64) $(CFLAGS) -c $< -o $@
 
 32/kernelgen.o: kernelgen.f90
-	$(DFC32) $(FFLAGS) -c $< -o $@
+	$(KFC32) $(FFLAGS) -c $< -o $@
 	$(FC32) $(FFLAGS) -c $< -o $@
 64/kernelgen.o: kernelgen.f90
-	$(DFC64) $(FFLAGS) -c $< -o $@
+	$(KFC64) $(FFLAGS) -c $< -o $@
 	$(FC64) $(FFLAGS) -c $< -o $@
 
 32/elf_read.o: elf_read.c
