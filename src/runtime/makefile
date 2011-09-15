@@ -40,7 +40,7 @@ NVCC = $(CXX)
 NVFLAGS = $(CXXFLAGS) -malign-double
 endif
 
-INCFFI = -I/usr/lib64/libffi-3.0.9/include -I/usr/include/i686-linux-gnu
+INCFFI = -I/usr/lib64/libffi-3.0.9/include -I/usr/include/x86_64-linux-gnu -I/usr/include/i686-linux-gnu
 
 OBJECTS = \
 	init launch compare stats error timing merge parse_args \

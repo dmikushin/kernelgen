@@ -1,11 +1,14 @@
 # Release name
-%define release cuda
+%define release accurate
+
+# Target operating system
+%define target debian
 
 # Build unoptimized version with debug info
 %define debug 0
 
 # Rebuild everything or only kernelgen
-%define fullrepack 1
+%define fullrepack 0
 
 # The number of parallel compilation jobs
 %define njobs 24
@@ -15,11 +18,11 @@ AutoReq: 0
 Name:           kernelgen
 Version:        0.2
 Release:        %{release}
-Summary:        Compiler with automatic generation of GPU kernels from Fortran source code 
+Summary:        Compiler with automatic generation of GPU kernels from the regular source code 
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.5-r177629.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r454.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r455.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -34,13 +37,18 @@ Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
 URL:            https://hpcforge.org/projects/kernelgen/
 
-BuildRequires:  gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
-Requires:       gcc-c++ gcc-gfortran perl elfutils-libelf libffi gmp mpfr libmpc perl-IPC-Run3 perl-XML-LibXSLT
+%if (%target == fedora)
+BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
+Requires:       elfutils-libelf libffi gmp mpfr libmpc
+%else
+#BuildRequires:	gcc g++ gfortran perl libelf-dev libffi-dev libgmp3-dev libmpfr-dev libmpc-dev flex libc6-dev libc6-dev-i386 gcc-multiliblib git autoconf automake libtool
+#Requires:	libelf ffi libgmp3 libmpfr libmpc
+%endif
 
-Packager:       Dmitry Mikushin <dmikushin@nvidia.com>
+Packager:       Dmitry Mikushin <maemarcus@gmail.com>
 
 %description
-KernelGen is a tool for automatic generation of GPU kernels from Fortran source code. From user's point of view it acts as regular Fortran compiler.
+A tool for automatic generation of GPU kernels from Fortran source code. From user's point of view it acts as regular GNU-compatible compiler.
 
 
 %prep
@@ -60,7 +68,7 @@ rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r454.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r455.tar.gz
 
 
 %if %fullrepack
@@ -102,9 +110,9 @@ mkdir build
 cd build/
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
 %if %debug
-make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+LIBRARY_PATH=/usr/lib/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-make -j%{njobs}
+LIBRARY_PATH=/usr/lib/x86_64-linux-gnu make -j%{njobs}
 %endif
 %endif
 cd $RPM_BUILD_DIR/kernelgen/branches/accurate
