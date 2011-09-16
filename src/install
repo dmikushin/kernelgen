@@ -58,7 +58,7 @@ foreach $binary (@binaries)
 my(@includes32) = (
 	"runtime/kernelgen.h",
 	"runtime/32/kernelgen.mod",
-	"runtime/32/kernelgen.dragonegg.mod");
+	"runtime/32/kernelgen.kernelgen.mod");
 foreach $include (@includes32)
 {
 	`cp $include $PREFIX\/include\/`;
@@ -68,7 +68,7 @@ if ($ARCH eq "64")
 	my(@includes64) = (
 		"runtime/kernelgen.h",
 		"runtime/64/kernelgen.mod",
-		"runtime/64/kernelgen.dragonegg.mod");
+		"runtime/64/kernelgen.kernelgen.mod");
 	foreach $include (@includes64)
 	{
 		`cp $include $PREFIX\/include64\/`;
