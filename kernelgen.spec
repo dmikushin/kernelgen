@@ -22,7 +22,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r456.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r457.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -68,7 +68,7 @@ rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r456.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r457.tar.gz
 
 
 %if %fullrepack

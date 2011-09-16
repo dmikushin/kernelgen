@@ -31,14 +31,29 @@ my($ARCH) = $ARGV[0];
 my($PREFIX) = $ARGV[1];
 my($CUDA_PREFIX) = $ARGV[2];
 
-`mkdir -p $PREFIX/bin`;
-`mkdir -p $PREFIX/include`;
-`mkdir -p $PREFIX/lib`;
+if (! -e $PREFIX/bin)
+{
+	`mkdir -p $PREFIX/bin`;
+}
+if (! -e $PREFIX/include)
+{
+	`mkdir -p $PREFIX/include`;
+}
+if (! -e $PREFIX/lib)
+{
+	`mkdir -p $PREFIX/lib`;
+}
 
 if ($ARCH eq "64")
 {
-	`mkdir -p $PREFIX/include64`;
-	`mkdir -p $PREFIX/lib64`;
+	if (! -e $PREFIX/include64)
+	{
+		`mkdir -p $PREFIX/include64`;
+	}
+	if (! -e $PREFIX/lib64)
+	{
+		`mkdir -p $PREFIX/lib64`;
+	}
 }
 
 #
