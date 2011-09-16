@@ -42,10 +42,14 @@ static int build_command(const char* fmt, char** cmd, ...)
 	return 0;
 }
 
+#include "llvm/Instructions.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
+#include "llvm/Support/CallSite.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 
@@ -63,7 +67,7 @@ int main(int argc, char* argv[])
 	// 1) Emit LLVM IR.
 	//
 	const char* emit_ir_cmd_fmt =
-		"dragonegg-gfortran -fplugin=/opt/kgen/lib64/dragonegg.so -fplugin-arg-dragonegg-emit-ir -S %s -o -";
+		"kernelgen-gfortran -fplugin=/opt/kernelgen/lib/dragonegg.so -fplugin-arg-dragonegg-emit-ir -S -O1 %s -o -";
 	char* emit_ir_cmd = NULL;
 	if (build_command(emit_ir_cmd_fmt, &emit_ir_cmd, source))
 	{
@@ -86,20 +90,22 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	printf("%s\n", out);
+
 	//
 	// 2) Record existing module functions.
 	//
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(out);
-	Module* m1 = getLazyIRModule(buffer1, diag, context);
+	Module* m1 = ParseIR(buffer1, diag, context);
 	const Module::FunctionListType& funcList1 = m1->getFunctionList();
   	for (Module::const_iterator it = funcList1.begin();
 		it != funcList1.end(); it++)
 	{
 		const Function &func = *it;
 		if (!func.isDeclaration())
-			printf("%s\n", func.getName());
+			printf("%s\n", func.getName().data());
 	}
 
 	//
@@ -114,16 +120,20 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	printf("%s\n", err);
+
 	//
 	// 4) Embed loop functions.
 	//
 	MemoryBuffer* buffer2 = MemoryBuffer::getMemBuffer(err);
-	Module* m2 = getLazyIRModule(buffer2, diag, context);
-	const Module::FunctionListType& funcList2 = m2->getFunctionList();
-  	for (Module::const_iterator it2 = funcList2.begin();
+	Module* m2 = ParseIR(buffer2, diag, context);
+	TargetData TD(m2);
+	InlineFunctionInfo info(0, &TD);
+	Module::FunctionListType& funcList2 = m2->getFunctionList();
+	for (Module::iterator it2 = funcList2.begin();
 		it2 != funcList2.end(); it2++)
 	{
-		const Function &func2 = *it2;
+		Function &func2 = *it2;
 		if (func2.isDeclaration()) continue;
 
 		// Search for the current function in original
@@ -149,7 +159,18 @@ int main(int argc, char* argv[])
 		// Each such function must be extracted to the
 		// standalone module and packed into resulting
 		// object file data section.
-		printf("%s\n", func2.getName());
+		printf("Preparing loop function %s ...\n", func2.getName().data());
+
+		// Find all external functions calls made from
+		// the current loop function and try to inline them.
+		for (Function::iterator BB = func2.begin(); BB != func2.end(); BB++)
+			for (BasicBlock::iterator I = BB->begin(); I != BB->end(); I++)
+			{
+				CallSite site(cast<Value>(I));
+				if (!site.getInstruction()) continue;
+				if (InlineFunction(site, info))
+					printf("Inlined function %s\n", site.getCalledFunction()->getName().data());
+			}
 	}
 	delete m1, m2, buffer1, buffer2;
 
