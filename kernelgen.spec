@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target debian
+%define target fedora
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -32,7 +32,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r458.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r459.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -78,7 +78,7 @@ rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r458.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r459.tar.gz
 
 
 %if %fullrepack
@@ -1100,7 +1100,7 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libLTO.a
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libLTO.so
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libcloog-isl.a
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libcloog-isl.la
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libiberty.a
+rm $RPM_BUILD_ROOT/opt/kernelgen/%{lib64}/libiberty.a
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libisl.a
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libisl.la
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libisl.so.7.0.0-gdb.py
@@ -1199,71 +1199,7 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/libl
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so.0.0.0
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto-wrapper
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/info/clan.info
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/info/dir
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/be/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/be/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/ca/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/da/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/da/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/de/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/de/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/el/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/el/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/es/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/es/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fi/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fi/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fr/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fr/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/id/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/id/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/ja/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/ja/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/nl/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/nl/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/ru/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/ru/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/sr/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/sv/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/sv/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/tr/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/tr/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/uk/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/vi/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/vi/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/zh_CN/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/zh_CN/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/zh_TW/LC_MESSAGES/cpplib.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/locale/zh_TW/LC_MESSAGES/gcc.mo
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/bugpoint.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/kernelgen-cpp.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/kernelgen-gcc.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/kernelgen-gcov.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/kernelgen-gfortran.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/lit.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llc.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/lli.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-ar.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-as.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-bcanalyzer.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-config.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-diff.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-dis.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-extract.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-ld.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-link.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-nm.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-prof.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvm-ranlib.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvmc.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvmgcc.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/llvmgxx.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/opt.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man1/tblgen.1
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man7/fsf-funding.7
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man7/gfdl.7
-rm $RPM_BUILD_ROOT/opt/kernelgen/share/man/man7/gpl.7
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share
 cd $RPM_BUILD_DIR/kernelgen/branches/accurate
 ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 
