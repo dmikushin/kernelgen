@@ -21,9 +21,9 @@
 
 #include "execute.h"
 
+#include <cstdarg>
+#include <cstdio>
 #include <malloc.h>
-#include <stdarg.h>
-#include <stdio.h>
 
 // Construct the command line from the specified format
 // and parameter list.
@@ -45,13 +45,21 @@ static int build_command(const char* fmt, char** cmd, ...)
 #include "llvm/Instructions.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/CallSite.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#include <iostream>
+
 using namespace llvm;
+using namespace std;
 
 int main(int argc, char* argv[])
 {
@@ -111,24 +119,21 @@ int main(int argc, char* argv[])
 	//
 	// 3) Extract loops into new functions.
 	//
-	const char* extract_cmd = "opt -loop-extract -print-module -o /dev/null";
-	printf("%s\n", extract_cmd);
 	char* in = out; size_t szin = szout;
-	if (execute(extract_cmd, in, szin, NULL, 0, &err, &szerr))
+	MemoryBuffer* buffer2 = MemoryBuffer::getMemBuffer(out);
+	Module* m2 = ParseIR(buffer2, diag, context);
 	{
-		fprintf(stderr, "Cannot execute command to extract loops\n");
-		return 1;
+		PassManager manager;
+		manager.add(createLoopExtractorPass());
+		manager.run(*m2);
 	}
-
-	printf("%s\n", err);
 
 	//
 	// 4) Embed loop functions.
 	//
-	MemoryBuffer* buffer2 = MemoryBuffer::getMemBuffer(err);
-	Module* m2 = ParseIR(buffer2, diag, context);
-	TargetData TD(m2);
-	InlineFunctionInfo info(0, &TD);
+	Function* launch = Function::Create(
+		TypeBuilder<int(const char*, int, ...), false>::get(context),
+		GlobalValue::ExternalLinkage, "kernelgen_launch_", m2);
 	Module::FunctionListType& funcList2 = m2->getFunctionList();
 	for (Module::iterator it2 = funcList2.begin();
 		it2 != funcList2.end(); it2++)
@@ -161,20 +166,29 @@ int main(int argc, char* argv[])
 		// object file data section.
 		printf("Preparing loop function %s ...\n", func2.getName().data());
 
-		// Find all external functions calls made from
-		// the current loop function and try to inline them.
-		for (Function::iterator BB = func2.begin(); BB != func2.end(); BB++)
-			for (BasicBlock::iterator I = BB->begin(); I != BB->end(); I++)
-			{
-				CallSite site(cast<Value>(I));
-				if (!site.getInstruction()) continue;
-				if (InlineFunction(site, info))
-					printf("Inlined function %s\n", site.getCalledFunction()->getName().data());
-			}
-	}
-	delete m1, m2, buffer1, buffer2;
+		// Replace call to this function in module with call to launcher.
+		for (Module::iterator F = m2->begin(); F != m2->end(); F++)
+			for (Function::iterator BB = F->begin(); BB != F->end(); BB++)
+				for (BasicBlock::iterator I = BB->begin(); I != BB->end(); I++)
+				{
+					CallInst* call = dyn_cast<CallInst>(cast<Value>(I));
+					if (!call) continue;
+					Function* callee = call->getCalledFunction();
+					if (!callee && !callee->isDeclaration()) continue;
+					if (callee->getName() != func2.getName()) continue;
 
-	//if (out) printf("%s\n", out);
+					//ArrayRef<Value*> args;
+					//CallInst* newcall = CallInst::Create(launch, args);
+					//*call = *newcall;
+				}
+		
+		// Inline all calls in this function.
+	}
+
+	raw_ostream* Out = &dbgs();
+	(*Out) << (*m2);
+
+	delete m1, m2, buffer1, buffer2;
 
 	return 0;
 }
