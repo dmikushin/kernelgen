@@ -21,39 +21,26 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-if (scalar(@ARGV) != 3)
+if (scalar(@ARGV) != 5)
 {
-	print "Usage: kgen-install ARCH PREFIX CUDA_PREFIX\n";
+	print "Usage: kgen-install ARCH PREFIX LIB32 LIB64 CUDA_PREFIX\n";
 	exit;
 }
 
 my($ARCH) = $ARGV[0];
 my($PREFIX) = $ARGV[1];
-my($CUDA_PREFIX) = $ARGV[2];
+my($LIB32) = $ARGV[2];
+my($LIB64) = $ARGV[3];
+my($CUDA_PREFIX) = $ARGV[4];
 
-if (! -e $PREFIX/bin)
-{
-	`mkdir -p $PREFIX/bin`;
-}
-if (! -e $PREFIX/include)
-{
-	`mkdir -p $PREFIX/include`;
-}
-if (! -e $PREFIX/lib)
-{
-	`mkdir -p $PREFIX/lib`;
-}
+`mkdir -p $PREFIX/bin`;
+`mkdir -p $PREFIX/include`;
+`mkdir -p $PREFIX/$LIB32`;
 
 if ($ARCH eq "64")
 {
-	if (! -e $PREFIX/include64)
-	{
-		`mkdir -p $PREFIX/include64`;
-	}
-	if (! -e $PREFIX/lib64)
-	{
-		`mkdir -p $PREFIX/lib64`;
-	}
+	`mkdir -p $PREFIX/include64`;
+	`mkdir -p $PREFIX/$LIB64`;
 }
 
 #
@@ -97,7 +84,7 @@ my(@libraries32) = (
 	"runtime/32/libkernelgen.so");
 foreach $library (@libraries32)
 {
-	`cp $library $PREFIX\/lib\/`;
+	`cp $library $PREFIX\/$LIB32\/`;
 }
 if ($ARCH eq "64")
 {
@@ -105,12 +92,6 @@ if ($ARCH eq "64")
 		"runtime/64/libkernelgen.so");
 	foreach $library (@libraries64)
 	{
-		`cp $library $PREFIX\/lib64\/`;
+		`cp $library $PREFIX\/$LIB64\/`;
 	}
 }
-
-#
-# Clear subversion tags.
-#
-`find $PREFIX -name ".svn" -exec rm -rf {} \\; 2>/dev/null`;
-

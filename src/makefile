@@ -21,6 +21,12 @@
 
 include ../makefile.in
 
+#
+# Red Hat notation, could be different, for example, for Debian
+#
+LIB32 ?= lib
+LIB64 ?= lib64
+
 PREFIX = $(ROOT)/opt/kernelgen
 CUDA_PREFIX = undefined
 ifeq ($(HAVE_CUDA), 1)
@@ -42,5 +48,5 @@ clean:
 	cd runtime && $(MAKE) clean
 
 install: frontend runtime
-	perl install $(ARCH) $(PREFIX) $(CUDA_PREFIX)
+	perl install $(ARCH) $(PREFIX) $(LIB32) $(LIB64) $(CUDA_PREFIX)
 
