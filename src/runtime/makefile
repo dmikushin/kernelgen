@@ -23,8 +23,8 @@ include ../../makefile.in
 
 OPT ?= 0
 
-CFLAGS = -g -fPIC -std=c99 -O$(OPT)
-CXXFLAGS = -g -fPIC -O$(OPT)
+CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../util
+CXXFLAGS = -g -fPIC -O$(OPT) -I../util
 
 FC = gfortran
 KFC = kernelgen-gfortran
@@ -43,12 +43,11 @@ endif
 INCFFI = -I/usr/lib64/libffi-3.0.9/include -I/usr/include/x86_64-linux-gnu -I/usr/include/i686-linux-gnu
 
 OBJECTS = \
-	init launch compare stats error timing merge parse_args \
+	init launch compare stats error merge parse_args \
 	parse_modsyms_cpu parse_modsyms_cuda parse_modsyms_opencl \
 	map_cpu unmap_cpu map_cuda unmap_cuda map_opencl unmap_opencl \
 	build_cpu build_cuda build_opencl launch_cpu launch_cuda launch_opencl \
-	reset_cpu reset_cuda reset_opencl devaddr_opencl \
-	elf_read elf_write load_source kernelgen
+	reset_cpu reset_cuda reset_opencl devaddr_opencl kernelgen
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -59,6 +58,7 @@ CXX32 = $(CXX)
 FC32 = $(FC) -J32
 KFC32 = $(KFC) -J32
 NVCC32 = $(NVCC)
+LIB32 = -L../util/32 -lutil
 CC64 = $(CC)
 CXX64 = $(CXX)
 FC64 = $(FC) -J64
@@ -71,11 +71,13 @@ CXX32 = $(CXX) -m32
 FC32 = $(FC) -m32 -J32
 KFC32 = $(KFC) -m32 -J32
 NVCC32 = $(NVCC) -m32
+LIB32 = -L../util/32 -lutil
 CC64 = $(CC)
 CXX64 = $(CXX)
 FC64 = $(FC) -J64
 KFC64 = $(KFC) -J64
 NVCC64 = $(NVCC)
+LIB64 = -L../util/64 -lutil
 all: 32/libkernelgen.so 32/merge_test 64/libkernelgen.so 64/merge_test
 endif
 
@@ -90,14 +92,14 @@ endif
 
 ifeq ($(HAVE_OPENCL), 1)
 32/libkernelgen.so: $(OBJECTS32)
-	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt $(OPENCL_LIBPATH32) -lOpenCL $(STATIC)
+	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi $(OPENCL_LIBPATH32) -lOpenCL $(LIB32) -lrt
 64/libkernelgen.so: $(OBJECTS64)
-	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt $(OPENCL_LIBPATH64) -lOpenCL $(STATIC)
+	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi $(OPENCL_LIBPATH64) -lOpenCL $(LIB64) -lrt
 else
 32/libkernelgen.so: $(OBJECTS32)
-	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi -lrt $(STATIC)
+	$(NVCC32) -shared -o $@ $(OBJECTS32) -lelf -lffi $(LIB32) -lrt
 64/libkernelgen.so: $(OBJECTS64)
-	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi -lrt $(STATIC)
+	$(NVCC64) -shared -o $@ $(OBJECTS64) -lelf -lffi $(LIB64) -lrt
 endif
 
 32/init.o: init.cpp init.h kernelgen.h kernelgen_int.h
@@ -125,20 +127,15 @@ endif
 64/error.o: error.cpp kernelgen.h
 	$(NVCC64) $(NVFLAGS) -c $< -o $@
 
-32/timing.o: timing.c kernelgen.h
-	$(CC32) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
-64/timing.o: timing.c kernelgen.h
-	$(CC64) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
-
 32/merge.o: merge.cpp kernelgen.h kernelgen_int.h
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/merge.o: merge.cpp kernelgen.h kernelgen_int.h
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/merge_test: merge_test.c kernelgen_int.h 32/libkernelgen.so
-	$(CC32) $(CFLAGS) $< -o $@ -L32 -lkernelgen
+	$(CC32) $(CFLAGS) $< -o $@ -L32 -lkernelgen $(LIB32)
 64/merge_test: merge_test.c kernelgen_int.h 64/libkernelgen.so
-	$(CC64) $(CFLAGS) $< -o $@ -L64 -lkernelgen
+	$(CC64) $(CFLAGS) $< -o $@ -L64 -lkernelgen $(LIB64)
 
 32/parse_args.o: parse_args.c parse_args.h
 	$(CC32) $(CFLAGS) -c $< -o $@
@@ -247,38 +244,6 @@ endif
 	$(KFC64) $(FFLAGS) -c $< -o $@
 	$(FC64) $(FFLAGS) -c $< -o $@
 
-32/elf_read.o: elf_read.c
-	$(CC32) $(CFLAGS) -c $< -o $@
-64/elf_read.o: elf_read.c
-	$(CC64) $(CFLAGS) -c $< -o $@
-
-32/elf_write.o: elf_write.c
-	$(CC32) $(CFLAGS) -c $< -o $@
-64/elf_write.o: elf_write.c
-	$(CC64) $(CFLAGS) -c $< -o $@
-
-32/elf_write_test: elf_write_test.c elf_write.o
-	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lkernelgen
-64/elf_write_test: elf_write_test.c elf_write.o
-	$(CC64) $(CFLAGS) $(INCFFI) $< -o $@ -L64 -lkernelgen
-
-NUM_SYMBOLS ?= 1
-
-32/test: elf_read_test.c elf_write_test
-	32/elf_write_test 32/foo.o $(NUM_SYMBOLS) sym hello
-	$(CC32) $(CFLAGS) $< -o 32/elf_read_test 32/foo.o -lelf
-	32/elf_read_test /proc/self/exe sym
-64/test: elf_read_test.c elf_write_test
-	64/elf_write_test 64/foo.o $(NUM_SYMBOLS) sym hello
-	$(CC64) $(CFLAGS) $< -o 64/elf_read_test 64/foo.o -lelf
-	64/elf_read_test /proc/self/exe sym
-
-32/load_source.o: load_source.c
-	$(CC32) $(CFLAGS) -c $< -o $@
-64/load_source.o: load_source.c
-	$(CC64) $(CFLAGS) -c $< -o $@
-
 clean:
-	rm -rf 32/*.o 64/*.o 32/*.so 64/*.so 32/*.mod 64/*.mod 32/merge_test 64/merge_test \
-	32/elf_write_test 32/elf_read_test 64/elf_write_test 64/elf_read_test
+	rm -rf 32/*.o 64/*.o 32/*.so 64/*.so 32/*.mod 64/*.mod 32/merge_test 64/merge_test
 

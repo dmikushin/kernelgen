@@ -33,7 +33,7 @@ extern "C" void kernelgen_record_time_start(struct kernelgen_launch_stats_t* sta
 {
 	assert((stats->started == 0) && "Timer was already started!");
 	stats->started = 1;
-	kernelgen_get_time(&stats->start);
+	util_get_time(&stats->start);
 }
 
 // Record finish measured execution marker
@@ -41,10 +41,10 @@ extern "C" void kernelgen_record_time_start(struct kernelgen_launch_stats_t* sta
 extern "C" void kernelgen_record_time_finish(struct kernelgen_launch_stats_t* stats)
 {
 	assert((stats->started == 1) && "Timer was not started!");
-	kernelgen_time_t finish;
-	kernelgen_get_time(&finish);
+	util_time_t finish;
+	util_get_time(&finish);
 
-	double time = kernelgen_get_time_diff(&stats->start, &finish);
+	double time = util_get_time_diff(&stats->start, &finish);
 	stats->time.push_back(time);
 	stats->started = 0;
 }

@@ -22,6 +22,7 @@
 #ifndef STATS_H
 
 #include "kernelgen_int.h"
+#include "util.h"
 
 #include <stdio.h>
 
@@ -72,7 +73,7 @@ extern FILE* kernelgen_stats_output_file;
 struct kernelgen_launch_stats_t
 {
 	int started;
-	kernelgen_time_t start;
+	util_time_t start;
 	std::list<double> time;
 };
 

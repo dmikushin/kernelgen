@@ -23,6 +23,7 @@
 #include "kernelgen_int_opencl.h"
 #include "init.h"
 #include "stats.h"
+#include "util.h"
 
 #include <fcntl.h>
 #include <gelf.h>
@@ -273,7 +274,7 @@ void kernelgen_kernel_init(
 
 		// Load kernel source and binary from the
 		// entire ELF image.
-		int status = elf_read("/proc/self/exe", kernel_source_name,
+		int status = util_elf_read("/proc/self/exe", kernel_source_name,
 			&l->kernel_source, &l->kernel_source_size);
 		if (status)
 		{
@@ -281,7 +282,7 @@ void kernelgen_kernel_init(
 		}
 		if (runmode != KERNELGEN_RUNMODE_DEVICE_CUDA)
 		{
-			status = elf_read("/proc/self/exe", kernel_binary_name,
+			status = util_elf_read("/proc/self/exe", kernel_binary_name,
 				&l->kernel_binary, &l->kernel_binary_size);
 			if (status)
 			{
@@ -690,7 +691,7 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 	{
 		size_t size = 0;
 		char* source = NULL;
-		if (kernelgen_load_source(kernelgen_filter, &source, &size))
+		if (util_load_source(kernelgen_filter, &source, &size))
 			kernelgen_filter = NULL;
 		else
 		{
@@ -710,7 +711,7 @@ __attribute__ ((__constructor__(101))) void kernelgen_init()
 	{
 		size_t size = 0;
 		char* source = NULL;
-		if (kernelgen_load_source(kernelgen_filter_out, &source, &size))
+		if (util_load_source(kernelgen_filter_out, &source, &size))
 			kernelgen_filter_out = NULL;
 		else
 		{

@@ -32,7 +32,7 @@
 #include <unistd.h>
 
 // Load the specified ELF image symbol raw data.
-int elf_read(const char* filename, const char* symname,
+int util_elf_read(const char* filename, const char* symname,
 	char** symdata, size_t* symsize)
 {
 	if (!filename)
@@ -156,7 +156,7 @@ finish:
 }
 
 // Load the specified ELF executable header.
-int kernelgen_elf_read_eheader(const char* executable, GElf_Ehdr* ehdr)
+int util_elf_read_eheader(const char* executable, GElf_Ehdr* ehdr)
 {
 	int status = 0;
 	Elf* e = NULL;

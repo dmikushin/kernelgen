@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 	int status = 0;
 	if (count == 1)
 	{
-		status = elf_write(filename, symname, symdata, strlen(symdata) + 1);
+		status = util_elf_write(filename, symname, symdata, strlen(symdata) + 1);
 	}
 	else
 	{

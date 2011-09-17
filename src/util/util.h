@@ -19,7 +19,15 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#ifndef UTIL_H
+#define UTIL_H
+
 #include <gelf.h>
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #pragma pack(push, 1)
 
@@ -69,4 +77,10 @@ int util_elf_write(const char* filename, GElf_Ehdr* ehdr,
 // could be taken from the specified reference executable, if not NULL.
 int util_elf_write_many(const char* filename, GElf_Ehdr* ehdr,
 	int count, ...);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // UTIL_H
 

@@ -237,30 +237,6 @@ typedef kernelgen_status_t (*kernelgen_reset_func_t)(
 
 extern kernelgen_reset_func_t* kernelgen_reset;
 
-// Load contents of the specified text file.
-int kernelgen_load_source(
-	const char* filename, char** source, size_t* szsource);
-
-// Load the specified ELF image symbol raw data.
-int elf_read(const char* filename, const char* symname,
-	char** symdata, size_t* symsize);
-
-// Load the specified ELF executable header.
-int kernelgen_elf_read_eheader(
-	const char* executable, GElf_Ehdr* ehdr);
-
-// Create ELF image containing symbol with the specified name,
-// associated data content and its length. Certain ELF properties
-// could be taken from the specified reference executable, if not NULL.
-int gforsclae_elf_write(const char* filename, GElf_Ehdr* ehdr,
-	const char* symname, const char* symdata, size_t length);
-
-// Create ELF image containing multiple symbols with the specified names,
-// associated data contents and their lengths. Certain ELF properties
-// could be taken from the specified reference executable, if not NULL.
-int kernelgen_elf_write_many(const char* filename, GElf_Ehdr* ehdr,
-	int count, ...);
-
 // Read environment variables and setup device-dependent runtime
 // global configuration. These part is separated from contructor-init,
 // as soon as processes or threads may get forked, and devices cannot
