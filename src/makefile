@@ -37,11 +37,14 @@ endif
 
 all: frontend runtime
 
-frontend:
+frontend: util
 	cd frontend && $(MAKE)
 
-runtime:
+runtime: util
 	cd runtime && $(MAKE)
+
+util:
+	cd util && $(MAKE)
 
 clean:
 	cd frontend && $(MAKE) clean

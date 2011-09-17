@@ -28,7 +28,7 @@ CXXFLAGS = -g -fPIC -O$(OPT)
 
 FC = gfortran
 KFC = kernelgen-gfortran
-FFLAGS = -g -fPIC
+FFLAGS = -g -fPIC -O$(OPT)
 
 ifeq ($(HAVE_CUDA), 1)
 CC += -DHAVE_CUDA
