@@ -19,7 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "execute.h"
+#include "util.h"
 
 #include <fcntl.h>
 #include <cstdio>
@@ -36,6 +36,8 @@
 #define ERROR	2
 
 #define SZBUF	1024
+
+using namespace std;
 
 static pid_t run(const char *command, int* infp, int* outfp, int* errfp)
 {

@@ -134,7 +134,7 @@ int util_elf_read(const char* filename, const char* symname,
 			e, shdr.sh_link, symbol.st_name);
 		if (!strcmp(name, symname))
 		{
-			*symdata = (char*)symbol.st_value;
+			*symdata = (char*)(size_t)symbol.st_value;
 			*symsize = symbol.st_size;
 			found = 1;
 			break;

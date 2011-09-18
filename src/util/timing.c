@@ -92,7 +92,7 @@ void util_print_time_diff(
 	if (sizeof(uint64_t) == sizeof(long))
 		printf("%ld.%09ld", (long)seconds, (long)nanoseconds);
 	else
-		printf("%lld.%09lld", seconds, nanoseconds);
+		printf("%lld.%09lld", (long long)seconds, (long long)nanoseconds);
 
 }
 

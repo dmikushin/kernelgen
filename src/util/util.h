@@ -25,6 +25,16 @@
 #include <gelf.h>
 
 #ifdef __cplusplus
+
+#include <list>
+#include <string>
+
+// Execute the specified command in the system shell, supplying
+// input stream content and returning results from output and
+// error streams.
+int execute(std::string command, std::list<std::string> args,
+	std::string in = "", std::string* out = NULL, std::string* err = NULL);
+
 extern "C"
 {
 #endif
@@ -53,10 +63,6 @@ double util_get_time_diff(
 // Print the built-in timer measured values difference.
 void util_print_time_diff(
 	util_time_t* val1, util_time_t* val2);
-
-// Load contents of the specified text file.
-int util_load_source(
-	const char* filename, char** source, size_t* szsource);
 
 // Load the specified ELF image symbol raw data.
 int util_elf_read(const char* filename, const char* symname,

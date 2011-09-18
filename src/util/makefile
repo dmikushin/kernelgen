@@ -26,7 +26,7 @@ OPT ?= 0
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT)
 
-OBJECTS = timing elf_read elf_write load_source
+OBJECTS = timing elf_read elf_write execute
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -79,10 +79,10 @@ NUM_SYMBOLS ?= 1
 	$(CC64) $(CFLAGS) $< -o 64/elf_read_test 64/foo.o -lelf
 	64/elf_read_test /proc/self/exe sym
 
-32/load_source.o: load_source.c
-	$(CC32) $(CFLAGS) -c $< -o $@
-64/load_source.o: load_source.c
-	$(CC64) $(CFLAGS) -c $< -o $@
+32/execute.o: execute.cpp
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/execute.o: execute.cpp
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	rm -rf 32/*.o 64/*.o 32/*.a 64/*.a \
