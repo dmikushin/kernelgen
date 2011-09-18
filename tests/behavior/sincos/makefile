@@ -24,26 +24,26 @@ LEVEL = ../../..
 include ../../makefile.in
 
 ifeq ($(ARCH), 64)
-all: 32/axpy 64/axpy
+all: 32/sincos 64/sincos
 else
-all: 32/axpy
+all: 32/sincos
 endif
 
-32/axpy: 32/axpy.o 32/main.o
-	$(FCOMP32) 32/main.o 32/axpy.o -o $@
-64/axpy: 64/axpy.o 64/main.o
-	$(FCOMP64) 64/main.o 64/axpy.o -o $@
+32/sincos: 32/sincos.o 32/main.o
+	$(FCOMP32) 32/main.o 32/sincos.o -o $@
+64/sincos: 64/sincos.o 64/main.o
+	$(FCOMP64) 64/main.o 64/sincos.o -o $@
 
 32/main.o: main.c
 	$(CCOMP32) -g -std=c99 -I/opt/kgen/include -c $< -o $@
 64/main.o: main.c
 	$(CCOMP64) -g -std=c99 -I/opt/kgen/include64 -c $< -o $@
 
-32/axpy.o: axpy.f90
-	$(FCOMP32) -Wk,--keep -g -c $< -o $@
-64/axpy.o: axpy.f90
-	$(FCOMP64) -Wk,--keep -g -c $< -o $@
+32/sincos.o: sincos.f90
+	$(FCOMP32) -g -c $< -o $@
+64/sincos.o: sincos.f90
+	$(FCOMP64) -g -c $< -o $@
 
 clean:
-	rm -rf 32/*.o 32/*.mod 32/axpy 64/*.o 64/*.mod 64/axpy \
+	rm -rf 32/*.o 32/*.mod 32/sincos 64/*.o 64/*.mod 64/sincos \
 	*.bc* *.o *.mod *_kernelgen.* *.host.*

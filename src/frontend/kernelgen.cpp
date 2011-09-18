@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
 			strcpy(output, arg);
 			
 			// Replace output with temporary output.
-			*it = c_bin_output;
+			if (input) *it = c_bin_output;
 			break;
 		}
 	}

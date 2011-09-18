@@ -19,9 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include <kernelgen.h>
 #include <malloc.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -29,19 +27,15 @@
 
 void sincos_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
 
-void sincos_serial_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
-
 int main(int argc, char* argv[])
 {
-	if (argc != 7)
+	if (argc != 4)
 	{
-		printf("Usage: %s <bx> <by> <bs> <tx> <ty> <ts>\n", argv[0]);
+		printf("Usage: %s <nx> <ny> <nz>\n", argv[0]);
 		return 0;
 	}
 
-	int bx = atoi(argv[1]), by = atoi(argv[2]), bz = atoi(argv[3]);
-	int tx = atoi(argv[4]), ty = atoi(argv[5]), tz = atoi(argv[6]);
-	int nx = bx * tx, ny = by * ty, nz = bz * tz;	
+	int nx = atoi(argv[1]), ny = atoi(argv[2]), nz = atoi(argv[3]);
 	real* x1 = (real*)malloc(sizeof(real) * nx * ny * nz);
 	real* x2 = (real*)malloc(sizeof(real) * nx * ny * nz);
 	real* y1 = (real*)malloc(sizeof(real) * nx * ny * nz);
@@ -55,49 +49,11 @@ int main(int argc, char* argv[])
 		y1[i] = rand() * invrmax; y2[i] = y1[i];
 	}
 	
-	// Measure time of version ported onto accelerator.
-	kernelgen_time_t start, end;
-	kernelgen_get_time(&start);
-	{
-		sincos_(&nx, &ny, &nz, x1, y1, xy1);
-	}
-	kernelgen_get_time(&end);
-	printf("gpu time = %f sec\n",
-		kernelgen_get_time_diff(&start, &end));
-	
-	// Measure time of regular CPU version.
-	kernelgen_get_time(&start);
-	{
-		sincos_serial_(&nx, &ny, &nz, x2, y2, xy2);
-	}
-	kernelgen_get_time(&end);
-	printf("cpu time = %f sec\n",
-		kernelgen_get_time_diff(&start, &end));
-	
-	// Compare results.
-	real maxabsdiff = fabs(xy1[0] - xy2[0]);
-	int imaxabsdiff = 0;
-	for (int i = 0; i < nx * ny * nz; i++)
-	{
-		real absdiff = fabs(xy1[i] - xy2[i]);
-		if (absdiff > maxabsdiff)
-		{
-			maxabsdiff = absdiff;
-			imaxabsdiff = i;
-		}
-	}
-	printf("max diff = %e @ %d\n", maxabsdiff, imaxabsdiff);
+	sincos_(&nx, &ny, &nz, x1, y1, xy1);
 
 	free(x1); free(x2);
 	free(y1); free(y2);
 	free(xy1); free(xy2);
-
-	kernelgen_status_t status = kernelgen_get_last_error();
-	if (status.value != kernelgen_success)
-	{
-		printf("%s\n", kernelgen_get_error_string(status));
-		return 1;
-	}
 	
 	return 0;
 }

@@ -23,8 +23,8 @@ include $(LEVEL)/makefile.in
 
 HAVE_CPU ?= 1
 
-CCOMP32 ?= $(CC) -I/home/marcusmae/opt/kgen/include
-FCOMP32 ?= kgen-gfortran -Wk,--host-compiler=$(FC)
+CCOMP32 ?= kernelgen -Wk,--host-compiler=$(CC)
+FCOMP32 ?= kernelgen -Wk,--host-compiler=$(FC)
 
 ifeq ($(HAVE_CPU), 1)
 FCOMP32 += -Wk,--cpu-compiler=gcc
@@ -57,4 +57,3 @@ endif
 
 FCOMP32 += -Wk,--kernel-target=$(HAVE_CPU)$(HAVE_CUDA)$(HAVE_OPENCL)
 FCOMP64 += -Wk,--kernel-target=$(HAVE_CPU)$(HAVE_CUDA)
- 
