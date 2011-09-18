@@ -204,6 +204,78 @@ int main(int argc, char* argv[])
 	}
 
 	//
+	// Find output file in args.
+	// There could be "-c" or "-o" option or both.
+	// With "-c" source is compiled only, producing by default
+	// an object file with same basename as source.
+	// With "-o" source could either compiled only (with additional
+	// "-c") or fully linked, but in both cases output is sent to
+	// explicitly defined file after "-o" option.
+	//
+	char* c_bin_output = NULL;
+	{
+		string bin_output = fileprefix + "XXXXXX";
+		c_bin_output = new char[bin_output.size() + 1];
+		strcpy(c_bin_output, bin_output.c_str());
+		int fd = mkstemp(c_bin_output);
+	}
+	char* output = NULL;
+	for (list<string>::iterator it = args.begin(); it != args.end(); it++)
+	{
+		const char* arg = (*it).c_str();
+		if (!strcmp(arg, "-o"))
+		{
+			it++;
+			arg = (*it).c_str();
+
+			output = new char[strlen(arg) + 1];
+			strcpy(output, arg);
+			
+			// Replace output with temporary output.
+			*it = c_bin_output;
+			break;
+		}
+	}
+	if (input && !output)
+	{
+		args.push_back("-o");
+		args.push_back(c_bin_output);
+	}
+	for (list<string>::iterator it = args.begin(); (it != args.end()) && !output; it++)
+	{
+		const char* arg = (*it).c_str();
+		if (!strcmp(arg, "-c"))
+		{
+			it++;
+			arg = (*it).c_str();
+		
+			// Trim path.
+			output = new char[strlen(arg) + 1];
+			strcpy(output, arg);
+			for (int i = strlen(output); i >= 0; i--)
+			{
+				if (output[i] == '/')
+				{
+					memcpy(output, arg, i);
+					output[i] = '\0';
+					break;
+				}
+			}
+
+			// Replace source extension with object extension.
+			for (int i = strlen(output); i >= 0; i--)
+			{
+				if (output[i] == '.')
+				{
+					output[i + 1] = 'o';
+					output[i + 2] = '\0';
+					break;
+				}
+			}
+		}
+	}
+
+	//
 	// Only execute the regular host compiler, if required or
 	// do only regular compilation for file extensions
 	// we do not know. Also should cover the case of linking.
@@ -360,12 +432,12 @@ int main(int argc, char* argv[])
 	// 5) Merge object files with binary code and IR.
 	//
 	{
-		merge_args.push_back("a.out");
+		merge_args.push_back(output);
+		merge_args.push_back(c_bin_output);
 		merge_args.push_back(c_ir_output);
-		merge_args.push_back("sincos.o");
 		if (verbose)
 		{
-			cout << host_compiler;
+			cout << merge;
 			for (list<string>::iterator it = merge_args.begin();
 				it != merge_args.end(); it++)
 				cout << " " << *it;
@@ -373,7 +445,7 @@ int main(int argc, char* argv[])
 		}
 		execute(merge, merge_args, "", NULL, NULL);
 	}
-	delete[] c_ir_output;
+	delete[] c_bin_output, c_ir_output, output;
 
 	//raw_ostream* Out = &dbgs();
 	//(*Out) << (*m2);

@@ -1,0 +1,76 @@
+#!/usr/bin/perl -w
+
+##
+## KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+##
+## Copyright (c) 2011 Dmitry Mikushin
+##
+## This software is provided 'as-is', without any express or implied warranty.
+## In no event will the authors be held liable for any damages arising 
+## from the use of this software.
+## Permission is granted to anyone to use this software for any purpose, 
+## including commercial applications, and to alter it and redistribute it freely,
+## subject to the following restrictions:
+##
+## 1. The origin of this software must not be misrepresented;
+## you must not claim that you wrote the original software.
+## If you use this software in a product, an acknowledgment
+## in the product documentation would be appreciated but is not required.
+## 2. Altered source versions must be plainly marked as such,
+## and must not be misrepresented as being the original software.
+## 3. This notice may not be removed or altered from any source distribution.
+##
+
+use Term::ANSIColor qw(:constants);
+
+my($arch) = $ARGV[0];
+
+my($kernelgen_debug_output) = 3;
+
+my($kernelgen_runmode) = 7;
+if ($arch eq "64")
+{
+	$kernelgen_runmode = 3;
+}
+
+my($output) = "kernelgen_debug_output=$kernelgen_debug_output";
+my($runmode) = $kernelgen_runmode;
+
+# The list of tests to perform.
+my(@tests) = (
+	"behavior/szlogical/szlogical",
+	"$output kernelgen_runmode=$runmode axpy_loop_1_kernelgen=$runmode behavior/axpy/$arch/axpy 10",
+	"$output kernelgen_runmode=$runmode axpy_loop_1_kernelgen=$runmode behavior/axpy/$arch/axpy 1000",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode behavior/logexp/$arch/logexp 10 10",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode behavior/logexp/$arch/logexp 1000 1000",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode behavior/allocatable/$arch/allocatable 10 10",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode behavior/allocatable/$arch/allocatable 1000 1000",
+	"$output kernelgen_runmode=$runmode container_log_loop_1_kernelgen=$runmode container_exp_loop_1_kernelgen=$runmode behavior/module/$arch/module 10 10",
+	"$output kernelgen_runmode=$runmode container_log_loop_1_kernelgen=$runmode container_exp_loop_1_kernelgen=$runmode behavior/module/$arch/module 1000 1000",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode behavior/mixed/$arch/mixed 10 10",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode behavior/mixed/$arch/mixed 1000 1000",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode logexp_loop_2_kernelgen=$runmode logexp_loop_3_kernelgen=$runmode behavior/multidim/$arch/multidim 10 10",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode logexp_loop_2_kernelgen=$runmode logexp_loop_3_kernelgen=$runmode behavior/multidim/$arch/multidim 1000 1000",
+	"$output kernelgen_runmode=$runmode sincos_loop_1_kernelgen=$runmode behavior/sincos/$arch/sincos 10 10 10",
+	"$output kernelgen_runmode=$runmode sincos_loop_1_kernelgen=$runmode behavior/sincos/$arch/sincos 64 64 64",
+	"$output kernelgen_runmode=$runmode sincos_loop_1_kernelgen=$runmode behavior/shape/$arch/shape 10 10 10",
+	"$output kernelgen_runmode=$runmode sincos_loop_1_kernelgen=$runmode behavior/shape/$arch/shape 64 64 64",
+	"$output kernelgen_runmode=$runmode derived_loop_1_kernelgen=$runmode behavior/derived/$arch/derived 10 10",
+	"$output kernelgen_runmode=$runmode derived_loop_1_kernelgen=$runmode behavior/derived/$arch/derived 1000 1000",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode behavior/inline/$arch/inline 10 10",
+	"$output kernelgen_runmode=$runmode logexp_loop_1_kernelgen=$runmode behavior/inline/$arch/inline 1000 1000",
+);
+
+foreach $test (@tests)
+{
+	my($result) = system($test);
+	if ($result == 0)
+	{
+		print BOLD, WHITE, "[", GREEN, "  OK  ", WHITE, "] ";
+	}
+	else
+	{
+		print BOLD, WHITE, "[", RED, " FAIL ", WHITE, "] ";
+	}
+	print BOLD, WHITE, "$test\n", RESET;
+}
