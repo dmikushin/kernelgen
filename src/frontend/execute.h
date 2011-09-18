@@ -19,15 +19,14 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include <stddef.h>
+#include <list>
+#include <string>
 
-#ifdef __cplusplus
-extern "C"
-#endif
+using namespace std;
 
 // Execute the specified command in the system shell, supplying
 // input stream content and returning results from output and
 // error streams.
-int execute(const char* command, char* in, size_t szin,
-	char** out, size_t* szout, char** err, size_t* szerr);
+int execute(string command, list<string> args,
+	string in = "", string* out = NULL, string* err = NULL);
 

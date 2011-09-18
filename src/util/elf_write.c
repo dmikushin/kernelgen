@@ -154,19 +154,23 @@ static int elf_write_data(Elf* e, const char* symdata, size_t length)
 
 // Create ELF image containing symbol with the specified name,
 // associated data content and its length.
-// Duplicate ident and archtecture from the reference executable header.
-int util_elf_write(const char* filename, GElf_Ehdr* ref_ehdr,
+int util_elf_write(const int fd, const int arch,
 	const char* symname, const char* symdata, size_t length)
 {
 	int status = 0;
 	Elf* e = NULL;
 	char* strings = NULL;
 
-	// Create file for the target object
-	int fd = open(filename, O_WRONLY | O_CREAT, 0666);
 	if (fd < 0)
 	{
-		fprintf(stderr, "Cannot open file %s\n", filename);
+		fprintf(stderr, "Invalid file descriptor\n");
+		status = 1;
+		goto finish;
+	}
+
+	if ((arch != 32) && (arch != 64))
+	{
+		fprintf(stderr, "Invalid architecture: %d\n", arch);
 		status = 1;
 		goto finish;
 	}
@@ -182,14 +186,14 @@ int util_elf_write(const char* filename, GElf_Ehdr* ref_ehdr,
 	e = elf_begin(fd, ELF_C_WRITE, NULL);
 	if (!e)
 	{
-		fprintf(stderr, "elf_begin() failed for %s: %s\n",
-			filename, elf_errmsg(-1));
+		fprintf(stderr, "elf_begin() failed: %s\n",
+			elf_errmsg(-1));
 		status = 1;
 		goto finish;
 	}
 	
 	GElf_Ehdr* ehdr = (GElf_Ehdr*)gelf_newehdr(e,
-		(ref_ehdr->e_machine == EM_X86_64) ? ELFCLASS64 : ELFCLASS32);
+		(arch == 64) ? ELFCLASS64 : ELFCLASS32);
 	if (!ehdr)
 	{
 		fprintf(stderr, "gelf_newehdr() failed: %s\n",
@@ -198,8 +202,7 @@ int util_elf_write(const char* filename, GElf_Ehdr* ref_ehdr,
 		goto finish;
 	}
 	
-	ehdr->e_ident[EI_DATA] = ref_ehdr->e_ident[EI_DATA];
-	ehdr->e_machine = ref_ehdr->e_machine;
+	ehdr->e_machine = (arch == 64) ? EM_X86_64 : EM_386;
 	ehdr->e_type = ET_REL;
 	ehdr->e_version = EV_CURRENT;
 
@@ -211,7 +214,7 @@ int util_elf_write(const char* filename, GElf_Ehdr* ref_ehdr,
 	memcpy(strings, sections, sizeof(sections));
 	memcpy(strings + sizeof(sections), symname, szsymname);
 
-	if (ref_ehdr->e_machine == EM_X86_64)
+	if (arch == 64)
 	{
 		// Symbol table size always starts with one
 		// undefined symbol.
@@ -280,7 +283,7 @@ finish:
 // Create ELF image containing multiple symbols with the specified names,
 // associated data contents and their lengths.
 // Duplicate ident and archtecture from the reference executable header.
-int util_elf_write_many(const char* filename, GElf_Ehdr* ref_ehdr, int count, ...)
+int util_elf_write_many(const int fd, const int arch, const int count, ...)
 {
 	int status = 0;
 	Elf* e = NULL;
@@ -290,11 +293,16 @@ int util_elf_write_many(const char* filename, GElf_Ehdr* ref_ehdr, int count, ..
 	Elf64_Sym* symbols64 = NULL;
 	Elf32_Sym* symbols32 = NULL;
 
-	// Create file for the target object
-	int fd = open(filename, O_WRONLY | O_CREAT, 0666);
 	if (fd < 0)
 	{
-		fprintf(stderr, "Cannot open file %s\n", filename);
+		fprintf(stderr, "Invalid file descriptor\n");
+		status = 1;
+		goto finish;
+	}
+
+	if ((arch != 32) && (arch != 64))
+	{
+		fprintf(stderr, "Invalid architecture: %d\n", arch);
 		status = 1;
 		goto finish;
 	}
@@ -310,14 +318,14 @@ int util_elf_write_many(const char* filename, GElf_Ehdr* ref_ehdr, int count, ..
 	e = elf_begin(fd, ELF_C_WRITE, NULL);
 	if (!e)
 	{
-		fprintf(stderr, "elf_begin() failed for %s: %s\n",
-			filename, elf_errmsg(-1));
+		fprintf(stderr, "elf_begin() failed: %s\n",
+			elf_errmsg(-1));
 		status = 1;
 		goto finish;
 	}
 	
 	GElf_Ehdr* ehdr = (GElf_Ehdr*)gelf_newehdr(e,
-		(ref_ehdr->e_machine == EM_X86_64) ? ELFCLASS64 : ELFCLASS32);
+		(arch == 64) ? ELFCLASS64 : ELFCLASS32);
 	if (!ehdr)
 	{
 		fprintf(stderr, "gelf_newehdr() failed: %s\n",
@@ -326,8 +334,7 @@ int util_elf_write_many(const char* filename, GElf_Ehdr* ref_ehdr, int count, ..
 		goto finish;
 	}
 	
-	ehdr->e_ident[EI_DATA] = ref_ehdr->e_ident[EI_DATA];
-	ehdr->e_machine = ref_ehdr->e_machine;
+	ehdr->e_machine = (arch == 64) ? EM_X86_64 : EM_386;
 	ehdr->e_type = ET_REL;
 	ehdr->e_version = EV_CURRENT;
 
@@ -361,7 +368,7 @@ int util_elf_write_many(const char* filename, GElf_Ehdr* ref_ehdr, int count, ..
 	va_end(list);
 
 	va_start(list, count);
-	if (ref_ehdr->e_machine == EM_X86_64)
+	if (arch == 64)
 	{
 		// Symbol table size always starts with one
 		// undefined symbol.

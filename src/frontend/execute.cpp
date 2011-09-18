@@ -19,9 +19,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "execute.h"
+
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
 #include <string.h>
 #include <sys/select.h>
 #include <sys/types.h>
@@ -60,30 +63,29 @@ static pid_t run(const char *command, int* infp, int* outfp, int* errfp)
 		return pid;
 	else if (pid == 0)
 	{
-		close(p_stdin[WRITE]);
-		dup2(p_stdin[READ], READ);
-		close(p_stdout[READ]);
-		dup2(p_stdout[WRITE], WRITE);
-		close(p_stderr[READ]);
-		dup2(p_stderr[WRITE], ERROR);
-		execl("/bin/sh", "sh", "-c", command, NULL);
+		if (infp)
+		{
+			close(p_stdin[WRITE]);
+			dup2(p_stdin[READ], READ);
+		}
+		if (outfp)
+		{
+			close(p_stdout[READ]);
+			dup2(p_stdout[WRITE], WRITE);
+		}
+		if (errfp)
+		{
+			close(p_stderr[READ]);
+			dup2(p_stderr[WRITE], ERROR);
+		}
+		if (execl("/bin/sh", "sh", "-c", command, NULL) == -1)
+			exit(-1);
 		exit(0);
 	}
 
-	if (!infp)
-		close(p_stdin[WRITE]);
-	else
-		*infp = p_stdin[WRITE];
-
-	if (!outfp)
-		close(p_stdout[READ]);
-	else
-		*outfp = p_stdout[READ];
-	
-	if (!errfp)
-		close(p_stderr[READ]);
-	else
-		*errfp = p_stderr[READ];
+	if (infp) *infp = p_stdin[WRITE];
+	if (outfp) *outfp = p_stdout[READ];
+	if (errfp) *errfp = p_stderr[READ];
 
 	return pid;
 }
@@ -110,58 +112,66 @@ static int multiplex(int fd)
 // Execute the specified command in the system shell, supplying
 // input stream content and returning results from output and
 // error streams.
-int execute(const char* command, char* in, size_t szin,
-	char** out, size_t* szout, char** err, size_t* szerr)
+int execute(string command, list<string> args,
+	string in, string* out, string* err)
 {
+	string cmd = command;
+	for (list<string>::iterator it = args.begin(); it != args.end(); it++)
+		cmd += " " + *it;
+
 	int infp, outfp, errfp;
-	if (run(command, &infp, &outfp, &errfp) <= 0)
+	if (run(cmd.c_str(), in.size() ? &infp : NULL,
+		out ? &outfp : NULL, err ? &errfp : NULL) <= 0)
 	{
-		fprintf(stderr, "Cannot run command %s\n", command);
+		cerr << "Cannot run command " << command << endl;
 		return 1;
 	}
 	
 	// Write to input stream.
-	if (in)	write(infp, in, szin);
+	if (in.size()) write(infp, in.c_str(), in.size());
 	close(infp);
 
 	// Wait for child process to finish.
 	int status;
 	if (wait(&status) == -1)
 	{
-		fprintf(stderr, "Cannot synchronize with child process\n");
+		cerr << "Cannot synchronize with child process" << endl;
 		return 1;
 	}
+	if (status) return status;
 
 	// Read error stream.
 	if (err && (multiplex(errfp) > 0))
 	{
 		int length = 0, capacity = 0;
-		*err = NULL;
+		char* cerr = NULL;
 		do
 		{
 			capacity += SZBUF;
-			*err = realloc(*err, capacity);
-			int szread = read(errfp, *err + capacity - SZBUF, SZBUF);
-			*szerr += szread;
+			cerr = (char*)realloc((void*)cerr, capacity);
+			int szread = read(errfp, cerr + capacity - SZBUF, SZBUF);
+			length += szread;
 		}
-		while (*szerr == capacity);
+		while (length == capacity);
 		close(errfp);
+		err->assign(cerr, length);
 	}
 
 	// Read output stream.
 	if (out && (multiplex(outfp) > 0))
 	{
-		int capacity = 0;
-		*out = NULL;
+		int length = 0, capacity = 0;
+		char* cout = NULL;
 		do
 		{
 			capacity += SZBUF;
-			*out = realloc(*out, capacity);
-			int szread = read(outfp, *out + capacity - SZBUF, SZBUF);
-			*szout += szread;
+			cout = (char*)realloc((void*)cout, capacity);
+			int szread = read(outfp, cout + capacity - SZBUF, SZBUF);
+			length += szread;
 		}
-		while (*szout == capacity);
+		while (length == capacity);
 		close(outfp);
+		out->assign(cout, length);
 	}
 	
 	return 0;

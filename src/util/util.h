@@ -67,16 +67,14 @@ int util_elf_read_eheader(
 	const char* executable, GElf_Ehdr* ehdr);
 
 // Create ELF image containing symbol with the specified name,
-// associated data content and its length. Certain ELF properties
-// could be taken from the specified reference executable, if not NULL.
-int util_elf_write(const char* filename, GElf_Ehdr* ehdr,
+// associated data content and its length.
+int util_elf_write(const int fd, const int arch,
 	const char* symname, const char* symdata, size_t length);
 
 // Create ELF image containing multiple symbols with the specified names,
-// associated data contents and their lengths. Certain ELF properties
-// could be taken from the specified reference executable, if not NULL.
-int util_elf_write_many(const char* filename, GElf_Ehdr* ehdr,
-	int count, ...);
+// associated data contents and their lengths.
+int util_elf_write_many(const int fd, const int arch,
+	const int count, ...);
 
 #ifdef __cplusplus
 }
