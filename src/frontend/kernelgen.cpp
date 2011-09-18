@@ -110,6 +110,7 @@ int main(int argc, char* argv[])
 	// Supported source code files extensions.
 	//
 	list<string> source_ext;
+	source_ext.push_back(".c");
 	source_ext.push_back(".f");
 	source_ext.push_back(".f90");
 	source_ext.push_back(".F");
@@ -307,15 +308,32 @@ int main(int argc, char* argv[])
 	//
 	string out = "";
 	{
-		string emit_ir_args[] =
+		list<string> emit_ir_args;
+		for (list<string>::iterator it = args.begin(); it != args.end(); it++)
 		{
-			"-fplugin=/opt/kernelgen/lib/dragonegg.so",
-			"-fplugin-arg-dragonegg-emit-ir",
-			"-S", input, "-o", "-"
-		};
-		int status = execute(llvm_compiler, list<string>(
-			emit_ir_args, emit_ir_args + sizeof(emit_ir_args) / sizeof(char*)),
-			"", &out, NULL);
+			const char* arg = (*it).c_str();
+			if (!strcmp(arg, "-c") || !strcmp(arg, "-o"))
+			{
+				it++;
+				continue;
+			}
+			emit_ir_args.push_back(*it);
+		}
+		emit_ir_args.push_back("-fplugin=/opt/kernelgen/lib/dragonegg.so");
+		emit_ir_args.push_back("-fplugin-arg-dragonegg-emit-ir");
+		emit_ir_args.push_back("-S");
+		emit_ir_args.push_back(input);
+		emit_ir_args.push_back("-o");
+		emit_ir_args.push_back("-");
+		if (verbose)
+		{
+			cout << llvm_compiler;
+			for (list<string>::iterator it = emit_ir_args.begin();
+				it != emit_ir_args.end(); it++)
+				cout << " " << *it;
+			cout << endl;
+		}
+		int status = execute(llvm_compiler, emit_ir_args, "", &out, NULL);
 		if (status) return 1;
 	}
 
