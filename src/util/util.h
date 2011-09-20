@@ -65,8 +65,12 @@ void util_print_time_diff(
 	util_time_t* val1, util_time_t* val2);
 
 // Load the specified ELF image symbol raw data.
-int util_elf_read(const char* filename, const char* symname,
+int util_elf_read(const int fd, const char* symname,
 	char** symdata, size_t* symsize);
+
+// Load the specified ELF image symbols raw data.
+int util_elf_read_many(const int fd, const int count, 
+	const char** symnames, char** symdatas, size_t* symsizes);
 
 // Load the specified ELF executable header.
 int util_elf_read_eheader(
@@ -81,6 +85,9 @@ int util_elf_write(const int fd, const int arch,
 // associated data contents and their lengths.
 int util_elf_write_many(const int fd, const int arch,
 	const int count, ...);
+
+int util_elf_find(const int fd, const char* symname_pattern,
+	char*** symnames, int* count);
 
 #ifdef __cplusplus
 }

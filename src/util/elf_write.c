@@ -273,9 +273,8 @@ int util_elf_write(const int fd, const int arch,
 finish:
 
 	if (strings) free(strings);
-	
+
 	if (e) elf_end(e);
-	if (fd >= 0) close(fd);
 	
 	return status;
 }
@@ -462,7 +461,6 @@ finish:
 	if (symbols32) free(symbols32);
 	
 	if (e) elf_end(e);
-	if (fd >= 0) close(fd);
 	
 	return status;
 }
