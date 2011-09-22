@@ -33,7 +33,7 @@ ifeq ($(HAVE_CUDA), 1)
 CUDA_PREFIX = /opt/cuda
 endif
 
-.PHONY: frontend runtime
+.PHONY: frontend runtime util
 
 all: frontend runtime
 

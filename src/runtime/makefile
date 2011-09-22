@@ -34,7 +34,7 @@ ifeq ($(HAVE_CUDA), 1)
 CC += -DHAVE_CUDA
 CXX += -DHAVE_CUDA
 NVCC += -DHAVE_CUDA
-NVFLAGS = -g -Xcompiler -fPIC -Xcompiler -std=c99
+NVFLAGS = -g -Xcompiler -fPIC -Xcompiler -std=c99 -I../util
 else
 NVCC = $(CXX)
 NVFLAGS = $(CXXFLAGS) -malign-double
