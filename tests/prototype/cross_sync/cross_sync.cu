@@ -1,5 +1,4 @@
 #include <cuda_runtime.h>
-#include <cupti_events.h>
 #include <malloc.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -7,8 +6,12 @@
 #include <unistd.h>
 
 __global__ void gpu_kernel(float* data, size_t size, int npasses,
-	int* lock, int* pmaxidx, float* pmaxval)
+	int* lock, int* finish, int* pmaxidx, float* pmaxval)
 {
+	printf("Test 3\n");
+
+	*finish = 0;
+
 	for (int ipass = 0; ipass < npasses; ipass++)
 	{
 		// Run some time-consuming work.
@@ -26,133 +29,136 @@ __global__ void gpu_kernel(float* data, size_t size, int npasses,
 			}
 		*pmaxidx = maxidx;
 		*pmaxval = maxval;
-	
-		// Issue event.
-		__prof_trigger(0);
 
-		// Lock thread to wait for response.
-		*lock = 1;
+		// Thread runs when lock = 0 and gets blocked
+		// on lock = 1.
+		
+		printf("Test 1\n");
+	
+		// Lock thread.
+		atomicCAS(lock, 0, 1);
+
+		printf("Test 2\n");
+
+		// Wait for unlock.
 		while (atomicCAS(lock, 0, 0)) continue;
 	}
+
+	// Notify the target is finishing.	
+	*finish = 1;
+
+	// Lock thread.
+	atomicCAS(lock, 0, 1);
 }
 
-__global__ void gpu_unlock(int* lock)
+__global__ void gpu_monitor(int* lock)
 {
-	// Unlock thread waiting for response
-	// in main gpu kernel.
+	// Unlock blocked gpu kernel associated
+	// with lock. It simply waits for lock
+	// to be dropped to zero.
 	atomicCAS(lock, 1, 0);
+
+	printf("Hello!\n");
+
+	// Wait for lock to be set.
+	// When lock is set this thread exits,
+	// and CPU monitor thread gets notified
+	// by synchronization.
+	while (!atomicCAS(lock, 1, 1)) continue;
 }
 
 typedef struct
 {
-	int done;
-	unsigned int timeout;
-	pthread_mutex_t mutex;
-	CUdevice device;
-	CUcontext context;
+	cudaStream_t stream;
+	pthread_barrier_t barrier;
+	int* maxidx;
+	float* maxval;
 	int* lock;
+	int* finish;
 }
 monitor_params_t;
 
-void* monitor(void* arg)
+void* cpu_monitor(void* arg)
 {
+	int first = 1;
 	monitor_params_t* params = (monitor_params_t*)arg;
-
-	CUpti_EventGroup eventGroup;
-	CUptiResult status = cuptiEventGroupCreate(params->context, &eventGroup, 0);
-	if (status != CUPTI_SUCCESS)
-	{
-		const char* msg; cuptiGetResultString(status, &msg);
-		fprintf(stderr, "Cannot create CUPTI event group: %s\n", msg);
-		pthread_exit((void*)1);
-		return NULL;
-	}
-
-	CUpti_EventID eventId;	
-	status = cuptiEventGetIdFromName(params->device, "prof_trigger_00", &eventId);
-	if (status != CUPTI_SUCCESS)
-	{
-		const char* msg; cuptiGetResultString(status, &msg);
-		fprintf(stderr, "Cannot get CUPTI event id from name: %s\n", msg);
-		pthread_exit((void*)1);
-		return NULL;
-	}
-
-	status = cuptiEventGroupAddEvent(eventGroup, eventId);
-	if (status != CUPTI_SUCCESS)
-	{
-		const char* msg; cuptiGetResultString(status, &msg);
-		fprintf(stderr, "Cannot add event to group: %s\n", msg);
-		pthread_exit((void*)1);
-		return NULL;				
-	}
-
-	status = cuptiEventGroupEnable(eventGroup);
-	if (status != CUPTI_SUCCESS)
-	{
-		const char* msg; cuptiGetResultString(status, &msg);
-		fprintf(stderr, "Cannot enable event group: %s\n", msg);
-		pthread_exit((void*)1);
-		return NULL;
-	}
 
 	while (1)
 	{
-		uint64_t value;
-		size_t szevent = sizeof(value);
-		status = cuptiEventGroupReadEvent(
-			eventGroup, CUPTI_EVENT_READ_FLAG_NONE,
-			eventId, &szevent, &value);
-		if (status != CUPTI_SUCCESS)
-		{
-			const char* msg; cuptiGetResultString(status, &msg);
-			fprintf(stderr, "Cannot read CUPTI event value: %s\n", msg);
-			pthread_exit((void*)1);
-			return NULL;
-		}
-		
-		if (szevent != sizeof(value))
-		{
-			const char* msg; cuptiGetResultString(status, &msg);
-			fprintf(stderr, "Incorrect length of read CUPTI event\n", msg);
-			pthread_exit((void*)1);
-			return NULL;
-		}
-	
-		printf("%s: %llu\n", "prof_trigger_00", (unsigned long long)value);
-
-		// Unlock kernel being monitored.
-		gpu_unlock<<<1, 1, 1>>>(params->lock);
+		// Launch GPU monitoring kernel.
+		gpu_monitor<<<1, 1, 1, params->stream>>>(params->lock);
 		cudaError_t custat = cudaGetLastError();
 		if (custat != cudaSuccess)
 		{
-			fprintf(stderr, "Cannot launch GPU kernel: %s\n",
+			fprintf(stderr, "Cannot launch target GPU kernel: %s\n",
 				cudaGetErrorString(custat));
 			pthread_exit((void*)1);
 			return NULL;
 		}
 
-		usleep(params->timeout);
-
-		// Check if we need to finish monitoring.		
-		pthread_mutex_lock(&params->mutex);
-		if (params->done)
+		// Synchronize main thread and monitor thread at barrier.
+		if (first)
 		{
-			pthread_mutex_unlock(&params->mutex);
-			pthread_exit((void*)0);
-			break;
+			pthread_barrier_wait(&params->barrier);
+			pthread_barrier_wait(&params->barrier);
+			first = 0;
 		}
-		pthread_mutex_unlock(&params->mutex);
-	}
+
+		// Wait for GPU monitoring kernel to finish.
+		custat = cudaStreamSynchronize(params->stream);
+		if (custat != cudaSuccess)
+		{
+			fprintf(stderr, "Cannot synchronize GPU kernel: %s\n",
+				cudaGetErrorString(custat));
+			pthread_exit((void*)1);
+			return NULL;
+		}
+
+		// Do something with GPU data.
+		int maxidx = 0;
+		custat = cudaMemcpy(&maxidx, params->maxidx, sizeof(int),
+			cudaMemcpyDeviceToHost);
+		if (custat != cudaSuccess)
+		{
+			fprintf(stderr, "Cannot get GPU maxidx value: %s\n",
+				cudaGetErrorString(custat));
+			pthread_exit((void*)1);
+			return NULL;
+		}
+		float maxval = 0.0;
+		custat = cudaMemcpy(&maxval, params->maxval, sizeof(float),
+			cudaMemcpyDeviceToHost);
+		if (custat != cudaSuccess)
+		{
+			fprintf(stderr, "Cannot get GPU maxval value: %s\n",
+				cudaGetErrorString(custat));
+			pthread_exit((void*)1);
+			return NULL;
+		}
+		printf("max value = %f @ index = %d\n", maxval, maxidx);		
+		
+		// Check if target GPU kernel has finished.
+		int finish = 0;
+		custat = cudaMemcpy(&finish, params->finish, sizeof(int),
+			cudaMemcpyDeviceToHost);
+		if (custat != cudaSuccess)
+		{
+			fprintf(stderr, "Cannot get GPU finish value: %s\n",
+				cudaGetErrorString(custat));
+			pthread_exit((void*)1);
+			return NULL;
+		}
+		if (finish) break;
+	}	
 
 	return NULL;
 }
 
 int main(int argc, char* argv[])
 {
-	if (argc != 4)
+	if (argc != 3)
 	{
-		printf("%s <timeout> <size> <npasses>\n", argv[0]);
+		printf("%s <size> <npasses>\n", argv[0]);
 		return 0;
 	}
 
@@ -171,40 +177,27 @@ int main(int argc, char* argv[])
 	}
 
 	monitor_params_t params;
-	params.timeout = atoi(argv[1]);
-	params.done = 0;
 
-	int status = pthread_mutex_init(&params.mutex, NULL);
-	if (status)
+	// Create stream where monitoring kernel will be
+	// executed.
+	custat = cudaStreamCreate(&params.stream);
+	if (custat != cudaSuccess)
 	{
-		fprintf(stderr, "Cannot create mutex\n");
+		fprintf(stderr, "Cannot create monitoring stream: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
+	}
+	cudaStream_t stream;
+	custat = cudaStreamCreate(&stream);
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot create monitoring stream: %s\n",
+			cudaGetErrorString(custat));
 		return 1;
 	}
 
-	CUresult cuerr = cuDeviceGet(&params.device, 0);
-	if (cuerr != CUDA_SUCCESS)
-	{
-		fprintf(stderr, "Cannot get CUDA device\n");
-		return 1;
-	}
-
-	char name[32];
-	cuerr = cuDeviceGetName(name, 32, params.device);
-	if (cuerr != CUDA_SUCCESS)
-	{
-		fprintf(stderr, "Cannot get CUDA device name\n");
-		return 1;
-	}
-
-	cuerr = cuCtxCreate(&params.context, 0, params.device);
-	if (cuerr != CUDA_SUCCESS)
-	{
-		fprintf(stderr, "Cannot create CUDA device context\n");
-		return 1;
-	}
-
-	size_t size = atoi(argv[2]);
-	int npasses = atoi(argv[3]);
+	size_t size = atoi(argv[1]);
+	int npasses = atoi(argv[2]);
 
 	float* cpu_data = (float*)malloc(sizeof(float) * size);
 	double dinvrandmax = (double)1.0 / RAND_MAX;
@@ -229,24 +222,34 @@ int main(int argc, char* argv[])
 	}
 	free(cpu_data);
 	
-	int* pmaxidx = NULL;
-	custat = cudaMalloc((void**)&pmaxidx, sizeof(int));
+	custat = cudaMalloc((void**)&params.maxidx, sizeof(int));
 	if (custat != cudaSuccess)
 	{
-		fprintf(stderr, "Cannot create GPU pmaxidx buffer: %s\n",
+		fprintf(stderr, "Cannot create GPU maxidx buffer: %s\n",
 			cudaGetErrorString(custat));
 		return 1;
 	}
 	
-	float* pmaxval = NULL;
-	custat = cudaMalloc((void**)&pmaxval, sizeof(float));
+	custat = cudaMalloc((void**)&params.maxval, sizeof(float));
 	if (custat != cudaSuccess)
 	{
-		fprintf(stderr, "Cannot create GPU pmaxval buffer: %s\n",
+		fprintf(stderr, "Cannot create GPU maxval buffer: %s\n",
 			cudaGetErrorString(custat));
 		return 1;
 	}
 	
+	custat = cudaMalloc((void**)&params.finish, sizeof(int));
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot create GPU finish buffer: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
+	}
+	
+	// Initialize thread locker variable.
+	// Initial state is "locked". It will be dropped
+	// by gpu side monitor that must be started *before*
+	// target GPU kernel.
 	custat = cudaMalloc((void**)&params.lock, sizeof(int));
 	if (custat != cudaSuccess)
 	{
@@ -254,25 +257,58 @@ int main(int argc, char* argv[])
 			cudaGetErrorString(custat));
 		return 1;
 	}
-
-	// Start monitoring thread.
+	int one = 1;
+	custat = cudaMemcpy(params.lock, &one, sizeof(int),
+		cudaMemcpyHostToDevice);
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot initialize GPU lock buffer: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
+	}
+	
+	// Create barrier used to guarantee gpu monitoring
+	// kernel would be started before target GPU kernel.
+	int status = pthread_barrier_init(&params.barrier, NULL, 2);
+	if (status)
+	{
+		fprintf(stderr, "Cannot initialize barrier\n");
+		return 1;
+	}
+	
+	// Start monitoring CPU thread.
 	pthread_t thread;
-	status = pthread_create(&thread, NULL, &monitor, &params);
+	status = pthread_create(&thread, NULL, &cpu_monitor, &params);
 	if (status)
 	{
 		fprintf(stderr, "Cannot create monitoring thread\n");
 		return 1;
 	}
 	
-	// Execute GPU kernel.
-	gpu_kernel<<<1, 1, 1>>>(gpu_data, size, npasses, params.lock, pmaxidx, pmaxval);
+	// Synchronize main thread and monitor thread at barrier.
+	pthread_barrier_wait(&params.barrier);
+	
+	// Execute target GPU kernel.
+	gpu_kernel<<<1, 1, 1, stream>>>(gpu_data, size, npasses, params.lock,
+		params.finish, params.maxidx, params.maxval);
 	custat = cudaGetLastError();
 	if (custat != cudaSuccess)
 	{
-		fprintf(stderr, "Cannot launch GPU kernel: %s\n",
+		fprintf(stderr, "Cannot launch target GPU kernel: %s\n",
 			cudaGetErrorString(custat));
 		return 1;
 	}
+
+	// Synchronize main thread and monitor thread at barrier.
+	pthread_barrier_wait(&params.barrier);
+
+	status = pthread_barrier_destroy(&params.barrier);
+	if (status)
+	{
+		fprintf(stderr, "Cannot destroy monitoring thread\n");
+		return 1;
+	}
+
 	custat = cudaThreadSynchronize();
 	if (custat != cudaSuccess)
 	{
@@ -288,30 +324,47 @@ int main(int argc, char* argv[])
 			cudaGetErrorString(custat));
 		return 1;
 	}
-	custat = cudaFree(pmaxidx);
+	custat = cudaFree(params.maxidx);
 	if (custat != cudaSuccess)
 	{
-		fprintf(stderr, "Cannot release GPU pmaxidx buffer: %s\n",
+		fprintf(stderr, "Cannot release GPU maxidx buffer: %s\n",
 			cudaGetErrorString(custat));
 		return 1;
 	}
-	custat = cudaFree(pmaxval);
+	custat = cudaFree(params.maxval);
 	if (custat != cudaSuccess)
 	{
-		fprintf(stderr, "Cannot release GPU pmaxval buffer: %s\n",
+		fprintf(stderr, "Cannot release GPU maxval buffer: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
+	}
+	custat = cudaFree(params.finish);
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot release GPU finish buffer: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
+	}
+	custat = cudaFree(params.lock);
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot release GPU lock buffer: %s\n",
 			cudaGetErrorString(custat));
 		return 1;
 	}
 
-	// Tell monitoring thread to finish monitoring.
-	pthread_mutex_lock(&params.mutex);
-	params.done = 1;
-	pthread_mutex_unlock(&params.mutex);
-
-	status = pthread_mutex_destroy(&params.mutex);
-	if (status)
+	custat = cudaStreamDestroy(params.stream);
+	if (custat != cudaSuccess)
 	{
-		fprintf(stderr, "Cannot destroy mutex\n");
+		fprintf(stderr, "Cannot create monitoring stream: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
+	}
+	custat = cudaStreamDestroy(stream);
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot create monitoring stream: %s\n",
+			cudaGetErrorString(custat));
 		return 1;
 	}
 
