@@ -1,3 +1,24 @@
+/*
+ * KernelGen - the LLVM-based compiler with GPU kernels generation over C backend.
+ *
+ * Copyright (c) 2011 Dmitry Mikushin
+ *
+ * This software is provided 'as-is', without any express or implied warranty.
+ * In no event will the authors be held liable for any damages arising 
+ * from the use of this software.
+ * Permission is granted to anyone to use this software for any purpose, 
+ * including commercial applications, and to alter it and redistribute it freely,
+ * subject to the following restrictions:
+ *
+ * 1. The origin of this software must not be misrepresented;
+ * you must not claim that you wrote the original software.
+ * If you use this software in a product, an acknowledgment
+ * in the product documentation would be appreciated but is not required.
+ * 2. Altered source versions must be plainly marked as such,
+ * and must not be misrepresented as being the original software.
+ * 3. This notice may not be removed or altered from any source distribution.
+ */
+
 #include <cuda_runtime.h>
 #include <malloc.h>
 #include <stdio.h>
@@ -103,23 +124,6 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	// Create stream where monitoring kernel will be
-	// executed.
-	custat = cudaStreamCreate(&gpu.stream);
-	if (custat != cudaSuccess)
-	{
-		fprintf(stderr, "Cannot create monitoring stream: %s\n",
-			cudaGetErrorString(custat));
-		return 1;
-	}
-	custat = cudaStreamCreate(&cpu.stream);
-	if (custat != cudaSuccess)
-	{
-		fprintf(stderr, "Cannot create monitoring stream: %s\n",
-			cudaGetErrorString(custat));
-		return 1;
-	}
-
 	size_t size = atoi(argv[1]);
 	int npasses = atoi(argv[2]);
 
@@ -190,6 +194,23 @@ int main(int argc, char* argv[])
 			cudaGetErrorString(custat));
 		return 1;
 	}
+
+	// Create streams where monitoring and target kernels
+	// will be executed.
+	custat = cudaStreamCreate(&gpu.stream);
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot create monitoring stream: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
+	}
+	custat = cudaStreamCreate(&cpu.stream);
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot create monitoring stream: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
+	}
 	
 	// Launch GPU monitoring kernel.
 	gpu_monitor<<<1, 1, 1, gpu.stream>>>(gpu.lock);
@@ -212,7 +233,9 @@ int main(int argc, char* argv[])
 			cudaGetErrorString(custat));
 		return 1;
 	}
-
+#ifdef VERBOSE
+	int istep = 0;
+#endif
 	while (1)
 	{
 		// Synchronize with monitoring kernel.
@@ -256,7 +279,11 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "Cannot launch monitoring GPU kernel: %s\n",
 				cudaGetErrorString(custat));
 			return 1;
-		}		
+		}
+#ifdef VERBOSE
+		istep++;
+		printf("step %d\n", istep);
+#endif
 	}
 	
 	custat = cudaFree(gpu.data);
