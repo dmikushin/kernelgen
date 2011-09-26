@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
 		custat = cudaStreamSynchronize(gpu.stream);
 		if (custat != cudaSuccess)
 		{
-			fprintf(stderr, "Cannot synchronize GPU kernel: %s\n",
+			fprintf(stderr, "Cannot synchronize GPU monitor kernel: %s\n",
 				cudaGetErrorString(custat));
 			return 1;
 		}
@@ -284,6 +284,15 @@ int main(int argc, char* argv[])
 		istep++;
 		printf("step %d\n", istep);
 #endif
+	}
+
+	// Synchronize with target kernel.
+	custat = cudaStreamSynchronize(cpu.stream);
+	if (custat != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot synchronize GPU monitor kernel: %s\n",
+			cudaGetErrorString(custat));
+		return 1;
 	}
 	
 	custat = cudaFree(gpu.data);

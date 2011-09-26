@@ -29,6 +29,7 @@
 struct params_t
 {
 	float* data;
+	int* finish;
 }
 cpu;
 
@@ -50,10 +51,14 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	builder_config_t* config = builder_init("cross_sync.cl", 2);
+#ifdef VERBOSE
+	builder_config_t* config = builder_init("cross_sync.cl", "-DVERBOSE", 2);
+#else
+	builder_config_t* config = builder_init("cross_sync.cl", NULL, 2);
+#endif
 	if (!config) return 1;
 
-	size_t size = atoi(argv[1]);
+	int size = atoi(argv[1]);
 	int npasses = atoi(argv[2]);
 
 	cpu.data = (float*)malloc(sizeof(float) * size);
@@ -91,8 +96,9 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	cpu.finish = (int*)malloc(sizeof(int));
 	gpu.finish = clCreateBuffer(config->context,
-		CL_MEM_READ_WRITE, sizeof(int), NULL, &clstat);	
+		CL_MEM_USE_HOST_PTR, sizeof(int), cpu.finish, &clstat);	
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create GPU finish buffer: %s\n",
@@ -113,10 +119,31 @@ int main(int argc, char* argv[])
 			get_error_string(clstat));
 		return 1;
 	}
+
+	// Create command queues.
+	cl_command_queue monitor_queue = clCreateCommandQueue(
+		config->context, config->device, 0, &clstat);
+	if (clstat != CL_SUCCESS)
+	{
+		fprintf(stderr, "Cannot create queue for monitor GPU kernel: %s\n",
+			get_error_string(clstat));
+		return 1;
+	}
+	cl_command_queue target_queue = clCreateCommandQueue(
+		config->context, config->device, 0, &clstat);
+	if (clstat != CL_SUCCESS)
+	{
+		fprintf(stderr, "Cannot create queue for target GPU kernel: %s\n",
+			get_error_string(clstat));
+		return 1;
+	}
 	
 	// Launch GPU monitoring kernel.
-	gpu_monitor<<<1, 1, 1, gpu.stream>>>(gpu.lock);
-	custat = cudaGetLastError();
+	cl_event monitor_event;
+	clstat = clSetKernelArg(
+		config->kernels[1], 0, sizeof(cl_mem), &gpu.lock);
+	clstat = clEnqueueTask(monitor_queue,
+		config->kernels[1], 0, NULL, &monitor_event);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot launch monitoring GPU kernel: %s\n",
@@ -125,11 +152,24 @@ int main(int argc, char* argv[])
 	}
 	
 	// Execute target GPU kernel.
-	gpu_kernel<<<1, 1, 1, cpu.stream>>>(
-		gpu.data, size, npasses, gpu.lock,
-		gpu.finish, gpu.maxidx, gpu.maxval);
-	custat = cudaGetLastError();
-	if (custat != cudaSuccess)
+	cl_event target_event;
+	clstat = clSetKernelArg(
+		config->kernels[0], 0, sizeof(cl_mem), &gpu.data);
+	clstat = clSetKernelArg(
+		config->kernels[0], 1, sizeof(int), &size);
+	clstat = clSetKernelArg(
+		config->kernels[0], 2, sizeof(int), &npasses);
+	clstat = clSetKernelArg(
+		config->kernels[0], 3, sizeof(cl_mem), &gpu.lock);
+	clstat = clSetKernelArg(
+		config->kernels[0], 4, sizeof(cl_mem), &gpu.finish);
+	clstat = clSetKernelArg(
+		config->kernels[0], 5, sizeof(cl_mem), &gpu.maxidx);
+	clstat = clSetKernelArg(
+		config->kernels[0], 6, sizeof(cl_mem), &gpu.maxval);
+	clstat = clEnqueueTask(target_queue,
+		config->kernels[0], 0, NULL, &target_event);
+	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot launch target GPU kernel: %s\n",
 			get_error_string(clstat));
@@ -141,10 +181,10 @@ int main(int argc, char* argv[])
 	while (1)
 	{
 		// Synchronize with monitoring kernel.
-		custat = cudaStreamSynchronize(gpu.stream);
-		if (custat != cudaSuccess)
+		clstat = clWaitForEvents(1, &monitor_event);
+		if (clstat != CL_SUCCESS)
 		{
-			fprintf(stderr, "Cannot synchronize GPU kernel: %s\n",
+			fprintf(stderr, "Cannot synchronize GPU monitor kernel: %s\n",
 				get_error_string(clstat));
 			return 1;
 		}
@@ -171,12 +211,12 @@ int main(int argc, char* argv[])
 		printf("max value = %f @ index = %d\n", maxval, maxidx);*/
 		
                 // Check if target GPU kernel has finished.
-                if (*gpu.finish == 1) break;
+                if (*cpu.finish == 1) break;
 	
 		// Again, launch GPU monitoring kernel.
-		gpu_monitor<<<1, 1, 1, gpu.stream>>>(gpu.lock);
-		custat = cudaGetLastError();
-		if (custat != cudaSuccess)
+		clstat = clEnqueueTask(monitor_queue,
+			config->kernels[1], 0, NULL, &monitor_event);
+		if (clstat != CL_SUCCESS)
 		{
 			fprintf(stderr, "Cannot launch monitoring GPU kernel: %s\n",
 				get_error_string(clstat));
@@ -186,6 +226,15 @@ int main(int argc, char* argv[])
 		istep++;
 		printf("step %d\n", istep);
 #endif
+	}
+
+	// Synchronize with target kernel.
+	clstat = clWaitForEvents(1, &target_event);
+	if (clstat != CL_SUCCESS)
+	{
+		fprintf(stderr, "Cannot synchronize GPU target kernel: %s\n",
+			get_error_string(clstat));
+		return 1;
 	}
 
 	clstat = clReleaseMemObject(gpu.data);	
@@ -223,6 +272,7 @@ int main(int argc, char* argv[])
 			get_error_string(clstat));
 		return 1;
 	}
+	free(cpu.finish);
 
 	return 0;
 }

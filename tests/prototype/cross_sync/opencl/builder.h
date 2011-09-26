@@ -32,7 +32,8 @@ typedef struct
 }
 builder_config_t;
 
-builder_config_t* builder_init(const char* filename, int nkernels);
+builder_config_t* builder_init(
+	const char* filename, const char* options, int nkernels);
 
 int builder_deinit(builder_config_t* config);
 

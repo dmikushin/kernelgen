@@ -1,4 +1,4 @@
-CCOMP = gcc -g -std=c99 -I/opt/cuda/include
+CCOMP = gcc -g -std=c99 -I/opt/cuda/include -DVERBOSE
 
 OBJECTS = builder.o error.o cross_sync.o
 

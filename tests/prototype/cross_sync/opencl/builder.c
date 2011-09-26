@@ -76,7 +76,8 @@ int builder_deinit(builder_config_t* config)
 	return 0;
 }
 
-builder_config_t* builder_init(const char* filename, int nkernels)
+builder_config_t* builder_init(
+	const char* filename, const char* options, int nkernels)
 {
 	char* source = NULL;
 
@@ -94,6 +95,17 @@ builder_config_t* builder_init(const char* filename, int nkernels)
 			(int)status, get_error_string(status));
 		goto failure;
 	}
+
+	size_t length;
+	status = clGetPlatformInfo(
+		config->id, CL_PLATFORM_VENDOR, 0, NULL, &length);
+	char* name = (char*)malloc(sizeof(char) * (length + 1));
+	status = clGetPlatformInfo(
+		config->id, CL_PLATFORM_VENDOR, length,
+		name, NULL);
+	name[length] = '\0';
+	printf("Using platform %s\n", name);
+	free(name);
 
 	// Get OpenCL devices count.
 	status = clGetDeviceIDs(config->id, CL_DEVICE_TYPE_ALL,
@@ -145,7 +157,7 @@ builder_config_t* builder_init(const char* filename, int nkernels)
 	}
 
 	status = clBuildProgram(config->program, 1,
-		&config->device, NULL, NULL, NULL);
+		&config->device, options, NULL, NULL);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clBuildProgram returned %d: %s\n",

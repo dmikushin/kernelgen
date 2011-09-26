@@ -20,7 +20,7 @@
  */
 
 __kernel void gpu_kernel(
-	__global float* data, size_t size, int npasses,
+	__global float* data, int size, int npasses,
 	__global int* lock, __global int* finish,
 	__global int* pmaxidx, __global float* pmaxval)
 {
