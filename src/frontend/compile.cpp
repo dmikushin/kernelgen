@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <string.h>
 
+#include "llvm/Constants.h"
 #include "llvm/Instructions.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
@@ -203,9 +204,10 @@ int compile(list<string> args, list<string> kgen_args,
 	// 5) Replace call to loop functions with call to launcher.
 	//
 	Function* launch = Function::Create(
-		TypeBuilder<int(const char*, int, ...), false>::get(context),
+		TypeBuilder<void(types::i<8>*, types::i<32>, ...), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch_", m2);
 	Module::FunctionListType& funcList2 = m2->getFunctionList();
+	//Module::GlobalListType& globals = m2->getGlobalList();
 	for (Module::iterator it2 = funcList2.begin();
 		it2 != funcList2.end(); it2++)
 	{
@@ -243,15 +245,55 @@ int compile(list<string> args, list<string> kgen_args,
 			for (Function::iterator BB = F->begin(); (BB != F->end()) && !found; BB++)
 				for (BasicBlock::iterator I = BB->begin(); I != BB->end(); I++)
 				{
+					// Check if instruction in focus is a call.
 					CallInst* call = dyn_cast<CallInst>(cast<Value>(I));
 					if (!call) continue;
+					
+					// Check if function is called (needs -instcombine pass).
 					Function* callee = call->getCalledFunction();
 					if (!callee && !callee->isDeclaration()) continue;
 					if (callee->getName() != func2.getName()) continue;
 
-					//ArrayRef<Value*> args;
-					//CallInst* newcall = CallInst::Create(launch, args);
-					//*call = *newcall;
+					// Start forming new function call argument list
+					// by copying the list of original function call.
+					SmallVector<Value*, 16> callargs(call->op_begin(), call->op_end());
+					
+					// Insert first extra argument - the number of
+					// original call arguments.
+					callargs.insert(callargs.begin(),
+						ConstantInt::get(Type::getInt32Ty(context),
+							call->getNumArgOperands()));
+					
+					// Create a constant array holding original called
+					// function name.
+					Constant* name = ConstantArray::get(
+						context, callee->getName(), true);
+					
+					// Create global variable to hold the function name
+					// string.
+					GlobalVariable* GV = new GlobalVariable(*m2, name->getType(),
+						true, GlobalValue::PrivateLinkage, name,
+						callee->getName(), 0, false);
+					
+					// Convert array to pointer using GEP construct.
+					std::vector<Constant*> gep_args(2,
+				        	Constant::getNullValue(Type::getInt32Ty(F->getContext())));
+				        
+					// Insert second extra argument - the pointer to the
+					// original function string name.
+					callargs.insert(callargs.begin()
+						ConstantExpr::getGetElementPtr(GV, GEPargs));
+					
+					// Create new function call with new call arguments
+					// and copy old call properties.
+					CallInst* newcall = CallInst::Create(launch, callargs, "", call);
+					newcall->takeName(call);
+					newcall->setCallingConv(call->getCallingConv());
+					newcall->setAttributes(call->getAttributes());
+					newcall->setDebugLoc(call->getDebugLoc());
+					
+					// Replace old call with new one.
+					call->replaceAllUsesWith(newcall);
 					
 					found = true;
 					break;
@@ -294,6 +336,10 @@ int compile(list<string> args, list<string> kgen_args,
 		int status = execute(merge, merge_args, "", NULL, NULL);
 		if (status) return status;
 	}
+
+	raw_ostream* Out = &dbgs();
+	(*Out) << (*m2);
+
 
 	delete m1, m2, buffer1, buffer2;
 
