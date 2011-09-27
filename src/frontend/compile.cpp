@@ -37,6 +37,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
+#include "llvm/Support/PassManagerBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Transforms/IPO.h"
@@ -89,13 +90,14 @@ int compile(list<string> args, list<string> kgen_args,
 	// Check if output file is specified in the command line.
 	// Replace or add output to the temporary file.
 	//
+	int bin_fd = -1;
 	string bin_output;
 	{
 		char* c_bin_output = NULL;
 		bin_output = fileprefix + "XXXXXX";
 		c_bin_output = new char[bin_output.size() + 1];
 		strcpy(c_bin_output, bin_output.c_str());
-		int fd = mkstemp(c_bin_output);
+		bin_fd = mkstemp(c_bin_output);
 		bin_output = c_bin_output;
 		delete[] c_bin_output;
 	}
@@ -191,7 +193,6 @@ int compile(list<string> args, list<string> kgen_args,
 	{
 		PassManager manager;
 		manager.add(createInstructionCombiningPass());
-		manager.add(createFunctionInliningPass(numeric_limits<int>::max()));
 		manager.run(*m2);
 	}
 	{
@@ -207,7 +208,6 @@ int compile(list<string> args, list<string> kgen_args,
 		TypeBuilder<void(types::i<8>*, types::i<32>, ...), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch_", m2);
 	Module::FunctionListType& funcList2 = m2->getFunctionList();
-	//Module::GlobalListType& globals = m2->getGlobalList();
 	for (Module::iterator it2 = funcList2.begin();
 		it2 != funcList2.end(); it2++)
 	{
@@ -256,11 +256,11 @@ int compile(list<string> args, list<string> kgen_args,
 
 					// Start forming new function call argument list
 					// by copying the list of original function call.
-					SmallVector<Value*, 16> callargs(call->op_begin(), call->op_end());
+					SmallVector<Value*, 16> call_args(call->op_begin(), call->op_end());
 					
 					// Insert first extra argument - the number of
 					// original call arguments.
-					callargs.insert(callargs.begin(),
+					call_args.insert(call_args.begin(),
 						ConstantInt::get(Type::getInt32Ty(context),
 							call->getNumArgOperands()));
 					
@@ -281,28 +281,44 @@ int compile(list<string> args, list<string> kgen_args,
 				        
 					// Insert second extra argument - the pointer to the
 					// original function string name.
-					callargs.insert(callargs.begin()
-						ConstantExpr::getGetElementPtr(GV, GEPargs));
+					call_args.insert(call_args.begin(),
+						ConstantExpr::getGetElementPtr(GV, gep_args));
 					
 					// Create new function call with new call arguments
 					// and copy old call properties.
-					CallInst* newcall = CallInst::Create(launch, callargs, "", call);
+					CallInst* newcall = CallInst::Create(launch, call_args, "", call);
 					newcall->takeName(call);
 					newcall->setCallingConv(call->getCallingConv());
 					newcall->setAttributes(call->getAttributes());
 					newcall->setDebugLoc(call->getDebugLoc());
 					
 					// Replace old call with new one.
-					call->replaceAllUsesWith(newcall);
+					call->eraseFromParent();
 					
 					found = true;
 					break;
 				}
 	}
+
+	//
+	// 6) Apply optimization passes to the resulting common
+	// module.
+	//
+	{
+		PassManager manager;
+		manager.add(createLowerSetJmpPass());
+		PassManagerBuilder builder;
+		builder.Inliner = createFunctionInliningPass(numeric_limits<int>::max());
+		builder.OptLevel = 3;
+		builder.DisableSimplifyLibCalls = true;
+		builder.populateModulePassManager(manager);
+		manager.run(*m2);
+	}
 	
 	//
-	// 6) Embed the resulting module into object file.
+	// 7) Embed the resulting module into object file.
 	//
+	int ir_fd = -1;
 	string ir_output;
 	{
 		string ir_string;
@@ -311,15 +327,15 @@ int compile(list<string> args, list<string> kgen_args,
 		ir_output = fileprefix + "XXXXXX";
 		char* c_ir_output = new char[ir_output.size() + 1];
 		strcpy(c_ir_output, ir_output.c_str());
-		int fd = mkstemp(c_ir_output);
+		ir_fd = mkstemp(c_ir_output);
 		ir_output = c_ir_output;
 		delete[] c_ir_output;
 		string ir_symname = "__kernelgen_" + string(input);
-		util_elf_write(fd, arch, ir_symname.c_str(), ir_string.c_str(), ir_string.size());
+		util_elf_write(ir_fd, arch, ir_symname.c_str(), ir_string.c_str(), ir_string.size() + 1);
 	}
 	
 	//
-	// 7) Merge object files with binary code and IR.
+	// 8) Merge object files with binary code and IR.
 	//
 	{
 		merge_args.push_back(output);
@@ -336,10 +352,12 @@ int compile(list<string> args, list<string> kgen_args,
 		int status = execute(merge, merge_args, "", NULL, NULL);
 		if (status) return status;
 	}
+	
+	if (bin_fd >= 0) close(bin_fd);
+	if (ir_fd >= 0) close(ir_fd);
 
-	raw_ostream* Out = &dbgs();
-	(*Out) << (*m2);
-
+	//raw_ostream* Out = &dbgs();
+	//(*Out) << (*m2);
 
 	delete m1, m2, buffer1, buffer2;
 

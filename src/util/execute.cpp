@@ -130,8 +130,11 @@ int execute(string command, list<string> args,
 	}
 	
 	// Write to input stream.
-	if (in.size()) write(infp, in.c_str(), in.size());
-	close(infp);
+	if (in.size())
+	{
+		write(infp, in.c_str(), in.size());
+		close(infp);
+	}
 
 	// Wait for child process to finish.
 	int status;
@@ -157,6 +160,7 @@ int execute(string command, list<string> args,
 		while (length == capacity);
 		close(errfp);
 		err->assign(cerr, length);
+		if (cerr) free(cerr);
 	}
 
 	// Read output stream.
@@ -174,6 +178,7 @@ int execute(string command, list<string> args,
 		while (length == capacity);
 		close(outfp);
 		out->assign(cout, length);
+		if (cout) free(cout);
 	}
 	
 	return 0;
