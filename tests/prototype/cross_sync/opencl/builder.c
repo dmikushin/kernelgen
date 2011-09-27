@@ -180,7 +180,7 @@ builder_config_t* builder_init(
 		nkernels, config->kernels, &nkernels_out);
 	if (status != CL_SUCCESS)
 	{
-		fprintf(stderr, "clCreateKernel returned %s: %s\n",
+		fprintf(stderr, "clCreateKernel returned %d: %s\n",
 			(int)status, get_error_string(status));
 		goto failure;
 	}

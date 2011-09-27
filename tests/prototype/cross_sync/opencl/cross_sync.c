@@ -98,7 +98,8 @@ int main(int argc, char* argv[])
 
 	cpu.finish = (int*)malloc(sizeof(int));
 	gpu.finish = clCreateBuffer(config->context,
-		CL_MEM_USE_HOST_PTR, sizeof(int), cpu.finish, &clstat);	
+		CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR,
+		sizeof(int), cpu.finish, &clstat);	
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create GPU finish buffer: %s\n",
