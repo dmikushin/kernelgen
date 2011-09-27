@@ -26,9 +26,11 @@ __kernel void gpu_kernel(
 	__global int* lock, __global int* finish,
 	__global int* pmaxidx, __global float* pmaxval)
 {
-	/**finish = 0;
-
-	for (int ipass = 0; ipass < npasses; ipass++)
+	*finish = 0;
+#ifdef VERBOSE
+	printf("gpu kernel starting, size = %d, npasses = %d\n", size, npasses);
+#endif
+	/*for (int ipass = 0; ipass < npasses; ipass++)
 	{
 		// Run some time-consuming work.
 		for (int i = 1; i < size; i++)
@@ -51,31 +53,40 @@ __kernel void gpu_kernel(
 		
 		// Lock thread.
 		atomic_cmpxchg(lock, 0, 1);
-
+#ifdef VERBOSE
+		printf("gpu kernel acquires lock\n");
+#endif
 		// Wait for unlock.
 		while (atomic_cmpxchg(lock, 0, 0)) continue;
-	}
+	}*/
 
 	// Lock thread.
 	atomic_cmpxchg(lock, 0, 1);
-
-	*finish = 1;*/
+#ifdef VERBOSE	
+	printf("gpu kernel finishing\n");
+#endif
+	*finish = 1;
 }
 
 __kernel void gpu_monitor(__global int* lock)
 {
 #ifdef VERBOSE
-	printf("gpu monitor starting\n");
+	printf("gpu monitor starting, lock = %d\n", *lock);
 #endif
 	// Unlock blocked gpu kernel associated
 	// with lock. It simply waits for lock
 	// to be dropped to zero.
-	//atomic_cmpxchg(lock, 1, 0);
-
+	atomic_cmpxchg(lock, 1, 0);
+#ifdef VERBOSE
+	printf("gpu monitor releases lock, lock = %d\n", *lock);
+#endif
 	// Wait for lock to be set.
 	// When lock is set this thread exits,
 	// and CPU monitor thread gets notified
 	// by synchronization.
 	//while (!atomic_cmpxchg(lock, 1, 1)) continue;
+#ifdef VERBOSE
+	printf("gpu monitor finishing\n");
+#endif
 }
 

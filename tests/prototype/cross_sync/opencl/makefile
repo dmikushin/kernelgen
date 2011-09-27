@@ -5,7 +5,7 @@ OBJECTS = builder.o error.o cross_sync.o
 all: cross_sync
 
 cross_sync: $(OBJECTS)
-	$(CCOMP) $(OBJECTS) -o $@ -L/opt/AMDAPP/lib/x86 -L/opt/AMDAPP/lib/x86_64 -lOpenCL
+	$(CCOMP) $(OBJECTS) -o $@ -L/opt/AMDAPP/lib/x86_64 -L/opt/AMDAPP/lib/x86 -lOpenCL -lamdocl64
 
 builder.o: builder.c
 	$(CCOMP) -c $< -o $@

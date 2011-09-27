@@ -20,12 +20,13 @@
  */
 
 #include <CL/cl.h>
+#include <CL/cl_ext.h>
 
 typedef struct
 {
 	cl_platform_id id;
-	int opencl_devices_count;
-	cl_device_id device;
+	int count;
+	cl_device_id devices[3];
 	cl_context context;
 	cl_program program;
 	cl_kernel* kernels;

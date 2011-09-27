@@ -27,6 +27,19 @@
 #include "builder.h"
 #include "error.h"
 
+// Init extension function pointers
+#define INIT_CL_EXT_FCN_PTR(name) \
+	if(!pfn_##name) { \
+		pfn_##name = (name##_fn) clGetExtensionFunctionAddress(#name); \
+		if(!pfn_##name) { \
+			fprintf(stderr, "Cannot get pointer to ext. fcn. " #name); \
+		goto failure; \
+	} \
+}
+
+static clCreateSubDevicesEXT_fn pfn_clCreateSubDevicesEXT = NULL;
+static clReleaseDeviceEXT_fn pfn_clReleaseDeviceEXT = NULL;
+
 // Load contents of the specified text file.
 int load_source(const char* filename, char** source, size_t* szsource)
 {
@@ -79,6 +92,10 @@ int builder_deinit(builder_config_t* config)
 builder_config_t* builder_init(
 	const char* filename, const char* options, int nkernels)
 {
+	// Initialize clCreateSubDevicesEXT and clReleaseDeviceEXT function pointers
+	INIT_CL_EXT_FCN_PTR(clCreateSubDevicesEXT);
+	INIT_CL_EXT_FCN_PTR(clReleaseDeviceEXT);
+
 	char* source = NULL;
 
 	// Create builder config structure.
@@ -109,14 +126,14 @@ builder_config_t* builder_init(
 
 	// Get OpenCL devices count.
 	status = clGetDeviceIDs(config->id, CL_DEVICE_TYPE_ALL,
-		0, NULL, &config->opencl_devices_count);
+		0, NULL, &config->count);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clGetDeviceIDs returned %d: %s\n",
 			(int)status, get_error_string(status));
 		goto failure;
 	}
-	if (config->opencl_devices_count < 1)
+	if (config->count < 1)
 	{
 		fprintf(stderr, "No OpenCL devices found\n");
 		goto failure;
@@ -124,17 +141,54 @@ builder_config_t* builder_init(
 
 	// Get OpenCL device.
 	status = clGetDeviceIDs(config->id, CL_DEVICE_TYPE_ALL,
-		1, &config->device, NULL);
+		1, config->devices, NULL);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clGetDeviceIDs returned %d: %s\n",
 			(int)status, get_error_string(status));
 		goto failure;
 	}
-	
+
+	// Get two OpenCL subdevices (fission).
+	cl_device_partition_property_ext part_props[3] =
+	{
+		CL_DEVICE_PARTITION_EQUALLY_EXT, 
+		1, 
+		CL_PROPERTIES_LIST_END_EXT
+	};
+	cl_uint ret_count = 0;
+	status = pfn_clCreateSubDevicesEXT(
+		config->devices[0], part_props, 0,
+		NULL, &ret_count);
+	if (status != CL_SUCCESS)
+	{
+		fprintf(stderr, "clCreateSubDevicesEXT1 returned %d: %s\n",
+			(int)status, get_error_string(status));
+		goto failure;
+	}
+	if (ret_count < 2)
+	{
+		fprintf(stderr, "Not enough subdevices available: %d\n", ret_count);
+		goto failure;
+	}
+	status = pfn_clCreateSubDevicesEXT(
+		config->devices[0], part_props, 2,
+		config->devices + 1, &ret_count);
+	if (status != CL_SUCCESS)
+	{
+		fprintf(stderr, "clCreateSubDevicesEXT returned %d: %s\n",
+			(int)status, get_error_string(status));
+		goto failure;
+	}
+	if (ret_count != 2)
+	{
+		fprintf(stderr, "Not all subdevices are available\n");
+		goto failure;
+	}
+
 	// Create device context.
 	config->context = clCreateContext(
-		NULL, 1, &config->device, NULL, NULL, &status);
+		NULL, 1, &config->devices[0], NULL, NULL, &status);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clCreateContext returned %d: %s\n",
@@ -157,13 +211,13 @@ builder_config_t* builder_init(
 	}
 
 	status = clBuildProgram(config->program, 1,
-		&config->device, options, NULL, NULL);
+		&config->devices[0], options, NULL, NULL);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clBuildProgram returned %d: %s\n",
 			(int)status, get_error_string(status));
 		status = clGetProgramBuildInfo(
-			config->program, config->device,
+			config->program, config->devices[0],
 			CL_PROGRAM_BUILD_LOG, szsource, source, NULL);
 		if (status != CL_SUCCESS)
 			fprintf(stderr, "clGetProgramBuildInfo returned %d: %s\n",

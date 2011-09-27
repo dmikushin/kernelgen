@@ -98,8 +98,7 @@ int main(int argc, char* argv[])
 
 	cpu.finish = (int*)malloc(sizeof(int));
 	gpu.finish = clCreateBuffer(config->context,
-		CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR,
-		sizeof(int), cpu.finish, &clstat);	
+		CL_MEM_USE_HOST_PTR, sizeof(int), cpu.finish, &clstat);	
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create GPU finish buffer: %s\n",
@@ -113,7 +112,8 @@ int main(int argc, char* argv[])
 	// target GPU kernel.
 	int one = 1;
 	gpu.lock = clCreateBuffer(config->context,
-		CL_MEM_READ_WRITE, sizeof(int), &one, &clstat);
+		CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+		sizeof(int), &one, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create GPU lock buffer: %s\n",
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
 
 	// Create command queues.
 	cl_command_queue monitor_queue = clCreateCommandQueue(
-		config->context, config->device, 0, &clstat);
+		config->context, config->devices[1], 0, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create queue for monitor GPU kernel: %s\n",
@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	cl_command_queue target_queue = clCreateCommandQueue(
-		config->context, config->device, 0, &clstat);
+		config->context, config->devices[2], 0, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create queue for target GPU kernel: %s\n",
@@ -143,8 +143,10 @@ int main(int argc, char* argv[])
 	cl_event monitor_event;
 	clstat = clSetKernelArg(
 		config->kernels[1], 0, sizeof(cl_mem), &gpu.lock);
-	clstat = clEnqueueTask(monitor_queue,
-		config->kernels[1], 0, NULL, &monitor_event);
+	const size_t single = 1;
+	clstat = clEnqueueNDRangeKernel(monitor_queue,
+		config->kernels[1], 1, NULL, &single, &single, 
+		0, NULL, &monitor_event);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot launch monitoring GPU kernel: %s\n",
@@ -168,8 +170,9 @@ int main(int argc, char* argv[])
 		config->kernels[0], 5, sizeof(cl_mem), &gpu.maxidx);
 	clstat = clSetKernelArg(
 		config->kernels[0], 6, sizeof(cl_mem), &gpu.maxval);
-	clstat = clEnqueueTask(target_queue,
-		config->kernels[0], 0, NULL, &target_event);
+	clstat = clEnqueueNDRangeKernel(target_queue,
+		config->kernels[0], 1, NULL, &single, &single, 
+		0, NULL, &target_event);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot launch target GPU kernel: %s\n",
