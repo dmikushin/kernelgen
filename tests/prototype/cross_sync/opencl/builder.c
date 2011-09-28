@@ -27,19 +27,6 @@
 #include "builder.h"
 #include "error.h"
 
-// Init extension function pointers
-#define INIT_CL_EXT_FCN_PTR(name) \
-	if(!pfn_##name) { \
-		pfn_##name = (name##_fn) clGetExtensionFunctionAddress(#name); \
-		if(!pfn_##name) { \
-			fprintf(stderr, "Cannot get pointer to ext. fcn. " #name); \
-		goto failure; \
-	} \
-}
-
-static clCreateSubDevicesEXT_fn pfn_clCreateSubDevicesEXT = NULL;
-static clReleaseDeviceEXT_fn pfn_clReleaseDeviceEXT = NULL;
-
 // Load contents of the specified text file.
 int load_source(const char* filename, char** source, size_t* szsource)
 {
@@ -89,44 +76,15 @@ int builder_deinit(builder_config_t* config)
 	return 0;
 }
 
-builder_config_t* builder_init(
-	const char* filename, const char* options, int nkernels)
+static int device_init(
+	const char* filename, const char* options, int nkernels,
+	device_config_t* config, cl_platform_id id, cl_device_type type)
 {
-	// Initialize clCreateSubDevicesEXT and clReleaseDeviceEXT function pointers
-	INIT_CL_EXT_FCN_PTR(clCreateSubDevicesEXT);
-	INIT_CL_EXT_FCN_PTR(clReleaseDeviceEXT);
-
 	char* source = NULL;
 
-	// Create builder config structure.
-	builder_config_t* config =
-		(builder_config_t*)malloc(sizeof(builder_config_t) +
-			sizeof(cl_kernel) * nkernels);
-	config->kernels = (cl_kernel*)(config + 1);
-
-	// Get OpenCL platform ID.
-	cl_int status = clGetPlatformIDs(1, &config->id, NULL);
-	if (status != CL_SUCCESS)
-	{
-		fprintf(stderr, "clGetPlatformIDs returned %d: %s\n",
-			(int)status, get_error_string(status));
-		goto failure;
-	}
-
-	size_t length;
-	status = clGetPlatformInfo(
-		config->id, CL_PLATFORM_VENDOR, 0, NULL, &length);
-	char* name = (char*)malloc(sizeof(char) * (length + 1));
-	status = clGetPlatformInfo(
-		config->id, CL_PLATFORM_VENDOR, length,
-		name, NULL);
-	name[length] = '\0';
-	printf("Using platform %s\n", name);
-	free(name);
-
 	// Get OpenCL devices count.
-	status = clGetDeviceIDs(config->id, CL_DEVICE_TYPE_ALL,
-		0, NULL, &config->count);
+	cl_int status = clGetDeviceIDs(
+		id, type, 0, NULL, &config->count);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clGetDeviceIDs returned %d: %s\n",
@@ -140,55 +98,18 @@ builder_config_t* builder_init(
 	}
 
 	// Get OpenCL device.
-	status = clGetDeviceIDs(config->id, CL_DEVICE_TYPE_ALL,
-		1, config->devices, NULL);
+	status = clGetDeviceIDs(
+		id, type, 1, &config->device, NULL);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clGetDeviceIDs returned %d: %s\n",
 			(int)status, get_error_string(status));
 		goto failure;
 	}
-
-	// Get two OpenCL subdevices (fission).
-	cl_device_partition_property_ext part_props[3] =
-	{
-		CL_DEVICE_PARTITION_EQUALLY_EXT, 
-		1, 
-		CL_PROPERTIES_LIST_END_EXT
-	};
-	cl_uint ret_count = 0;
-	status = pfn_clCreateSubDevicesEXT(
-		config->devices[0], part_props, 0,
-		NULL, &ret_count);
-	if (status != CL_SUCCESS)
-	{
-		fprintf(stderr, "clCreateSubDevicesEXT1 returned %d: %s\n",
-			(int)status, get_error_string(status));
-		goto failure;
-	}
-	if (ret_count < 2)
-	{
-		fprintf(stderr, "Not enough subdevices available: %d\n", ret_count);
-		goto failure;
-	}
-	status = pfn_clCreateSubDevicesEXT(
-		config->devices[0], part_props, 2,
-		config->devices + 1, &ret_count);
-	if (status != CL_SUCCESS)
-	{
-		fprintf(stderr, "clCreateSubDevicesEXT returned %d: %s\n",
-			(int)status, get_error_string(status));
-		goto failure;
-	}
-	if (ret_count != 2)
-	{
-		fprintf(stderr, "Not all subdevices are available\n");
-		goto failure;
-	}
-
+	
 	// Create device context.
 	config->context = clCreateContext(
-		NULL, 1, &config->devices[0], NULL, NULL, &status);
+		NULL, 1, &config->device, NULL, NULL, &status);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clCreateContext returned %d: %s\n",
@@ -211,13 +132,13 @@ builder_config_t* builder_init(
 	}
 
 	status = clBuildProgram(config->program, 1,
-		&config->devices[0], options, NULL, NULL);
+		&config->device, options, NULL, NULL);
 	if (status != CL_SUCCESS)
 	{
 		fprintf(stderr, "clBuildProgram returned %d: %s\n",
 			(int)status, get_error_string(status));
 		status = clGetProgramBuildInfo(
-			config->program, config->devices[0],
+			config->program, config->device,
 			CL_PROGRAM_BUILD_LOG, szsource, source, NULL);
 		if (status != CL_SUCCESS)
 			fprintf(stderr, "clGetProgramBuildInfo returned %d: %s\n",
@@ -228,7 +149,6 @@ builder_config_t* builder_init(
 	}
 
 	// Create OpenCL kernels.
-	config->kernels = (cl_kernel*)malloc(sizeof(cl_kernel) * nkernels);
 	cl_int nkernels_out;
 	status = clCreateKernelsInProgram(config->program,
 		nkernels, config->kernels, &nkernels_out);
@@ -246,11 +166,54 @@ builder_config_t* builder_init(
 	}
 
 	free(source);
-	return config;
+	return 0;
 
 failure:
-	free(config);
 	if (source) free(source);
+	return 1;
+}
+
+builder_config_t* builder_init(
+	const char* filename, const char* options, int nkernels)
+{
+	// Create builder config structure.
+	builder_config_t* config =
+		(builder_config_t*)malloc(sizeof(builder_config_t) +
+			sizeof(cl_kernel) * nkernels * 2);
+	config->cpu.kernels = (cl_kernel*)(config + 1);
+	config->gpu.kernels = config->cpu.kernels + 2;
+
+	// Get OpenCL platform ID.
+	cl_int status = clGetPlatformIDs(1, &config->id, NULL);
+	if (status != CL_SUCCESS)
+	{
+		fprintf(stderr, "clGetPlatformIDs returned %d: %s\n",
+			(int)status, get_error_string(status));
+		goto failure;
+	}
+
+	size_t length;
+	status = clGetPlatformInfo(
+		config->id, CL_PLATFORM_VENDOR, 0, NULL, &length);
+	char* name = (char*)malloc(sizeof(char) * (length + 1));
+	status = clGetPlatformInfo(
+		config->id, CL_PLATFORM_VENDOR, length,
+		name, NULL);
+	name[length] = '\0';
+	printf("Using platform %s\n", name);
+	free(name);
+
+	if (device_init(filename, options, nkernels,
+		&config->cpu, config->id, CL_DEVICE_TYPE_CPU))
+		goto failure;
+	if (device_init(filename, options, nkernels,
+		&config->gpu, config->id, CL_DEVICE_TYPE_GPU))
+		goto failure;
+
+	return config;
+	
+failure:
+	free(config);
 	return NULL;
 }
 

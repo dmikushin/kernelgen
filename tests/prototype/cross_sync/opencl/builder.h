@@ -24,12 +24,18 @@
 
 typedef struct
 {
-	cl_platform_id id;
 	int count;
-	cl_device_id devices[3];
+	cl_device_id device;
 	cl_context context;
 	cl_program program;
 	cl_kernel* kernels;
+}
+device_config_t;
+
+typedef struct
+{
+	cl_platform_id id;
+	device_config_t cpu, gpu;
 }
 builder_config_t;
 

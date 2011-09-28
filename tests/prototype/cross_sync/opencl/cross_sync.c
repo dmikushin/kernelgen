@@ -26,14 +26,19 @@
 #include "builder.h"
 #include "error.h"
 
-struct params_t
+struct cpu_params_t
 {
 	float* data;
-	int* finish;
 }
 cpu;
 
-struct gpu_params_t
+struct monitor_params_t
+{
+	cl_mem lock;
+}
+monitor;
+
+struct target_params_t
 {
 	cl_mem data;
 	cl_mem maxidx;
@@ -41,7 +46,7 @@ struct gpu_params_t
 	cl_mem lock;
 	cl_mem finish;
 }
-gpu;
+target;
 
 int main(int argc, char* argv[])
 {
@@ -67,7 +72,7 @@ int main(int argc, char* argv[])
 		cpu.data[i] = rand() * dinvrandmax;
 
 	cl_int clstat = CL_SUCCESS;
-	gpu.data = clCreateBuffer(config->context,
+	target.data = clCreateBuffer(config->cpu.context,
 		CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
 		sizeof(float) * size, cpu.data, &clstat);
 	if (clstat != CL_SUCCESS)
@@ -78,7 +83,7 @@ int main(int argc, char* argv[])
 	}
 	free(cpu.data);
 
-	gpu.maxidx = clCreateBuffer(config->context,
+	target.maxidx = clCreateBuffer(config->cpu.context,
 		CL_MEM_READ_WRITE, sizeof(int), NULL, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
@@ -87,7 +92,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	gpu.maxval = clCreateBuffer(config->context,
+	target.maxval = clCreateBuffer(config->cpu.context,
 		CL_MEM_READ_WRITE, sizeof(float), NULL, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
@@ -96,9 +101,10 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	cpu.finish = (int*)malloc(sizeof(int));
-	gpu.finish = clCreateBuffer(config->context,
-		CL_MEM_USE_HOST_PTR, sizeof(int), cpu.finish, &clstat);	
+	int finish = 0;
+	target.finish = clCreateBuffer(config->cpu.context,
+		CL_MEM_USE_HOST_PTR,
+		sizeof(int), &finish, &clstat);	
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create GPU finish buffer: %s\n",
@@ -110,10 +116,17 @@ int main(int argc, char* argv[])
 	// Initial state is "locked". It will be dropped
 	// by gpu side monitor that must be started *before*
 	// target GPU kernel.
-	int one = 1;
-	gpu.lock = clCreateBuffer(config->context,
-		CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-		sizeof(int), &one, &clstat);
+	int lock = 1;
+	monitor.lock = clCreateBuffer(config->gpu.context,
+		CL_MEM_USE_HOST_PTR, sizeof(int), &lock, &clstat);
+	if (clstat != CL_SUCCESS)
+	{
+		fprintf(stderr, "Cannot create GPU lock buffer: %s\n",
+			get_error_string(clstat));
+		return 1;
+	}
+	target.lock = clCreateBuffer(config->cpu.context,
+		CL_MEM_USE_HOST_PTR, sizeof(int), &lock, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create GPU lock buffer: %s\n",
@@ -123,7 +136,7 @@ int main(int argc, char* argv[])
 
 	// Create command queues.
 	cl_command_queue monitor_queue = clCreateCommandQueue(
-		config->context, config->devices[1], 0, &clstat);
+		config->gpu.context, config->gpu.device, 0, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create queue for monitor GPU kernel: %s\n",
@@ -131,7 +144,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	cl_command_queue target_queue = clCreateCommandQueue(
-		config->context, config->devices[2], 0, &clstat);
+		config->cpu.context, config->cpu.device, 0, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create queue for target GPU kernel: %s\n",
@@ -142,10 +155,10 @@ int main(int argc, char* argv[])
 	// Launch GPU monitoring kernel.
 	cl_event monitor_event;
 	clstat = clSetKernelArg(
-		config->kernels[1], 0, sizeof(cl_mem), &gpu.lock);
+		config->gpu.kernels[1], 0, sizeof(cl_mem), &monitor.lock);
 	const size_t single = 1;
-	clstat = clEnqueueNDRangeKernel(monitor_queue,
-		config->kernels[1], 1, NULL, &single, &single, 
+	clstat = clEnqueueTask(
+		monitor_queue, config->gpu.kernels[1],
 		0, NULL, &monitor_event);
 	if (clstat != CL_SUCCESS)
 	{
@@ -157,25 +170,32 @@ int main(int argc, char* argv[])
 	// Execute target GPU kernel.
 	cl_event target_event;
 	clstat = clSetKernelArg(
-		config->kernels[0], 0, sizeof(cl_mem), &gpu.data);
+		config->cpu.kernels[0], 0, sizeof(cl_mem), &target.data);
 	clstat = clSetKernelArg(
-		config->kernels[0], 1, sizeof(int), &size);
+		config->cpu.kernels[0], 1, sizeof(int), &size);
 	clstat = clSetKernelArg(
-		config->kernels[0], 2, sizeof(int), &npasses);
+		config->cpu.kernels[0], 2, sizeof(int), &npasses);
 	clstat = clSetKernelArg(
-		config->kernels[0], 3, sizeof(cl_mem), &gpu.lock);
+		config->cpu.kernels[0], 3, sizeof(cl_mem), &target.lock);
 	clstat = clSetKernelArg(
-		config->kernels[0], 4, sizeof(cl_mem), &gpu.finish);
+		config->cpu.kernels[0], 4, sizeof(cl_mem), &target.finish);
 	clstat = clSetKernelArg(
-		config->kernels[0], 5, sizeof(cl_mem), &gpu.maxidx);
+		config->cpu.kernels[0], 5, sizeof(cl_mem), &target.maxidx);
 	clstat = clSetKernelArg(
-		config->kernels[0], 6, sizeof(cl_mem), &gpu.maxval);
-	clstat = clEnqueueNDRangeKernel(target_queue,
-		config->kernels[0], 1, NULL, &single, &single, 
+		config->cpu.kernels[0], 6, sizeof(cl_mem), &target.maxval);
+	clstat = clEnqueueTask(
+		target_queue, config->cpu.kernels[0],
 		0, NULL, &target_event);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot launch target GPU kernel: %s\n",
+			get_error_string(clstat));
+		return 1;
+	}
+	clstat = clFlush(target_queue);
+	if (clstat != CL_SUCCESS)
+	{
+		fprintf(stderr, "Cannot flush queue with target GPU kernel: %s\n",
 			get_error_string(clstat));
 		return 1;
 	}
@@ -215,11 +235,11 @@ int main(int argc, char* argv[])
 		printf("max value = %f @ index = %d\n", maxval, maxidx);*/
 		
                 // Check if target GPU kernel has finished.
-                if (*cpu.finish == 1) break;
+                if (finish == 1) break;
 	
 		// Again, launch GPU monitoring kernel.
 		clstat = clEnqueueTask(monitor_queue,
-			config->kernels[1], 0, NULL, &monitor_event);
+			config->gpu.kernels[1], 0, NULL, &monitor_event);
 		if (clstat != CL_SUCCESS)
 		{
 			fprintf(stderr, "Cannot launch monitoring GPU kernel: %s\n",
@@ -241,42 +261,41 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	clstat = clReleaseMemObject(gpu.data);	
+	clstat = clReleaseMemObject(target.data);	
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot release GPU data buffer: %s\n",
 			get_error_string(clstat));
 		return 1;
 	}
-	clstat = clReleaseMemObject(gpu.maxidx);
+	clstat = clReleaseMemObject(target.maxidx);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot release GPU maxidx buffer: %s\n",
 			get_error_string(clstat));
 		return 1;
 	}
-	clstat = clReleaseMemObject(gpu.maxval);
+	clstat = clReleaseMemObject(target.maxval);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot release GPU maxval buffer: %s\n",
 			get_error_string(clstat));
 		return 1;
 	}
-	clstat = clReleaseMemObject(gpu.finish);
+	clstat = clReleaseMemObject(target.finish);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot release GPU finish buffer: %s\n",
 			get_error_string(clstat));
 		return 1;
 	}
-	clstat = clReleaseMemObject(gpu.lock);
+	clstat = clReleaseMemObject(target.lock);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot release GPU lock buffer: %s\n",
 			get_error_string(clstat));
 		return 1;
 	}
-	free(cpu.finish);
 
 	return 0;
 }

@@ -28,9 +28,9 @@ __kernel void gpu_kernel(
 {
 	*finish = 0;
 #ifdef VERBOSE
-	printf("gpu kernel starting, size = %d, npasses = %d\n", size, npasses);
+	printf("gpu kernel starting, size = %d, npasses = %d, lock = %d\n", size, npasses, *lock);
 #endif
-	/*for (int ipass = 0; ipass < npasses; ipass++)
+	for (int ipass = 0; ipass < npasses; ipass++)
 	{
 		// Run some time-consuming work.
 		for (int i = 1; i < size; i++)
@@ -58,7 +58,7 @@ __kernel void gpu_kernel(
 #endif
 		// Wait for unlock.
 		while (atomic_cmpxchg(lock, 0, 0)) continue;
-	}*/
+	}
 
 	// Lock thread.
 	atomic_cmpxchg(lock, 0, 1);
