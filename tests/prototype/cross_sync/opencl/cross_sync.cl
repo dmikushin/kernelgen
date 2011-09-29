@@ -54,10 +54,14 @@ __kernel void gpu_kernel(
 		// Lock thread.
 		atomic_cmpxchg(lock, 0, 1);
 #ifdef VERBOSE
-		printf("gpu kernel acquires lock\n");
+		printf("gpu kernel acquires lock, lock = %d, address = %p\n", *lock, lock);
 #endif
 		// Wait for unlock.
-		while (atomic_cmpxchg(lock, 0, 0)) continue;
+		while (atomic_cmpxchg(lock, 0, 0))
+		{
+			printf("gpu kernel looping\n");
+			continue;
+		}
 	}
 
 	// Lock thread.
@@ -71,7 +75,7 @@ __kernel void gpu_kernel(
 __kernel void gpu_monitor(__global int* lock)
 {
 #ifdef VERBOSE
-	printf("gpu monitor starting, lock = %d\n", *lock);
+	printf("gpu monitor starting, lock = %d, address = %p\n", *lock, lock);
 #endif
 	// Unlock blocked gpu kernel associated
 	// with lock. It simply waits for lock
@@ -84,7 +88,11 @@ __kernel void gpu_monitor(__global int* lock)
 	// When lock is set this thread exits,
 	// and CPU monitor thread gets notified
 	// by synchronization.
-	//while (!atomic_cmpxchg(lock, 1, 1)) continue;
+	while (!atomic_cmpxchg(lock, 1, 1))
+	{
+		printf("gpu monitor looping\n");
+		continue;
+	}
 #ifdef VERBOSE
 	printf("gpu monitor finishing\n");
 #endif

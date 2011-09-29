@@ -118,21 +118,22 @@ int main(int argc, char* argv[])
 	// target GPU kernel.
 	int lock = 1;
 	monitor.lock = clCreateBuffer(config->gpu.context,
-		CL_MEM_USE_HOST_PTR, sizeof(int), &lock, &clstat);
+		CL_MEM_USE_HOST_PTR,
+		sizeof(int), &lock, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create GPU lock buffer: %s\n",
 			get_error_string(clstat));
 		return 1;
 	}
-	target.lock = clCreateBuffer(config->cpu.context,
-		CL_MEM_USE_HOST_PTR, sizeof(int), &lock, &clstat);
+	target.lock = monitor.lock;/* clCreateBuffer(config->cpu.context,
+		CL_MEM_ALLOC_HOST_PTR, sizeof(int), NULL, &clstat);
 	if (clstat != CL_SUCCESS)
 	{
 		fprintf(stderr, "Cannot create GPU lock buffer: %s\n",
 			get_error_string(clstat));
 		return 1;
-	}
+	}*/
 
 	// Create command queues.
 	cl_command_queue monitor_queue = clCreateCommandQueue(
