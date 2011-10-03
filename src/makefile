@@ -35,7 +35,7 @@ endif
 
 .PHONY: frontend util
 
-all: frontend runtime
+all: frontend
 
 frontend: util
 	cd frontend && $(MAKE)
@@ -50,6 +50,6 @@ clean:
 	cd frontend && $(MAKE) clean
 	cd runtime && $(MAKE) clean
 
-install: frontend runtime
+install: frontend
 	perl install $(ARCH) $(PREFIX) $(LIB32) $(LIB64) $(CUDA_PREFIX)
 

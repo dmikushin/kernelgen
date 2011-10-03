@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target fedora
+%define target debian
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -18,7 +18,7 @@
 %define debug 0
 
 # Rebuild everything or only kernelgen
-%define fullrepack 0
+%define fullrepack 1
 
 # The number of parallel compilation jobs
 %define njobs 24
@@ -32,7 +32,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r459.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r485.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -78,7 +78,7 @@ rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r459.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r485.tar.gz
 
 
 %if %fullrepack
@@ -860,57 +860,6 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtfastm
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtprec32.o
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtprec64.o
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtprec80.o
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.f90
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.kernelgen.mod
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib_kinds.kernelgen.mod
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/README
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/limits.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/linux/a.out.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/syslimits.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/abmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ammintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/avxintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/bmiintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/bmmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/cpuid.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/cross-stdarg.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/emmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/float.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/fma4intrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ia32intrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/immintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/iso646.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/lwpintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mf-runtime.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mm3dnow.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mm_malloc.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/nmmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/omp.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/pmmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/popcntintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/quadmath.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/quadmath_weak.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/smmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/ssp.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/stdio.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/string.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/unistd.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdarg.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdbool.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stddef.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdfix.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdint-gcc.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdint.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/tbmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/tmmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/unwind.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/varargs.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/wmmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/x86intrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/xmmintrin.h
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/xopintrin.h
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/fixinc_list
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/gsyslimits.h
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/include/README
@@ -1188,15 +1137,11 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/lib64/libssp.so.0
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib64/libssp.so.0.0.0
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib64/libssp_nonshared.a
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib64/libssp_nonshared.la
-rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/cc1
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/fixinc.sh
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/fixincl
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/mkheaders
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/mkinstalldirs
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.la
-rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so
-rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so.0
-rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so.0.0.0
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto-wrapper
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto1
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share
@@ -1229,6 +1174,7 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/%{lib64}/dragonegg.so
 /opt/kernelgen/%{lib64}/libkernelgen.so
 /opt/kernelgen/%{lib32}/libkernelgen.so
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/cc1
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/collect2
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/f951
 /opt/kernelgen/lib/libcloog-isl.so.2.0.0
@@ -1240,6 +1186,60 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/lib/libLLVM-3.0svn.so
 /opt/kernelgen/lib/libscoplib.so.0.0.0
 /opt/kernelgen/lib/LLVMPolly.so
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so.0
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so.0.0.0
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.f90
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.kernelgen.mod
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib_kinds.kernelgen.mod
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/README
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/limits.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/linux/a.out.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/syslimits.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/abmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ammintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/avxintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/bmiintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/bmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/cpuid.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/cross-stdarg.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/emmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/float.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/fma4intrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ia32intrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/immintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/iso646.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/lwpintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mf-runtime.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mm3dnow.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mm_malloc.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/nmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/omp.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/pmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/popcntintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/quadmath.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/quadmath_weak.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/smmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/ssp.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/stdio.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/string.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/unistd.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdarg.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdbool.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stddef.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdfix.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdint-gcc.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdint.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/tbmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/tmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/unwind.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/varargs.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/wmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/x86intrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/xmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/xopintrin.h
 
 %post
 echo "export PATH=\$PATH:/opt/kernelgen/bin" >>/etc/profile.d/kernelgen.sh
