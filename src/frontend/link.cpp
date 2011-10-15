@@ -146,7 +146,7 @@ finish:
 		PassManager manager;
 		manager.add(createLowerSetJmpPass());
 		PassManagerBuilder builder;
-		builder.Inliner = createFunctionInliningPass(numeric_limits<int>::max());
+		builder.Inliner = createFunctionInliningPass(2000);
 		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
