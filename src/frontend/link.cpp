@@ -31,8 +31,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ValueSymbolTable.h"
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
 #include "llvm/Linker.h"
@@ -48,6 +46,7 @@
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 using namespace std;
@@ -61,9 +60,10 @@ int link(list<string> args, list<string> kgen_args,
 	// case there is just compilation, not linking, but
 	// in a way we do not know how to handle.
 	//
-	for (list<string>::iterator it = args.begin(); it != args.end(); it++)
+	for (list<string>::iterator iarg = args.begin(), iearg = args.end();
+		iarg != iearg; iarg++)
 	{
-		const char* arg = (*it).c_str();
+		const char* arg = (*iarg).c_str();
 		if (!strcmp(arg, "-c"))
 			return execute(host_compiler, args, "", NULL, NULL);
 	}
@@ -76,9 +76,10 @@ int link(list<string> args, list<string> kgen_args,
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	Module composite("composite", context);
-	for (list<string>::iterator it1 = args.begin(); it1 != args.end(); it1++)
+	for (list<string>::iterator iarg = args.begin(), iearg = args.end();
+		iarg != iearg; iarg++)
 	{
-		const char* arg = (*it1).c_str();
+		const char* arg = (*iarg).c_str();
 		if (strcmp(arg + strlen(arg) - 2, ".o"))
 			continue;
 		
@@ -158,70 +159,66 @@ finish:
 		manager.run(composite);
 	}
 
-	//raw_ostream* Out = &dbgs();
-	//(*Out) << (composite);
-
-	ValueSymbolTable& VST = composite.getValueSymbolTable();
-	for (ValueSymbolTable::const_iterator I = VST.begin(), E = VST.end(); I != E; ++I)
-		cout << I->getKeyData() << endl;
-
 	//
-	// 4) Extract functions called over launcher to the separate
-	// modules.
+	// 4) Clone composite module and transform it into the
+	// "main" kernel, executing serial portions of code on
+	// device.
 	//
-	std::vector<GlobalValue*> kernels;
-	for (Module::iterator F = composite.begin(); F != composite.end(); F++)
-		for (Function::iterator BB = F->begin(); BB != F->end(); BB++)
-			for (BasicBlock::iterator I = BB->begin(); I != BB->end(); I++)
-			{
-				// Check if instruction in focus is a call.
-				CallInst* call = dyn_cast<CallInst>(cast<Value>(I));
-				if (!call) continue;
-				
-				// Check if function is called (needs -instcombine pass).
-				Function* callee = call->getCalledFunction();
-				if (!callee && !callee->isDeclaration()) continue;
-				if (callee->getName() != "kernelgen_launch") continue;
-				
-				// Get value of the function pointer argument.
-				StringRef name;
-				const ConstantExpr* ce;
-				GlobalValue* gval = NULL;
-				const GlobalVariable* gvar;
-				const ConstantArray* ca;
-				if (!call->getNumArgOperands()) continue;
-				ce = dyn_cast<ConstantExpr>(call->getArgOperand(0));
-				if (!ce) goto failure;
-				gvar = dyn_cast<GlobalVariable>(ce->getOperand(0));
-				if (!gvar) goto failure;
-				ca = dyn_cast<ConstantArray>(gvar->getInitializer());
-				if (!ca || !ca->isCString()) goto failure;
-				
-				name = ca->getAsCString();
-				if (verbose)
-					cout << "Launcher invokes kernel " << name.data() << endl;
-
-				gval = composite.getFunction(name);
-				if (!gval)
-				{
-					cerr << "Cannot find function " << name.data() << endl;
-					continue;
-				}
-				kernels.push_back(gval);
-				continue;
-			failure:
-				cerr << "Cannot get the name of kernel invoked by kernelgen_launch" << endl;
-			}
-	
-	//
-	// 5) Remove all functions called through launcher.
-	//
+	Module* main = CloneModule(&composite);
 	{
+		std::vector<GlobalValue*> loops_functions;
+		for (Module::iterator f = main->begin(), fe = main->end(); f != fe; f++)
+			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+				for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
+				{
+					// Check if instruction in focus is a call.
+					CallInst* call = dyn_cast<CallInst>(cast<Value>(i));
+					if (!call) continue;
+				
+					// Check if function is called (needs -instcombine pass).
+					Function* callee = call->getCalledFunction();
+					if (!callee && !callee->isDeclaration()) continue;
+					if (callee->getName() != "kernelgen_launch") continue;
+				
+					// Get value of the function pointer argument.
+					StringRef name;
+					const ConstantExpr* ce;
+					GlobalValue* gval = NULL;
+					const GlobalVariable* gvar;
+					const ConstantArray* ca;
+					if (!call->getNumArgOperands()) continue;
+					ce = dyn_cast<ConstantExpr>(call->getArgOperand(0));
+					if (!ce) goto failure;
+					gvar = dyn_cast<GlobalVariable>(ce->getOperand(0));
+					if (!gvar) goto failure;
+					ca = dyn_cast<ConstantArray>(gvar->getInitializer());
+					if (!ca || !ca->isCString()) goto failure;
+				
+					name = ca->getAsCString();
+					if (verbose)
+						cout << "Launcher invokes kernel " << name.data() << endl;
+
+					gval = main->getFunction(name);
+					if (!gval)
+					{
+						cerr << "Cannot find function " << name.data() << endl;
+						continue;
+					}
+					loops_functions.push_back(gval);
+					main->Dematerialize(gval);
+					continue;
+failure:
+					cerr << "Cannot get the name of kernel invoked by kernelgen_launch" << endl;
+				}
+
 		PassManager manager;
-		manager.add(new TargetData(&composite));
+		manager.add(new TargetData(main));
 		
 		// Delete functions called through launcher.
-		manager.add(createGVExtractionPass(kernels, true));
+		manager.add(createGVExtractionPass(loops_functions, true));
+
+		// Delete unreachable globals		
+		manager.add(createGlobalDCEPass());
 		
 		// Remove dead debug info.
 		manager.add(createStripDeadDebugInfoPass());
@@ -229,18 +226,72 @@ finish:
 		// Remove dead func decls.
 		manager.add(createStripDeadPrototypesPass());
 
-		manager.run(composite);
+		manager.run(*main);
+
+		main->dump();
+		
+		// Embed "main" module into resulting executable.
 	}
-
-	composite.dump();
-
+		
 	//
-	// 5) Embed new modules to the resulting executable.
+	// 5) Clone composite module and transform it into the
+	// "loop" kernels, each one executing single parallel loop.
 	//
+	{
+		Module* loops = CloneModule(&composite);
+		{
+			PassManager manager;
+			manager.add(new TargetData(loops));
+
+			std::vector<GlobalValue*> plain_functions;
+			for (Module::iterator f = main->begin(), fe = main->end(); f != fe; f++)
+				if (!f->isDeclaration())
+					plain_functions.push_back(loops->getFunction(f->getName()));
+		
+			// Delete all plain functions (that are not called through launcher).
+			manager.add(createGVExtractionPass(plain_functions, true));
+			manager.add(createGlobalDCEPass());
+			manager.add(createStripDeadDebugInfoPass());
+			manager.add(createStripDeadPrototypesPass());
+			manager.run(*loops);
+		}
+
+		for (Module::iterator f1 = loops->begin(), fe1 = loops->end(); f1 != fe1; f1++)
+		{
+			if (f1->isDeclaration()) continue;
+		
+			Module* loop = CloneModule(loops);
+			loop->setModuleIdentifier(f1->getName());
+			std::vector<GlobalValue*> remove_functions;
+			for (Module::iterator f2 = loop->begin(), fe2 = loop->end(); f2 != fe2; f2++)
+			{
+				if (f2->isDeclaration()) continue;
+				if (f2->getName() != f1->getName())
+					remove_functions.push_back(f2);
+			}
+			
+			PassManager manager;
+			manager.add(new TargetData(loop));
+
+			// Delete all loops functions, except entire one.
+			manager.add(createGVExtractionPass(remove_functions, true));
+			manager.add(createGlobalDCEPass());
+			manager.add(createStripDeadDebugInfoPass());
+			manager.add(createStripDeadPrototypesPass());
+			manager.run(*loop);
+			
+			loop->dump();
+
+			// Embed "loop" module into resulting executable.
+			
+			delete loop;
+		}
+		delete loops, main;
+	}	
 
 	//
 	// 6) Link code using regular linker, but specifying alternate
-	// entry point to switch between regular code and LLVM.
+	// entry point to switch between regular code and LLVM-based pipeline.
 	//
 	{
 		list<string> args_ext = args;
