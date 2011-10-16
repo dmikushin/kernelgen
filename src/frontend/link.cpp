@@ -31,6 +31,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ValueSymbolTable.h"
+#include "llvm/Constants.h"
 #include "llvm/Instructions.h"
 #include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
@@ -42,6 +45,7 @@
 #include "llvm/Support/PassManagerBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
+#include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 
@@ -91,7 +95,7 @@ int link(list<string> args, list<string> kgen_args,
 		int status = util_elf_find(fd, "^__kernelgen_.*$", &symnames, &count);
 		if (status) goto finish;
 
-		// Load data for found symbols names.
+		// Load data for discovered symbols names.
 		symdatas = (char**)malloc(sizeof(char*) * count);
 		symsizes = (size_t*)malloc(sizeof(size_t) * count);
 		status = util_elf_read_many(fd, count, 
@@ -144,6 +148,7 @@ finish:
 	//
 	{
 		PassManager manager;
+		manager.add(new TargetData(&composite));
 		manager.add(createLowerSetJmpPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass(2000);
@@ -153,18 +158,90 @@ finish:
 		manager.run(composite);
 	}
 
-	raw_ostream* Out = &dbgs();
-	(*Out) << (composite);
-	
+	//raw_ostream* Out = &dbgs();
+	//(*Out) << (composite);
+
+	ValueSymbolTable& VST = composite.getValueSymbolTable();
+	for (ValueSymbolTable::const_iterator I = VST.begin(), E = VST.end(); I != E; ++I)
+		cout << I->getKeyData() << endl;
+
 	//
 	// 4) Extract functions called over launcher to the separate
 	// modules.
 	//
+	std::vector<GlobalValue*> kernels;
+	for (Module::iterator F = composite.begin(); F != composite.end(); F++)
+		for (Function::iterator BB = F->begin(); BB != F->end(); BB++)
+			for (BasicBlock::iterator I = BB->begin(); I != BB->end(); I++)
+			{
+				// Check if instruction in focus is a call.
+				CallInst* call = dyn_cast<CallInst>(cast<Value>(I));
+				if (!call) continue;
+				
+				// Check if function is called (needs -instcombine pass).
+				Function* callee = call->getCalledFunction();
+				if (!callee && !callee->isDeclaration()) continue;
+				if (callee->getName() != "kernelgen_launch") continue;
+				
+				// Get value of the function pointer argument.
+				StringRef name;
+				const ConstantExpr* ce;
+				GlobalValue* gval = NULL;
+				const GlobalVariable* gvar;
+				const ConstantArray* ca;
+				if (!call->getNumArgOperands()) continue;
+				ce = dyn_cast<ConstantExpr>(call->getArgOperand(0));
+				if (!ce) goto failure;
+				gvar = dyn_cast<GlobalVariable>(ce->getOperand(0));
+				if (!gvar) goto failure;
+				ca = dyn_cast<ConstantArray>(gvar->getInitializer());
+				if (!ca || !ca->isCString()) goto failure;
+				
+				name = ca->getAsCString();
+				if (verbose)
+					cout << "Launcher invokes kernel " << name.data() << endl;
+
+				gval = composite.getFunction(name);
+				if (!gval)
+				{
+					cerr << "Cannot find function " << name.data() << endl;
+					continue;
+				}
+				kernels.push_back(gval);
+				continue;
+			failure:
+				cerr << "Cannot get the name of kernel invoked by kernelgen_launch" << endl;
+			}
 	
+	//
+	// 5) Remove all functions called through launcher.
+	//
+	{
+		PassManager manager;
+		manager.add(new TargetData(&composite));
+		
+		// Delete functions called through launcher.
+		manager.add(createGVExtractionPass(kernels, true));
+		
+		// Remove dead debug info.
+		manager.add(createStripDeadDebugInfoPass());
+		
+		// Remove dead func decls.
+		manager.add(createStripDeadPrototypesPass());
+
+		manager.run(composite);
+	}
+
+	composite.dump();
+
 	//
 	// 5) Embed new modules to the resulting executable.
 	//
 
+	//
+	// 6) Link code using regular linker, but specifying alternate
+	// entry point to switch between regular code and LLVM.
+	//
 	{
 		list<string> args_ext = args;
 		//args_ext.push_back("-LKGEN_PREFIX/lib");
