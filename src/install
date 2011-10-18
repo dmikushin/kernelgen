@@ -39,7 +39,6 @@ my($CUDA_PREFIX) = $ARGV[4];
 
 if ($ARCH eq "64")
 {
-	`mkdir -p $PREFIX/include64`;
 	`mkdir -p $PREFIX/$LIB64`;
 }
 
@@ -58,30 +57,17 @@ foreach $binary (@binaries)
 # Copy includes to install path.
 #
 my(@includes32) = (
-	"runtime/kernelgen.h",
-	"runtime/32/kernelgen.mod",
-	"runtime/32/kernelgen.kernelgen.mod");
+	"runtime/kernelgen.h");
 foreach $include (@includes32)
 {
 	`cp $include $PREFIX\/include\/`;
-}
-if ($ARCH eq "64")
-{
-	my(@includes64) = (
-		"runtime/kernelgen.h",
-		"runtime/64/kernelgen.mod",
-		"runtime/64/kernelgen.kernelgen.mod");
-	foreach $include (@includes64)
-	{
-		`cp $include $PREFIX\/include64\/`;
-	}
 }
 
 #
 # Copy libraries to install path.
 #
 my(@libraries32) = (
-	"runtime/32/libkernelgen.so");
+	"runtime/32/libkernelgen.a");
 foreach $library (@libraries32)
 {
 	`cp $library $PREFIX\/$LIB32\/`;
@@ -89,9 +75,10 @@ foreach $library (@libraries32)
 if ($ARCH eq "64")
 {
 	my(@libraries64) = (
-		"runtime/64/libkernelgen.so");
+		"runtime/64/libkernelgen.a");
 	foreach $library (@libraries64)
 	{
 		`cp $library $PREFIX\/$LIB64\/`;
 	}
 }
+

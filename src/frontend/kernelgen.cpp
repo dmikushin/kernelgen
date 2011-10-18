@@ -181,16 +181,46 @@ int main(int argc, char* argv[])
 	//
 	if (bypass)
 		return execute(host_compiler, args, "", NULL, NULL);
-	
+
+	//
+	// Linker used to merge multiple objects into single one.
+	//
+	string merge = "ld";
+	list<string> merge_args;
+
+	//
+	// Temporary files location prefix.
+	//
+	string fileprefix = "/tmp/";
+
+	//
+	// Interpret kernelgen compile options.
+	//
+	for (list<string>::iterator iarg = kgen_args.begin(),
+		iearg = kgen_args.end(); iarg != iearg; iarg++)
+	{
+		const char* arg = (*iarg).c_str();		
+		if (!strcmp(arg, "-Wk,--keep"))
+			fileprefix = "";
+	}
+
+	if (arch == 32)
+		merge_args.push_back("-melf_i386");
+	merge_args.push_back("--unresolved-symbols=ignore-all");
+	merge_args.push_back("-r");
+	merge_args.push_back("-o");
+
 	//
 	// Do only regular compilation for file extensions
 	// we do not know. Also should cover the case of linking.
 	//
 	if (input.size())
-		return compile(args, kgen_args, input, output,
-			verbose, arch, host_compiler);
+		return compile(args, kgen_args,
+			merge, merge_args, input, output,
+			verbose, arch, host_compiler, fileprefix);
 	else
-		return link(args, kgen_args, input, output,
-			verbose, arch, host_compiler);
+		return link(args, kgen_args,
+			merge, merge_args, input, output,
+			verbose, arch, host_compiler, fileprefix);
 }
 

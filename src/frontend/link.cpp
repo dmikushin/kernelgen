@@ -52,38 +52,10 @@ using namespace llvm;
 using namespace std;
 
 int link(list<string> args, list<string> kgen_args,
+	string merge, list<string> merge_args,
 	string input, string output, int verbose, int arch,
-	string host_compiler)
+	string host_compiler, string fileprefix)
 {
-	//
-	// Linker used to merge multiple objects into single one.
-	//
-	string merge = "ld";
-	list<string> merge_args;
-
-	//
-	// Temporary files location prefix.
-	//
-	string fileprefix = "/tmp/";
-
-	//
-	// Interpret kernelgen compile options.
-	//
-	for (list<string>::iterator iarg = kgen_args.begin(),
-		iearg = kgen_args.end(); iarg != iearg; iarg++)
-	{
-		const char* arg = (*iarg).c_str();
-		
-		if (!strcmp(arg, "-Wk,--keep"))
-			fileprefix = "";
-	}
-
-	if (arch == 32)
-		merge_args.push_back("-melf_i386");
-	merge_args.push_back("--unresolved-symbols=ignore-all");
-	merge_args.push_back("-r");
-	merge_args.push_back("-o");
-
 	//
 	// 1) Check if there is "-c" option around. In this
 	// case there is just compilation, not linking, but
@@ -143,8 +115,16 @@ int link(list<string> args, list<string> kgen_args,
 			(const char**)symnames, symdatas, symsizes);
 		if (status) goto finish;
 
-		// TODO: Remove symbols starting with __kernelgen_.
-
+		// Remove symbols starting with __kernelgen_.
+		for (int i = 0; i < count; i++)
+		{
+			string symname = symnames[i];
+			list<string> objcopy_args;
+			objcopy_args.push_back("--strip-symbol=" + symname);
+			objcopy_args.push_back(arg);
+			status = execute("objcopy", objcopy_args, "", NULL, NULL);
+			if (status) return status;
+		}
 		
 		// For each symbol name containing module, link into
 		// the composite module.
@@ -378,8 +358,6 @@ failure:
 	//
 	// 6) Delete all plain functions, except main out of "main" module.
 	//
-			int loop_fd = -1;
-			string loop_output;
 	{
 		PassManager manager;
 		manager.add(new TargetData(main));
@@ -419,8 +397,8 @@ failure:
 		delete main;
 
 		// Merge object files with binary code and IR.
-		list<string> merge_args_ext = merge_args;
 		{
+			list<string> merge_args_ext = merge_args;
 			merge_args_ext.push_back(object + "_");
 			merge_args_ext.push_back(object);
 			merge_args_ext.push_back(ir_output);
@@ -448,6 +426,39 @@ failure:
 	// 7) Rename original main entry and insert new main
 	// with switch between original main and kernelgen's main.
 	//
+	{
+		list<string> objcopy_args;
+		objcopy_args.push_back("--redefine-sym main=__regular_main");
+		objcopy_args.push_back(object);
+		int status = execute("objcopy", objcopy_args, "", NULL, NULL);
+		if (status) return status;
+
+		{
+			list<string> merge_args_ext = merge_args;		
+			merge_args_ext.push_back(object + "_");
+			merge_args_ext.push_back(object);
+			merge_args_ext.push_back("--whole-archive");
+			if (arch == 32)
+				merge_args_ext.push_back("/opt/kernelgen/lib/libkernelgen.a");
+			else
+				merge_args_ext.push_back("/opt/kernelgen/lib64/libkernelgen.a");
+			if (verbose)
+			{
+				cout << merge;
+				for (list<string>::iterator it = merge_args_ext.begin();
+					it != merge_args_ext.end(); it++)
+					cout << " " << *it;
+				cout << endl;
+			}
+			int status = execute(merge, merge_args_ext, "", NULL, NULL);
+			if (status) return status;
+			list<string> mv_args;
+			mv_args.push_back(object + "_");
+			mv_args.push_back(object);
+			status = execute("mv", mv_args, "", NULL, NULL);
+			if (status) return status;
+		}
+	}
 
 	//
 	// 8) Link code using regular linker.

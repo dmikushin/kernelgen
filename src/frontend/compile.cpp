@@ -47,8 +47,9 @@ using namespace llvm;
 using namespace std;
 
 int compile(list<string> args, list<string> kgen_args,
+	string merge, list<string> merge_args,
 	string input, string output, int verbose, int arch,
-	string host_compiler)
+	string host_compiler, string fileprefix)
 {
 	//
 	// The LLVM compiler to emit IR.
@@ -56,35 +57,15 @@ int compile(list<string> args, list<string> kgen_args,
 	const char* llvm_compiler = "kernelgen-gfortran";
 
 	//
-	// Linker used to merge multiple objects into single one.
-	//
-	string merge = "ld";
-	list<string> merge_args;
-
-	//
-	// Temporary files location prefix.
-	//
-	string fileprefix = "/tmp/";
-
-	//
 	// Interpret kernelgen compile options.
 	//
 	for (list<string>::iterator iarg = kgen_args.begin(),
 		iearg = kgen_args.end(); iarg != iearg; iarg++)
 	{
-		const char* arg = (*iarg).c_str();
-		
+		const char* arg = (*iarg).c_str();		
 		if (!strncmp(arg, "-Wk,--llvm-compiler=", 20))
 			llvm_compiler = arg + 20;
-		if (!strcmp(arg, "-Wk,--keep"))
-			fileprefix = "";
 	}
-
-	if (arch == 32)
-		merge_args.push_back("-melf_i386");
-	merge_args.push_back("--unresolved-symbols=ignore-all");
-	merge_args.push_back("-r");
-	merge_args.push_back("-o");
 
 	//
 	// Generate temporary output file.
