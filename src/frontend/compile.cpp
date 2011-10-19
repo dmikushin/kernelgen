@@ -37,9 +37,14 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/PassManagerBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetRegistry.h"
+#include "llvm/Target/TargetSelect.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 
@@ -178,7 +183,31 @@ int compile(list<string> args, list<string> kgen_args,
 	}
 
 	//
-	// 5) Replace call to loop functions with call to launcher.
+	// 5) Create target machine and get its target data.
+	//
+	Triple triple(m2->getTargetTriple());
+	if (triple.getTriple().empty())
+		triple.setTriple(sys::getHostTriple());
+	string err;
+	InitializeAllTargets();
+	const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
+	if (!target)
+	{
+		cerr << "Error auto-selecting target for module '" << err << "'." << endl;
+		cerr << "Please use the -march option to explicitly pick a target.\n" << endl;
+		return 1;
+	}
+	TargetMachine* machine = target->createTargetMachine(
+		triple.getTriple(), "", "", Reloc::Default, CodeModel::Default);
+	if (!machine)
+	{
+		cerr << "Could not allocate target machine" << endl;
+		return 1;
+	}
+	const TargetData* tdata = machine->getTargetData();
+
+	//
+	// 6) Replace call to loop functions with call to launcher.
 	// Append "always inline" attribute to all other functions.
 	//
 	Function* launch = Function::Create(
@@ -228,6 +257,12 @@ int compile(list<string> args, list<string> kgen_args,
 					// Start forming new function call argument list
 					// by copying the list of original function call.
 					SmallVector<Value*, 16> call_args(call->op_begin(), call->op_end());
+					for (int i = 0, ie = call->getNumArgOperands(); i != ie; i++)
+					{
+						Value* arg = call->getArgOperand(i);
+						cout << "sizeof(arg_" << i << ") = " <<
+							tdata->getTypeStoreSize(arg->getType()) << endl;
+					}
 					
 					// Insert first extra argument - the number of
 					// original call arguments.
@@ -272,7 +307,7 @@ int compile(list<string> args, list<string> kgen_args,
 	}
 	
 	//
-	// 6) Apply optimization passes to the resulting common
+	// 7) Apply optimization passes to the resulting common
 	// module.
 	//
 	{
@@ -286,10 +321,6 @@ int compile(list<string> args, list<string> kgen_args,
 		manager.run(*m2);
 	}
 
-	//
-	// 7) Remove inlined functions.
-	//
-	
 	//
 	// 8) Embed the resulting module into object file.
 	//
