@@ -211,7 +211,7 @@ int compile(list<string> args, list<string> kgen_args,
 	// Append "always inline" attribute to all other functions.
 	//
 	Function* launch = Function::Create(
-		TypeBuilder<void(types::i<8>*, types::i<32>, ...), true>::get(context),
+		TypeBuilder<void(types::i<8>*, types::i<32>, types::i<32>*, ...), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch", m2);
 	for (Module::iterator f1 = m2->begin(), fe1 = m2->end(); f1 != fe1; f1++)
 	{
@@ -257,18 +257,13 @@ int compile(list<string> args, list<string> kgen_args,
 					// Start forming new function call argument list
 					// by copying the list of original function call.
 					SmallVector<Value*, 16> call_args(call->op_begin(), call->op_end());
-					for (int i = 0, ie = call->getNumArgOperands(); i != ie; i++)
-					{
-						Value* arg = call->getArgOperand(i);
-						cout << "sizeof(arg_" << i << ") = " <<
-							tdata->getTypeStoreSize(arg->getType()) << endl;
-					}
 					
 					// Insert first extra argument - the number of
 					// original call arguments.
+					int nargs = call->getNumArgOperands();
+					Type* int32Ty = Type::getInt32Ty(context);
 					call_args.insert(call_args.begin(),
-						ConstantInt::get(Type::getInt32Ty(context),
-							call->getNumArgOperands()));
+						ConstantInt::get(int32Ty, nargs));
 					
 					// Create a constant array holding original called
 					// function name.
@@ -277,18 +272,34 @@ int compile(list<string> args, list<string> kgen_args,
 					
 					// Create global variable to hold the function name
 					// string.
-					GlobalVariable* GV = new GlobalVariable(*m2, name->getType(),
+					GlobalVariable* GV1 = new GlobalVariable(*m2, name->getType(),
 						true, GlobalValue::PrivateLinkage, name,
 						callee->getName(), 0, false);
 					
 					// Convert array to pointer using GEP construct.
-					std::vector<Constant*> gep_args(2,
-				        	Constant::getNullValue(Type::getInt32Ty(f2->getContext())));
+					std::vector<Constant*> gep_args(2, Constant::getNullValue(int32Ty));
 				        
 					// Insert second extra argument - the pointer to the
 					// original function string name.
 					call_args.insert(call_args.begin(),
-						ConstantExpr::getGetElementPtr(GV, gep_args));
+						ConstantExpr::getGetElementPtr(GV1, gep_args));
+
+					// Insert third extra argument - an array of original
+					// function arguments sizes.
+					std::vector<Constant*> sizes;
+					for (int i = 0; i != nargs; i++)
+					{
+						Value* arg = call->getArgOperand(i);
+						int size = tdata->getTypeStoreSize(arg->getType());
+						sizes.push_back(ConstantInt::get(int32Ty, size));
+					}
+					Constant* csizes = ConstantArray::get(
+						ArrayType::get(sizes[0]->getType(), sizes.size()), sizes);
+					GlobalVariable* GV2 = new GlobalVariable(*m2, csizes->getType(),
+						true, GlobalValue::PrivateLinkage, csizes,
+						callee->getName(), 0, false);					
+					call_args.insert(call_args.begin() + 2,
+						ConstantExpr::getGetElementPtr(GV2, gep_args));
 					
 					// Create new function call with new call arguments
 					// and copy old call properties.
