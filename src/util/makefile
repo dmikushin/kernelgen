@@ -26,7 +26,7 @@ OPT ?= 0
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT)
 
-OBJECTS = timing elf_read elf_write elf_find execute
+OBJECTS = timing elf elf_write execute
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -53,25 +53,20 @@ endif
 64/timing.o: timing.c util.h
 	$(CC64) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
 
-32/elf_read.o: elf_read.c util.h
-	$(CC32) $(CFLAGS) -c $< -o $@
-64/elf_read.o: elf_read.c util.h
-	$(CC64) $(CFLAGS) -c $< -o $@
+32/elf.o: elf.cpp elf.h
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/elf.o: elf.cpp elf.h
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
-32/elf_write.o: elf_write.c util.h
+32/elf_write.o: elf_write.c
 	$(CC32) $(CFLAGS) -c $< -o $@
-64/elf_write.o: elf_write.c util.h
+64/elf_write.o: elf_write.c
 	$(CC64) $(CFLAGS) -c $< -o $@
 
 32/elf_write_test: elf_write_test.c elf_write.o util.h
 	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lkernelgen
 64/elf_write_test: elf_write_test.c elf_write.o util.h
 	$(CC64) $(CFLAGS) $(INCFFI) $< -o $@ -L64 -lkernelgen
-
-32/elf_find.o: elf_find.c util.h
-	$(CC32) $(CFLAGS) -c $< -o $@
-64/elf_find.o: elf_find.c util.h
-	$(CC64) $(CFLAGS) -c $< -o $@
 
 NUM_SYMBOLS ?= 1
 

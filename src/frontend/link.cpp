@@ -20,14 +20,15 @@
  */
 
 #include "kernelgen.h"
-#include "util.h"
+#include "util/elf.h"
+#include "util/util.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
 #include <iostream>
-#include <limits.h>
+#include <memory>
 #include <string.h>
 #include <unistd.h>
 
@@ -50,6 +51,7 @@
 
 using namespace llvm;
 using namespace std;
+using namespace util::elf;
 
 int link(list<string> args, list<string> kgen_args,
 	string merge, list<string> merge_args,
@@ -89,86 +91,70 @@ int link(list<string> args, list<string> kgen_args,
 		if (verbose)
 			cout << "Linking " << arg << " ..." << endl;
 
-		char** symnames = NULL;
-		char** symdatas = NULL;
-		size_t* symsizes = NULL;
-		
 		// Search object for main entry.
-		int count = 0;
-		int fd = open(arg, O_RDONLY);
-		int status = util_elf_find(fd, "^main$", &symnames, &count);
-		if (status) goto finish;
-		if (count) object = arg;
-		if (fd >= 0) close(fd);
-		if (symnames) free(symnames);
+		{
+			int fd = open(arg, O_RDONLY);
+			cregex regex("^main$", REG_EXTENDED | REG_NOSUB);
+			celf e(fd, ELF_C_READ);
+			vector<csymbol*> symbols = e.getSymtab()->find(regex);
+			if (symbols.size()) object = arg;
+			if (fd >= 0) close(fd);
+		}
 
-		// Load all symbols names starting with __kernelgen_.
-		count = 0;
-		fd = open(arg, O_RDONLY);
-		status = util_elf_find(fd, "^__kernelgen_.*$", &symnames, &count);
-		if (status) goto finish;
+		// Load and link together all LLVM IR modules from
+		// symbols names starting with __kernelgen_.
+		vector<string> names;
+		{
+			int fd = open(arg, O_RDONLY);
+			cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
+			celf e(fd, ELF_C_READ);
+			vector<csymbol*> symbols = e.getSymtab()->find(regex);
 
-		// Load data for discovered symbols names.
-		symdatas = (char**)malloc(sizeof(char*) * count);
-		symsizes = (size_t*)malloc(sizeof(size_t) * count);
-		status = util_elf_read_many(fd, count, 
-			(const char**)symnames, symdatas, symsizes);
-		if (status) goto finish;
+			// Load data for discovered symbols names.
+			// For each symbol name containing module, link into
+			// the composite module.
+			for (vector<csymbol*>::iterator i = symbols.begin(),
+				ie = symbols.end(); i != ie; i++)
+			{
+				csymbol* symbol = *i;
+				const char* data = symbol->getData();
+				const string& name = symbol->getName();
+				names.push_back(symbol->getName());
+
+				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(data);
+				std::auto_ptr<Module> m;
+				m.reset(ParseIR(buffer, diag, context));
+
+				if (!m.get()) THROW("Error loading module " << name);
+		
+				if (verbose)
+					cout << "Linking " << name << endl;
+		
+				string err;
+				if (Linker::LinkModules(&composite, m.get(), &err))
+					THROW("Error linking module " << name << " : " << err);
+			}
+		}
 
 		// Remove symbols starting with __kernelgen_.
-		for (int i = 0; i < count; i++)
+		for (vector<string>::iterator i = names.begin(),
+			ie = names.end(); i != ie; i++)
 		{
-			string symname = symnames[i];
+			string& name = *i;
 			list<string> objcopy_args;
-			objcopy_args.push_back("--strip-symbol=" + symname);
+			objcopy_args.push_back("--strip-symbol=" + name);
 			objcopy_args.push_back(arg);
-			status = execute("objcopy", objcopy_args, "", NULL, NULL);
+			int status = execute("objcopy", objcopy_args, "", NULL, NULL);
 			if (status) return status;
 		}
-		
-		// For each symbol name containing module, link into
-		// the composite module.
-		for (int i = 0; i < count; i++)
-		{
-			MemoryBuffer* buffer =
-				MemoryBuffer::getMemBuffer(symdatas[i]);
-			Module* m = ParseIR(buffer, diag, context);
-
-			if (!m)
-			{
-				cerr << "Error loading module " << symnames[i] << endl;
-				delete buffer;
-				status = 1;
-				goto finish;
-			}
-		
-			if (verbose)
-				cout << "Linking " << symnames[i] << endl;
-		
-			string err;
-			if (Linker::LinkModules(&composite, m, &err))
-			{
-				cerr << "Error linking module " << symnames[i] <<
-					" : " << err << endl;
-				delete buffer, m;
-				status = 1;
-				goto finish;
-			}
-			
-			delete m;
-		}
-finish:
-		if (fd >= 0) close(fd);
-
-		if (symnames) free(symnames);
-		if (symdatas) free(symdatas);
-		if (symsizes) free(symsizes);
-		if (status) return status;
 	}
 	if (object == "")
 	{
-		cerr << "Cannot find object containing main entry" << endl;
-		return 1;
+		// TODO: In general case this is not an error.
+		// Missing main entry only means we are linking
+		// a library. In this case every public symbol
+		// must be treated as main entry.
+		THROW("Cannot find object containing main entry");
 	}
 	
 	//
@@ -305,7 +291,7 @@ failure:
 			manager.add(createStripDeadPrototypesPass());
 			manager.run(*loop);
 			
-			//loop->dump();
+			loop->dump();
 
 			// Embed "loop" module into object.
 			int ir_fd = -1;
