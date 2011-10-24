@@ -19,12 +19,16 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef KERNELGEN_UTIL_H
+#define KERNELGEN_UTIL_H
 
 #include <gelf.h>
 
 #ifdef __cplusplus
+
+#include <iostream>
+
+#define THROW(message) { std::cerr << __FILE__ << ":" << __LINE__ << " " << message << endl; throw; }
 
 #include <list>
 #include <string>
@@ -93,5 +97,5 @@ int util_elf_find(const int fd, const char* symname_pattern,
 }
 #endif
 
-#endif // UTIL_H
+#endif // KERNELGEN_UTIL_H
 

@@ -27,15 +27,12 @@
 #ifndef KERNELGEN_ELF_H
 #define KERNELGEN_ELF_H
 
+#include "io.h"
 #include <gelf.h>
-#include <iostream>
 #include <libelf.h>
 #include <regex.h>
 #include <string>
-#include <unistd.h>
 #include <vector>
-
-#define THROW(message) { std::cerr << __FILE__ << ":" << __LINE__ << " " << message << endl; throw; }
 
 namespace util { namespace elf {
 
@@ -56,14 +53,14 @@ class celf;
 class csection
 {
 protected :
-	const celf* e;
+	celf* e;
 	Elf_Scn* scn;
-	GElf_Shdr shdr;
+	std::string name;
 
 	csection();
-	csection(const celf* e, Elf_Scn* scn);
+	csection(celf* e, Elf_Scn* scn, std::string name);
 public :
-	const GElf_Shdr& getHeader() const;
+	void addSymbol(std::string name, std::string data);
 
 	friend class celf;
 };
@@ -104,23 +101,43 @@ public :
 	// Find symbols names by the specified pattern.
 	std::vector<csymbol*> find(cregex& regex) const;
 
-	csymtab(csection& section);
+	csymtab(const csection* section);
 	~csymtab();
 };
 
 // Defines ELF image section.
 class celf
 {
-	int fd;
-	Elf* e;
-	std::vector<csection> sections;
-	csymtab* symtab;
-public :
-	const csymtab* getSymtab() const;
+	// Fields for the underlying input and output
+	// file descriptors.
+	util::io::cfiledesc *ifd;
+	bool managed_fd;
+	std::string ofilename;
 
-	celf(int fd, int flag);
+	Elf* e;
+	csection* sections_array;
+	std::vector<csection*> sections;
+	csymtab* symtab;
+	GElf_Ehdr header;
+	bool opened;
+	
+	void open();
+public :
+	const csymtab* getSymtab();
+	const GElf_Ehdr* getHeader();
+	csection* getSection(std::string name);
+
+	void setSymtab32(Elf32_Sym* sym, int count);
+	void setSymtab64(Elf64_Sym* sym, int count);
+
+	void setStrtab(GElf_Ehdr* ehdr, std::string content);
+	void setData(std::string symdata);
+
+	celf(std::string ifilename, std::string ofilename);
+	celf(util::io::cfiledesc* ifd, std::string ofilename);
 	~celf();
 	
+	friend class csection;
 	friend class csymtab;
 	friend class csymbol;
 };
