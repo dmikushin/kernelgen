@@ -35,19 +35,12 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/PassManagerBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetRegistry.h"
-#include "llvm/Target/TargetSelect.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/Scalar.h"
 
 using namespace llvm;
 using namespace std;
@@ -178,31 +171,6 @@ int compile(list<string> args, list<string> kgen_args,
 	}
 
 	//
-	// 5) Create target machine and get its target data.
-	//
-	Triple triple(m2.get()->getTargetTriple());
-	if (triple.getTriple().empty())
-		triple.setTriple(sys::getHostTriple());
-	string err;
-	InitializeAllTargets();
-	const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
-	if (!target)
-	{
-		cerr << "Error auto-selecting target for module '" << err << "'." << endl;
-		cerr << "Please use the -march option to explicitly pick a target.\n" << endl;
-		return 1;
-	}
-	auto_ptr<TargetMachine> machine;
-	machine.reset(target->createTargetMachine(
-		triple.getTriple(), "", "", Reloc::Default, CodeModel::Default));
-	if (!machine.get())
-	{
-		cerr << "Could not allocate target machine" << endl;
-		return 1;
-	}
-	const TargetData* tdata = machine.get()->getTargetData();
-
-	//
 	// 6) Replace call to loop functions with call to launcher.
 	// Append "always inline" attribute to all other functions.
 	//
@@ -289,13 +257,6 @@ int compile(list<string> args, list<string> kgen_args,
 					vector<Constant*> sizes;
 					for (int i = 0; i != nargs; i++)
 						sizes.push_back(ConstantInt::get(int32Ty, 0));
-					/*std::vector<Constant*> sizes;
-					for (int i = 0; i != nargs; i++)
-					{
-						Value* arg = call->getArgOperand(i);
-						int size = tdata->getTypeStoreSize(arg->getType());
-						sizes.push_back(ConstantInt::get(int32Ty, size));
-					}*/
 					Constant* csizes = ConstantArray::get(
 						ArrayType::get(sizes[0]->getType(), sizes.size()), sizes);
 					GlobalVariable* GV2 =
