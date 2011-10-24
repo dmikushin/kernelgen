@@ -164,10 +164,8 @@ csection::csection() { }
 csection::csection(celf* e, Elf_Scn* scn, string name) :
 	e(e), scn(scn), name(name)
 {
-	if (!scn)
-	{
-		// TODO: Lazily loaded section. Track this.
-	}
+	if (!e) THROW("Invalid ELF handle");
+	if (!scn) THROW("Invalid ELF section");
 }
 
 csymbol::csymbol() { }
@@ -271,31 +269,19 @@ csymtab::~csymtab()
 
 const csymtab* celf::getSymtab()
 {
-	// Alright, if you need symtab, we will really
-	// open ELF file.
 	if (!opened) open();
 	return symtab;
 }
 
 const GElf_Ehdr* celf::getHeader()
 {
-	// Alright, if you need symtab, we will really
-	// open ELF file.
 	if (!opened) open();
 	return &header;
 }
 
 csection* celf::getSection(string name)
 {
-	// Lazy load: return fictive section, and
-	// consider there, if ELF reading is really needed.
-	if (!opened)
-	{
-		csection* section = new csection(this, NULL, name);
-		sections.push_back(section);
-		return section;
-	}
-
+	if (!opened) open();
 	for (vector<csection*>::iterator i = sections.begin(),
 		ie = sections.end(); i != ie; i++)
 	{
@@ -411,8 +397,6 @@ void celf::setSymtab64(Elf64_Sym* sym, int count)
 void celf::open()
 {
 	if (!ifd) THROW("Cannot open ELF without input file descriptor specified");
-
-	// TODO: arrange lazily loaded sections.
 
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		THROW("ELF library initialization failed: " << elf_errmsg(-1));

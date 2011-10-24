@@ -31,6 +31,13 @@
 
 using namespace std;
 
+static bool a_ends_with_b(const string& a, const string& b)
+{
+	if (b.size() > a.size()) return false;
+	return std::equal(a.begin() + a.size() - b.size(), a.end(), b.begin());
+}
+
+
 int main(int argc, char* argv[])
 {
 	//
@@ -116,8 +123,7 @@ int main(int argc, char* argv[])
 		const char* arg = (*it1).c_str();
 		for (list<string>::iterator it2 = source_ext.begin(); it2 != source_ext.end(); it2++)
 		{
-			const char* ext = (*it2).c_str();
-			if (!strcmp(arg + strlen(arg) - strlen(ext), ext))
+			if (a_ends_with_b(*it1, *it2))
 			{
 				input = *it1;
 				break;

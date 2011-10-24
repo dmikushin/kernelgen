@@ -210,7 +210,7 @@ int link(list<string> args, list<string> kgen_args,
 					if (callee->getName() != "kernelgen_launch") continue;
 				
 					// Get value of the function pointer argument.
-					StringRef name;
+					string name;
 					const ConstantExpr* ce;
 					GlobalValue* gval = NULL;
 					const GlobalVariable* gvar;
@@ -225,7 +225,7 @@ int link(list<string> args, list<string> kgen_args,
 				
 					name = ca->getAsCString();
 					if (verbose)
-						cout << "Launcher invokes kernel " << name.data() << endl;
+						cout << "Launcher invokes kernel " << name << endl;
 
 					gval = main->getFunction(name);
 					if (!gval)
@@ -233,7 +233,7 @@ int link(list<string> args, list<string> kgen_args,
 						// TODO: not fatal, as soon as function could be defined in
 						// linked library. The question is if we should we dump LLVM IR
 						// from libraries right now.
-						cerr << "Cannot find function " << name.data() << endl;
+						cerr << "Cannot find function " << name << endl;
 						continue;
 					}
 					loops_functions.push_back(gval);
