@@ -5,7 +5,7 @@ kernelgen: kernelgen.o compile.o link.o
 		-L/opt/kernelgen/lib -lLLVM-3.0svn -L../util/64 -lutil -lelf
 
 kernelgen.o: kernelgen.cpp
-	g++ -g -I../util -c $< -o $@
+	g++ -g -I.. -c $< -o $@
 
 compile.o: compile.cpp
 	g++ -g -I.. -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include \

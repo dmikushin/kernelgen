@@ -20,6 +20,7 @@
  */
 
 #include "kernelgen.h"
+#include "util/elf.h"
 #include "util/util.h"
 
 #include <cstdarg>
@@ -50,6 +51,8 @@
 
 using namespace llvm;
 using namespace std;
+using namespace util::elf;
+using namespace util::io;
 
 int compile(list<string> args, list<string> kgen_args,
 	string merge, list<string> merge_args,
@@ -77,17 +80,7 @@ int compile(list<string> args, list<string> kgen_args,
 	// Check if output file is specified in the command line.
 	// Replace or add output to the temporary file.
 	//
-	int bin_fd = -1;
-	string bin_output;
-	{
-		char* c_bin_output = NULL;
-		bin_output = fileprefix + "XXXXXX";
-		c_bin_output = new char[bin_output.size() + 1];
-		strcpy(c_bin_output, bin_output.c_str());
-		bin_fd = mkstemp(c_bin_output);
-		bin_output = c_bin_output;
-		delete[] c_bin_output;
-	}
+	cfiledesc tmp_output = cfiledesc::mktemp("/tmp/");
 	bool output_specified = false;
 	for (list<string>::iterator iarg = args.begin(),
 		iearg = args.end(); iarg != iearg; iarg++)
@@ -96,7 +89,7 @@ int compile(list<string> args, list<string> kgen_args,
 		if (!strcmp(arg, "-o"))
 		{
 			iarg++;
-			*iarg = bin_output;
+			*iarg = tmp_output.getFilename();
 			output_specified = true;
 			break;
 		}
@@ -104,7 +97,7 @@ int compile(list<string> args, list<string> kgen_args,
 	if (!output_specified)
 	{
 		args.push_back("-o");
-		args.push_back(bin_output);
+		args.push_back(tmp_output.getFilename());
 	}
 
 	//
@@ -335,43 +328,14 @@ int compile(list<string> args, list<string> kgen_args,
 	//
 	// 8) Embed the resulting module into object file.
 	//
-	int ir_fd = -1;
-	string ir_output;
 	{
 		string ir_string;
 		raw_string_ostream ir(ir_string);
 		ir << (*m2);
-		ir_output = fileprefix + "XXXXXX";
-		char* c_ir_output = new char[ir_output.size() + 1];
-		strcpy(c_ir_output, ir_output.c_str());
-		ir_fd = mkstemp(c_ir_output);
-		ir_output = c_ir_output;
-		delete[] c_ir_output;
-		string ir_symname = "__kernelgen_" + string(input);
-		util_elf_write(ir_fd, arch, ir_symname.c_str(), ir_string.c_str(), ir_string.size() + 1);
+		celf e(tmp_output.getFilename(), output);
+		e.getSection(".data")->addSymbol(
+			"__kernelgen_" + string(input), ir_string);
 	}
-	
-	//
-	// 9) Merge object files with binary code and IR.
-	//
-	{
-		merge_args.push_back(output);
-		merge_args.push_back(bin_output);
-		merge_args.push_back(ir_output);
-		if (verbose)
-		{
-			cout << merge;
-			for (list<string>::iterator it = merge_args.begin();
-				it != merge_args.end(); it++)
-				cout << " " << *it;
-			cout << endl;
-		}
-		int status = execute(merge, merge_args, "", NULL, NULL);
-		if (status) return status;
-	}
-	
-	if (bin_fd >= 0) close(bin_fd);
-	if (ir_fd >= 0) close(ir_fd);
 
 	delete m1, m2, buffer1, buffer2;
 

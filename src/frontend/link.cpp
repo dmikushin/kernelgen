@@ -52,6 +52,7 @@
 using namespace llvm;
 using namespace std;
 using namespace util::elf;
+using namespace util::io;
 
 int link(list<string> args, list<string> kgen_args,
 	string merge, list<string> merge_args,
@@ -78,6 +79,7 @@ int link(list<string> args, list<string> kgen_args,
 	// In the meantime, capture an object containing main entry.
 	//
 	string object = "";
+	cfiledesc tmp_object = cfiledesc::mktemp("/tmp/");
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	Module composite("composite", context);
@@ -91,23 +93,33 @@ int link(list<string> args, list<string> kgen_args,
 		if (verbose)
 			cout << "Linking " << arg << " ..." << endl;
 
-		// Search object for main entry.
+		// Search current object for main entry. It will be
+		// used as a container for LLVM IR data.
+		// For build process consistency, all activities will
+		// be performed on duplicate object.
 		{
-			int fd = open(arg, O_RDONLY);
+			celf e(arg, "");
 			cregex regex("^main$", REG_EXTENDED | REG_NOSUB);
-			celf e(fd, ELF_C_READ);
 			vector<csymbol*> symbols = e.getSymtab()->find(regex);
-			if (symbols.size()) object = arg;
-			if (fd >= 0) close(fd);
+			if (symbols.size())
+			{
+				object = arg;
+				list<string> cp_args;
+				cp_args.push_back(arg);
+				cp_args.push_back(tmp_object.getFilename());
+				int status = execute("cp", cp_args, "", NULL, NULL);
+				if (status) return status;
+				*iarg = tmp_object.getFilename();
+				arg = tmp_object.getFilename().c_str();
+			}
 		}
 
 		// Load and link together all LLVM IR modules from
 		// symbols names starting with __kernelgen_.
 		vector<string> names;
 		{
-			int fd = open(arg, O_RDONLY);
+			celf e(arg, "");
 			cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
-			celf e(fd, ELF_C_READ);
 			vector<csymbol*> symbols = e.getSymtab()->find(regex);
 
 			// Load data for discovered symbols names.
@@ -137,6 +149,7 @@ int link(list<string> args, list<string> kgen_args,
 		}
 
 		// Remove symbols starting with __kernelgen_.
+		// TODO: do not strip symbols here!!
 		for (vector<string>::iterator i = names.begin(),
 			ie = names.end(); i != ie; i++)
 		{
@@ -178,11 +191,12 @@ int link(list<string> args, list<string> kgen_args,
 	// "main" kernel, executing serial portions of code on
 	// device.
 	//
-	Module* main = CloneModule(&composite);
+	std::auto_ptr<Module> main;
+	main.reset(CloneModule(&composite));
 	{
 		main->setModuleIdentifier("main");
 		std::vector<GlobalValue*> loops_functions;
-		for (Module::iterator f = main->begin(), fe = main->end(); f != fe; f++)
+		for (Module::iterator f = main.get()->begin(), fe = main.get()->end(); f != fe; f++)
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 				for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
 				{
@@ -201,7 +215,7 @@ int link(list<string> args, list<string> kgen_args,
 					GlobalValue* gval = NULL;
 					const GlobalVariable* gvar;
 					const ConstantArray* ca;
-					if (!call->getNumArgOperands()) continue;
+					if (!call->getNumArgOperands()) goto failure;
 					ce = dyn_cast<ConstantExpr>(call->getArgOperand(0));
 					if (!ce) goto failure;
 					gvar = dyn_cast<GlobalVariable>(ce->getOperand(0));
@@ -216,6 +230,9 @@ int link(list<string> args, list<string> kgen_args,
 					gval = main->getFunction(name);
 					if (!gval)
 					{
+						// TODO: not fatal, as soon as function could be defined in
+						// linked library. The question is if we should we dump LLVM IR
+						// from libraries right now.
 						cerr << "Cannot find function " << name.data() << endl;
 						continue;
 					}
@@ -223,11 +240,11 @@ int link(list<string> args, list<string> kgen_args,
 					main->Dematerialize(gval);
 					continue;
 failure:
-					cerr << "Cannot get the name of kernel invoked by kernelgen_launch" << endl;
+					THROW("Cannot get the name of kernel invoked by kernelgen_launch");
 				}
 
 		PassManager manager;
-		manager.add(new TargetData(main));
+		manager.add(new TargetData(main.get()));
 		
 		// Delete functions called through launcher.
 		manager.add(createGVExtractionPass(loops_functions, true));
@@ -241,7 +258,7 @@ failure:
 		// Remove dead func decls.
 		manager.add(createStripDeadPrototypesPass());
 
-		manager.run(*main);
+		manager.run(*main.get());
 	}
 		
 	//
@@ -249,13 +266,14 @@ failure:
 	// "loop" kernels, each one executing single parallel loop.
 	//
 	{
-		Module* loops = CloneModule(&composite);
+		std::auto_ptr<Module> loops;
+		loops.reset(CloneModule(&composite));
 		{
 			PassManager manager;
-			manager.add(new TargetData(loops));
+			manager.add(new TargetData(loops.get()));
 
 			std::vector<GlobalValue*> plain_functions;
-			for (Module::iterator f = main->begin(), fe = main->end(); f != fe; f++)
+			for (Module::iterator f = main.get()->begin(), fe = main.get()->end(); f != fe; f++)
 				if (!f->isDeclaration())
 					plain_functions.push_back(loops->getFunction(f->getName()));
 		
@@ -267,14 +285,15 @@ failure:
 			manager.run(*loops);
 		}
 
-		for (Module::iterator f1 = loops->begin(), fe1 = loops->end(); f1 != fe1; f1++)
+		for (Module::iterator f1 = loops.get()->begin(), fe1 = loops.get()->end(); f1 != fe1; f1++)
 		{
 			if (f1->isDeclaration()) continue;
 		
-			Module* loop = CloneModule(loops);
+			auto_ptr<Module> loop;
+			loop.reset(CloneModule(loops.get()));
 			loop->setModuleIdentifier(f1->getName());
 			std::vector<GlobalValue*> remove_functions;
-			for (Module::iterator f2 = loop->begin(), fe2 = loop->end(); f2 != fe2; f2++)
+			for (Module::iterator f2 = loop.get()->begin(), fe2 = loop.get()->end(); f2 != fe2; f2++)
 			{
 				if (f2->isDeclaration()) continue;
 				if (f2->getName() != f1->getName())
@@ -282,7 +301,7 @@ failure:
 			}
 			
 			PassManager manager;
-			manager.add(new TargetData(loop));
+			manager.add(new TargetData(loop.get()));
 
 			// Delete all loops functions, except entire one.
 			manager.add(createGVExtractionPass(remove_functions, true));
@@ -291,54 +310,18 @@ failure:
 			manager.add(createStripDeadPrototypesPass());
 			manager.run(*loop);
 			
-			loop->dump();
+			//loop->dump();
 
 			// Embed "loop" module into object.
-			int ir_fd = -1;
-			string ir_output;
 			{
 				string ir_string;
 				raw_string_ostream ir(ir_string);
 				ir << (*loop);
-				ir_output = fileprefix + "XXXXXX";
-				char* c_ir_output = new char[ir_output.size() + 1];
-				strcpy(c_ir_output, ir_output.c_str());
-				ir_fd = mkstemp(c_ir_output);
-				ir_output = c_ir_output;
-				delete[] c_ir_output;
-				string ir_symname = "__kernelgen_" + string(f1->getName());
-				util_elf_write(ir_fd, arch, ir_symname.c_str(),
-					ir_string.c_str(), ir_string.size() + 1);
-			}
-			
-			delete loop;
-
-			// Merge object files with binary code and IR.
-			list<string> merge_args_ext = merge_args;
-			{
-				merge_args_ext.push_back(object + "_");
-				merge_args_ext.push_back(object);
-				merge_args_ext.push_back(ir_output);
-				if (verbose)
-				{
-					cout << merge;
-					for (list<string>::iterator it = merge_args_ext.begin();
-						it != merge_args_ext.end(); it++)
-						cout << " " << *it;
-					cout << endl;
-				}
-				int status = execute(merge, merge_args_ext, "", NULL, NULL);
-				if (status) return status;
-				list<string> mv_args;
-				mv_args.push_back(object + "_");
-				mv_args.push_back(object);
-				status = execute("mv", mv_args, "", NULL, NULL);
-				if (status) return status;
-			}
-
-			if (ir_fd >= 0) close(ir_fd);
+				celf e(tmp_object.getFilename(), tmp_object.getFilename());
+				e.getSection(".data")->addSymbol(
+					"__kernelgen_" + string(f1->getName()), ir_string);
+			}			
 		}
-		delete loops;
 	}
 	
 	//
@@ -346,7 +329,7 @@ failure:
 	//
 	{
 		PassManager manager;
-		manager.add(new TargetData(main));
+		manager.add(new TargetData(main.get()));
 
 		std::vector<GlobalValue*> plain_functions;
 		for (Module::iterator f = main->begin(), fe = main->end(); f != fe; f++)
@@ -358,54 +341,19 @@ failure:
 		manager.add(createGlobalDCEPass());
 		manager.add(createStripDeadDebugInfoPass());
 		manager.add(createStripDeadPrototypesPass());
-		manager.run(*main);
+		manager.run(*main.get());
 
-		main->dump();
+		//main->dump();
 
 		// Embed "main" module into object.
-		int ir_fd = -1;
-		string ir_output;
 		{
 			string ir_string;
 			raw_string_ostream ir(ir_string);
 			ir << (*main);
-			ir_output = fileprefix + "XXXXXX";
-			char* c_ir_output = new char[ir_output.size() + 1];
-			strcpy(c_ir_output, ir_output.c_str());
-			ir_fd = mkstemp(c_ir_output);
-			ir_output = c_ir_output;
-			delete[] c_ir_output;
-			string ir_symname = "__kernelgen_main";
-			util_elf_write(ir_fd, arch, ir_symname.c_str(),
-				ir_string.c_str(), ir_string.size() + 1);
+			celf e(tmp_object.getFilename(), tmp_object.getFilename());
+			e.getSection(".data")->addSymbol(
+				"__kernelgen_main", ir_string);
 		}
-		
-		delete main;
-
-		// Merge object files with binary code and IR.
-		{
-			list<string> merge_args_ext = merge_args;
-			merge_args_ext.push_back(object + "_");
-			merge_args_ext.push_back(object);
-			merge_args_ext.push_back(ir_output);
-			if (verbose)
-			{
-				cout << merge;
-				for (list<string>::iterator it = merge_args_ext.begin();
-					it != merge_args_ext.end(); it++)
-					cout << " " << *it;
-				cout << endl;
-			}
-			int status = execute(merge, merge_args_ext, "", NULL, NULL);
-			if (status) return status;
-			list<string> mv_args;
-			mv_args.push_back(object + "_");
-			mv_args.push_back(object);
-			status = execute("mv", mv_args, "", NULL, NULL);
-			if (status) return status;
-		}
-
-		if (ir_fd >= 0) close(ir_fd);		
 	}
 	
 	//
@@ -415,14 +363,14 @@ failure:
 	{
 		list<string> objcopy_args;
 		objcopy_args.push_back("--redefine-sym main=__regular_main");
-		objcopy_args.push_back(object);
+		objcopy_args.push_back(tmp_object.getFilename());
 		int status = execute("objcopy", objcopy_args, "", NULL, NULL);
 		if (status) return status;
 
 		{
 			list<string> merge_args_ext = merge_args;		
-			merge_args_ext.push_back(object + "_");
-			merge_args_ext.push_back(object);
+			merge_args_ext.push_back(tmp_object.getFilename() + "_");
+			merge_args_ext.push_back(tmp_object.getFilename());
 			merge_args_ext.push_back("--whole-archive");
 			if (arch == 32)
 				merge_args_ext.push_back("/opt/kernelgen/lib/libkernelgen.a");
@@ -439,8 +387,8 @@ failure:
 			int status = execute(merge, merge_args_ext, "", NULL, NULL);
 			if (status) return status;
 			list<string> mv_args;
-			mv_args.push_back(object + "_");
-			mv_args.push_back(object);
+			mv_args.push_back(tmp_object.getFilename() + "_");
+			mv_args.push_back(tmp_object.getFilename());
 			status = execute("mv", mv_args, "", NULL, NULL);
 			if (status) return status;
 		}
@@ -450,20 +398,15 @@ failure:
 	// 8) Link code using regular linker.
 	//
 	{
-		list<string> args_ext = args;
-		//args_ext.push_back("-LKGEN_PREFIX/lib");
-		//args_ext.push_back("-LKGEN_PREFIX/lib64");
-		//args_ext.push_back("-lkernelgen");
-		//args_ext.push_back("-lstdc++");
 		if (verbose)
 		{
 			cout << host_compiler;
-			for (list<string>::iterator it = args_ext.begin();
-				it != args_ext.end(); it++)
+			for (list<string>::iterator it = args.begin();
+				it != args.end(); it++)
 				cout << " " << *it;
 			cout << endl;
 		}
-		int status = execute(host_compiler, args_ext, "", NULL, NULL);
+		int status = execute(host_compiler, args, "", NULL, NULL);
 		if (status) return status;
 	}
 	
