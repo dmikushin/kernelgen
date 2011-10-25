@@ -20,10 +20,55 @@
  */
 
 #include "runtime.h"
+#include "util/util.h"
 
-// Launch kernel from the spepcified source code address.
-int kernelgen_launch(char* kernel, int nargs, int* szargs, ...)
+using namespace kernelgen;
+using namespace kernelgen::runtime;
+using namespace std;
+
+// Launch kernel from the specified source code address.
+int kernelgen_launch(char* entry, int nargs, int* szargs, ...)
 {
+	kernel_t* kernel = (kernel_t*)entry;
+	
+	// Load args values into contiguous array.
+
+	// Compute args array hash.
+	
+	// Check if kernel with the specified hash is
+	// already compiled.
+	bool compiled = false;
+	if (!compiled)
+	{
+		// Compile kernel for the specified target.
+		va_list list;
+		va_start(list, szargs);
+		compile(runmode, kernel, nargs, szargs, list);
+		va_end(list);
+	}
+	
+	// Execute kernel, depending on target.
+	switch (runmode)
+	{
+		case KERNELGEN_RUNMODE_NATIVE :
+		{
+			// TODO: Launch kernel using FFI
+			break;
+		}
+		case KERNELGEN_RUNMODE_CUDA :
+		{
+			// TODO: Launch kernel using CUDA Driver API
+			break;
+		}
+		case KERNELGEN_RUNMODE_OPENCL :
+		{
+			// TODO: Launch kernel using OpenCL API
+			break;
+		}
+		default :
+			THROW("Unknown runmode " << runmode);
+	}
+
 	return 0;
 }
 

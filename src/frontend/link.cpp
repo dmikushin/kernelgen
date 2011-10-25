@@ -131,7 +131,7 @@ int link(list<string> args, list<string> kgen_args,
 				csymbol* symbol = *i;
 				const char* data = symbol->getData();
 				const string& name = symbol->getName();
-				names.push_back(symbol->getName());
+				names.push_back(name);
 
 				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(data);
 				std::auto_ptr<Module> m;

@@ -41,15 +41,16 @@ using namespace std;
 
 static auto_ptr<TargetMachine> mcpu;
 
-void kernelgen::runtime::compile(int runmode, char* source, char** binary)
+void kernelgen::runtime::compile(
+	int runmode, kernel_t* kernel, int nargs, int* szargs, va_list list)
 {
 	// Load LLVM IR source into module.
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	MemoryBuffer* buffer =
-		MemoryBuffer::getMemBuffer(source);
-	auto_ptr<Module> module;
-	module.reset(ParseIR(buffer, diag, context));
+		MemoryBuffer::getMemBuffer(kernel->source);
+	auto_ptr<Module> m;
+	m.reset(ParseIR(buffer, diag, context));
 
 	// Emit target assembly and binary image, depending
 	// on runmode.
@@ -60,7 +61,7 @@ void kernelgen::runtime::compile(int runmode, char* source, char** binary)
 			// Create target machine and get its target data.
 			if (!mcpu.get())
 			{
-				Triple triple(module.get()->getTargetTriple());
+				Triple triple(m.get()->getTargetTriple());
 				if (triple.getTriple().empty())
 					triple.setTriple(sys::getHostTriple());
 				string err;
@@ -75,19 +76,24 @@ void kernelgen::runtime::compile(int runmode, char* source, char** binary)
 					THROW("Could not allocate target machine");
 			}
 			
-			// Insert third extra argument - an array of original
-			// function arguments sizes. Note for now we just insert
-			// pointer to uninitialized array. Values will be set
-			// later, depending on target machine.
-			/*std::vector<Constant*> sizes;
-			for (int i = 0; i != nargs; i++)
+			// Insert actual values for the third kernelgen_launch
+			// argument - an array of original function arguments sizes.
+			// Also, replace kernels names with addresses of the corresponding
+			// 
+			for (Module::iterator f = m->begin(), fe = m->end(); f != fe; f++)
+				for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+					for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
 			{
-				Value* arg = call->getArgOperand(i);
-				int size = tdata->getTypeStoreSize(arg->getType());
-				sizes.push_back(ConstantInt::get(int32Ty, size));
-			}*/
+				/*std::vector<Constant*> sizes;
+				for (int i = 0; i != nargs; i++)
+				{
+					Value* arg = call->getArgOperand(i);
+					int size = tdata->getTypeStoreSize(arg->getType());
+					sizes.push_back(ConstantInt::get(int32Ty, size));
+				}*/
 			
-			// Insert addresses instead of kernels names.
+				// Insert addresses instead of kernels names.
+			}
 
 			const TargetData* tdata = mcpu.get()->getTargetData();
 			PassManager manager;
@@ -110,7 +116,7 @@ void kernelgen::runtime::compile(int runmode, char* source, char** binary)
 				TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
 				THROW("Target does not support generation of this file type");
 			
-			manager.run(*module.get());
+			manager.run(*m.get());
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA :

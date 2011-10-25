@@ -19,9 +19,14 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include <cstdarg>
+#include <map>
+#include <string>
+
 #ifndef KERNELGEN_RUNTIME_H
 #define KERNELGEN_RUNTIME_H
 
+#define KERNELGEN_RUNMODE_COUNT		3
 #define KERNELGEN_RUNMODE_NATIVE	0
 #define KERNELGEN_RUNMODE_CUDA		1
 #define KERNELGEN_RUNMODE_OPENCL	2
@@ -29,9 +34,52 @@
 // Launch kernel from the spepcified source code address.
 extern "C" int kernelgen_launch(char* kernel, int nargs, int* szargs, ...);
 
-namespace kernelgen { namespace runtime {
+namespace kernelgen {
 
-	void compile(int runmode, char* source, char** binary);
+// Kernels runmode (target).
+extern int runmode;
+
+// Verbose output.
+extern bool verbose;
+
+// Kernel configuration structure
+// containing pointer for original source code
+// and space to store specialized source and
+// binary variants for each target.
+typedef struct
+{
+	// Kernel name.
+	std::string name;
+
+	// Kernel LLVM IR source code.
+	const char* source;
+
+	// Target-specific
+	struct
+	{
+		// References to tables of compiled kernels
+		// for each supported runmode.
+		// Each source may have multiple binaries identified
+		// by hash stamps, optimized for different combinations
+		// of kernel arguments values.
+		std::map<std::string, char*> binary;
+		
+		// Kernel source version, more close to specific target.
+		const char* source;
+	}
+	target[KERNELGEN_RUNMODE_COUNT];
+}
+kernel_t;
+
+// The pool of already loaded kernels.
+// After kernel is loaded, we pin it here
+// for futher references.
+extern std::map<std::string, kernel_t> kernels;
+
+namespace runtime {
+
+void compile(int runmode,
+	kernel_t* kernel, int nargs, int* szargs, va_list list);
 
 } }
 

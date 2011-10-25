@@ -47,17 +47,18 @@ LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
 LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
 UTILINC = -I..
-UTILLIB = -L../util/64 -lutil -lelf
+UTILLIB32 = ../util/32/libutil.a
+UTILLIB64 = ../util/64/libutil.a
 
 32/libkernelgen.a: $(OBJECTS32)
-	$(AR) rcs $@ $(OBJECTS32)
+	$(AR) rcs $@ $(OBJECTS32) $(UTILLIB32)
 64/libkernelgen.a: $(OBJECTS64)
-	$(AR) rcs $@ $(OBJECTS64)
+	$(AR) rcs $@ $(OBJECTS64) $(UTILLIB64)
 
 32/entry.o: entry.cpp
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
+	$(CXX32) $(CXXFLAGS) $(UTILINC) -c $< -o $@
 64/entry.o: entry.cpp
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+	$(CXX64) $(CXXFLAGS) $(UTILINC) -c $< -o $@
 
 32/compile.o: compile.cpp runtime.h
 	$(CXX32) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
