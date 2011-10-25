@@ -26,7 +26,7 @@ OPT ?= 0
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT)
 
-OBJECTS = entry compile
+OBJECTS = entry compile launch
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -62,6 +62,11 @@ UTILLIB = -L../util/64 -lutil -lelf
 32/compile.o: compile.cpp runtime.h
 	$(CXX32) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
 64/compile.o: compile.cpp runtime.h
+	$(CXX64) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+
+32/launch.o: launch.cpp runtime.h
+	$(CXX32) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+64/launch.o: launch.cpp runtime.h
 	$(CXX64) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
 
 clean:

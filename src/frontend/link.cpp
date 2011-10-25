@@ -398,6 +398,7 @@ failure:
 	// 8) Link code using regular linker.
 	//
 	{
+		args.push_back("/opt/kernelgen/lib/libLLVM-3.0svn.so");
 		if (verbose)
 		{
 			cout << host_compiler;

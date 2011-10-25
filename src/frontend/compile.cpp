@@ -171,7 +171,7 @@ int compile(list<string> args, list<string> kgen_args,
 	}
 
 	//
-	// 6) Replace call to loop functions with call to launcher.
+	// 5) Replace call to loop functions with call to launcher.
 	// Append "always inline" attribute to all other functions.
 	//
 	Function* launch = Function::Create(
@@ -283,7 +283,7 @@ int compile(list<string> args, list<string> kgen_args,
 	}
 	
 	//
-	// 7) Apply optimization passes to the resulting common
+	// 6) Apply optimization passes to the resulting common
 	// module.
 	//
 	{
@@ -298,7 +298,7 @@ int compile(list<string> args, list<string> kgen_args,
 	}
 
 	//
-	// 8) Embed the resulting module into object file.
+	// 7) Embed the resulting module into object file.
 	//
 	{
 		string ir_string;
@@ -308,8 +308,6 @@ int compile(list<string> args, list<string> kgen_args,
 		e.getSection(".data")->addSymbol(
 			"__kernelgen_" + string(input), ir_string);
 	}
-
-	//delete m1, m2, buffer1, buffer2;
 
 	return 0;
 }

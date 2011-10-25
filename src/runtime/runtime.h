@@ -26,6 +26,9 @@
 #define KERNELGEN_RUNMODE_CUDA		1
 #define KERNELGEN_RUNMODE_OPENCL	2
 
+// Launch kernel from the spepcified source code address.
+extern "C" int kernelgen_launch(char* kernel, int nargs, int* szargs, ...);
+
 namespace kernelgen { namespace runtime {
 
 	void compile(int runmode, char* source, char** binary);

@@ -26,7 +26,7 @@ OPT ?= 0
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT)
 
-OBJECTS = timing io elf elf_write execute
+OBJECTS = timing io elf execute
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -63,14 +63,9 @@ endif
 64/elf.o: elf.cpp elf.h
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
-32/elf_write.o: elf_write.c
-	$(CC32) $(CFLAGS) -c $< -o $@
-64/elf_write.o: elf_write.c
-	$(CC64) $(CFLAGS) -c $< -o $@
-
-32/elf_write_test: elf_write_test.c elf_write.o util.h
+32/elf_write_test: elf_write_test.c elf.h util.h
 	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lkernelgen
-64/elf_write_test: elf_write_test.c elf_write.o util.h
+64/elf_write_test: elf_write_test.c elf.h util.h
 	$(CC64) $(CFLAGS) $(INCFFI) $< -o $@ -L64 -lkernelgen
 
 NUM_SYMBOLS ?= 1

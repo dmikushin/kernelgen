@@ -86,6 +86,8 @@ void kernelgen::runtime::compile(int runmode, char* source, char** binary)
 				int size = tdata->getTypeStoreSize(arg->getType());
 				sizes.push_back(ConstantInt::get(int32Ty, size));
 			}*/
+			
+			// Insert addresses instead of kernels names.
 
 			const TargetData* tdata = mcpu.get()->getTargetData();
 			PassManager manager;
