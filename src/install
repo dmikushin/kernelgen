@@ -54,16 +54,6 @@ foreach $binary (@binaries)
 }
 
 #
-# Copy includes to install path.
-#
-my(@includes32) = (
-	"runtime/kernelgen.h");
-foreach $include (@includes32)
-{
-	`cp $include $PREFIX\/include\/`;
-}
-
-#
 # Copy libraries to install path.
 #
 my(@libraries32) = (

@@ -20,7 +20,7 @@
  */
 
 #include "runtime.h"
-#include "util/util.h"
+#include "util.h"
 
 using namespace kernelgen;
 using namespace kernelgen::runtime;

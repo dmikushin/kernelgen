@@ -26,7 +26,7 @@ OPT ?= 0
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT)
 
-OBJECTS = entry compile launch
+OBJECTS = entry compile launch timing io elf execute
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -46,30 +46,64 @@ endif
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
 LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
-UTILINC = -I..
-UTILLIB32 = ../util/32/libutil.a
-UTILLIB64 = ../util/64/libutil.a
 
 32/libkernelgen.a: $(OBJECTS32)
-	$(AR) rcs $@ $(OBJECTS32) $(UTILLIB32)
+	$(AR) rcs $@ $(OBJECTS32)
 64/libkernelgen.a: $(OBJECTS64)
-	$(AR) rcs $@ $(OBJECTS64) $(UTILLIB64)
+	$(AR) rcs $@ $(OBJECTS64)
 
 32/entry.o: entry.cpp
-	$(CXX32) $(CXXFLAGS) $(UTILINC) -c $< -o $@
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/entry.o: entry.cpp
-	$(CXX64) $(CXXFLAGS) $(UTILINC) -c $< -o $@
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/compile.o: compile.cpp runtime.h
-	$(CXX32) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX32) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
 64/compile.o: compile.cpp runtime.h
-	$(CXX64) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX64) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
 
 32/launch.o: launch.cpp runtime.h
-	$(CXX32) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX32) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
 64/launch.o: launch.cpp runtime.h
-	$(CXX64) $(CXXFLAGS) $(UTILINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX64) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+
+32/timing.o: timing.c util.h
+	$(CC32) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
+64/timing.o: timing.c util.h
+	$(CC64) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
+
+32/io.o: io.cpp io.h
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/io.o: io.cpp io.h
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
+
+32/elf.o: elf.cpp elf.h
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/elf.o: elf.cpp elf.h
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
+
+32/elf_write_test: elf_write_test.c elf.h util.h
+	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lkernelgen
+64/elf_write_test: elf_write_test.c elf.h util.h
+	$(CC64) $(CFLAGS) $(INCFFI) $< -o $@ -L64 -lkernelgen
+
+NUM_SYMBOLS ?= 1
+
+32/test: elf_read_test.c elf_write_test
+	32/elf_write_test 32/foo.o $(NUM_SYMBOLS) sym hello
+	$(CC32) $(CFLAGS) $< -o 32/elf_read_test 32/foo.o -lelf
+	32/elf_read_test /proc/self/exe sym
+64/test: elf_read_test.c elf_write_test
+	64/elf_write_test 64/foo.o $(NUM_SYMBOLS) sym hello
+	$(CC64) $(CFLAGS) $< -o 64/elf_read_test 64/foo.o -lelf
+	64/elf_read_test /proc/self/exe sym
+
+32/execute.o: execute.cpp
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/execute.o: execute.cpp
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -rf 32/*.o 64/*.o 32/*.a 64/*.a
+	rm -rf 32/*.o 64/*.o 32/*.a 64/*.a \
+	32/elf_write_test 32/elf_read_test 64/elf_write_test 64/elf_read_test
 

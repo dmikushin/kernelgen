@@ -33,7 +33,7 @@
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
 
-#include "util/util.h"
+#include "util.h"
 #include "runtime.h"
 
 using namespace llvm;

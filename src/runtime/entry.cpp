@@ -20,7 +20,7 @@
  */
 
 #include "runtime.h"
-#include "util/elf.h"
+#include "elf.h"
 
 #include <iostream>
 #include <cstdlib>

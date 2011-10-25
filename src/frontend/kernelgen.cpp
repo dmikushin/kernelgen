@@ -20,7 +20,7 @@
  */
 
 #include "kernelgen.h"
-#include "util/util.h"
+#include "runtime/util.h"
 
 #include <cstdarg>
 #include <cstdio>

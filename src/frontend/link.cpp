@@ -20,8 +20,8 @@
  */
 
 #include "kernelgen.h"
-#include "util/elf.h"
-#include "util/util.h"
+#include "runtime/elf.h"
+#include "runtime/util.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -399,6 +399,8 @@ failure:
 	//
 	{
 		args.push_back("/opt/kernelgen/lib/libLLVM-3.0svn.so");
+		args.push_back("-lelf");
+		args.push_back("-lrt");
 		if (verbose)
 		{
 			cout << host_compiler;
