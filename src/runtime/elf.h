@@ -60,7 +60,7 @@ protected :
 	csection();
 	csection(celf* e, Elf_Scn* scn, std::string name);
 public :
-	void addSymbol(std::string name, std::string data);
+	void addSymbol(std::string name, const char* data, size_t length);
 
 	friend class celf;
 };
@@ -75,7 +75,7 @@ class csymbol
 	char* data;
 	size_t size;
 	int shndx;
-	bool data_loaded;
+	bool data_loaded, data_allocated;
 	
 	csymbol();
 public :
@@ -130,8 +130,8 @@ public :
 	void setSymtab32(Elf32_Sym* sym, int count);
 	void setSymtab64(Elf64_Sym* sym, int count);
 
-	void setStrtab(GElf_Ehdr* ehdr, std::string content);
-	void setData(std::string symdata);
+	void setStrtab(GElf_Ehdr* ehdr, const char* content, size_t length);
+	void setData(const char* content, size_t length);
 
 	celf(std::string ifilename, std::string ofilename);
 	celf(util::io::cfiledesc* ifd, std::string ofilename);

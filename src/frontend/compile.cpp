@@ -306,7 +306,8 @@ int compile(list<string> args, list<string> kgen_args,
 		ir << (*m2.get());
 		celf e(tmp_output.getFilename(), output);
 		e.getSection(".data")->addSymbol(
-			"__kernelgen_" + string(input), ir_string);
+			"__kernelgen_" + string(input),
+			ir_string.c_str(), ir_string.size());
 	}
 
 	return 0;

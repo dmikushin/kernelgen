@@ -82,6 +82,11 @@ LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
 64/elf.o: elf.cpp elf.h
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
+32/elf_read_test: elf_read_test.cpp elf.h util.h
+	$(CXX32) $(CXXFLAGS) $< -o $@ -L32 -lkernelgen -lelf
+64/elf_read_test: elf_read_test.cpp elf.h util.h
+	$(CXX64) $(CXXFLAGS) $< -o $@ -L64 -lkernelgen -lelf
+
 32/elf_write_test: elf_write_test.c elf.h util.h
 	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lkernelgen
 64/elf_write_test: elf_write_test.c elf.h util.h
@@ -89,13 +94,11 @@ LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
 
 NUM_SYMBOLS ?= 1
 
-32/test: elf_read_test.c elf_write_test
+32/test: elf_read_test.cpp elf_write_test
 	32/elf_write_test 32/foo.o $(NUM_SYMBOLS) sym hello
-	$(CC32) $(CFLAGS) $< -o 32/elf_read_test 32/foo.o -lelf
 	32/elf_read_test /proc/self/exe sym
-64/test: elf_read_test.c elf_write_test
+64/test: elf_read_test.cpp elf_write_test
 	64/elf_write_test 64/foo.o $(NUM_SYMBOLS) sym hello
-	$(CC64) $(CFLAGS) $< -o 64/elf_read_test 64/foo.o -lelf
 	64/elf_read_test /proc/self/exe sym
 
 32/execute.o: execute.cpp

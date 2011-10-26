@@ -51,6 +51,8 @@ void kernelgen::runtime::compile(
 		MemoryBuffer::getMemBuffer(kernel->source);
 	auto_ptr<Module> m;
 	m.reset(ParseIR(buffer, diag, context));
+	
+	m.get()->dump();
 
 	// Emit target assembly and binary image, depending
 	// on runmode.
@@ -61,6 +63,11 @@ void kernelgen::runtime::compile(
 			// Create target machine and get its target data.
 			if (!mcpu.get())
 			{
+				InitializeAllTargets();
+				InitializeAllTargetMCs();
+				InitializeAllAsmPrinters();
+				InitializeAllAsmParsers();
+
 				Triple triple(m.get()->getTargetTriple());
 				if (triple.getTriple().empty())
 					triple.setTriple(sys::getHostTriple());

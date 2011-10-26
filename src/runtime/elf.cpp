@@ -28,6 +28,8 @@
 #include "elf.h"
 
 #include <fcntl.h>
+#include <memory>
+#include <string.h>
 
 using namespace std;
 using namespace util::elf;
@@ -52,7 +54,7 @@ cregex::~cregex()
 	regfree(&regex);
 }
 
-void csection::addSymbol(std::string symname, std::string symdata)
+void csection::addSymbol(std::string symname, const char* symdata, size_t szsymdata)
 {
 	if (elf_version(EV_CURRENT) == EV_NONE)
 		THROW("ELF library initialization failed: " << elf_errmsg(-1));
@@ -73,10 +75,14 @@ void csection::addSymbol(std::string symname, std::string symdata)
 	ehdr_tmp->e_version = ehdr->e_version;
 
 	// Put together names of ELF sections and name of the target symbol.
-	const string sections = "\0.strtab\0.symtab\0" + name + "\0";
-
-	string strings = sections + symname;
-
+	const char sections[] = "\0.strtab\0.symtab";
+	auto_ptr<char> strtab;
+	size_t szstrtab = sizeof(sections) + name.size() + symname.size() + 2;
+	strtab.reset(new char[szstrtab]);
+	memcpy(strtab.get(), sections, sizeof(sections));
+	strcpy(strtab.get() + sizeof(sections), name.c_str());
+	strcpy(strtab.get() + sizeof(sections) + name.size() + 1, symname.c_str());
+	
 	if (ehdr_tmp->e_machine == EM_X86_64)
 	{
 		// Symbol table size always starts with one
@@ -89,11 +95,11 @@ void csection::addSymbol(std::string symname, std::string symdata)
 		sym[0].st_shndx = STN_UNDEF;
 		sym[0].st_name = 0;
 		sym[1].st_value = 0;
-		sym[1].st_size = symdata.size();
+		sym[1].st_size = szsymdata;
 		sym[1].st_info = ELF32_ST_INFO(STB_GLOBAL, STT_OBJECT);
 		sym[1].st_other = 0;
 		sym[1].st_shndx = 3;
-		sym[1].st_name = sections.size();
+		sym[1].st_name = sizeof(sections) + name.size() + 1;
 
 		e_tmp.setSymtab64(sym, 2);
 	}
@@ -109,18 +115,18 @@ void csection::addSymbol(std::string symname, std::string symdata)
 		sym[0].st_shndx = STN_UNDEF;
 		sym[0].st_name = 0;
 		sym[1].st_value = 0;
-		sym[1].st_size = symdata.size();
+		sym[1].st_size = szsymdata;
 		sym[1].st_info = ELF64_ST_INFO(STB_GLOBAL, STT_OBJECT);
 		sym[1].st_other = 0;
 		sym[1].st_shndx = 3;
-		sym[1].st_name = sections.size();
+		sym[1].st_name = sizeof(sections) + name.size() + 1;
 
 		e_tmp.setSymtab32(sym, 2);
 	}
 
 	// Write string table and data.	
-	e_tmp.setStrtab(ehdr_tmp, strings);
-	e_tmp.setData(symdata);
+	e_tmp.setStrtab(ehdr_tmp, strtab.get(), szstrtab);
+	e_tmp.setData(symdata, szsymdata);
 	
 	if (elf_update(e_tmp.e, ELF_C_WRITE) < 0)
 		THROW("elf_update() failed: " << elf_errmsg(-1));
@@ -178,27 +184,30 @@ const char* csymbol::getData()
 
 	// If object is not fully linked, address value
 	// could be representing offset, not absolute address.
-	// TODO: set condition on when it happens
-	
-	// Navigate to section pointed by symbol.
-	GElf_Shdr shdr;
-	Elf_Scn* scn = NULL;
-	for (int i = 0; (i < shndx) &&
-		((scn = elf_nextscn(e->e, scn)) != NULL); i++)
+	size_t position = (size_t)data;
+	if (e->header.e_type == ET_REL)
 	{
-		if (!gelf_getshdr(scn, &shdr))
-			THROW("gelf_getshdr() failed: " << elf_errmsg(-1));
-	}
-	if (!scn) THROW("Invalid section index: symbol.st_shndx");
+		// Navigate to section pointed by symbol.
+		GElf_Shdr shdr;
+		Elf_Scn* scn = NULL;
+		for (int i = 0; (i < shndx) &&
+			((scn = elf_nextscn(e->e, scn)) != NULL); i++)
+		{
+			if (!gelf_getshdr(scn, &shdr))
+				THROW("gelf_getshdr() failed: " << elf_errmsg(-1));
+		}
+		if (!scn) THROW("Invalid section index: symbol.st_shndx");
+		position += shdr.sh_offset;
 	
-	// Load actual data from file.
-	size_t position = shdr.sh_offset + (size_t)data;
-	if (lseek(e->ifd->getFileDesc(), position, SEEK_SET) == -1)
-		THROW("Cannot set file position to " << position);
-	data = new char[size + 1];
-	if (read(e->ifd->getFileDesc(), data, size) == -1)
-		THROW("Cannot read section data from file");
-	data[size] = '\0';
+		// Load actual data from file.
+		if (lseek(e->ifd->getFileDesc(), position, SEEK_SET) == -1)
+			THROW("Cannot set file position to " << position);
+		data = new char[size + 1];
+		if (read(e->ifd->getFileDesc(), data, size) == -1)
+			THROW("Cannot read section data from file");
+		data[size] = '\0';
+		data_allocated = true;
+	}
 
 	data_loaded = true;
 	return data;
@@ -209,11 +218,11 @@ size_t csymbol::getSize() const { return size; }
 csymbol::csymbol(const celf* e, std::string name,
 	char* data, size_t size, int shndx) :
 	e(e), name(name), data(data), size(size),
-	shndx(shndx), data_loaded(false) { }
+	shndx(shndx), data_loaded(false), data_allocated(false) { }
 
 csymbol::~csymbol()
 {
-	if (data_loaded) delete[] data;
+	if (data_allocated) delete[] data;
 }
 
 // Find symbols names by the specified pattern.
@@ -294,7 +303,7 @@ csection* celf::getSection(string name)
 	return NULL;
 }
 
-void celf::setStrtab(GElf_Ehdr* ehdr, string content)
+void celf::setStrtab(GElf_Ehdr* ehdr, const char* content, size_t length)
 {
 	Elf_Scn* scn = elf_newscn(e);
 	if (!scn) THROW("elf_newscn() failed: " << elf_errmsg(-1));
@@ -303,9 +312,9 @@ void celf::setStrtab(GElf_Ehdr* ehdr, string content)
 	if (!data) THROW("elf_newdata() failed: " << elf_errmsg(-1));
 	
 	data->d_align = 1;
-	data->d_buf = (void*)content.c_str();
+	data->d_buf = (void*)content;
 	data->d_off = 0LL;
-	data->d_size = content.size();
+	data->d_size = length;
 	data->d_type = ELF_T_BYTE;
 	data->d_version = EV_CURRENT;
 
@@ -326,7 +335,7 @@ void celf::setStrtab(GElf_Ehdr* ehdr, string content)
 		THROW("gelf_update_shdr() failed: " << elf_errmsg (-1));
 }
 
-void celf::setData(string symdata)
+void celf::setData(const char* content, size_t length)
 {
 	Elf_Scn* scn = elf_newscn(e);
 	if (!scn) THROW("elf_newscn() failed: " << elf_errmsg(-1));
@@ -335,9 +344,9 @@ void celf::setData(string symdata)
 	if (!data) THROW("elf_newdata() failed: " << elf_errmsg(-1));
 	
 	data->d_align = 1;
-	data->d_buf = (void*)symdata.c_str();
+	data->d_buf = (void*)content;
 	data->d_off = 0LL;
-	data->d_size = symdata.size();
+	data->d_size = length;
 	data->d_type = ELF_T_BYTE;
 	data->d_version = EV_CURRENT;
 

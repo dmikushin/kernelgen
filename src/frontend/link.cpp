@@ -310,16 +310,17 @@ failure:
 			manager.add(createStripDeadPrototypesPass());
 			manager.run(*loop);
 			
-			//loop->dump();
+			loop.get()->dump();
 
 			// Embed "loop" module into object.
 			{
 				string ir_string;
 				raw_string_ostream ir(ir_string);
-				ir << (*loop);
+				ir << (*loop.get());
 				celf e(tmp_object.getFilename(), tmp_object.getFilename());
 				e.getSection(".data")->addSymbol(
-					"__kernelgen_" + string(f1->getName()), ir_string);
+					"__kernelgen_" + string(f1->getName()),
+					ir_string.c_str(), ir_string.size());
 			}			
 		}
 	}
@@ -343,16 +344,16 @@ failure:
 		manager.add(createStripDeadPrototypesPass());
 		manager.run(*main.get());
 
-		//main->dump();
+		main.get()->dump();
 
 		// Embed "main" module into object.
 		{
 			string ir_string;
 			raw_string_ostream ir(ir_string);
-			ir << (*main);
+			ir << (*main.get());
 			celf e(tmp_object.getFilename(), tmp_object.getFilename());
 			e.getSection(".data")->addSymbol(
-				"__kernelgen_main", ir_string);
+				"__kernelgen_main", ir_string.c_str(), ir_string.size());
 		}
 	}
 	
