@@ -24,13 +24,15 @@
  * 	people on #gcc@irc.oftc.net
  */
 
-#include "util.h"
 #include "elf.h"
+#include "util.h"
+#include "runtime.h"
 
 #include <fcntl.h>
 #include <memory>
 #include <string.h>
 
+using namespace kernelgen;
 using namespace std;
 using namespace util::elf;
 using namespace util::io;
@@ -147,11 +149,14 @@ void csection::addSymbol(std::string symname, const char* symdata, size_t szsymd
 	merge_args.push_back(e->ifd->getFilename());
 	merge_args.push_back(e_tmp.ofilename);
 
-	cout << merge;
-	for (list<string>::iterator it = merge_args.begin();
-		it != merge_args.end(); it++)
-		cout << " " << *it;
-	cout << endl;
+	if (verbose)
+	{
+		cout << merge;
+		for (list<string>::iterator it = merge_args.begin();
+			it != merge_args.end(); it++)
+			cout << " " << *it;
+		cout << endl;
+	}
 	execute(merge, merge_args, "", NULL, NULL);
 
 	// Move temporary result in place of original file 

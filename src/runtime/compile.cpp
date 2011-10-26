@@ -51,6 +51,7 @@ void kernelgen::runtime::compile(
 		MemoryBuffer::getMemBuffer(kernel->source);
 	auto_ptr<Module> m;
 	m.reset(ParseIR(buffer, diag, context));
+	m.get()->setModuleIdentifier(kernel->name);
 	
 	m.get()->dump();
 
@@ -113,15 +114,21 @@ void kernelgen::runtime::compile(
 			std::string error;
 			unsigned flags = raw_fd_ostream::F_Binary;
 			auto_ptr<tool_output_file> fdout;
-			fdout.reset(new tool_output_file("-", error, flags));
+			fdout.reset(new tool_output_file((kernel->name + ".llvm.o").c_str(), error, flags));
 			if (!error.empty())
 				THROW("Cannot create output stream : " << error);
 			formatted_raw_ostream stream(fdout.get()->os());
+			//string bin_string;
+			//raw_string_ostream bin_stream(bin_string);
+			//formatted_raw_ostream stream(bin_stream);
 
 			// Ask the target to add backend passes as necessary.
 			if (mcpu.get()->addPassesToEmitFile(manager, stream,
 				TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
 				THROW("Target does not support generation of this file type");
+
+			fdout.get()->keep();
+			cout << "Dumped object to " << kernel->name << ".llvm.o" << endl;
 			
 			manager.run(*m.get());
 			break;

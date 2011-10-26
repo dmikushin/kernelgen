@@ -21,6 +21,7 @@
 
 #include "kernelgen.h"
 #include "runtime/elf.h"
+#include "runtime/runtime.h"
 #include "runtime/util.h"
 
 #include <cstdarg>
@@ -49,6 +50,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+using namespace kernelgen;
 using namespace llvm;
 using namespace std;
 using namespace util::elf;
@@ -56,7 +58,7 @@ using namespace util::io;
 
 int link(list<string> args, list<string> kgen_args,
 	string merge, list<string> merge_args,
-	string input, string output, int verbose, int arch,
+	string input, string output, int arch,
 	string host_compiler, string fileprefix)
 {
 	//
@@ -79,7 +81,7 @@ int link(list<string> args, list<string> kgen_args,
 	// In the meantime, capture an object containing main entry.
 	//
 	string object = "";
-	cfiledesc tmp_object = cfiledesc::mktemp("/tmp/");
+	cfiledesc tmp_object = cfiledesc::mktemp(fileprefix);
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	Module composite("composite", context);
@@ -310,7 +312,7 @@ failure:
 			manager.add(createStripDeadPrototypesPass());
 			manager.run(*loop);
 			
-			loop.get()->dump();
+			//loop.get()->dump();
 
 			// Embed "loop" module into object.
 			{
@@ -344,7 +346,7 @@ failure:
 		manager.add(createStripDeadPrototypesPass());
 		manager.run(*main.get());
 
-		main.get()->dump();
+		//main.get()->dump();
 
 		// Embed "main" module into object.
 		{

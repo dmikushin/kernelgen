@@ -21,14 +21,12 @@
 
 #include "kernelgen.h"
 #include "runtime/elf.h"
+#include "runtime/runtime.h"
 #include "runtime/util.h"
 
 #include <cstdarg>
-#include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <limits.h>
-#include <string.h>
 
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
@@ -42,6 +40,7 @@
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Transforms/IPO.h"
 
+using namespace kernelgen;
 using namespace llvm;
 using namespace std;
 using namespace util::elf;
@@ -49,7 +48,7 @@ using namespace util::io;
 
 int compile(list<string> args, list<string> kgen_args,
 	string merge, list<string> merge_args,
-	string input, string output, int verbose, int arch,
+	string input, string output, int arch,
 	string host_compiler, string fileprefix)
 {
 	//
@@ -73,7 +72,7 @@ int compile(list<string> args, list<string> kgen_args,
 	// Check if output file is specified in the command line.
 	// Replace or add output to the temporary file.
 	//
-	cfiledesc tmp_output = cfiledesc::mktemp("/tmp/");
+	cfiledesc tmp_output = cfiledesc::mktemp(fileprefix);
 	bool output_specified = false;
 	for (list<string>::iterator iarg = args.begin(),
 		iearg = args.end(); iarg != iearg; iarg++)
@@ -198,7 +197,8 @@ int compile(list<string> args, list<string> kgen_args,
 		// Each such function must be extracted to the
 		// standalone module and packed into resulting
 		// object file data section.
-		printf("Preparing loop function %s ...\n", func->getName().data());
+		if (verbose)
+			cout << "Preparing loop function %s ...\n" << func->getName().data();
 		
 		// Reset to default visibility.
 		func->setVisibility(GlobalValue::DefaultVisibility);

@@ -24,11 +24,11 @@
 
 int compile(std::list<std::string> args, std::list<std::string> kgen_args,
 	std::string merge, std::list<std::string> merge_args,
-	std::string input, std::string output, int verbose, int arch,
+	std::string input, std::string output, int arch,
 	std::string host_compiler, std::string fileprefix);
 
 int link(std::list<std::string> args, std::list<std::string> kgen_args,
 	std::string merge, std::list<std::string> merge_args,
-	std::string input, std::string output, int verbose, int arch,
+	std::string input, std::string output, int arch,
 	std::string host_compiler, std::string fileprefix);
 

@@ -20,15 +20,14 @@
  */
 
 #include "kernelgen.h"
+#include "runtime/runtime.h"
 #include "runtime/util.h"
 
-#include <cstdarg>
-#include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <malloc.h>
 #include <string.h>
 
+using namespace kernelgen;
 using namespace std;
 
 static bool a_ends_with_b(const string& a, const string& b)
@@ -37,8 +36,8 @@ static bool a_ends_with_b(const string& a, const string& b)
 	return std::equal(a.begin() + a.size() - b.size(), a.end(), b.begin());
 }
 
-
-int main(int argc, char* argv[])
+// Main entry is in runtime's entry.cpp
+extern "C" int __regular_main(int argc, char* argv[])
 {
 	//
 	// Behave like compiler if no arguments.
@@ -52,7 +51,8 @@ int main(int argc, char* argv[])
 	//
 	// Enable or disable verbose output.
 	//
-	int verbose = 1;
+	char* cverbose = getenv("kernelgen_verbose");
+	if (cverbose) verbose = (bool)atoi(cverbose);
 
 	//
 	// Switch to bypass the kernelgen pipe and use regular compiler only.
@@ -106,8 +106,6 @@ int main(int argc, char* argv[])
 		
 		if (!strcmp(arg, "-Wk,--bypass"))
 			bypass = 1;
-		if (!strcmp(arg, "-Wk,--verbose"))
-			verbose = 1;
 		if (!strncmp(arg, "-Wk,--host-compiler=", 20))
 			host_compiler = arg + 20;
 	}
@@ -223,10 +221,10 @@ int main(int argc, char* argv[])
 	if (input.size())
 		return compile(args, kgen_args,
 			merge, merge_args, input, output,
-			verbose, arch, host_compiler, fileprefix);
+			arch, host_compiler, fileprefix);
 	else
 		return link(args, kgen_args,
 			merge, merge_args, input, output,
-			verbose, arch, host_compiler, fileprefix);
+			arch, host_compiler, fileprefix);
 }
 
