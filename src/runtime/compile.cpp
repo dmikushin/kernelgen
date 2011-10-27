@@ -22,6 +22,7 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
+#include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/Host.h"
@@ -39,6 +40,29 @@
 using namespace llvm;
 using namespace std;
 
+/*// A trivial memory manager that doesn't do anything fancy, just uses the
+// support library allocation routines directly.
+class TrivialMemoryManager : public RTDyldMemoryManager {
+public:
+  SmallVector<sys::MemoryBlock, 16> FunctionMemory;
+
+  uint8_t *startFunctionBody(const char *Name, uintptr_t &Size);
+  void endFunctionBody(const char *Name, uint8_t *FunctionStart,
+                       uint8_t *FunctionEnd);
+};
+
+uint8_t *TrivialMemoryManager::startFunctionBody(const char *Name,
+                                                 uintptr_t &Size) {
+  return (uint8_t*)sys::Memory::AllocateRWX(Size, 0, 0).base();
+}
+
+void TrivialMemoryManager::endFunctionBody(const char *Name,
+                                           uint8_t *FunctionStart,
+                                           uint8_t *FunctionEnd) {
+  uintptr_t Size = FunctionEnd - FunctionStart + 1;
+  FunctionMemory.push_back(sys::MemoryBlock(FunctionStart, Size));
+}*/
+
 static auto_ptr<TargetMachine> mcpu;
 
 void kernelgen::runtime::compile(
@@ -53,7 +77,7 @@ void kernelgen::runtime::compile(
 	m.reset(ParseIR(buffer, diag, context));
 	m.get()->setModuleIdentifier(kernel->name);
 	
-	m.get()->dump();
+	//m.get()->dump();
 
 	// Emit target assembly and binary image, depending
 	// on runmode.
@@ -111,26 +135,34 @@ void kernelgen::runtime::compile(
 			mcpu.get()->setAsmVerbosityDefault(true);
 
 			// Setup output stream.
-			std::string error;
+			/*std::string error;
 			unsigned flags = raw_fd_ostream::F_Binary;
 			auto_ptr<tool_output_file> fdout;
-			fdout.reset(new tool_output_file((kernel->name + ".llvm.o").c_str(), error, flags));
+			cfiledesc fd = cfiledesc::mktemp("/tmp/");
+			fdout.reset(new tool_output_file(fd.getFilename(), error, flags));
 			if (!error.empty())
 				THROW("Cannot create output stream : " << error);
-			formatted_raw_ostream stream(fdout.get()->os());
-			//string bin_string;
-			//raw_string_ostream bin_stream(bin_string);
-			//formatted_raw_ostream stream(bin_stream);
+			formatted_raw_ostream stream(fdout.get()->os());*/
+			string bin_string;
+			raw_string_ostream bin_stream(bin_string);
+			formatted_raw_ostream stream(bin_stream);
 
 			// Ask the target to add backend passes as necessary.
 			if (mcpu.get()->addPassesToEmitFile(manager, stream,
 				TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
 				THROW("Target does not support generation of this file type");
 
-			fdout.get()->keep();
-			cout << "Dumped object to " << kernel->name << ".llvm.o" << endl;
-			
 			manager.run(*m.get());
+			
+			// Flush the resulting object binary to the
+			// underlying string.
+			stream.flush();
+
+			//TrivialMemoryManager memMgr;
+			//RuntimeDyld Dyld(&memMgr);
+
+			//cout << bin_string;
+
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA :

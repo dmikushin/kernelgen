@@ -151,6 +151,8 @@ int compile(list<string> args, list<string> kgen_args,
 	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(out);
 	auto_ptr<Module> m1;
 	m1.reset(ParseIR(buffer1, diag, context));
+	
+	//m1.get()->dump();
 
 	//
 	// 4) Inline calls and extract loops into new functions.
@@ -168,6 +170,8 @@ int compile(list<string> args, list<string> kgen_args,
 		manager.add(createLoopExtractorPass());
 		manager.run(*m2.get());
 	}
+
+	//m2.get()->dump();
 
 	//
 	// 5) Replace call to loop functions with call to launcher.
@@ -202,6 +206,9 @@ int compile(list<string> args, list<string> kgen_args,
 		
 		// Reset to default visibility.
 		func->setVisibility(GlobalValue::DefaultVisibility);
+		
+		// Reset to default linkage.
+		func->setLinkage(GlobalValue::ExternalLinkage);
 
 		// Replace call to this function in module with call to launcher.
 		bool found = false;
@@ -221,11 +228,13 @@ int compile(list<string> args, list<string> kgen_args,
 
 					// Start forming new function call argument list
 					// by copying the list of original function call.
-					SmallVector<Value*, 16> call_args(call->op_begin(), call->op_end());
+					int nargs = call->getNumArgOperands();
+					SmallVector<Value*, 16> call_args;
+					for (int i = 0; i < nargs; i++)
+						call_args.push_back(call->getArgOperand(i));
 					
 					// Insert first extra argument - the number of
 					// original call arguments.
-					int nargs = call->getNumArgOperands();
 					call_args.insert(call_args.begin(),
 						ConstantInt::get(int32Ty, nargs));
 					
@@ -281,6 +290,8 @@ int compile(list<string> args, list<string> kgen_args,
 					break;
 				}
 	}
+
+	//m2.get()->dump();
 	
 	//
 	// 6) Apply optimization passes to the resulting common
@@ -296,6 +307,8 @@ int compile(list<string> args, list<string> kgen_args,
 		builder.populateModulePassManager(manager);
 		manager.run(*m2.get());
 	}
+	
+	//m2.get()->dump();
 
 	//
 	// 7) Embed the resulting module into object file.
