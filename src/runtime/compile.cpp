@@ -40,7 +40,7 @@
 using namespace llvm;
 using namespace std;
 
-/*// A trivial memory manager that doesn't do anything fancy, just uses the
+// A trivial memory manager that doesn't do anything fancy, just uses the
 // support library allocation routines directly.
 class TrivialMemoryManager : public RTDyldMemoryManager {
 public:
@@ -61,7 +61,7 @@ void TrivialMemoryManager::endFunctionBody(const char *Name,
                                            uint8_t *FunctionEnd) {
   uintptr_t Size = FunctionEnd - FunctionStart + 1;
   FunctionMemory.push_back(sys::MemoryBlock(FunctionStart, Size));
-}*/
+}
 
 static auto_ptr<TargetMachine> mcpu;
 
@@ -135,14 +135,6 @@ void kernelgen::runtime::compile(
 			mcpu.get()->setAsmVerbosityDefault(true);
 
 			// Setup output stream.
-			/*std::string error;
-			unsigned flags = raw_fd_ostream::F_Binary;
-			auto_ptr<tool_output_file> fdout;
-			cfiledesc fd = cfiledesc::mktemp("/tmp/");
-			fdout.reset(new tool_output_file(fd.getFilename(), error, flags));
-			if (!error.empty())
-				THROW("Cannot create output stream : " << error);
-			formatted_raw_ostream stream(fdout.get()->os());*/
 			string bin_string;
 			raw_string_ostream bin_stream(bin_string);
 			formatted_raw_ostream stream(bin_stream);
@@ -158,10 +150,60 @@ void kernelgen::runtime::compile(
 			// underlying string.
 			stream.flush();
 
-			//TrivialMemoryManager memMgr;
-			//RuntimeDyld Dyld(&memMgr);
-
 			//cout << bin_string;
+
+/*    std::string module_name_string ("llvm_repl");
+    llvm::StringRef module_name (module_name_string);
+	llvm::Module * module (new llvm::Module (module_name, context_instance->context_m));
+    lambda_p_llvm::generation_context context (context_instance->context_m, module, NULL);
+    llvm::EngineBuilder builder (module);
+    builder.setEngineKind (llvm::EngineKind::JIT);
+    std::string error;
+    builder.setErrorStr (&error);
+    llvm::ExecutionEngine * engine = builder.create ();
+    lambda_p_llvm::wprintf_function wprintf (context);
+    module->getFunctionList ().push_back (wprintf.wprintf);
+    engine->addGlobalMapping (wprintf.wprintf, (void *)::wprintf);
+
+
+        llvm::ReturnInst * ret (llvm::ReturnInst::Create (context.context));
+		context.block->getInstList ().push_back (ret);
+        std::vector <llvm::GenericValue> start_arguments;
+        engine->runFunction (start, start_arguments);*/
+
+			// Initialize dynamic loader with memory buffer.
+			TrivialMemoryManager memMgr;
+			RuntimeDyld dyld(&memMgr);
+
+			// Submit kernel object to loader.
+			MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(bin_string);
+			if (dyld.loadObject(buffer))
+				THROW(dyld.getErrorString().data());
+
+			// Resolve all the relocations we can.
+			dyld.resolveRelocations();
+
+			// FIXME: Error out if there are unresolved relocations.
+
+			// Get the address of the entry point (_main by default).
+			void* entry = dyld.getSymbolAddress(kernel->name);
+			if (!entry)
+				THROW("No definition for '" << kernel->name << "'");
+
+			// Invalidate the instruction cache for each loaded function.
+			for (unsigned i = 0, e = memMgr.FunctionMemory.size(); i != e; i++)
+			{
+				sys::MemoryBlock &Data = memMgr.FunctionMemory[i];
+				
+				// Make sure the memory is executable.
+				std::string error;
+				sys::Memory::InvalidateInstructionCache(Data.base(), Data.size());
+				if (!sys::Memory::setExecutable(Data, &error))
+					THROW("Unable to mark function executable: '" << error << "'");
+			}
+
+			if (verbose)
+				cout << "Loaded '" << kernel->name << "' at: " << (void*)entry << endl;
 
 			break;
 		}

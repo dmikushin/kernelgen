@@ -60,7 +60,7 @@ LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
 32/compile.o: compile.cpp runtime.h
 	$(CXX32) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
 64/compile.o: compile.cpp runtime.h
-	$(CXX64) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX64) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -fno-rtti -c $< -o $@
 
 32/launch.o: launch.cpp runtime.h
 	$(CXX32) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
