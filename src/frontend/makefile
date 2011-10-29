@@ -25,7 +25,7 @@ LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
 EXECINC = -I..
 EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf
 
-CXX = g++ -g
+CXX = g++ -g $(LLVMINC) $(LLVMDEF)
 
 OBJECTS = kernelgen.o compile.o link.o
 
@@ -38,10 +38,10 @@ kernelgen.o: kernelgen.cpp
 	$(CXX) $(EXECINC) -c $< -o $@
 
 compile.o: compile.cpp
-	$(CXX) $(EXECINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX) $(EXECINC) -c $< -o $@
 
 link.o: link.cpp
-	$(CXX) $(EXECINC) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX) $(EXECINC) -c $< -o $@
 
 clean:
 	rm -rf *.o kernelgen

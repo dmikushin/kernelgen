@@ -34,34 +34,19 @@
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
 
+#include "../../lib/ExecutionEngine/Interpreter/Interpreter.h"
+
+#include "io.h"
 #include "util.h"
 #include "runtime.h"
 
+#include <dlfcn.h>
+#include <fstream>
+#include <list>
+
+using namespace util::io;
 using namespace llvm;
 using namespace std;
-
-// A trivial memory manager that doesn't do anything fancy, just uses the
-// support library allocation routines directly.
-class TrivialMemoryManager : public RTDyldMemoryManager {
-public:
-  SmallVector<sys::MemoryBlock, 16> FunctionMemory;
-
-  uint8_t *startFunctionBody(const char *Name, uintptr_t &Size);
-  void endFunctionBody(const char *Name, uint8_t *FunctionStart,
-                       uint8_t *FunctionEnd);
-};
-
-uint8_t *TrivialMemoryManager::startFunctionBody(const char *Name,
-                                                 uintptr_t &Size) {
-  return (uint8_t*)sys::Memory::AllocateRWX(Size, 0, 0).base();
-}
-
-void TrivialMemoryManager::endFunctionBody(const char *Name,
-                                           uint8_t *FunctionStart,
-                                           uint8_t *FunctionEnd) {
-  uintptr_t Size = FunctionEnd - FunctionStart + 1;
-  FunctionMemory.push_back(sys::MemoryBlock(FunctionStart, Size));
-}
 
 static auto_ptr<TargetMachine> mcpu;
 
@@ -75,9 +60,11 @@ void kernelgen::runtime::compile(
 		MemoryBuffer::getMemBuffer(kernel->source);
 	auto_ptr<Module> m;
 	m.reset(ParseIR(buffer, diag, context));
-	m.get()->setModuleIdentifier(kernel->name);
+	m.get()->setModuleIdentifier(kernel->name + "_module");
 	
 	//m.get()->dump();
+	
+	Interpreter interp(m.get());
 
 	// Emit target assembly and binary image, depending
 	// on runmode.
@@ -103,7 +90,7 @@ void kernelgen::runtime::compile(
 					THROW("Error auto-selecting target for module '" << err << "'." << endl <<
 						"Please use the -march option to explicitly pick a target.");
 				mcpu.reset(target->createTargetMachine(
-					triple.getTriple(), "", "", Reloc::Default, CodeModel::Default));
+					triple.getTriple(), "", "", Reloc::PIC_, CodeModel::Default));
 				if (!mcpu.get())
 					THROW("Could not allocate target machine");
 			}
@@ -152,58 +139,69 @@ void kernelgen::runtime::compile(
 
 			//cout << bin_string;
 
-/*    std::string module_name_string ("llvm_repl");
-    llvm::StringRef module_name (module_name_string);
-	llvm::Module * module (new llvm::Module (module_name, context_instance->context_m));
-    lambda_p_llvm::generation_context context (context_instance->context_m, module, NULL);
-    llvm::EngineBuilder builder (module);
-    builder.setEngineKind (llvm::EngineKind::JIT);
-    std::string error;
-    builder.setErrorStr (&error);
-    llvm::ExecutionEngine * engine = builder.create ();
-    lambda_p_llvm::wprintf_function wprintf (context);
-    module->getFunctionList ().push_back (wprintf.wprintf);
-    engine->addGlobalMapping (wprintf.wprintf, (void *)::wprintf);
-
-
-        llvm::ReturnInst * ret (llvm::ReturnInst::Create (context.context));
-		context.block->getInstList ().push_back (ret);
-        std::vector <llvm::GenericValue> start_arguments;
-        engine->runFunction (start, start_arguments);*/
-
-			// Initialize dynamic loader with memory buffer.
-			TrivialMemoryManager memMgr;
-			RuntimeDyld dyld(&memMgr);
-
-			// Submit kernel object to loader.
-			MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(bin_string);
-			if (dyld.loadObject(buffer))
-				THROW(dyld.getErrorString().data());
-
-			// Resolve all the relocations we can.
-			dyld.resolveRelocations();
-
-			// FIXME: Error out if there are unresolved relocations.
-
-			// Get the address of the entry point (_main by default).
-			void* entry = dyld.getSymbolAddress(kernel->name);
-			if (!entry)
-				THROW("No definition for '" << kernel->name << "'");
-
-			// Invalidate the instruction cache for each loaded function.
-			for (unsigned i = 0, e = memMgr.FunctionMemory.size(); i != e; i++)
+			// Dump generated kernel object to first temporary file.
+			cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
 			{
-				sys::MemoryBlock &Data = memMgr.FunctionMemory[i];
-				
-				// Make sure the memory is executable.
-				std::string error;
-				sys::Memory::InvalidateInstructionCache(Data.base(), Data.size());
-				if (!sys::Memory::setExecutable(Data, &error))
-					THROW("Unable to mark function executable: '" << error << "'");
+				fstream tmp_stream;
+				tmp_stream.open(tmp1.getFilename().c_str(),
+					fstream::binary | fstream::out | fstream::trunc);
+				tmp_stream << bin_string;
+				tmp_stream.close();
+			}
+			
+			// Link first and second objects together into third one.
+			cfiledesc tmp3 = cfiledesc::mktemp("/tmp/");
+			{
+				string linker = "ld";
+				std::list<string> linker_args;
+				linker_args.push_back("-shared");
+				linker_args.push_back("-o");
+				linker_args.push_back(tmp3.getFilename());
+				linker_args.push_back(tmp1.getFilename());
+				if (verbose)
+				{
+					cout << linker;
+					for (std::list<string>::iterator it = linker_args.begin();
+						it != linker_args.end(); it++)
+						cout << " " << *it;
+					cout << endl;
+				}
+				execute(linker, linker_args, "", NULL, NULL);
 			}
 
+			// Load linked image and extract kernel entry point.
+			void* handle = dlopen(tmp3.getFilename().c_str(),
+				RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
+			if (!handle)
+				THROW("Cannot dlopen " << dlerror());
+			
+			void* entry = dlsym(handle, kernel->name.c_str());
+			if (!entry)
+				THROW("Cannot dlsym " << dlerror());
+			
 			if (verbose)
 				cout << "Loaded '" << kernel->name << "' at: " << (void*)entry << endl;
+
+			// Invoke kernel function, using LLVM interpreter
+			// that bridges subset of LLVM types and FFI types.
+			// Notes:
+			// 1) complex types like structures are not yet
+			// supported in there.
+			// 2) we use FFI only for NATIVE target. Since CUDA
+			// & OpenCL kernels have to be launched using other
+			// APIs, we will probably need to develop our own
+			// facility to cover them as well.
+			/*vector<GenericValue> args;
+			args.reserve(nargs);
+			for (Function::arg_iterator i = kernel->function->arg_begin(),
+				ie = kernel->function->arg_end(); i != ie; i++)
+			{
+				Type* Ty = i->getType();
+				GenericValue gval;
+				int szarg = tdata->getTypeStoreSize(i->getType());
+				args.push_back(GenericValue((void*)arg));
+			}
+			interp.callExternalFunction(kernel->function, args);*/
 
 			break;
 		}

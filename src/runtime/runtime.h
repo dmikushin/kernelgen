@@ -19,6 +19,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "llvm/Module.h"
+
 #include <cstdarg>
 #include <map>
 #include <string>
@@ -50,6 +52,12 @@ typedef struct
 {
 	// Kernel name.
 	std::string name;
+
+	// Kernel module.
+	llvm::Module* module;
+	
+	// Kernel function.
+	llvm::Function* function;
 
 	// Kernel LLVM IR source code.
 	const char* source;

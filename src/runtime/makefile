@@ -23,8 +23,12 @@ include ../../makefile.in
 
 OPT ?= 0
 
+LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
+LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
+LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
+
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
-CXXFLAGS = -g -fPIC -O$(OPT)
+CXXFLAGS = -g -fPIC -O$(OPT) $(LLVMINC) $(LLVMDEF)
 
 OBJECTS = entry compile launch timing io elf execute
 
@@ -43,10 +47,6 @@ CXX64 = $(CXX)
 all: 32/libkernelgen.a 64/libkernelgen.a
 endif
 
-LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
-LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
-LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
-
 32/libkernelgen.a: $(OBJECTS32)
 	$(AR) rcs $@ $(OBJECTS32)
 64/libkernelgen.a: $(OBJECTS64)
@@ -58,14 +58,14 @@ LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/compile.o: compile.cpp runtime.h
-	$(CXX32) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/compile.o: compile.cpp runtime.h
-	$(CXX64) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -fno-rtti -c $< -o $@
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/launch.o: launch.cpp runtime.h
-	$(CXX32) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/launch.o: launch.cpp runtime.h
-	$(CXX64) $(CXXFLAGS) $(LLVMINC) $(LLVMDEF) -c $< -o $@
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/timing.o: timing.c util.h
 	$(CC32) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@

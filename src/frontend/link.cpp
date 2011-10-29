@@ -311,6 +311,9 @@ failure:
 			manager.add(createStripDeadDebugInfoPass());
 			manager.add(createStripDeadPrototypesPass());
 			manager.run(*loop);
+
+			// Rename "loop" to "__kernelgen_loop".
+			f1->setName("__kernelgen_" + f1->getName());
 			
 			//loop.get()->dump();
 
@@ -321,7 +324,7 @@ failure:
 				ir << (*loop.get());
 				celf e(tmp_object.getFilename(), tmp_object.getFilename());
 				e.getSection(".data")->addSymbol(
-					"__kernelgen_" + string(f1->getName()),
+					string(f1->getName()),
 					ir_string.c_str(), ir_string.size());
 			}			
 		}
@@ -337,7 +340,7 @@ failure:
 		std::vector<GlobalValue*> plain_functions;
 		for (Module::iterator f = main->begin(), fe = main->end(); f != fe; f++)
 			if (!f->isDeclaration() && f->getName() != "main")
-				plain_functions.push_back(main->getFunction(f->getName()));
+				plain_functions.push_back(f);
 	
 		// Delete all plain functions (that are not called through launcher).
 		manager.add(createGVExtractionPass(plain_functions, true));
@@ -345,6 +348,9 @@ failure:
 		manager.add(createStripDeadDebugInfoPass());
 		manager.add(createStripDeadPrototypesPass());
 		manager.run(*main.get());
+
+		// Rename "main" to "__kernelgen_main"
+		main->getFunction("main")->setName("__kernelgen_main");
 
 		//main.get()->dump();
 
@@ -401,6 +407,9 @@ failure:
 	// 8) Link code using regular linker.
 	//
 	{
+		// Adding -rdynamic to use executable global symbols
+		// to resolve dependencies of subsequently loaded kernel objects.
+		args.push_back("-rdynamic");
 		args.push_back("/home/marcusmae/rpmbuild/BUILD/llvm/build/Debug+Asserts/lib/libLLVM-3.0svn.so");
 		args.push_back("-lelf");
 		args.push_back("-lrt");
