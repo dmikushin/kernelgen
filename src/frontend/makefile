@@ -27,7 +27,7 @@ EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf
 
 CXX = g++ -g $(LLVMINC) $(LLVMDEF)
 
-OBJECTS = kernelgen.o compile.o link.o
+OBJECTS = kernelgen.o compile.o link.o BranchedLoopExtractor.o BranchedCodeExtractor.o
 
 all: kernelgen
 
@@ -41,6 +41,12 @@ compile.o: compile.cpp
 	$(CXX) $(EXECINC) -c $< -o $@
 
 link.o: link.cpp
+	$(CXX) $(EXECINC) -c $< -o $@
+
+BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
+	$(CXX) $(EXECINC) -c $< -o $@
+
+BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
 	$(CXX) $(EXECINC) -c $< -o $@
 
 clean:

@@ -39,6 +39,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Transforms/IPO.h"
+#include "branchedLoopExtractor.h"
 
 using namespace kernelgen;
 using namespace llvm;
@@ -167,7 +168,7 @@ int compile(list<string> args, list<string> kgen_args,
 	}
 	{
 		PassManager manager;
-		manager.add(createLoopExtractorPass());
+		manager.add(createBranchedLoopExtractorPass());
 		manager.run(*m2.get());
 	}
 
