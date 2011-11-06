@@ -16,22 +16,24 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "loop-extract-with-branch"
+
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Instructions.h"
 #include "llvm/PassSupport.h"
-
 #include "llvm/Module.h"
 #include "llvm/Pass.h"
-
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/FunctionUtils.h"
 #include "llvm/ADT/Statistic.h"
+
+#include "BranchedLoopExtractor.h"
+
 #include <fstream>
 #include <set>
-#include "branchedLoopExtractor.h"
+
 using namespace llvm;
 
 STATISTIC(NumBranchedExtracted, "Number of loops extracted");

@@ -33,9 +33,12 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+
+#include "BranchedLoopExtractor.h"
+
 #include <algorithm>
 #include <set>
-#include "branchedLoopExtractor.h"
+
 using namespace llvm;
 
 // Provide a command-line option to aggregate function arguments into a struct

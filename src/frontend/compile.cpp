@@ -39,7 +39,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Transforms/IPO.h"
-#include "branchedLoopExtractor.h"
+
+#include "BranchedLoopExtractor.h"
 
 using namespace kernelgen;
 using namespace llvm;

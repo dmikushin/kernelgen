@@ -44,7 +44,7 @@ link.o: link.cpp
 	$(CXX) $(EXECINC) -c $< -o $@
 
 BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
-	$(CXX) $(EXECINC) -c $< -o $@
+	$(CXX) $(EXECINC) -fno-rtti -c $< -o $@
 
 BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
 	$(CXX) $(EXECINC) -c $< -o $@
