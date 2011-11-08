@@ -942,7 +942,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	BasicBlock *loadAndSwitchExitBlock = BasicBlock::Create(header->getContext(), //
 	                                     "loadOutputsAndSwitchExit", oldFunction, //
 	                                     header);                                 //
-	//
+	                                                                              //
 	BasicBlock *callAndBranchBlock = BasicBlock::Create(header->getContext(),     //
 	                                 "callAndBranch", oldFunction,                //
 	                                 loadAndSwitchExitBlock);                     //
@@ -984,9 +984,22 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 		// modify the branch target to a new block                                                        //
 		if (TerminatorInst *TI = dyn_cast<TerminatorInst>(Users[i]))                                      //
 			if (!OriginalLoopBlocks.count(TI->getParent()) && (callAndBranchBlock != TI->getParent()) &&  //
-			    TI->getParent()->getParent() == oldFunction)                                              //
-				TI->replaceUsesOfWith(header, callAndBranchBlock);                                        //
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
+			    TI->getParent()->getParent() == oldFunction)
+					{                                
+						BasicBlock * outsideBlock = TI -> getParent();
+						//loop over all phi-nodes
+					    for (BasicBlock::iterator PN = header->begin(); isa<PHINode>(PN); ++PN)
+						{
+						      PHINode * PHI_node = dyn_cast<PHINode>(PN);
+							  for(int v = 0; v < PHI_node -> getNumIncomingValues(); v++)
+							  if(PHI_node->getIncomingBlock(v) == outsideBlock)
+								  PHI_node->setIncomingBlock(v, callAndBranchBlock);
+						}                                                                                 //																									//
+				       TI->replaceUsesOfWith(header, callAndBranchBlock);                                 //
+				}                                                                                         //
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+	
+	
 
 	// Create load instructions to load from each output
 	// Insert switch instruction to select one of the exit blocks

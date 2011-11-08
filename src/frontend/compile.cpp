@@ -183,8 +183,9 @@ int compile(list<string> args, list<string> kgen_args,
 	//
 	
 	Function* launch = Function::Create(
-		TypeBuilder<void(types::i<8>*, types::i<32>, types::i<32>*, ...), true>::get(context),
+		TypeBuilder<types::i<16>(types::i<8>*, types::i<32>, types::i<32>*, ...), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch", m2.get());
+
 	for (Module::iterator f1 = m2.get()->begin(), fe1 = m2.get()->end(); f1 != fe1; f1++)
 	{
 		Function* func = f1;
@@ -283,25 +284,22 @@ int compile(list<string> args, list<string> kgen_args,
 				   
 		           	// Create new function call with new call arguments
 					// and copy old call properties.
-					CallInst* newcall = CallInst::Create(launch, call_args, "kg_lnch_call", call);
-					//newcall->takeName(call);
+					CallInst* newcall = CallInst::Create(launch, call_args, "kernelgen_call", call);
+				    //newcall->takeName(call);
 					newcall->setCallingConv(call->getCallingConv());
 					newcall->setAttributes(call->getAttributes());
 					newcall->setDebugLoc(call->getDebugLoc());
 					
-					for (Value::use_iterator user = call->use_begin(), 
-								userE = call->use_end(); user != userE; ++user){
-			           Instruction * User = dyn_cast<Instruction>(*user);
-			           if(User) User->replaceUsesOfWith(call, newcall);
-	                }			 
-		 			// Replace old call with new one.
-					call->eraseFromParent();
+				// Replace old call with new one.
+				   call->replaceAllUsesWith(newcall);
+				   call->eraseFromParent();
 					
 					found = true;
 					break;
 				}
 	}
     
+	
 	
 	//m2.get()->dump();
 	
