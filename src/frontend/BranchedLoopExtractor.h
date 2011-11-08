@@ -4,9 +4,11 @@ namespace llvm
 {
 void initializeSingleBranchedLoopExtractorPass(PassRegistry&);
 void initializeBranchedLoopExtractorPass(PassRegistry&);
-  Function* BranchedExtractLoop(DominatorTree& DT, Loop *L,
+  CallInst* BranchedExtractLoop(DominatorTree& DT, Loop *L,
                         bool AggregateArgs = false);
+
 Pass *createBranchedLoopExtractorPass();
 Pass *createSingleBranchedLoopExtractorPass();
+Pass *createBranchedLoopExtractorPass(std::vector<CallInst *> & LFC);
 						
 }

@@ -39,6 +39,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/ADT/SetVector.h"
 
 #include "BranchedLoopExtractor.h"
 
@@ -167,9 +168,10 @@ int compile(list<string> args, list<string> kgen_args,
 		manager.add(createInstructionCombiningPass());
 		manager.run(*m2.get());
 	}
+	std::vector<CallInst *> LoopFuctionCalls;
 	{
 		PassManager manager;
-		manager.add(createBranchedLoopExtractorPass());
+		manager.add(createBranchedLoopExtractorPass(LoopFuctionCalls));
 		manager.run(*m2.get());
 	}
 
@@ -179,6 +181,7 @@ int compile(list<string> args, list<string> kgen_args,
 	// 5) Replace call to loop functions with call to launcher.
 	// Append "always inline" attribute to all other functions.
 	//
+	
 	Function* launch = Function::Create(
 		TypeBuilder<void(types::i<8>*, types::i<32>, types::i<32>*, ...), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch", m2.get());
@@ -277,22 +280,29 @@ int compile(list<string> args, list<string> kgen_args,
 					call_args.insert(call_args.begin() + 2,
 						ConstantExpr::getGetElementPtr(GV2, gep_args));
 					
-					// Create new function call with new call arguments
+				   
+		           	// Create new function call with new call arguments
 					// and copy old call properties.
-					CallInst* newcall = CallInst::Create(launch, call_args, "", call);
-					newcall->takeName(call);
+					CallInst* newcall = CallInst::Create(launch, call_args, "kg_lnch_call", call);
+					//newcall->takeName(call);
 					newcall->setCallingConv(call->getCallingConv());
 					newcall->setAttributes(call->getAttributes());
 					newcall->setDebugLoc(call->getDebugLoc());
 					
-					// Replace old call with new one.
+					for (Value::use_iterator user = call->use_begin(), 
+								userE = call->use_end(); user != userE; ++user){
+			           Instruction * User = dyn_cast<Instruction>(*user);
+			           if(User) User->replaceUsesOfWith(call, newcall);
+	                }			 
+		 			// Replace old call with new one.
 					call->eraseFromParent();
 					
 					found = true;
 					break;
 				}
 	}
-
+    
+	
 	//m2.get()->dump();
 	
 	//

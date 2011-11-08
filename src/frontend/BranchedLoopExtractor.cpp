@@ -33,6 +33,7 @@
 
 #include <fstream>
 #include <set>
+#include <vector>
 
 using namespace llvm;
 
@@ -42,13 +43,20 @@ namespace {
   struct BranchedLoopExtractor  : public LoopPass {
     static char ID; // Pass identification, replacement for typeid
     unsigned NumLoops;
-
+    std::vector<CallInst *> * LoopFuctionCalls; 
    explicit BranchedLoopExtractor(unsigned numLoops = ~0) 
       : LoopPass(ID), NumLoops(numLoops)
 	  {
+          LoopFuctionCalls = NULL;
+		  initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
+      }
+      
+	  explicit BranchedLoopExtractor(std::vector<CallInst *> & LFC, unsigned numLoops = ~0) 
+      : LoopPass(ID), NumLoops(numLoops), LoopFuctionCalls(&LFC)
+	  {
         initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
       }
-
+	  
     virtual bool runOnLoop(Loop *L, LPPassManager &LPM);
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -60,7 +68,7 @@ namespace {
 }
 char BranchedLoopExtractor::ID = 0;
 Pass *llvm::createBranchedLoopExtractorPass() { return new BranchedLoopExtractor(); }
-
+Pass *llvm::createBranchedLoopExtractorPass(std::vector<CallInst *> & LFC) { return new BranchedLoopExtractor(LFC); }
 /*INITIALIZE_PASS_BEGIN(BranchedLoopExtractor, "loop-extract-with-branch",
                 "Extract loops into new functions and add branches", false, false)
 INITIALIZE_PASS_DEPENDENCY(BreakCriticalEdges)
@@ -138,10 +146,14 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (ShouldExtractLoop) {
     if (NumLoops == 0) return Changed;
     --NumLoops;
-    if (BranchedExtractLoop(DT, L, true) != 0) {
+	CallInst * Call;
+    if ( (Call = BranchedExtractLoop(DT, L, true)) != 0) {
       Changed = true;
       // After extraction, the loop is replaced by a function call, so
       // we shouldn't try to run any more loop passes on it.
+	  
+	  if(LoopFuctionCalls)
+	      LoopFuctionCalls->push_back(Call);
       LPM.deleteLoopFromQueue(L);
     }
     ++NumBranchedExtracted;
