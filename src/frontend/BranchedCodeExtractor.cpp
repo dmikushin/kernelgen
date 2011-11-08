@@ -304,7 +304,7 @@ Function *BranchedCodeExtractor::constructFunction(const Values &inputs,
 	DEBUG(dbgs() << "outputs: " << outputs.size() << "\n");
 
 	// This function returns unsigned, outputs will go back by reference.
-	RetTy = Type::getInt16Ty(header->getContext());
+	RetTy = Type::getInt32Ty(header->getContext());
 
 	std::vector<Type*> paramTy;
 
@@ -572,7 +572,7 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 					unsigned SuccNum = switchVal++;
 					ExitBlocks.push_back(OldTarget);
 
-					Value * brVal = ConstantInt::get(Type::getInt16Ty(Context), SuccNum);
+					Value * brVal = ConstantInt::get(Type::getInt32Ty(Context), SuccNum);
 					ReturnInst *NTRet = ReturnInst::Create(Context, brVal, NewTarget);
 
 					// Restore values just before we exit
@@ -647,7 +647,7 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 
 		// Allocate memoty for struct at the beginning of function, which contains the Loop
 
-		Type *StructArgTy = StructType::get(Context, ArgTypes);
+		Type *StructArgTy = StructType::get(Context, ArgTypes,true);
 		Struct =
 		    new AllocaInst(StructArgTy, 0, "structArg_ptr",
 		                   callAndBranchBlock->getParent()->begin()->begin());
@@ -684,7 +684,7 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 	callAndBranchBlock->getInstList().push_back(call);
 
 	Value *Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
-	                           call, ConstantInt::get(Type::getInt16Ty(Context),-1));
+	                           call, ConstantInt::get(Type::getInt32Ty(Context),-1));
 	BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
 
 	return call;
@@ -775,7 +775,7 @@ void BranchedCodeExtractor::createLoadsAndSwitch(
 	default:
 		// Otherwise, add case fo every ExitBlock
 		for(int ExitBlock = 0; ExitBlock < NumExitBlocks; ExitBlock++)
-			TheSwitch -> addCase(ConstantInt::get(Type::getInt16Ty(Context),ExitBlock),
+			TheSwitch -> addCase(ConstantInt::get(Type::getInt32Ty(Context),ExitBlock),
 			                     ExitBlocks[ExitBlock]);
 		break;
 	}

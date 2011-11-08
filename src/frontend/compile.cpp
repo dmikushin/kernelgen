@@ -183,7 +183,7 @@ int compile(list<string> args, list<string> kgen_args,
 	//
 	
 	Function* launch = Function::Create(
-		TypeBuilder<types::i<16>(types::i<8>*, types::i<32>, types::i<32>*, ...), true>::get(context),
+		TypeBuilder<types::i<32>(types::i<8>*, types::i<32>, types::i<32>*, ...), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch", m2.get());
 
 	for (Module::iterator f1 = m2.get()->begin(), fe1 = m2.get()->end(); f1 != fe1; f1++)
