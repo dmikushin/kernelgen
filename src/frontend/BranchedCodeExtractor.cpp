@@ -479,7 +479,7 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 	    //Aggregate args types into struct type
         PointerType *StructPtrType;
 	    if (inputs.size() + outputs.size() > 0)
-		    StructPtrType = PointerType::getUnqual(StructType::get(header->getContext(), paramTy));
+		    StructPtrType = PointerType::getUnqual(StructType::get(header->getContext(), paramTy,true));
 
 	  structArg = CastInst::CreatePointerCast(AI,StructPtrType,"structArg", FuncRoot->getTerminator());
 		//structArg = new BitCastInst(AI, StructPtrType,"structArg", FuncRoot->getTerminator());
@@ -1053,3 +1053,4 @@ CallInst* llvm::BranchedExtractLoop(DominatorTree &DT, Loop *L, bool AggregateAr
 {
 	return BranchedCodeExtractor(&DT, AggregateArgs).ExtractCodeRegion(L->getBlocks());
 }
+
