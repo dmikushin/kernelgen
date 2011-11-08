@@ -27,7 +27,7 @@ using namespace kernelgen::runtime;
 using namespace std;
 
 // Launch kernel from the specified source code address.
-int kernelgen_launch(char* entry, int nargs, int* szargs, ...)
+int kernelgen_launch(char* entry, int* args)
 {
 	kernel_t* kernel = (kernel_t*)entry;
 	
@@ -41,10 +41,7 @@ int kernelgen_launch(char* entry, int nargs, int* szargs, ...)
 	if (!compiled)
 	{
 		// Compile kernel for the specified target.
-		va_list list;
-		va_start(list, szargs);
-		compile(runmode, kernel, nargs, szargs, list);
-		va_end(list);
+		compile(runmode, kernel, args);
 	}
 	
 	// Execute kernel, depending on target.

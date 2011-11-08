@@ -93,7 +93,15 @@ int main(int argc, char* argv[])
 		// Invoke entry point kernel.
 		int szargs[2] = { sizeof(int), sizeof(char**) };
 		kernel_t kernel = kernels["__kernelgen_main"];
-		return kernelgen_launch((char*)&kernel, 2, szargs, argc, argv);
+		struct args_t
+		{
+			int argc;
+			char** argv;
+		}
+		args;
+		args.argc = argc;
+		args.argv = argv;
+		return kernelgen_launch((char*)&kernel, (int*)&args);
 	}
 	
 	// Chain to entry point of the regular binary.

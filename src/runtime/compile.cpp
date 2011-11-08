@@ -51,7 +51,7 @@ using namespace std;
 static auto_ptr<TargetMachine> mcpu;
 
 void kernelgen::runtime::compile(
-	int runmode, kernel_t* kernel, int nargs, int* szargs, va_list list)
+	int runmode, kernel_t* kernel, int* args)
 {
 	// Load LLVM IR source into module.
 	LLVMContext &context = getGlobalContext();

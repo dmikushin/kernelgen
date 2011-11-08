@@ -181,11 +181,9 @@ int compile(list<string> args, list<string> kgen_args,
 	// 5) Replace call to loop functions with call to launcher.
 	// Append "always inline" attribute to all other functions.
 	//
-	
 	Function* launch = Function::Create(
-		TypeBuilder<types::i<32>(types::i<8>*, types::i<32>, types::i<32>*, ...), true>::get(context),
+		TypeBuilder<types::i<32>(types::i<8>*, types::i<32>*), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch", m2.get());
-
 	for (Module::iterator f1 = m2.get()->begin(), fe1 = m2.get()->end(); f1 != fe1; f1++)
 	{
 		Function* func = f1;
@@ -239,11 +237,6 @@ int compile(list<string> args, list<string> kgen_args,
 					for (int i = 0; i < nargs; i++)
 						call_args.push_back(call->getArgOperand(i));
 					
-					// Insert first extra argument - the number of
-					// original call arguments.
-					call_args.insert(call_args.begin(),
-						ConstantInt::get(int32Ty, nargs));
-					
 					// Create a constant array holding original called
 					// function name.
 					Constant* name = ConstantArray::get(
@@ -260,47 +253,28 @@ int compile(list<string> args, list<string> kgen_args,
 					std::vector<Constant*> gep_args(
 						2, Constant::getNullValue(int32Ty));
 				        
-					// Insert second extra argument - the pointer to the
+					// Insert extra argument - the pointer to the
 					// original function string name.
 					call_args.insert(call_args.begin(),
 						ConstantExpr::getGetElementPtr(GV1, gep_args));
 
-					// Insert third extra argument - an array of original
-					// function arguments sizes. Note for now we just insert
-					// pointer to uninitialized array. Values will be set
-					// later, depending on target machine.
-					vector<Constant*> sizes;
-					for (int i = 0; i != nargs; i++)
-						sizes.push_back(ConstantInt::get(int32Ty, 0));
-					Constant* csizes = ConstantArray::get(
-						ArrayType::get(sizes[0]->getType(), sizes.size()), sizes);
-					GlobalVariable* GV2 =
-						new GlobalVariable(*m2, csizes->getType(),
-							true, GlobalValue::PrivateLinkage, csizes,
-							callee->getName(), 0, false);					
-					call_args.insert(call_args.begin() + 2,
-						ConstantExpr::getGetElementPtr(GV2, gep_args));
-					
-				   
-		           	// Create new function call with new call arguments
+					// Create new function call with new call arguments
 					// and copy old call properties.
-					CallInst* newcall = CallInst::Create(launch, call_args, "kernelgen_call", call);
-				    //newcall->takeName(call);
+					CallInst* newcall = CallInst::Create(launch, call_args, "kernelgen_launch", call);
+					//newcall->takeName(call);
 					newcall->setCallingConv(call->getCallingConv());
 					newcall->setAttributes(call->getAttributes());
 					newcall->setDebugLoc(call->getDebugLoc());
 					
-				// Replace old call with new one.
-				   call->replaceAllUsesWith(newcall);
-				   call->eraseFromParent();
+					// Replace old call with new one.
+					call->replaceAllUsesWith(newcall);
+					call->eraseFromParent();
 					
 					found = true;
 					break;
 				}
 	}
-    
-	
-	
+
 	//m2.get()->dump();
 	
 	//

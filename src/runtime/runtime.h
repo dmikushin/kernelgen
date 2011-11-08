@@ -34,7 +34,7 @@
 #define KERNELGEN_RUNMODE_OPENCL	2
 
 // Launch kernel from the spepcified source code address.
-extern "C" int kernelgen_launch(char* kernel, int nargs, int* szargs, ...);
+extern "C" int kernelgen_launch(char* kernel, int* args);
 
 namespace kernelgen {
 
@@ -86,8 +86,7 @@ extern std::map<std::string, kernel_t> kernels;
 
 namespace runtime {
 
-void compile(int runmode,
-	kernel_t* kernel, int nargs, int* szargs, va_list list);
+void compile(int runmode, kernel_t* kernel, int* args);
 
 } }
 
