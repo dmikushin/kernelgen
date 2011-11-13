@@ -171,9 +171,73 @@ int link(list<string> args, list<string> kgen_args,
 		// must be treated as main entry.
 		THROW("Cannot find object containing main entry");
 	}
+
+	//
+	// 3) Rename main entry and insert another one
+	// into composite module.
+	//
+	{
+		Function* main_ = composite.getFunction("main");
+		main_->setName("main_");
+		
+		// Create new main(int* args).
+		Function* main = Function::Create(
+			TypeBuilder<types::i<32>(types::i<32>*), true>::get(context),
+			GlobalValue::ExternalLinkage, "main", &composite);
+		main->setHasUWTable();
+		main->setDoesNotThrow();
+
+		if (main_->doesNotThrow())
+			main->setDoesNotThrow(true);
+
+		// Create basic block in new main.
+		BasicBlock* root = BasicBlock::Create(context, "entry");
+		main->getBasicBlockList().push_back(root);
+
+		// Add no capture attribute on argument.
+		Function::arg_iterator arg = main->arg_begin();
+		arg->setName("args");
+		arg->addAttr(Attribute::NoCapture);
+
+		// Create and insert GEP to (int*)(args + 1).
+		Value *Idx[1];
+		Idx[0] = ConstantInt::get(Type::getInt64Ty(context), 1);
+		GetElementPtrInst *GEP = GetElementPtrInst::CreateInBounds(
+			arg, Idx, "", root);
+
+		// Bitcast (int8***)(int*)(args + 1).
+		Value* argv1 = new BitCastInst(GEP, Type::getInt8Ty(context)->
+			getPointerTo(0)->getPointerTo(0)->getPointerTo(0), "", root);
+
+		// Load argv from int8***.
+		LoadInst* argv2 = new LoadInst(argv1, "", root);
+		argv2->setAlignment(1);
+
+		// Load argc from (int*)args.
+		LoadInst* argc1 = new LoadInst(arg, "", root);
+		argc1->setAlignment(1);
+
+		// Create argument list and call instruction to
+		// call main_(int argc, char** argv).
+		SmallVector<Value*, 16> call_args;
+		call_args.push_back(argc1);
+		call_args.push_back(argv2);
+		CallInst* call = CallInst::Create(main_, call_args, "", root);
+		call->setTailCall();
+		call->setDoesNotThrow();
+
+		// Return the int result of call instruction.
+		ReturnInst::Create(context, call, root);
+
+		if (verifyFunction(*main))
+		{
+			cerr << "Function verification failed!" << endl;
+			return 1;
+		}
+	}
 	
 	//
-	// 3) Apply optimization passes to the resulting common
+	// 4) Apply optimization passes to the resulting common
 	// module.
 	//
 	{
@@ -189,7 +253,7 @@ int link(list<string> args, list<string> kgen_args,
 	}
 
 	//
-	// 4) Clone composite module and transform it into the
+	// 5) Clone composite module and transform it into the
 	// "main" kernel, executing serial portions of code on
 	// device.
 	//
@@ -264,7 +328,7 @@ failure:
 	}
 		
 	//
-	// 5) Clone composite module and transform it into the
+	// 6) Clone composite module and transform it into the
 	// "loop" kernels, each one executing single parallel loop.
 	//
 	{
@@ -313,6 +377,8 @@ failure:
 			manager.run(*loop);
 
 			// Rename "loop" to "__kernelgen_loop".
+			loop->getFunction(f1->getName())->setName(
+				"__kernelgen_" + f1->getName());
 			f1->setName("__kernelgen_" + f1->getName());
 			
 			//loop.get()->dump();
@@ -325,13 +391,13 @@ failure:
 				celf e(tmp_object.getFilename(), tmp_object.getFilename());
 				e.getSection(".data")->addSymbol(
 					string(f1->getName()),
-					ir_string.c_str(), ir_string.size());
+					ir_string.c_str(), ir_string.size() + 1);
 			}			
 		}
 	}
 	
 	//
-	// 6) Delete all plain functions, except main out of "main" module.
+	// 7) Delete all plain functions, except main out of "main" module.
 	//
 	{
 		PassManager manager;
@@ -349,8 +415,9 @@ failure:
 		manager.add(createStripDeadPrototypesPass());
 		manager.run(*main.get());
 
-		// Rename "main" to "__kernelgen_main"
-		main->getFunction("main")->setName("__kernelgen_main");
+		// Rename "main" to "__kernelgen_main".
+		Function* kernelgen_main_ = main->getFunction("main");
+		kernelgen_main_->setName("__kernelgen_main");
 
 		//main.get()->dump();
 
@@ -361,12 +428,12 @@ failure:
 			ir << (*main.get());
 			celf e(tmp_object.getFilename(), tmp_object.getFilename());
 			e.getSection(".data")->addSymbol(
-				"__kernelgen_main", ir_string.c_str(), ir_string.size());
+				"__kernelgen_main", ir_string.c_str(), ir_string.size() + 1);
 		}
 	}
 	
 	//
-	// 7) Rename original main entry and insert new main
+	// 8) Rename original main entry and insert new main
 	// with switch between original main and kernelgen's main.
 	//
 	{
@@ -404,7 +471,7 @@ failure:
 	}
 
 	//
-	// 8) Link code using regular linker.
+	// 9) Link code using regular linker.
 	//
 	{
 		// Adding -rdynamic to use executable global symbols

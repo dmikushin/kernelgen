@@ -60,7 +60,7 @@ typedef struct
 	llvm::Function* function;
 
 	// Kernel LLVM IR source code.
-	const char* source;
+	std::string source;
 
 	// Target-specific
 	struct
@@ -73,7 +73,7 @@ typedef struct
 		std::map<std::string, char*> binary;
 		
 		// Kernel source version, more close to specific target.
-		const char* source;
+		std::string source;
 	}
 	target[KERNELGEN_RUNMODE_COUNT];
 }
@@ -82,7 +82,7 @@ kernel_t;
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
 // for futher references.
-extern std::map<std::string, kernel_t> kernels;
+extern std::map<std::string, kernel_t*> kernels;
 
 namespace runtime {
 

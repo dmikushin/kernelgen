@@ -22,7 +22,6 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/Host.h"
@@ -33,8 +32,6 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
-
-#include "../../lib/ExecutionEngine/Interpreter/Interpreter.h"
 
 #include "io.h"
 #include "util.h"
@@ -56,16 +53,15 @@ void kernelgen::runtime::compile(
 	// Load LLVM IR source into module.
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
-	MemoryBuffer* buffer =
-		MemoryBuffer::getMemBuffer(kernel->source);
-	auto_ptr<Module> m;
-	m.reset(ParseIR(buffer, diag, context));
-	m.get()->setModuleIdentifier(kernel->name + "_module");
+	MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
+	Module* m = ParseIR(buffer, diag, context);
+	if (!m)
+		THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
+			diag.getLineContents() << ": " << diag.getMessage());
+	m->setModuleIdentifier(kernel->name + "_module");
 	
 	//m.get()->dump();
 	
-	Interpreter interp(m.get());
-
 	// Emit target assembly and binary image, depending
 	// on runmode.
 	switch (runmode)
@@ -80,7 +76,7 @@ void kernelgen::runtime::compile(
 				InitializeAllAsmPrinters();
 				InitializeAllAsmParsers();
 
-				Triple triple(m.get()->getTargetTriple());
+				Triple triple(m->getTargetTriple());
 				if (triple.getTriple().empty())
 					triple.setTriple(sys::getHostTriple());
 				string err;
@@ -95,25 +91,6 @@ void kernelgen::runtime::compile(
 					THROW("Could not allocate target machine");
 			}
 			
-			// Insert actual values for the third kernelgen_launch
-			// argument - an array of original function arguments sizes.
-			// Also, replace kernels names with addresses of the corresponding
-			// 
-			for (Module::iterator f = m->begin(), fe = m->end(); f != fe; f++)
-				for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-					for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
-			{
-				/*std::vector<Constant*> sizes;
-				for (int i = 0; i != nargs; i++)
-				{
-					Value* arg = call->getArgOperand(i);
-					int size = tdata->getTypeStoreSize(arg->getType());
-					sizes.push_back(ConstantInt::get(int32Ty, size));
-				}*/
-			
-				// Insert addresses instead of kernels names.
-			}
-
 			const TargetData* tdata = mcpu.get()->getTargetData();
 			PassManager manager;
 			manager.add(new TargetData(*tdata));
@@ -131,7 +108,7 @@ void kernelgen::runtime::compile(
 				TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
 				THROW("Target does not support generation of this file type");
 
-			manager.run(*m.get());
+			manager.run(*m);
 			
 			// Flush the resulting object binary to the
 			// underlying string.
@@ -174,34 +151,16 @@ void kernelgen::runtime::compile(
 				RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
 			if (!handle)
 				THROW("Cannot dlopen " << dlerror());
-			
-			void* entry = dlsym(handle, kernel->name.c_str());
+
+			typedef void (*entry_t)(int*);
+			entry_t entry = (entry_t)dlsym(handle, kernel->name.c_str());
 			if (!entry)
 				THROW("Cannot dlsym " << dlerror());
 			
 			if (verbose)
 				cout << "Loaded '" << kernel->name << "' at: " << (void*)entry << endl;
 
-			// Invoke kernel function, using LLVM interpreter
-			// that bridges subset of LLVM types and FFI types.
-			// Notes:
-			// 1) complex types like structures are not yet
-			// supported in there.
-			// 2) we use FFI only for NATIVE target. Since CUDA
-			// & OpenCL kernels have to be launched using other
-			// APIs, we will probably need to develop our own
-			// facility to cover them as well.
-			/*vector<GenericValue> args;
-			args.reserve(nargs);
-			for (Function::arg_iterator i = kernel->function->arg_begin(),
-				ie = kernel->function->arg_end(); i != ie; i++)
-			{
-				Type* Ty = i->getType();
-				GenericValue gval;
-				int szarg = tdata->getTypeStoreSize(i->getType());
-				args.push_back(GenericValue((void*)arg));
-			}
-			interp.callExternalFunction(kernel->function, args);*/
+			entry(args);
 
 			break;
 		}
