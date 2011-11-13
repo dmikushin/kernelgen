@@ -199,22 +199,28 @@ int link(list<string> args, list<string> kgen_args,
 		arg->setName("args");
 		arg->addAttr(Attribute::NoCapture);
 
-		// Create and insert GEP to (int*)(args + 1).
-		Value *Idx[1];
-		Idx[0] = ConstantInt::get(Type::getInt64Ty(context), 1);
-		GetElementPtrInst *GEP = GetElementPtrInst::CreateInBounds(
-			arg, Idx, "", root);
+		// Create and insert GEP to (int*)(args + 3).
+		Value *Idx1[1];
+		Idx1[0] = ConstantInt::get(Type::getInt64Ty(context), 3);
+		GetElementPtrInst *GEP1 = GetElementPtrInst::CreateInBounds(
+			arg, Idx1, "", root);
 
-		// Bitcast (int8***)(int*)(args + 1).
-		Value* argv1 = new BitCastInst(GEP, Type::getInt8Ty(context)->
+		// Bitcast (int8***)(int*)(args + 3).
+		Value* argv1 = new BitCastInst(GEP1, Type::getInt8Ty(context)->
 			getPointerTo(0)->getPointerTo(0)->getPointerTo(0), "", root);
 
 		// Load argv from int8***.
 		LoadInst* argv2 = new LoadInst(argv1, "", root);
 		argv2->setAlignment(1);
 
+		// Create and insert GEP to (int*)(args + 2).
+		Value *Idx2[1];
+		Idx2[0] = ConstantInt::get(Type::getInt64Ty(context), 2);
+		GetElementPtrInst *GEP2 = GetElementPtrInst::CreateInBounds(
+			arg, Idx2, "", root);
+
 		// Load argc from (int*)args.
-		LoadInst* argc1 = new LoadInst(arg, "", root);
+		LoadInst* argc1 = new LoadInst(GEP2, "", root);
 		argc1->setAlignment(1);
 
 		// Create argument list and call instruction to
@@ -380,7 +386,7 @@ failure:
 			loop->getFunction(f1->getName())->setName(
 				"__kernelgen_" + f1->getName());
 			f1->setName("__kernelgen_" + f1->getName());
-			
+
 			//loop.get()->dump();
 
 			// Embed "loop" module into object.

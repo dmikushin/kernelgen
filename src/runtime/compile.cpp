@@ -60,7 +60,7 @@ void kernelgen::runtime::compile(
 			diag.getLineContents() << ": " << diag.getMessage());
 	m->setModuleIdentifier(kernel->name + "_module");
 	
-	//m.get()->dump();
+	//m->dump();
 	
 	// Emit target assembly and binary image, depending
 	// on runmode.
@@ -152,15 +152,14 @@ void kernelgen::runtime::compile(
 			if (!handle)
 				THROW("Cannot dlopen " << dlerror());
 
-			typedef void (*entry_t)(int*);
-			entry_t entry = (entry_t)dlsym(handle, kernel->name.c_str());
-			if (!entry)
+			kernel_func_t kernel_func = (kernel_func_t)dlsym(handle, kernel->name.c_str());
+			if (!kernel_func)
 				THROW("Cannot dlsym " << dlerror());
 			
 			if (verbose)
-				cout << "Loaded '" << kernel->name << "' at: " << (void*)entry << endl;
+				cout << "Loaded '" << kernel->name << "' at: " << (void*)kernel_func << endl;
 
-			entry(args);
+			kernel_func(args);
 
 			break;
 		}

@@ -44,6 +44,11 @@ extern int runmode;
 // Verbose output.
 extern bool verbose;
 
+// The prototype of kernel function.
+// Thanks to arguments aggregation, all
+// kernels could have the same prototype.
+typedef void (*kernel_func_t)(int* args);
+
 // Kernel configuration structure
 // containing pointer for original source code
 // and space to store specialized source and

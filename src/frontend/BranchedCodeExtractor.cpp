@@ -468,31 +468,35 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 	if(AggregateArgs)
 	{
 		std::vector<Type*> paramTy;
-		// Add the types of the input values to the function's argument list
-	    for (Values::const_iterator i = inputs.begin(), e = inputs.end(); i != e; ++i) 
-		   paramTy.push_back((*i)->getType());
 
-	    // Add the types of the output values to the function's argument list.
-	    for (Values::const_iterator I = outputs.begin(), E = outputs.end(); I != E; ++I)
+		// Add size of stuct as the first field.
+		paramTy.push_back(Type::getInt64PtrTy(header->getContext()));
+		
+		// Add the types of the input values to the function's argument list
+		for (Values::const_iterator i = inputs.begin(), e = inputs.end(); i != e; ++i) 
+			paramTy.push_back((*i)->getType());
+
+		// Add the types of the output values to the function's argument list.
+		for (Values::const_iterator I = outputs.begin(), E = outputs.end(); I != E; ++I)
 			paramTy.push_back((*I)->getType());
 
-	    //Aggregate args types into struct type
-        PointerType *StructPtrType;
-	    if (inputs.size() + outputs.size() > 0)
-		    StructPtrType = PointerType::getUnqual(StructType::get(header->getContext(), paramTy,true));
+		// Aggregate args types into struct type
+		PointerType *StructPtrType;
+		if (inputs.size() + outputs.size() > 0)
+			StructPtrType = PointerType::getUnqual(StructType::get(header->getContext(), paramTy,true));
 
-	  structArg = CastInst::CreatePointerCast(AI,StructPtrType,"structArg", FuncRoot->getTerminator());
+		structArg = CastInst::CreatePointerCast(AI,StructPtrType,"structArg", FuncRoot->getTerminator());
 		//structArg = new BitCastInst(AI, StructPtrType,"structArg", FuncRoot->getTerminator());
 	}
 	
-    // Rewrite all users of the inputs in the cloned region to use the
+	// Rewrite all users of the inputs in the cloned region to use the
 	// arguments (or appropriate addressing into struct) instead.
 	for (unsigned i = 0, e = inputs.size(); i != e; ++i) {
 		Value *RewriteVal;
 		if (AggregateArgs) {
 			Value *Idx[2];
 			Idx[0] = Constant::getNullValue(Type::getInt32Ty(header->getContext()));
-			Idx[1] = ConstantInt::get(Type::getInt32Ty(header->getContext()), i);
+			Idx[1] = ConstantInt::get(Type::getInt32Ty(header->getContext()), i + 1);
 
 			// terminator of function root
 
@@ -545,7 +549,7 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 	// instructions in the fuction body that branch to blocks that are
 	// not in it. In every created ReturnBlock insert StoreInst for each output.
 	Function::arg_iterator OutputArgBegin = LoopFunction->arg_begin();
-	unsigned FirstOut = inputs.size();
+	unsigned FirstOut = inputs.size() + 1;
 	if (!AggregateArgs)
 		std::advance(OutputArgBegin, FirstOut);
 
@@ -639,39 +643,63 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 
 	//AllocaInst *
 	Struct = 0;
-	if (AggregateArgs && (inputs.size() + outputs.size() > 0)) {
+	
+	if (AggregateArgs && (inputs.size() + outputs.size() > 0))
+	{
 		std::vector<Type*> ArgTypes;
+		
+		// Add size of stuct as the first field.
+		ArgTypes.push_back(Type::getInt64PtrTy(Context));
+		Constant* size = ConstantExpr::getSizeOf(Type::getInt64Ty(Context));
 		for (Values::iterator v = StructValues.begin(),
-		     ve = StructValues.end(); v != ve; ++v)
-			ArgTypes.push_back((*v)->getType());
+			ve = StructValues.end(); v != ve; ++v)
+		{
+			Type* type = (*v)->getType();
+			ArgTypes.push_back(type);
+			size = ConstantExpr::getAdd(size, ConstantExpr::getSizeOf(type));
+		}
 
 		// Allocate memoty for struct at the beginning of function, which contains the Loop
+		Type *StructArgTy = StructType::get(Context, ArgTypes, true);
+		Struct = new AllocaInst(StructArgTy, 0, "structArg_ptr",
+			callAndBranchBlock->getParent()->begin()->begin());
 
-		Type *StructArgTy = StructType::get(Context, ArgTypes,true);
-		Struct =
-		    new AllocaInst(StructArgTy, 0, "structArg_ptr",
-		                   callAndBranchBlock->getParent()->begin()->begin());
-		
-		//params.push_back(Struct);
-
-    	// Store Inputs to Struct
-
-		for (unsigned i = 0, e = inputs.size(); i != e; ++i) {
+		// Load struct size into the first field.
+		{
+			// Generate index.
 			Value *Idx[2];
 			Idx[0] = Constant::getNullValue(Type::getInt32Ty(Context));
-			Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), i);
+			Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), 0);
 
-			// get address of "inputs[i]" in struct
+			// Get address of the first field in struct.
+			GetElementPtrInst *GEP = GetElementPtrInst::Create(
+				Struct, Idx, "", callAndBranchBlock);
 
-			GetElementPtrInst *GEP =
-			    GetElementPtrInst::Create(Struct, Idx,
-			                              "arg_ptr_:" + StructValues[i]->getName());
-			callAndBranchBlock->getInstList().push_back(GEP);
+			// Create a global variable with this constant.
+			GlobalVariable* GV = new GlobalVariable(
+				*LoopFunc->getParent(), size->getType(),
+				true, GlobalValue::PrivateLinkage, size, "size", 0, false);
 
-			// load from that address
+			// Store to that address
+			StoreInst *SI = new StoreInst(GV, GEP, "", callAndBranchBlock);
+		}
+		
+	    	// Store Inputs to Struct
+		for (unsigned i = 0, e = inputs.size(); i != e; ++i)
+		{
+			// Generate index.
+			Value *Idx[2];
+			Idx[0] = Constant::getNullValue(Type::getInt32Ty(Context));
+			Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), i + 1);
 
-			StoreInst *SI = new StoreInst(StructValues[i], GEP);
-			callAndBranchBlock->getInstList().push_back(SI);
+			// Get address of "inputs[i]" in struct
+			GetElementPtrInst *GEP = GetElementPtrInst::Create(
+				Struct, Idx, "arg_ptr_:" + StructValues[i]->getName(),
+				callAndBranchBlock);
+
+			// Store to that address
+			StoreInst *SI = new StoreInst(StructValues[i], GEP, "",
+				callAndBranchBlock);
 		}
 	}
 	Instruction * IntPtrToStruct = CastInst::CreatePointerCast(Struct, PointerType::getInt32PtrTy(Context),
@@ -700,9 +728,9 @@ void BranchedCodeExtractor::createLoadsAndSwitch(
 	AllocaInst * Struct)
 {
 	LLVMContext &Context = callLoopFuncInst-> getCalledFunction()->getContext();
-	unsigned FirstOut = inputs.size();
-	// Reload the outputs passed in by reference
+	unsigned FirstOut = inputs.size() + 1;
 
+	// Reload the outputs passed in by reference
 	for (unsigned i = 0, e = outputs.size(); i != e; ++i) {
 		Value *Output = 0;
 		if (AggregateArgs) {

@@ -172,10 +172,13 @@ int main(int argc, char* argv[])
 		kernel_t* kernel = kernels["__kernelgen_main"];
 		struct __attribute__((packed)) args_t
 		{
+			int64_t* size;
 			int argc;
 			char** argv;
 		}
 		args;
+		int64_t size = sizeof(int);
+		args.size = &size;
 		args.argc = argc;
 		args.argv = argv;
 		return kernelgen_launch((char*)kernel, (int*)&args);
