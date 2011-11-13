@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
 			raw_string_ostream ir(kernel->source);
 			ir << (*m);
 			
-			m->dump();
+			//m->dump();
 		}
 
 		// Invoke entry point kernel.

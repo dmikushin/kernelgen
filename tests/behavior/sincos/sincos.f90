@@ -50,5 +50,7 @@ do k = 1, nz
   enddo
 enddo
 
+print *, sum(xy), maxval(xy), minval(xy)
+
 end subroutine sincos
 

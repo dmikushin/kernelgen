@@ -38,24 +38,21 @@ int main(int argc, char* argv[])
 	}
 
 	int nx = atoi(argv[1]), ny = atoi(argv[2]), nz = atoi(argv[3]);
-	real* x1 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* x2 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* y1 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* y2 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* xy1 = (real*)malloc(sizeof(real) * nx * ny * nz);
-	real* xy2 = (real*)malloc(sizeof(real) * nx * ny * nz);
+	real* x = (real*)malloc(sizeof(real) * nx * ny * nz);
+	real* y = (real*)malloc(sizeof(real) * nx * ny * nz);
+	real* xy = (real*)malloc(sizeof(real) * nx * ny * nz);
 	double invrmax = 1.0 / RAND_MAX;
 	for (int i = 0; i < nx * ny * nz; i++)
 	{
-		x1[i] = rand() * invrmax; x2[i] = x1[i];
-		y1[i] = rand() * invrmax; y2[i] = y1[i];
+		x[i] = rand() * invrmax;
+		y[i] = rand() * invrmax;
 	}
 	
-	sincos_(&nx, &ny, &nz, x1, y1, xy1);
+	sincos_(&nx, &ny, &nz, x, y, xy);
 
-	free(x1); free(x2);
-	free(y1); free(y2);
-	free(xy1); free(xy2);
+	free(x);
+	free(y);
+	free(xy);
 	
 	return 0;
 }
