@@ -470,9 +470,9 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 		std::vector<Type*> paramTy;
 
 		// Add size of stuct as the first field.
-		paramTy.push_back(Type::getInt64PtrTy(header->getContext()));
+		paramTy.push_back(Type::getInt64Ty(header->getContext()));
 		
-		// Add the types of the input values to the function's argument list
+		// Add the types of the inpuеt values to the function's argument list
 		for (Values::const_iterator i = inputs.begin(), e = inputs.end(); i != e; ++i) 
 			paramTy.push_back((*i)->getType());
 
@@ -608,7 +608,41 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 				TI->setSuccessor(i, NewTarget);
 				//ExitBlockMap[OldTarget] = NewTarget;
 			}
+			
 	}
+	assert(NumExitBlocks == ExitBlocks.size() && "have to handle all exit blocks");
+	
+	/*if(NumExitBlocks == 0)
+	{ 
+		 BasicBlock * RetBlock = BasicBlock::Create(Context,
+					                                  "exitStub",
+					                                 LoopFunction);
+		 Value * brVal = ConstantInt::get(Type::getInt32Ty(Context), 0);
+		 ReturnInst *NTRet = ReturnInst::Create(Context, brVal, RetBlock);
+					// Restore values just before we exit
+		 Function::arg_iterator OAI = OutputArgBegin;
+		 for (unsigned out = 0, e = outputs.size(); out != e; ++out) {
+		     if (AggregateArgs) {
+				Value *Idx[2];
+				Idx[0] = Constant::getNullValue(Type::getInt32Ty(Context));
+				Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), FirstOut+out);
+				
+				//GetElementPtrInst *GEP =
+				//   GetElementPtrInst::Create(OAI, Idx,
+				//                           "store_ptr_" + outputs[out]->getName(),
+				//                         NTRet);
+				GetElementPtrInst *GEP =
+				     GetElementPtrInst::Create(structArg, Idx,
+						                     "store_ptr_" + outputs[out]->getName(),
+						                   NTRet);
+								 
+				new StoreInst(allToAllMap[outputs[out]], GEP, NTRet);
+			 } else {
+			     new StoreInst(allToAllMap[outputs[out]], OAI, NTRet);
+			 }
+			 // Advance output iterator even if we don't emit a store
+			 if (!AggregateArgs) ++OAI;
+		 }*/
 	return;
 }
 
@@ -649,7 +683,7 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 		std::vector<Type*> ArgTypes;
 		
 		// Add size of stuct as the first field.
-		ArgTypes.push_back(Type::getInt64PtrTy(Context));
+		ArgTypes.push_back(Type::getInt64Ty(Context));
 		Constant* size = ConstantExpr::getSizeOf(Type::getInt64Ty(Context));
 		for (Values::iterator v = StructValues.begin(),
 			ve = StructValues.end(); v != ve; ++v)
@@ -676,12 +710,12 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 				Struct, Idx, "", callAndBranchBlock);
 
 			// Create a global variable with this constant.
-			GlobalVariable* GV = new GlobalVariable(
+			/*GlobalVariable* GV = new GlobalVariable(
 				*LoopFunc->getParent(), size->getType(),
-				true, GlobalValue::PrivateLinkage, size, "size", 0, false);
+				true, GlobalValue::PrivateLinkage, size, "size", 0, false);*/
 
 			// Store to that address
-			StoreInst *SI = new StoreInst(GV, GEP, "", callAndBranchBlock);
+			StoreInst *SI = new StoreInst(size, GEP, "structSize", callAndBranchBlock);
 		}
 		
 	    	// Store Inputs to Struct
@@ -843,14 +877,16 @@ void  BranchedCodeExtractor::updatePhiNodes( Values & outputs, ValueToValueMapTy
 				}
 			}
 			if(!catched) {
-				PHINode * newPN = PHINode::Create(I->getType(),NumPreds,
+				// add new phi-node
+				PHINode * newPN = PHINode::Create(I->getType(), NumPreds,
 				                                  "", ExitBlock -> getFirstNonPHI());
 
 				for(pred_iterator predBlock = pred_begin(ExitBlock), predBlockE = pred_end(ExitBlock);
 				    predBlock != predBlockE; predBlock++)
 					if( *predBlock != loadAndSwitchBlock) {
 						if(OriginalLoopBlocks.count(*predBlock)) newPN -> addIncoming(I, *predBlock);
-						//else 
+						else
+							newPN -> addIncoming(UndefValue::get(I->getType()), *predBlock);
 					} else newPN -> addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
 				OutputsToPhiNodes[i][I] = newPN;
 			}
@@ -947,10 +983,14 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	       "there can not be any outputs from code region"
 	       "for current version");*/
 
-	assert((NumExitBlocks <= 1) &&
-	       "there can be only one exit block from code region"
+	assert((NumExitBlocks != 0) &&
+	       "there must be at least one exit block from code region"
 	       "for current version");
-
+    
+	assert((NumExitBlocks == 1 ||  outputs.size()==0) &&
+	       "there can be only one exit block from code region"
+		   "or can not by any outputs"
+	       "for current version");
 	//////////////////////////////////////////////////////
 	//////////////////////////////////////////////////////
 
@@ -1081,4 +1121,5 @@ CallInst* llvm::BranchedExtractLoop(DominatorTree &DT, Loop *L, bool AggregateAr
 {
 	return BranchedCodeExtractor(&DT, AggregateArgs).ExtractCodeRegion(L->getBlocks());
 }
+
 
