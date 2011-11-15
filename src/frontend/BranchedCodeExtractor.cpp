@@ -265,11 +265,18 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 	     ce = BlocksToExtract.end(); ci != ce; ++ci) {
 		BasicBlock *BB = *ci;
 
-		for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+		for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I)
+		{
 			// If a used value is defined outside the region, it's an input.  If an
 			// instruction is used outside the region, it's an output.
+			
+			// Let all integer inputs to go first (to simplify
+			// generated kernels identification).
 			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
-				if (definedInCaller(*O))
+				if (definedInCaller(*O) && (*O)->getType()->isIntegerTy())
+					inputs.insert(*O);
+			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
+				if (definedInCaller(*O) && !(*O)->getType()->isIntegerTy())
 					inputs.insert(*O);
 
 			// Consider uses of this instruction (outputs).
@@ -655,9 +662,17 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 	LLVMContext &Context = LoopFunc->getContext();
 
 	// Add inputs as params, or to be filled into the struct
+	Constant* size = ConstantInt::get(Type::getInt64Ty(Context), 0);
 	for (Values::iterator i = inputs.begin(), e = inputs.end(); i != e; ++i)
 		if (AggregateArgs)
+		{
 			StructValues.push_back(*i);
+
+			// Calculate the total size of integer inputs.
+			Type* type = (*i)->getType();
+			if (type->isIntegerTy())
+				size = ConstantExpr::getAdd(size, ConstantExpr::getSizeOf(type));
+		}
 		else
 			params.push_back(*i);
 
@@ -684,16 +699,11 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 		
 		// Add size of stuct as the first field.
 		ArgTypes.push_back(Type::getInt64Ty(Context));
-		Constant* size = ConstantExpr::getSizeOf(Type::getInt64Ty(Context));
 		for (Values::iterator v = StructValues.begin(),
 			ve = StructValues.end(); v != ve; ++v)
-		{
-			Type* type = (*v)->getType();
-			ArgTypes.push_back(type);
-			size = ConstantExpr::getAdd(size, ConstantExpr::getSizeOf(type));
-		}
+			ArgTypes.push_back((*v)->getType());
 
-		// Allocate memoty for struct at the beginning of function, which contains the Loop
+		// Allocate memory for struct at the beginning of function, which contains the Loop
 		Type *StructArgTy = StructType::get(Context, ArgTypes, true);
 		Struct = new AllocaInst(StructArgTy, 0, "structArg_ptr",
 			callAndBranchBlock->getParent()->begin()->begin());
@@ -708,11 +718,6 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 			// Get address of the first field in struct.
 			GetElementPtrInst *GEP = GetElementPtrInst::Create(
 				Struct, Idx, "", callAndBranchBlock);
-
-			// Create a global variable with this constant.
-			/*GlobalVariable* GV = new GlobalVariable(
-				*LoopFunc->getParent(), size->getType(),
-				true, GlobalValue::PrivateLinkage, size, "size", 0, false);*/
 
 			// Store to that address
 			StoreInst *SI = new StoreInst(size, GEP, "structSize", callAndBranchBlock);
