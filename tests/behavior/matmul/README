@@ -1,0 +1,25 @@
+The demonstration of Polly/LLVM performance against regular LLVM optimizations and gfortran
+
+marcusmae@loveland:~/Programming/kernelgen/branches/accurate/tests/behavior/matmul$ make
+gfortran  -O3 matmul.F90 -o matmul.regular
+kernelgen-gfortran -fplugin=/opt/kernelgen/lib/dragonegg.so  -fplugin-arg-dragonegg-emit-ir -S matmul.F90 -o matmul.F90.llvm.s
+/opt/kernelgen/bin/opt -load /opt/kernelgen/lib/LLVMPolly.so -O3 matmul.F90.llvm.s -o matmul.normalopt.ll
+/opt/kernelgen/bin/llc matmul.normalopt.ll -o matmul.normalopt.s
+gfortran matmul.normalopt.s -o matmul.normalopt
+/opt/kernelgen/bin/opt -load /opt/kernelgen/lib/LLVMPolly.so -basicaa -mem2reg -simplifycfg -instcombine -tailcallelim -loop-simplify \
+        -lcssa -loop-rotate -lcssa -loop-unswitch -instcombine -loop-simplify -lcssa -indvars -loop-deletion \
+	-instcombine -polly-prepare -polly-region-simplify -indvars -S matmul.F90.llvm.s -o matmul.F90.preopt.ll
+/opt/kernelgen/bin/opt -load /opt/kernelgen/lib/LLVMPolly.so -basicaa -polly-optimize-isl -polly-codegen matmul.F90.preopt.ll | /opt/kernelgen/bin/opt -load /opt/kernelgen/lib/LLVMPolly.so -O3 > matmul.polly.ll
+/opt/kernelgen/bin/llc matmul.polly.ll -o matmul.polly.s
+gfortran matmul.polly.s -o matmul.polly
+marcusmae@loveland:~/Programming/kernelgen/branches/accurate/tests/behavior/matmul$ make benchmark
+./matmul.polly
+  8.71286335E+12   8454317.0       55934876.    
+ time =    1.0100000    
+./matmul.normalopt
+  8.71286335E+12   8454317.0       55934876.    
+ time =    3.7900000    
+./matmul.regular
+  8.71286335E+12   8454317.0       55934876.    
+ time =    3.8099999
+
