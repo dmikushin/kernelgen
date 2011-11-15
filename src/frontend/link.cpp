@@ -486,6 +486,7 @@ failure:
 		args.push_back("/home/marcusmae/rpmbuild/BUILD/llvm/build/Debug+Asserts/lib/libLLVM-3.0svn.so");
 		args.push_back("-lelf");
 		args.push_back("-lrt");
+		args.push_back("-lmhash");
 		if (verbose)
 		{
 			cout << host_compiler;

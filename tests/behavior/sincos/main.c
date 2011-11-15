@@ -49,6 +49,10 @@ int main(int argc, char* argv[])
 	}
 	
 	sincos_(&nx, &ny, &nz, x, y, xy);
+	sincos_(&nx, &ny, &nz, x, y, xy);
+
+	nx--; ny--; nz--;
+	sincos_(&nx, &ny, &nz, x, y, xy);
 
 	free(x);
 	free(y);

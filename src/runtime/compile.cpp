@@ -47,7 +47,7 @@ using namespace std;
 
 static auto_ptr<TargetMachine> mcpu;
 
-void kernelgen::runtime::compile(
+char* kernelgen::runtime::compile(
 	int runmode, kernel_t* kernel, int* args)
 {
 	// Load LLVM IR source into module.
@@ -159,9 +159,7 @@ void kernelgen::runtime::compile(
 			if (verbose)
 				cout << "Loaded '" << kernel->name << "' at: " << (void*)kernel_func << endl;
 
-			kernel_func(args);
-
-			break;
+			return (char*)kernel_func;
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{

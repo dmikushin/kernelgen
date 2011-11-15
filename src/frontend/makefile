@@ -23,7 +23,7 @@ LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
 LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
 EXECINC = -I..
-EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf
+EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf -lmhash
 
 CXX = g++ -g $(LLVMINC) $(LLVMDEF)
 

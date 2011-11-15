@@ -22,6 +22,8 @@
 #include "runtime.h"
 #include "util.h"
 
+#include <mhash.h>
+
 using namespace kernelgen;
 using namespace kernelgen::runtime;
 using namespace std;
@@ -31,25 +33,50 @@ int kernelgen_launch(char* entry, int* args)
 {
 	kernel_t* kernel = (kernel_t*)entry;
 	
-	// Load args values into contiguous array.
-
 	// Compute args array hash.
+	MHASH td = mhash_init(MHASH_MD5);
+	if (td == MHASH_FAILED)
+		THROW("Cannot inilialize mhash");
+	unsigned char hash[16];
+	int64_t size = *(int64_t*)args;
+	mhash(td, (char*)args + sizeof(int64_t), size);
+	mhash_deinit(td, hash);
+	if (verbose)
+	{
+		cout << kernel->name << " @ ";
+		for (int i = 0 ; i < 16; i++)
+			cout << (int)hash[i];
+		cout << endl;
+	}
 	
 	// Check if kernel with the specified hash is
 	// already compiled.
-	bool compiled = false;
-	if (!compiled)
+	string strhash((char*)hash, 16);
+	binaries_map_t& binaries =
+		kernel->target[runmode].binaries;
+	binaries_map_t::iterator
+		binary = binaries.find(strhash);
+	char* kernel_func = NULL;
+	if (binary == binaries.end())
 	{
+		if (verbose)
+			cout << "No prebuilt kernel, compiling..." << endl;
+	
 		// Compile kernel for the specified target.
-		compile(runmode, kernel, args);
+		kernel_func = compile(runmode, kernel, args);
+		binaries[strhash] = kernel_func;
 	}
+	else
+		kernel_func = (*binary).second;
 	
 	// Execute kernel, depending on target.
 	switch (runmode)
 	{
 		case KERNELGEN_RUNMODE_NATIVE :
 		{
-			// TODO: Launch kernel using FFI
+			kernel_func_t native_kernel_func =
+				(kernel_func_t)kernel_func;
+			native_kernel_func(args);
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA :

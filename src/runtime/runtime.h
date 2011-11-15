@@ -49,6 +49,9 @@ extern bool verbose;
 // kernels could have the same prototype.
 typedef void (*kernel_func_t)(int* args);
 
+// The type of binaries map.
+typedef std::map<std::string, char*> binaries_map_t;
+
 // Kernel configuration structure
 // containing pointer for original source code
 // and space to store specialized source and
@@ -75,7 +78,7 @@ typedef struct
 		// Each source may have multiple binaries identified
 		// by hash stamps, optimized for different combinations
 		// of kernel arguments values.
-		std::map<std::string, char*> binary;
+		binaries_map_t binaries;
 		
 		// Kernel source version, more close to specific target.
 		std::string source;
@@ -91,7 +94,9 @@ extern std::map<std::string, kernel_t*> kernels;
 
 namespace runtime {
 
-void compile(int runmode, kernel_t* kernel, int* args);
+// Compile kernel with the specified arguments,
+// and return its handle.
+char* compile(int runmode, kernel_t* kernel, int* args);
 
 } }
 
