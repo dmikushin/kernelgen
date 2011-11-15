@@ -22,6 +22,7 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
+#include "llvm/Analysis/Passes.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/Host.h"
@@ -32,6 +33,9 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
+#include "llvm/Transforms/Scalar.h"
+
+#include "polly/LinkAllPasses.h"
 
 #include "io.h"
 #include "util.h"
@@ -43,6 +47,7 @@
 
 using namespace util::io;
 using namespace llvm;
+using namespace polly;
 using namespace std;
 
 static auto_ptr<TargetMachine> mcpu;
@@ -61,6 +66,31 @@ char* kernelgen::runtime::compile(
 	m->setModuleIdentifier(kernel->name + "_module");
 	
 	//m->dump();
+
+	{
+		PassRegistry &Registry = *PassRegistry::getPassRegistry();
+		initializeCore(Registry);
+		initializeScalarOpts(Registry);
+		initializeIPO(Registry);
+		initializeAnalysis(Registry);
+		initializeIPA(Registry);
+		initializeTransformUtils(Registry);
+		initializeInstCombine(Registry);
+		initializeInstrumentation(Registry);
+		initializeTarget(Registry);
+
+		PassManager manager;
+		manager.add(new TargetData(m));
+		manager.add(createLoopSimplifyPass());
+		manager.add(createCodePreperationPass());
+		manager.add(createRegionInfoPass());
+		manager.add(createRegionSimplifyPass());
+		manager.add(createScopInfoPass());
+		manager.add(createDependencesPass());
+		manager.add(createScheduleOptimizerPass());
+		manager.add(createCodeGenerationPass());
+		manager.run(*m);
+	}
 	
 	// Emit target assembly and binary image, depending
 	// on runmode.

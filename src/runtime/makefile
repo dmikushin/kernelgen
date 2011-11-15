@@ -24,8 +24,10 @@ include ../../makefile.in
 OPT ?= 0
 
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
-LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
-LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn
+LLVMINC = \
+	-I/home/marcusmae/rpmbuild/BUILD/llvm/build/include \
+	-I/home/marcusmae/rpmbuild/BUILD/llvm/tools/polly/include \
+	-I/home/marcusmae/rpmbuild/BUILD/llvm/build/tools/polly/include
 
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT) $(LLVMINC) $(LLVMDEF)
