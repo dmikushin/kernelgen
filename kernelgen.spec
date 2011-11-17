@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target debian
+%define target fedora
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -32,7 +32,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r485.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r529.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -78,7 +78,7 @@ rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r485.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r529.tar.gz
 
 
 %if %fullrepack
@@ -1145,6 +1145,7 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/libl
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto-wrapper
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto1
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/X11/Xw32defs.h
 cd $RPM_BUILD_DIR/kernelgen/branches/accurate
 ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 
@@ -1172,8 +1173,8 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 #/opt/kernelgen/include/kernelgen.h
 #/opt/kernelgen/include/kernelgen.mod
 /opt/kernelgen/%{lib64}/dragonegg.so
-#/opt/kernelgen/%{lib64}/libkernelgen.so
-#/opt/kernelgen/%{lib32}/libkernelgen.so
+/opt/kernelgen/%{lib64}/libkernelgen.a
+/opt/kernelgen/%{lib32}/libkernelgen.a
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/cc1
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/collect2
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/f951
@@ -1194,7 +1195,7 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.kernelgen.mod
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib_kinds.kernelgen.mod
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/README
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/openssl/bn.h
+#/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/openssl/bn.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/limits.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/linux/a.out.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/syslimits.h

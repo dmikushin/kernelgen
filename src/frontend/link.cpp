@@ -488,6 +488,8 @@ failure:
 		args.push_back("-lelf");
 		args.push_back("-lrt");
 		args.push_back("-lmhash");
+		args.push_back("-ldl");
+		args.push_back("-lstdc++");
 		if (verbose)
 		{
 			cout << host_compiler;
