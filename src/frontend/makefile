@@ -23,7 +23,7 @@ LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
 LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn /opt/kernelgen/lib/LLVMPolly.so
 EXECINC = -I..
-EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf -lmhash
+EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf -lmhash -ldl
 
 CXX = g++ -g $(LLVMINC) $(LLVMDEF)
 
@@ -32,7 +32,7 @@ OBJECTS = kernelgen.o compile.o link.o BranchedLoopExtractor.o BranchedCodeExtra
 all: kernelgen
 
 kernelgen: $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $@ $(LLVMLIB) $(EXECLIB)
+	$(CXX) $(OBJECTS) -o $@ $(EXECLIB) $(LLVMLIB)
 
 kernelgen.o: kernelgen.cpp
 	$(CXX) $(EXECINC) -c $< -o $@
