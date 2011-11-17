@@ -50,7 +50,7 @@ using namespace llvm;
 using namespace polly;
 using namespace std;
 
-static auto_ptr<TargetMachine> mcpu;
+static auto_ptr<TargetMachine> mcpu[KERNELGEN_RUNMODE_COUNT];
 
 char* kernelgen::runtime::compile(
 	int runmode, kernel_t* kernel, int* args)
@@ -98,8 +98,8 @@ char* kernelgen::runtime::compile(
 	{
 		case KERNELGEN_RUNMODE_NATIVE :
 		{
-			// Create target machine and get its target data.
-			if (!mcpu.get())
+			// Create target machine for NATIVE target and get its target data.
+			if (!mcpu[KERNELGEN_RUNMODE_NATIVE].get())
 			{
 				InitializeAllTargets();
 				InitializeAllTargetMCs();
@@ -110,23 +110,23 @@ char* kernelgen::runtime::compile(
 				if (triple.getTriple().empty())
 					triple.setTriple(sys::getHostTriple());
 				string err;
-				InitializeAllTargets();
 				const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
 				if (!target)
 					THROW("Error auto-selecting target for module '" << err << "'." << endl <<
 						"Please use the -march option to explicitly pick a target.");
-				mcpu.reset(target->createTargetMachine(
+				mcpu[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
 					triple.getTriple(), "", "", Reloc::PIC_, CodeModel::Default));
-				if (!mcpu.get())
+				if (!mcpu[KERNELGEN_RUNMODE_NATIVE].get())
 					THROW("Could not allocate target machine");
+
+				// Override default to generate verbose assembly.
+				mcpu[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
 			}
 			
-			const TargetData* tdata = mcpu.get()->getTargetData();
+			const TargetData* tdata = 
+				mcpu[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
 			PassManager manager;
 			manager.add(new TargetData(*tdata));
-
-			// Override default to generate verbose assembly.
-			mcpu.get()->setAsmVerbosityDefault(true);
 
 			// Setup output stream.
 			string bin_string;
@@ -134,7 +134,7 @@ char* kernelgen::runtime::compile(
 			formatted_raw_ostream stream(bin_stream);
 
 			// Ask the target to add backend passes as necessary.
-			if (mcpu.get()->addPassesToEmitFile(manager, stream,
+			if (mcpu[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(manager, stream,
 				TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
 				THROW("Target does not support generation of this file type");
 
@@ -193,10 +193,74 @@ char* kernelgen::runtime::compile(
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{
+			// Create target machine for CUDA target and get its target data.
+			if (!mcpu[KERNELGEN_RUNMODE_CUDA].get())
+			{
+				InitializeAllTargets();
+				InitializeAllTargetMCs();
+				InitializeAllAsmPrinters();
+				InitializeAllAsmParsers();
+
+				const Target* target = NULL;
+				Triple triple(m->getTargetTriple());
+				if (triple.getTriple().empty())
+					triple.setTriple(sys::getHostTriple());
+				for (TargetRegistry::iterator it = TargetRegistry::begin(),
+					ie = TargetRegistry::end(); it != ie; ++it)
+				{
+					if (!strcmp(it->getName(), "c"))
+					{
+						target = &*it;
+						break;
+					}
+				}
+
+				if (!target)
+					THROW("LLVM is built without C Backend support");
+
+				mcpu[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
+					triple.getTriple(), "", "", Reloc::PIC_, CodeModel::Default));
+				if (!mcpu[KERNELGEN_RUNMODE_CUDA].get())
+					THROW("Could not allocate target machine");
+
+				// Override default to generate verbose assembly.
+				mcpu[KERNELGEN_RUNMODE_CUDA].get()->setAsmVerbosityDefault(true);
+			}
+			
+			PassManager manager;
+
+			// Setup output stream.
+			string bin_string;
+			raw_string_ostream bin_stream(bin_string);
+			formatted_raw_ostream stream(bin_stream);
+
+			// Ask the target to add backend passes as necessary.
+			if (mcpu[KERNELGEN_RUNMODE_CUDA].get()->addPassesToEmitFile(manager, stream,
+				TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Aggressive))
+				THROW("Target does not support generation of this file type");
+
+			manager.run(*m);
+			
+			// Flush the resulting object binary to the
+			// underlying string.
+			stream.flush();
+
+			cout << bin_string;
+
+			/*// Dump generated kernel object to first temporary file.
+			cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
+			{
+				fstream tmp_stream;
+				tmp_stream.open(tmp1.getFilename().c_str(),
+					fstream::binary | fstream::out | fstream::trunc);
+				tmp_stream << bin_string;
+				tmp_stream.close();
+			}*/
 			break;
 		}
 		case KERNELGEN_RUNMODE_OPENCL :
 		{
+			THROW("Unsupported runmode" << runmode);
 			break;
 		}
 		default :

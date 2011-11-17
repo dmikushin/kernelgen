@@ -126,6 +126,10 @@ int compile(list<string> args, list<string> kgen_args,
 				iarg++;
 				continue;
 			}
+			if (!strcmp(arg, "-g"))
+			{
+				continue;
+			}
 			emit_ir_args.push_back(*iarg);
 		}
 		emit_ir_args.push_back("-fplugin=/opt/kernelgen/lib/dragonegg.so");
