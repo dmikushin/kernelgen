@@ -29,6 +29,7 @@
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/PassManagerBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
@@ -169,13 +170,13 @@ char* kernelgen::runtime::compile(
 			}
 			
 			// Link first and second objects together into third one.
-			cfiledesc tmp3 = cfiledesc::mktemp("/tmp/");
+			cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
 			{
 				string linker = "ld";
 				std::list<string> linker_args;
 				linker_args.push_back("-shared");
 				linker_args.push_back("-o");
-				linker_args.push_back(tmp3.getFilename());
+				linker_args.push_back(tmp2.getFilename());
 				linker_args.push_back(tmp1.getFilename());
 				if (verbose)
 				{
@@ -189,7 +190,7 @@ char* kernelgen::runtime::compile(
 			}
 
 			// Load linked image and extract kernel entry point.
-			void* handle = dlopen(tmp3.getFilename().c_str(),
+			void* handle = dlopen(tmp2.getFilename().c_str(),
 				RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
 			if (!handle)
 				THROW("Cannot dlopen " << dlerror());
@@ -356,8 +357,20 @@ char* kernelgen::runtime::compile(
 			for (vector<Function*>::iterator i = efuncs.begin(), ie = efuncs.end(); i != ie; i++)
 				(*i)->eraseFromParent();
 
-			//m->dump();
-			hostm->dump();
+			m->dump();
+			//hostm->dump();
+
+			{
+				PassManager manager;
+				manager.add(createLowerSetJmpPass());
+				PassManagerBuilder builder;
+				builder.Inliner = createFunctionInliningPass();
+				builder.OptLevel = 3;
+				builder.DisableSimplifyLibCalls = true;
+				builder.populateModulePassManager(manager);
+				manager.run(*m);
+				//manager.run(*hostm);
+			}
 			
 			// Compile host code, using native target compiler.
 			compile(KERNELGEN_RUNMODE_NATIVE, kernel, hostm);
@@ -414,9 +427,9 @@ char* kernelgen::runtime::compile(
 			// underlying string.
 			stream.flush();
 
-			//cout << bin_string;
+			cout << bin_string;
 
-			/*// Dump generated kernel object to first temporary file.
+			// Dump generated kernel object to first temporary file.
 			cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
 			{
 				fstream tmp_stream;
@@ -424,7 +437,48 @@ char* kernelgen::runtime::compile(
 					fstream::binary | fstream::out | fstream::trunc);
 				tmp_stream << bin_string;
 				tmp_stream.close();
-			}*/
+			}
+
+			// Replace $kernel_name$ with an actual name.
+			{
+				string sed = "sed";
+				std::list<string> sed_args;
+				sed_args.push_back("-i");
+				sed_args.push_back("s/\\\\\\$kernel_name\\\\\\$/" + kernel->name + "/");
+				sed_args.push_back(tmp1.getFilename());
+				if (verbose)
+				{
+					cout << sed;
+					for (std::list<string>::iterator it = sed_args.begin();
+						it != sed_args.end(); it++)
+						cout << " " << *it;
+					cout << endl;
+				}
+				execute(sed, sed_args, "", NULL, NULL);
+			}
+
+			// Compile CUDA code in temporary file.
+			cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
+			{
+				string nvcc = "nvcc";
+				std::list<string> nvcc_args;
+				nvcc_args.push_back("-D__CUDA_DEVICE_FUNC__");
+				nvcc_args.push_back("--x");
+				nvcc_args.push_back("cu");
+				nvcc_args.push_back("-c");
+				nvcc_args.push_back(tmp1.getFilename());
+				nvcc_args.push_back("-o");
+				nvcc_args.push_back(tmp2.getFilename());
+				if (verbose)
+				{
+					cout << nvcc;
+                                        for (std::list<string>::iterator it = nvcc_args.begin();
+                                                it != nvcc_args.end(); it++)
+                                                cout << " " << *it;
+                                        cout << endl;
+                                }
+                                execute(nvcc, nvcc_args, "", NULL, NULL);
+			}
 			break;
 		}
 		case KERNELGEN_RUNMODE_OPENCL :
