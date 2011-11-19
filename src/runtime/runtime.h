@@ -96,7 +96,7 @@ namespace runtime {
 
 // Compile kernel with the specified arguments,
 // and return its handle.
-char* compile(int runmode, kernel_t* kernel, int* args);
+char* compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL);
 
 } }
 

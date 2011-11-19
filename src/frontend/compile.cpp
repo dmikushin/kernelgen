@@ -185,6 +185,7 @@ int compile(list<string> args, list<string> kgen_args,
 	// 5) Replace call to loop functions with call to launcher.
 	// Append "always inline" attribute to all other functions.
 	//
+	Type* int32Ty = Type::getInt32Ty(context);
 	Function* launch = Function::Create(
 		TypeBuilder<types::i<32>(types::i<8>*, types::i<32>*), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch", m2.get());
@@ -220,7 +221,6 @@ int compile(list<string> args, list<string> kgen_args,
 
 		// Replace call to this function in module with call to launcher.
 		bool found = false;
-		Type* int32Ty = Type::getInt32Ty(context);
 		for (Module::iterator f2 = m2->begin(), fe2 = m2->end(); (f2 != fe2) && !found; f2++)
 			for (Function::iterator bb = f2->begin(); (bb != f2->end()) && !found; bb++)
 				for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
@@ -231,7 +231,8 @@ int compile(list<string> args, list<string> kgen_args,
 					
 					// Check if function is called (needs -instcombine pass).
 					Function* callee = call->getCalledFunction();
-					if (!callee && !callee->isDeclaration()) continue;
+					if (!callee) continue;
+					if (callee->isDeclaration()) continue;
 					if (callee->getName() != func->getName()) continue;
 
 					// Start forming new function call argument list

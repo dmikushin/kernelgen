@@ -63,7 +63,7 @@ int kernelgen_launch(char* entry, int* args)
 			cout << "No prebuilt kernel, compiling..." << endl;
 	
 		// Compile kernel for the specified target.
-		kernel_func = compile(runmode, kernel, args);
+		kernel_func = compile(runmode, kernel);
 		binaries[strhash] = kernel_func;
 	}
 	else

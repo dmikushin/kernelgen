@@ -19,7 +19,9 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "llvm/Constants.h"
 #include "llvm/LLVMContext.h"
+#include "llvm/Instructions.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
@@ -29,11 +31,15 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/FunctionUtils.h"
 
 #include "polly/LinkAllPasses.h"
 
@@ -53,20 +59,26 @@ using namespace std;
 static auto_ptr<TargetMachine> mcpu[KERNELGEN_RUNMODE_COUNT];
 
 char* kernelgen::runtime::compile(
-	int runmode, kernel_t* kernel, int* args)
+	int runmode, kernel_t* kernel, Module* module)
 {
-	// Load LLVM IR source into module.
+	Module* m = module;
 	LLVMContext &context = getGlobalContext();
-	SMDiagnostic diag;
-	MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
-	Module* m = ParseIR(buffer, diag, context);
 	if (!m)
-		THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
-			diag.getLineContents() << ": " << diag.getMessage());
-	m->setModuleIdentifier(kernel->name + "_module");
+	{
+		// Load LLVM IR source into module.
+		SMDiagnostic diag;
+		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
+		m = ParseIR(buffer, diag, context);
+		if (!m)
+			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
+				diag.getLineContents() << ": " << diag.getMessage());
+		m->setModuleIdentifier(kernel->name + "_module");
+	}
 	
 	//m->dump();
 
+	PassManager manager;
+	Pass* codegenPass;
 	{
 		PassRegistry &Registry = *PassRegistry::getPassRegistry();
 		initializeCore(Registry);
@@ -79,7 +91,6 @@ char* kernelgen::runtime::compile(
 		initializeInstrumentation(Registry);
 		initializeTarget(Registry);
 
-		PassManager manager;
 		manager.add(new TargetData(m));
 		manager.add(createLoopSimplifyPass());
 		manager.add(createCodePreperationPass());
@@ -88,7 +99,8 @@ char* kernelgen::runtime::compile(
 		manager.add(createScopInfoPass());
 		manager.add(createDependencesPass());
 		manager.add(createScheduleOptimizerPass());
-		manager.add(createCodeGenerationPass());
+		codegenPass = createCodeGenerationPass();
+		manager.add(codegenPass);
 		manager.run(*m);
 	}
 	
@@ -182,6 +194,9 @@ char* kernelgen::runtime::compile(
 			if (!handle)
 				THROW("Cannot dlopen " << dlerror());
 
+			// Do not return anything if module is explicitly specified.
+			if (module) return NULL;
+			
 			kernel_func_t kernel_func = (kernel_func_t)dlsym(handle, kernel->name.c_str());
 			if (!kernel_func)
 				THROW("Cannot dlsym " << dlerror());
@@ -193,6 +208,160 @@ char* kernelgen::runtime::compile(
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{
+			// Convert external functions CallInst-s into
+			// host callback form. Do not convert CallInst-s
+			// to device-resolvable intrinsics (syscalls and math).
+			Module* hostm = CloneModule(m);
+			hostm->getFunction(kernel->name)->eraseFromParent();
+			static string cuda_intrinsics[] =
+			{
+				#include "cuda_syscalls.h"
+				#include "cuda_intrinsics.h"
+				"printf",
+				"kernelgen_launch"
+			};
+			Type* int32Ty = Type::getInt32Ty(context);
+			std::vector<CallInst*> old_calls;
+			Function* hostcall = Function::Create(
+				TypeBuilder<void(types::i<8>*, types::i<32>*), true>::get(context),
+				GlobalValue::ExternalLinkage, "kernelgen_hostcall", m);
+
+			// Vector of wrapper functions considered for inclusion
+			// into host module.
+			map<Function*, string> funcs;
+			Function* f = m->getFunction(kernel->name);
+			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++)
+				{
+					// Check if instruction in focus is a call.
+					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+					if (!call) continue;
+
+					// Check if function is called (needs -instcombine pass).
+					Function* callee = call->getCalledFunction();
+					if (!callee) continue;
+					if (!callee->isDeclaration()) continue;
+					if (callee->isIntrinsic()) continue;
+
+					// Check function is natively supported.
+					bool native = false;
+					for (int i = 0; i < sizeof(cuda_intrinsics) / sizeof(std::string); i++)
+					{
+						if (callee->getName() == cuda_intrinsics[i])
+						{
+							native = true;
+							if (verbose)
+								cout << "native: " << callee->getName().data() << endl;
+							break;
+						}
+					}
+					if (native) continue;
+
+					if (verbose)
+						cout << "hostcall: " << callee->getName().data() << endl;
+
+					// Extract call into separate basic block.
+					BasicBlock* bbcall = SplitBlock(bb, call, codegenPass);
+					if (bbcall->getInstList().size() > 1)
+					{
+						BasicBlock::iterator start = bbcall->begin();
+						start++;
+						SplitBlock(bbcall, start, codegenPass);
+					}
+
+					// Extract basic block with call into function.
+					Function* func = ExtractBasicBlock(bbcall, true);
+					funcs[func] = callee->getName();
+
+					// Stop processing the current block, which is finished.
+					break;
+				}
+
+			// Replace newly inserted function calls with kernelgen_hostcall.
+			vector<CallInst*> ecalls;
+			vector<Function*> efuncs;
+			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+				for (BasicBlock::iterator ii = bb->begin(); ii != bb->end(); ii++)
+				{
+					// Check if instruction in focus is a call.
+					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+					if (!call) continue;
+
+					// Check if function is called (needs -instcombine pass).
+					Function* callee = call->getCalledFunction();
+					if (!callee) continue;							
+					if (funcs.find(callee) == funcs.end()) continue;
+
+					// Start forming new function call argument list
+					// with aggregated struct pointer.
+					Instruction* cast = CastInst::CreatePointerCast(
+						call->getArgOperand(0), PointerType::getInt32PtrTy(context),
+						"cast", call);
+					SmallVector<Value*, 16> call_args;
+					call_args.push_back(cast);
+			
+					// Create a constant array holding original called
+					// function name.
+					Constant* name = ConstantArray::get(
+						context, funcs[callee], true);
+			
+					// Create global variable to hold the function name
+					// string.
+					GlobalVariable* GV1 = 
+						new GlobalVariable(*m, name->getType(),
+							true, GlobalValue::PrivateLinkage, name,
+							funcs[callee], 0, false);
+			
+					// Convert array to pointer using GEP construct.
+					std::vector<Constant*> gep_args(
+						2, Constant::getNullValue(int32Ty));
+				
+					// Insert extra argument - the pointer to the
+					// original function string name.
+					call_args.insert(call_args.begin(),
+						ConstantExpr::getGetElementPtr(GV1, gep_args));
+
+					// Create new function call with new call arguments
+					// and copy old call properties.
+					CallInst* newcall = CallInst::Create(
+						hostcall, call_args, "", call);
+					newcall->setCallingConv(call->getCallingConv());
+					newcall->setAttributes(call->getAttributes());
+					newcall->setDebugLoc(call->getDebugLoc());
+
+					// Replace function from device module and add it
+					// to host module, if it is not already there.					
+					call->replaceAllUsesWith(newcall);
+					ecalls.push_back(call);
+					string funcname = "__kernelgen_" + funcs[callee];
+					callee->setName(funcname);
+					if (!hostm->getFunction(funcname))
+					{
+						// Reset to default visibility and linkage.
+						callee->setVisibility(GlobalValue::DefaultVisibility);
+						callee->setLinkage(GlobalValue::ExternalLinkage);
+
+						callee->removeFromParent();
+						hostm->getFunctionList().push_back(callee);
+						if (verbose)
+							cout << "wrapping " << funcs[callee] << endl;
+					}
+					else
+						efuncs.push_back(callee);
+				}
+
+			// Remove old call instructions and unused functions.
+			for (vector<CallInst*>::iterator i = ecalls.begin(), ie = ecalls.end(); i != ie; i++)
+				(*i)->eraseFromParent();
+			for (vector<Function*>::iterator i = efuncs.begin(), ie = efuncs.end(); i != ie; i++)
+				(*i)->eraseFromParent();
+
+			//m->dump();
+			hostm->dump();
+			
+			// Compile host code, using native target compiler.
+			compile(KERNELGEN_RUNMODE_NATIVE, kernel, hostm);
+
 			// Create target machine for CUDA target and get its target data.
 			if (!mcpu[KERNELGEN_RUNMODE_CUDA].get())
 			{
@@ -245,7 +414,7 @@ char* kernelgen::runtime::compile(
 			// underlying string.
 			stream.flush();
 
-			cout << bin_string;
+			//cout << bin_string;
 
 			/*// Dump generated kernel object to first temporary file.
 			cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
@@ -265,6 +434,8 @@ char* kernelgen::runtime::compile(
 		}
 		default :
 			THROW("Unknown runmode " << runmode);
-	}	
+	}
+	
+	return NULL;
 }
 
