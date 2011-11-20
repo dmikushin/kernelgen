@@ -93,15 +93,29 @@ char* kernelgen::runtime::compile(
 		initializeTarget(Registry);
 
 		manager.add(new TargetData(m));
-		manager.add(createLoopSimplifyPass());
-		manager.add(createCodePreperationPass());
-		manager.add(createRegionInfoPass());
-		manager.add(createRegionSimplifyPass());
-		manager.add(createScopInfoPass());
-		manager.add(createDependencesPass());
-		manager.add(createScheduleOptimizerPass());
+		manager.add(createBasicAliasAnalysisPass());		// -basicaa
+		manager.add(createPromoteMemoryToRegisterPass());	// -mem2reg
+		manager.add(createCFGSimplificationPass());		// -simplifycfg
+		manager.add(createInstructionCombiningPass());		// -instcombine
+		manager.add(createTailCallEliminationPass());		// -tailcallelim
+		manager.add(createLoopSimplifyPass());			// -loop-simplify
+		manager.add(createLCSSAPass());				// -lcssa
+		manager.add(createLoopRotatePass());			// -loop-rotate
+		manager.add(createLCSSAPass());				// -lcssa
+		manager.add(createLoopUnswitchPass());			// -loop-unswitch
+		manager.add(createInstructionCombiningPass());		// -instcombine
+		manager.add(createLoopSimplifyPass());			// -loop-simplify
+		manager.add(createLCSSAPass());				// -lcssa
+		manager.add(createIndVarSimplifyPass());		// -indvars
+		manager.add(createLoopDeletionPass());			// -loop-deletion
+		manager.add(createInstructionCombiningPass());		// -instcombine		
+		manager.add(createCodePreperationPass());		// -polly-prepare
+		manager.add(createRegionSimplifyPass());		// -polly-region-simplify
+		manager.add(createIndVarSimplifyPass());		// -indvars
+		manager.add(createBasicAliasAnalysisPass());		// -basicaa
+		manager.add(createScheduleOptimizerPass());		// -polly-optimize-isl
 		codegenPass = createCodeGenerationPass();
-		manager.add(codegenPass);
+		manager.add(codegenPass);				// -polly-codegen
 		manager.run(*m);
 	}
 	
@@ -212,8 +226,6 @@ char* kernelgen::runtime::compile(
 			// Convert external functions CallInst-s into
 			// host callback form. Do not convert CallInst-s
 			// to device-resolvable intrinsics (syscalls and math).
-			Module* hostm = CloneModule(m);
-			hostm->getFunction(kernel->name)->eraseFromParent();
 			static string cuda_intrinsics[] =
 			{
 				#include "cuda_syscalls.h"
@@ -279,8 +291,8 @@ char* kernelgen::runtime::compile(
 				}
 
 			// Replace newly inserted function calls with kernelgen_hostcall.
-			vector<CallInst*> ecalls;
-			vector<Function*> efuncs;
+			vector<GlobalValue*> host_calls;
+			vector<CallInst*> erase_calls;
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 				for (BasicBlock::iterator ii = bb->begin(); ii != bb->end(); ii++)
 				{
@@ -333,33 +345,32 @@ char* kernelgen::runtime::compile(
 					// Replace function from device module and add it
 					// to host module, if it is not already there.					
 					call->replaceAllUsesWith(newcall);
-					ecalls.push_back(call);
-					string funcname = "__kernelgen_" + funcs[callee];
-					callee->setName(funcname);
-					if (!hostm->getFunction(funcname))
-					{
-						// Reset to default visibility and linkage.
-						callee->setVisibility(GlobalValue::DefaultVisibility);
-						callee->setLinkage(GlobalValue::ExternalLinkage);
-
-						callee->removeFromParent();
-						hostm->getFunctionList().push_back(callee);
-						if (verbose)
-							cout << "wrapping " << funcs[callee] << endl;
-					}
-					else
-						efuncs.push_back(callee);
+					erase_calls.push_back(call);
+					callee->setVisibility(GlobalValue::DefaultVisibility);
+					callee->setLinkage(GlobalValue::ExternalLinkage);
+					callee->setName("__kernelgen_" + funcs[callee]);
+					host_calls.push_back(callee);
 				}
 
-			// Remove old call instructions and unused functions.
-			for (vector<CallInst*>::iterator i = ecalls.begin(), ie = ecalls.end(); i != ie; i++)
-				(*i)->eraseFromParent();
-			for (vector<Function*>::iterator i = efuncs.begin(), ie = efuncs.end(); i != ie; i++)
+			for (vector<CallInst*>::iterator i = erase_calls.begin(),
+				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
 
-			m->dump();
-			//hostm->dump();
+			Module* hostm = CloneModule(m);
+			hostm->getFunction(kernel->name)->eraseFromParent();
 
+			// Remove host wrappers functions from device module.
+			{
+				PassManager manager;
+				manager.add(new TargetData(m));
+				manager.add(createGVExtractionPass(host_calls, true));
+				manager.add(createGlobalDCEPass());
+				manager.add(createStripDeadDebugInfoPass());
+				manager.add(createStripDeadPrototypesPass());
+				manager.run(*m);
+			}
+			
+			// Optimize both device and host modules.
 			{
 				PassManager manager;
 				manager.add(createLowerSetJmpPass());
@@ -369,8 +380,11 @@ char* kernelgen::runtime::compile(
 				builder.DisableSimplifyLibCalls = true;
 				builder.populateModulePassManager(manager);
 				manager.run(*m);
-				//manager.run(*hostm);
+				manager.run(*hostm);
 			}
+
+			m->dump();
+			//hostm->dump();
 			
 			// Compile host code, using native target compiler.
 			compile(KERNELGEN_RUNMODE_NATIVE, kernel, hostm);
