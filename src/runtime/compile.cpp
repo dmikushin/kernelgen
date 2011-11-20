@@ -320,10 +320,12 @@ char* kernelgen::runtime::compile(
 			
 					// Create global variable to hold the function name
 					// string.
-					GlobalVariable* GV1 = 
-						new GlobalVariable(*m, name->getType(),
+					string varname = "__kernelgen_" + funcs[callee] + "_name";
+					GlobalVariable* GV1 = m->getGlobalVariable(varname, true);
+					if (!GV1)
+						GV1 = new GlobalVariable(*m, name->getType(),
 							true, GlobalValue::PrivateLinkage, name,
-							funcs[callee], 0, false);
+							varname, 0, false);
 			
 					// Convert array to pointer using GEP construct.
 					std::vector<Constant*> gep_args(
