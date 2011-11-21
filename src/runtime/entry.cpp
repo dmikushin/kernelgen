@@ -139,21 +139,31 @@ int main(int argc, char* argv[])
 						if (!callee && !callee->isDeclaration()) continue;
 						if (callee->getName() != "kernelgen_launch") continue;
 						
-						// OK, it's a call to kernelgen_launch, get its first argument.
-						ConstantExpr* ce =
-							dyn_cast<ConstantExpr>(call->getArgOperand(0));
-						if (!ce)
-							THROW("Expected contant value in kernelgen_launch first operand");
-						GlobalVariable* gvar =
-							dyn_cast<GlobalVariable>(ce->getOperand(0));
-						if (!gvar)
-							THROW("Expected global variable in kernelgen_launch first operand");
-						ConstantArray* ca =
-							dyn_cast<ConstantArray>(gvar->getInitializer());
-						if (!ca || !ca->isCString())
-							THROW("Expected constant array in kernelgen_launch first operand");
-				
-						string name = ca->getAsCString();
+						// Get the called function name.
+						string name = "";
+						GetElementPtrInst* namePtr = 
+							dyn_cast<GetElementPtrInst>(call->getArgOperand(0));
+						if (!namePtr)
+							THROW("Cannot load GEP from kernelgen_launch argument");
+						AllocaInst* nameAlloc =
+							dyn_cast<AllocaInst>(namePtr->getPointerOperand());
+						if (!nameAlloc)
+							THROW("Cannot load AllocInst from kernelgen_launch argument");
+						for (Value::use_iterator i = nameAlloc->use_begin(),
+							ie = nameAlloc->use_end(); i != ie; i++)
+						{
+							StoreInst* nameInit = dyn_cast<StoreInst>(*i);
+							if (nameInit)
+							{
+								ConstantArray* nameArray = dyn_cast<ConstantArray>(
+									nameInit->getValueOperand());
+								if (nameArray && nameArray->isCString())
+									name = nameArray->getAsCString();
+							}
+						}
+						if (name == "")
+							THROW("Cannot get the name of kernel invoked by kernelgen_launch");
+
 						kernel_t* kernel = kernels["__kernelgen_" + name];
 						call->setArgOperand(0, ConstantExpr::getIntToPtr(
 							ConstantInt::get(Type::getInt64Ty(context), (uint64_t)kernel),

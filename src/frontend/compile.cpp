@@ -211,7 +211,8 @@ int compile(list<string> args, list<string> kgen_args,
 		// standalone module and packed into resulting
 		// object file data section.
 		if (verbose)
-			cout << "Preparing loop function %s ...\n" << func->getName().data();
+			cout << "Preparing loop function " << func->getName().data() <<
+				" ..." << endl;
 		
 		// Reset to default visibility.
 		func->setVisibility(GlobalValue::DefaultVisibility);
@@ -246,26 +247,23 @@ int compile(list<string> args, list<string> kgen_args,
 					// function name.
 					Constant* name = ConstantArray::get(
 						context, callee->getName(), true);
+
+					// Create and initialize the memory buffer for name.
+					ArrayType* nameTy = cast<ArrayType>(name->getType());
+					AllocaInst* nameAlloc = new AllocaInst(nameTy, "", call);
+					StoreInst* nameInit = new StoreInst(name, nameAlloc, "", call);
+					Value* Idx[2];
+					Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+					Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
+					GetElementPtrInst* namePtr = GetElementPtrInst::Create(nameAlloc, Idx, "", call);
 					
-					// Create global variable to hold the function name
-					// string.
-					GlobalVariable* GV1 = 
-						new GlobalVariable(*m2, name->getType(),
-							true, GlobalValue::PrivateLinkage, name,
-							callee->getName(), 0, false);
-					
-					// Convert array to pointer using GEP construct.
-					std::vector<Constant*> gep_args(
-						2, Constant::getNullValue(int32Ty));
-				        
 					// Insert extra argument - the pointer to the
 					// original function string name.
-					call_args.insert(call_args.begin(),
-						ConstantExpr::getGetElementPtr(GV1, gep_args));
+					call_args.insert(call_args.begin(), namePtr);
 
 					// Create new function call with new call arguments
 					// and copy old call properties.
-					CallInst* newcall = CallInst::Create(launch, call_args, "kernelgen_launch", call);
+					CallInst* newcall = CallInst::Create(launch, call_args, "", call);
 					//newcall->takeName(call);
 					newcall->setCallingConv(call->getCallingConv());
 					newcall->setAttributes(call->getAttributes());

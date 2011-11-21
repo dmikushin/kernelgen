@@ -318,23 +318,19 @@ char* kernelgen::runtime::compile(
 					Constant* name = ConstantArray::get(
 						context, funcs[callee], true);
 			
-					// Create global variable to hold the function name
-					// string.
-					string varname = "__kernelgen_" + funcs[callee] + "_name";
-					GlobalVariable* GV1 = m->getGlobalVariable(varname, true);
-					if (!GV1)
-						GV1 = new GlobalVariable(*m, name->getType(),
-							true, GlobalValue::PrivateLinkage, name,
-							varname, 0, false);
-			
-					// Convert array to pointer using GEP construct.
-					std::vector<Constant*> gep_args(
-						2, Constant::getNullValue(int32Ty));
-				
+					// Create and initialize the memory buffer for name.
+					ArrayType* nameTy = dyn_cast<ArrayType>(name->getType());
+					AllocaInst* nameAlloc = new AllocaInst(nameTy, "", call);
+					StoreInst* nameInit = new StoreInst(name, nameAlloc, "", call);
+					Value* Idx[2];
+					Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+					Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
+					GetElementPtrInst* namePtr =
+						GetElementPtrInst::Create(nameAlloc, Idx, "", call);
+
 					// Insert extra argument - the pointer to the
 					// original function string name.
-					call_args.insert(call_args.begin(),
-						ConstantExpr::getGetElementPtr(GV1, gep_args));
+					call_args.insert(call_args.begin(), namePtr);
 
 					// Create new function call with new call arguments
 					// and copy old call properties.

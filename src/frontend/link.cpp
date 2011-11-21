@@ -171,6 +171,21 @@ int link(list<string> args, list<string> kgen_args,
 		// must be treated as main entry.
 		THROW("Cannot find object containing main entry");
 	}
+	
+	//
+	// 3) Convert global variables into main entry locals and
+	// arguments of loops functions.
+	//
+	{
+		// Form a structure to hold globals.
+
+		// Allocate globals structure in the beginning of main.
+
+		// Allocate globals as locals in the beginning of the main entry.
+		
+		// For each loop function add globals structure
+		// as an argument.
+	}
 
 	//
 	// 3) Rename main entry and insert another one
@@ -281,26 +296,35 @@ int link(list<string> args, list<string> kgen_args,
 					if (!callee && !callee->isDeclaration()) continue;
 					if (callee->getName() != "kernelgen_launch") continue;
 				
-					// Get value of the function pointer argument.
-					string name;
-					const ConstantExpr* ce;
-					GlobalValue* gval = NULL;
-					const GlobalVariable* gvar;
-					const ConstantArray* ca;
-					if (!call->getNumArgOperands()) goto failure;
-					ce = dyn_cast<ConstantExpr>(call->getArgOperand(0));
-					if (!ce) goto failure;
-					gvar = dyn_cast<GlobalVariable>(ce->getOperand(0));
-					if (!gvar) goto failure;
-					ca = dyn_cast<ConstantArray>(gvar->getInitializer());
-					if (!ca || !ca->isCString()) goto failure;
-				
-					name = ca->getAsCString();
+					// Get the called function name.
+					string name = "";
+					GetElementPtrInst* namePtr = 
+						dyn_cast<GetElementPtrInst>(call->getArgOperand(0));
+					if (!namePtr)
+						THROW("Cannot load GEP from kernelgen_launch argument");
+					AllocaInst* nameAlloc =
+						dyn_cast<AllocaInst>(namePtr->getPointerOperand());
+					if (!nameAlloc)
+						THROW("Cannot load AllocInst from kernelgen_launch argument");
+					for (Value::use_iterator i = nameAlloc->use_begin(),
+						ie = nameAlloc->use_end(); i != ie; i++)
+					{
+						StoreInst* nameInit = dyn_cast<StoreInst>(*i);
+						if (nameInit)
+						{
+							ConstantArray* nameArray = dyn_cast<ConstantArray>(
+								nameInit->getValueOperand());
+							if (nameArray && nameArray->isCString())
+								name = nameArray->getAsCString();
+						}
+					}
+					if (name == "")
+						THROW("Cannot get the name of kernel invoked by kernelgen_launch");
 					if (verbose)
 						cout << "Launcher invokes kernel " << name << endl;
 
-					gval = main->getFunction(name);
-					if (!gval)
+					Function* func = main->getFunction(name);
+					if (!func)
 					{
 						// TODO: not fatal, as soon as function could be defined in
 						// linked library. The question is if we should we dump LLVM IR
@@ -308,11 +332,9 @@ int link(list<string> args, list<string> kgen_args,
 						cerr << "Cannot find function " << name << endl;
 						continue;
 					}
-					loops_functions.push_back(gval);
-					main->Dematerialize(gval);
-					continue;
-failure:
-					THROW("Cannot get the name of kernel invoked by kernelgen_launch");
+					
+					loops_functions.push_back(func);
+					main->Dematerialize(func);
 				}
 
 		PassManager manager;
