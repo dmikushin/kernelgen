@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target fedora
+%define target debian
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -32,7 +32,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r529.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r536.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -78,7 +78,7 @@ rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r529.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r536.tar.gz
 
 
 %if %fullrepack
@@ -120,9 +120,9 @@ mkdir build
 cd build/
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
 %if %debug
-LIBRARY_PATH=/usr/lib/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-LIBRARY_PATH=/usr/lib/x86_64-linux-gnu make -j%{njobs}
+LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make -j%{njobs}
 %endif
 %endif
 cd $RPM_BUILD_DIR/kernelgen/branches/accurate
@@ -140,7 +140,7 @@ make install
 cd $RPM_BUILD_DIR/llvm/build
 make install
 cd $RPM_BUILD_DIR/gcc-4.6/build
-LIBRARY_PATH=/usr/lib/x86_64-linux-gnu make install
+LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make install
 cd $RPM_BUILD_DIR/dragonegg
 GCC=$RPM_BUILD_ROOT/opt/kernelgen/bin/kernelgen-gcc LLVM_CONFIG=$RPM_BUILD_ROOT/opt/kernelgen/bin/llvm-config make clean
 GCC=$RPM_BUILD_ROOT/opt/kernelgen/bin/kernelgen-gcc LLVM_CONFIG=$RPM_BUILD_ROOT/opt/kernelgen/bin/llvm-config make
