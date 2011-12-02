@@ -23,7 +23,7 @@
 
 if (scalar(@ARGV) != 5)
 {
-	print "Usage: kgen-install ARCH PREFIX LIB32 LIB64 CUDA_PREFIX\n";
+	print "Usage: install ARCH PREFIX LIB32 LIB64 CUDA_PREFIX\n";
 	exit;
 }
 
@@ -47,10 +47,19 @@ if ($ARCH eq "64")
 #
 my(@binaries) = (
 	"frontend/kernelgen");
-
 foreach $binary (@binaries)
 {
 	`cp $binary $PREFIX\/bin\/`;
+}
+
+#
+# Copy includes to install path.
+#
+my(@includes) = (
+	"include/kernelgen_runtime.h");
+foreach $include (@includes)
+{
+	`cp $include $PREFIX\/include\/`;
 }
 
 #

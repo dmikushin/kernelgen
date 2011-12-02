@@ -1,5 +1,6 @@
 #!/bin/sh
 echo "export PATH=\$PATH:/opt/kernelgen/bin" >/etc/profile.d/kernelgen.sh
 echo "/opt/kernelgen/lib" >/etc/ld.so.conf.d/kernelgen.conf
+echo "/opt/kernelgen/lib32" >>/etc/ld.so.conf.d/kernelgen.conf
 echo "/opt/kernelgen/lib64" >>/etc/ld.so.conf.d/kernelgen.conf
 ldconfig

@@ -1166,12 +1166,7 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/bin/llc
 /opt/kernelgen/bin/opt
 /opt/kernelgen/bin/llvm-extract
-#/opt/kernelgen/include64/kernelgen.kernelgen.mod
-#/opt/kernelgen/include64/kernelgen.h
-#/opt/kernelgen/include64/kernelgen.mod
-#/opt/kernelgen/include/kernelgen.kernelgen.mod
-#/opt/kernelgen/include/kernelgen.h
-#/opt/kernelgen/include/kernelgen.mod
+/opt/kernelgen/include/kernelgen_runtime.h
 /opt/kernelgen/%{lib64}/dragonegg.so
 /opt/kernelgen/%{lib64}/libkernelgen.a
 /opt/kernelgen/%{lib32}/libkernelgen.a
