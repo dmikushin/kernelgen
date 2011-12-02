@@ -451,45 +451,36 @@ char* kernelgen::runtime::compile(
 				tmp_stream.close();
 			}
 
-			// Replace $kernel_name$ with an actual name.
-			{
-				string sed = "sed";
-				std::list<string> sed_args;
-				sed_args.push_back("-i");
-				sed_args.push_back("s/\\\\\\$kernel_name\\\\\\$/" + kernel->name + "/");
-				sed_args.push_back(tmp1.getFilename());
-				if (verbose)
-				{
-					cout << sed;
-					for (std::list<string>::iterator it = sed_args.begin();
-						it != sed_args.end(); it++)
-						cout << " " << *it;
-					cout << endl;
-				}
-				execute(sed, sed_args, "", NULL, NULL);
-			}
-
 			// Compile CUDA code in temporary file.
 			cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
 			{
-				string nvcc = "nvcc";
-				std::list<string> nvcc_args;
-				nvcc_args.push_back("-D__CUDA_DEVICE_FUNC__");
-				nvcc_args.push_back("--x");
-				nvcc_args.push_back("cu");
-				nvcc_args.push_back("-c");
-				nvcc_args.push_back(tmp1.getFilename());
-				nvcc_args.push_back("-o");
-				nvcc_args.push_back(tmp2.getFilename());
+				string nvopencc = "nvopencc";
+				std::list<string> nvopencc_args;
+				nvopencc_args.push_back("-D__CUDA_DEVICE_FUNC__");
+				nvopencc_args.push_back("-I/opt/kernelgen/include");
+				nvopencc_args.push_back("-include");
+				nvopencc_args.push_back("kernelgen_runtime.h");
+				nvopencc_args.push_back("-x");
+				nvopencc_args.push_back("c");
+				nvopencc_args.push_back("-O3");
+				nvopencc_args.push_back("-TARG:compute_20");
+				nvopencc_args.push_back("-m64");
+				nvopencc_args.push_back("-OPT:ftz=1");
+				nvopencc_args.push_back("-CG:ftz=1");
+				nvopencc_args.push_back("-CG:prec_div=0");
+				nvopencc_args.push_back("-CG:prec_sqrt=0");
+				nvopencc_args.push_back(tmp1.getFilename());
+				nvopencc_args.push_back("-o");
+				nvopencc_args.push_back(tmp2.getFilename());
 				if (verbose)
 				{
-					cout << nvcc;
-                                        for (std::list<string>::iterator it = nvcc_args.begin();
-                                                it != nvcc_args.end(); it++)
+					cout << nvopencc;
+                                        for (std::list<string>::iterator it = nvopencc_args.begin();
+                                                it != nvopencc_args.end(); it++)
                                                 cout << " " << *it;
                                         cout << endl;
                                 }
-                                execute(nvcc, nvcc_args, "", NULL, NULL);
+                                execute(nvopencc, nvopencc_args, "", NULL, NULL);
 			}
 			break;
 		}

@@ -159,6 +159,7 @@ int main(int argc, char* argv[])
 									nameInit->getValueOperand());
 								if (nameArray && nameArray->isCString())
 									name = nameArray->getAsCString();
+								nameInit->eraseFromParent();
 							}
 						}
 						if (name == "")
@@ -168,6 +169,9 @@ int main(int argc, char* argv[])
 						call->setArgOperand(0, ConstantExpr::getIntToPtr(
 							ConstantInt::get(Type::getInt64Ty(context), (uint64_t)kernel),
 							Type::getInt8PtrTy(context)));
+
+						namePtr->eraseFromParent();
+						nameAlloc->eraseFromParent();
 					}
 
 			kernel->source = "";
