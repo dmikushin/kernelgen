@@ -15,7 +15,7 @@
 %endif
 
 # Build unoptimized version with debug info
-%define debug 0
+%define debug 1
 
 # Rebuild everything or only kernelgen
 %define fullrepack 1
@@ -32,10 +32,11 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r536.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r544.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
+Source7:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r11207187.tar.gz
 Patch0:		llvm.varargs.patch
 Patch1:		llvm.patch
 Patch2:		llvm.gpu.patch
@@ -76,9 +77,11 @@ rm -rf $RPM_BUILD_DIR/cloog
 tar -xf $RPM_SOURCE_DIR/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
 tar -xf $RPM_SOURCE_DIR/scoplib-0.2.0.tar.gz
+rm -rf $RPM_BUILD_DIR/nvopencc
+tar -xf $RPM_SOURCE_DIR/nvopencc-r11207187.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r536.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r544.tar.gz
 
 
 %if %fullrepack
@@ -93,6 +96,13 @@ tar -xf $RPM_SOURCE_DIR/kernelgen-r536.tar.gz
 
 %build
 %if %fullrepack
+%if %debug
+cd $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa
+make
+%else
+cd $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel
+make
+%endif
 cd $RPM_BUILD_DIR/cloog
 ./get_submodules.sh
 ./autogen.sh
@@ -109,10 +119,10 @@ mkdir build
 cp -rf include/ build/include/
 cd build
 %if %debug
-../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,cbe --with-cloog=$RPM_BUILD_DIR/cloog --with-isl=$RPM_BUILD_DIR/cloog/isl --with-scoplib=$RPM_BUILD_DIR/scoplib-0.2.0
+../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,cbe,ptx --with-cloog=$RPM_BUILD_DIR/cloog --with-isl=$RPM_BUILD_DIR/cloog/isl --with-scoplib=$RPM_BUILD_DIR/scoplib-0.2.0
 make -j%{njobs} CXXFLAGS=-O0
 %else
-../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,cbe --with-cloog=$RPM_BUILD_DIR/cloog --with-isl=$RPM_BUILD_DIR/cloog/isl --with-scoplib=$RPM_BUILD_DIR/scoplib-0.2.0
+../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,cbe,ptx --with-cloog=$RPM_BUILD_DIR/cloog --with-isl=$RPM_BUILD_DIR/cloog/isl --with-scoplib=$RPM_BUILD_DIR/scoplib-0.2.0
 make -j%{njobs}
 %endif
 cd $RPM_BUILD_DIR/gcc-4.6
@@ -132,7 +142,19 @@ make src
 
 %install
 rm -rf $RPM_BUILD_ROOT
-mkdir -p $RPM_BUILD_ROOT/opt/kernelgen
+mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/bin
+mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/lib
+%if %debug
+cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa/bin/nvopencc $RPM_BUILD_ROOT/opt/kernelgen/bin/nvopencc
+cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa/lib/be $RPM_BUILD_ROOT/opt/kernelgen/lib/be
+cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa/lib/gfec $RPM_BUILD_ROOT/opt/kernelgen/lib/gfec
+cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa/lib/inline $RPM_BUILD_ROOT/opt/kernelgen/lib/inline
+%else
+cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/bin/nvopencc $RPM_BUILD_ROOT/opt/kernelgen/bin/nvopencc
+cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/lib/be $RPM_BUILD_ROOT/opt/kernelgen/lib/be
+cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/lib/gfec $RPM_BUILD_ROOT/opt/kernelgen/lib/gfec
+cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/lib/inline $RPM_BUILD_ROOT/opt/kernelgen/lib/inline
+%endif
 cd $RPM_BUILD_DIR/cloog
 make install
 cd $RPM_BUILD_DIR/scoplib-0.2.0
@@ -1146,6 +1168,9 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto-
 rm $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto1
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/X11/Xw32defs.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXCodeGen.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXDesc.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXInfo.a
 cd $RPM_BUILD_DIR/kernelgen/branches/accurate
 ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 
@@ -1166,6 +1191,10 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/bin/llc
 /opt/kernelgen/bin/opt
 /opt/kernelgen/bin/llvm-extract
+/opt/kernelgen/bin/nvopencc
+/opt/kernelgen/lib/be
+/opt/kernelgen/lib/gfec
+/opt/kernelgen/lib/inline
 /opt/kernelgen/include/kernelgen_runtime.h
 /opt/kernelgen/%{lib64}/dragonegg.so
 /opt/kernelgen/%{lib64}/libkernelgen.a
@@ -1190,7 +1219,6 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.kernelgen.mod
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib_kinds.kernelgen.mod
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/README
-#/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/openssl/bn.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/limits.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/linux/a.out.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/syslimits.h
