@@ -177,18 +177,67 @@ int link(list<string> args, list<string> kgen_args,
 	// arguments of loops functions.
 	//
 	{
-		// Form a structure to hold globals.
+		// Form the type of structure to hold global variables.
+		// Constant globals are excluded from structure.
+		std::vector<Type*> paramTy;
+		for (Module::global_iterator i = composite.global_begin(),
+			ie = composite.global_end(); i != ie; i++)
+		{
+			GlobalVariable* gvar = i;
+			if (i->isConstant()) continue;
+			paramTy.push_back(i->getInitializer()->getType());
+		}
+		Type* structTy = StructType::get(context, paramTy, true);
 
 		// Allocate globals structure in the beginning of main.
+		Instruction* first = composite.getFunction("main")->begin()->begin();
+		AllocaInst* structArg = new AllocaInst(structTy, 0, "", first);
 
-		// Allocate globals as locals in the beginning of the main entry.
+		// Fill globals structure with initial values of globals.
+		int ii = 0;
+		vector<GlobalVariable*> remove;
+		for (Module::global_iterator i = composite.global_begin(),
+			ie = composite.global_end(); i != ie; i++)
+		{
+			GlobalVariable* gvar = i;
+			if (gvar->isConstant()) continue;
+
+			// Generate index.
+			Value *Idx[2];
+			Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+			Idx[1] = ConstantInt::get(Type::getInt32Ty(context), ii);
+
+			// Get address of "globals[i]" in struct.
+			GetElementPtrInst *GEP = GetElementPtrInst::Create(
+				structArg, Idx, "", first);
+
+			// Store initial value to that address.
+			StoreInst *SI = new StoreInst(gvar->getInitializer(), GEP, "", first);
+
+			gvar->replaceAllUsesWith(GEP);
+			remove.push_back(gvar);
+			
+			ii++;
+		}
 		
+		// Erase replaced globals.	
+		for (vector<GlobalVariable*>::iterator i = remove.begin(), ie = remove.end();
+			i != ie; i++)
+		{
+			GlobalVariable* gvar = *i;
+			gvar->eraseFromParent();
+		}
+
+		//composite.dump();
+
 		// For each loop function add globals structure
 		// as an argument.
+
+		// Replace uses of globals with uses of local globals struct.
 	}
 
 	//
-	// 3) Rename main entry and insert another one
+	// 4) Rename main entry and insert another one
 	// into composite module.
 	//
 	{
@@ -258,7 +307,7 @@ int link(list<string> args, list<string> kgen_args,
 	}
 	
 	//
-	// 4) Apply optimization passes to the resulting common
+	// 5) Apply optimization passes to the resulting common
 	// module.
 	//
 	{
@@ -274,7 +323,7 @@ int link(list<string> args, list<string> kgen_args,
 	}
 
 	//
-	// 5) Clone composite module and transform it into the
+	// 6) Clone composite module and transform it into the
 	// "main" kernel, executing serial portions of code on
 	// device.
 	//
@@ -356,7 +405,7 @@ int link(list<string> args, list<string> kgen_args,
 	}
 		
 	//
-	// 6) Clone composite module and transform it into the
+	// 7) Clone composite module and transform it into the
 	// "loop" kernels, each one executing single parallel loop.
 	//
 	{
@@ -425,7 +474,7 @@ int link(list<string> args, list<string> kgen_args,
 	}
 	
 	//
-	// 7) Delete all plain functions, except main out of "main" module.
+	// 8) Delete all plain functions, except main out of "main" module.
 	//
 	{
 		PassManager manager;
@@ -461,7 +510,7 @@ int link(list<string> args, list<string> kgen_args,
 	}
 	
 	//
-	// 8) Rename original main entry and insert new main
+	// 9) Rename original main entry and insert new main
 	// with switch between original main and kernelgen's main.
 	//
 	{
@@ -499,7 +548,7 @@ int link(list<string> args, list<string> kgen_args,
 	}
 
 	//
-	// 9) Link code using regular linker.
+	// 10) Link code using regular linker.
 	//
 	{
 		// Adding -rdynamic to use executable global symbols
