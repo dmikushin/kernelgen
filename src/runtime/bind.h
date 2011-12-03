@@ -19,22 +19,31 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef KERNELGEN_RUNTIME_H
-#define KERNELGEN_RUNTIME_H
+#ifndef KERNELGEN_BIND_H
+#define KERNELGEN_BIND_H
 
-#include <stddef.h>
+#include <dlfcn.h>
 
-extern __attribute__((device)) void* malloc(size_t);
-extern __attribute__((device)) void free(void*);
+namespace kernelgen { namespace bind {
 
-__attribute__((device)) void kernelgen_hostcall(unsigned char* name, unsigned int* args)
-{
-}
+namespace cuda {
 
-__attribute__((device)) int kernelgen_launch(unsigned char* name, unsigned int* args)
-{
-	return -1;
-}
+	typedef int (*cuInit_t)(unsigned int);
+	typedef int (*cuDeviceGet_t)(int*, int);
+	typedef int (*cuCtxCreate_t)(int*, unsigned int, int);
+	typedef int (*cuMemAlloc_t)(void**, size_t);
+	typedef int (*cuMemFree_t)(void*);
+	typedef int (*cuMemcpy_t)(void*, void*, size_t);
 
-#endif // KERNELGEN_RUNTIME_H
+	extern cuInit_t cuInit;
+	extern cuDeviceGet_t cuDeviceGet;
+	extern cuCtxCreate_t cuCtxCreate;
+	extern cuMemAlloc_t cuMemAlloc;
+	extern cuMemFree_t cuMemFree;
+	extern cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
+
+	void init();
+}}}
+
+#endif // KERNELGEN_BIND_H
 

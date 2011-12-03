@@ -19,14 +19,14 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#ifndef KERNELGEN_RUNTIME_H
+#define KERNELGEN_RUNTIME_H
+
 #include "llvm/Module.h"
 
 #include <cstdarg>
 #include <map>
 #include <string>
-
-#ifndef KERNELGEN_RUNTIME_H
-#define KERNELGEN_RUNTIME_H
 
 #define KERNELGEN_RUNMODE_COUNT		3
 #define KERNELGEN_RUNMODE_NATIVE	0

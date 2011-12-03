@@ -203,14 +203,14 @@ char* kernelgen::runtime::compile(
 				execute(linker, linker_args, "", NULL, NULL);
 			}
 
+			// Do not return anything if module is explicitly specified.
+			if (module) return NULL;
+
 			// Load linked image and extract kernel entry point.
 			void* handle = dlopen(tmp2.getFilename().c_str(),
 				RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
 			if (!handle)
 				THROW("Cannot dlopen " << dlerror());
-
-			// Do not return anything if module is explicitly specified.
-			if (module) return NULL;
 			
 			kernel_func_t kernel_func = (kernel_func_t)dlsym(handle, kernel->name.c_str());
 			if (!kernel_func)

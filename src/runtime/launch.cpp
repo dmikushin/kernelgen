@@ -19,12 +19,14 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "bind.h"
 #include "runtime.h"
 #include "util.h"
 
 #include <mhash.h>
 
 using namespace kernelgen;
+using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;
 using namespace std;
 
@@ -33,13 +35,39 @@ int kernelgen_launch(char* entry, int* args)
 {
 	kernel_t* kernel = (kernel_t*)entry;
 	
-	// Compute args array hash.
+	// Initialize hashing engine.
 	MHASH td = mhash_init(MHASH_MD5);
 	if (td == MHASH_FAILED)
 		THROW("Cannot inilialize mhash");
-	unsigned char hash[16];
-	int64_t size = *(int64_t*)args;
-	mhash(td, (char*)args + sizeof(int64_t), size);
+	
+	// Compute hash, depending on the runmode.
+	switch (runmode)
+	{
+		case KERNELGEN_RUNMODE_NATIVE :
+		{
+			int64_t size = *(int64_t*)args;
+			char* content = (char*)args + sizeof(int64_t);
+			mhash(td, content, size);
+			break;
+		}
+		case KERNELGEN_RUNMODE_CUDA :
+		{
+			int64_t size;
+			cuMemcpyDtoH(&size, args, sizeof(int64_t));
+			char* content = (char*)malloc(size);
+			cuMemcpyDtoH(content, args + sizeof(int64_t), size);
+			mhash(td, content, size);
+			free(content);
+			break;
+		}
+		case KERNELGEN_RUNMODE_OPENCL :
+		{
+			THROW("Unsupported runmode" << runmode);
+		}
+		default :
+			THROW("Unknown runmode " << runmode);
+	}
+	unsigned char hash[16];	
 	mhash_deinit(td, hash);
 	if (verbose)
 	{

@@ -246,7 +246,7 @@ int link(list<string> args, list<string> kgen_args,
 		
 		// Create new main(int* args).
 		Function* main = Function::Create(
-			TypeBuilder<types::i<32>(types::i<32>*), true>::get(context),
+			TypeBuilder<void(types::i<32>*), true>::get(context),
 			GlobalValue::ExternalLinkage, "main", &composite);
 		main->setHasUWTable();
 		main->setDoesNotThrow();
@@ -296,8 +296,18 @@ int link(list<string> args, list<string> kgen_args,
 		call->setTailCall();
 		call->setDoesNotThrow();
 
+		// Create and insert GEP to (int*)(args + 5).
+		Value *Idx3[1];
+		Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 5);
+		GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
+			arg, Idx3, "", root);
+
+		// Store call ret value to ret.
+		StoreInst* ret1 = new StoreInst(call, GEP3, "", root);
+		ret1->setAlignment(1);
+
 		// Return the int result of call instruction.
-		ReturnInst::Create(context, call, root);
+		ReturnInst::Create(context, 0, root);
 
 		if (verifyFunction(*main))
 		{

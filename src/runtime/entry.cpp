@@ -30,6 +30,7 @@
 #include "elf.h"
 #include "util.h"
 #include "runtime.h"
+#include "bind.h"
 
 #include <iostream>
 #include <cstdlib>
@@ -38,6 +39,7 @@
 extern "C" int __regular_main(int argc, char* argv[]);
 
 using namespace kernelgen;
+using namespace kernelgen::bind::cuda;
 using namespace llvm;
 using namespace std;
 using namespace util::elf;
@@ -85,8 +87,7 @@ int main(int argc, char* argv[])
 
 		// Build kernels index.
 		if (verbose) cout << "Building kernels index ..." << endl;
-		//celf e("/proc/self/exe", "");
-		celf e("/home/marcusmae/Programming/kernelgen/branches/accurate/tests/behavior/sincos/64/sincos", "");
+		celf e("/proc/self/exe", "");
 		cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
 		vector<csymbol*> symbols = e.getSymtab()->find(regex);
 		kernels_array.reserve(symbols.size());
@@ -181,19 +182,77 @@ int main(int argc, char* argv[])
 			//m->dump();
 		}
 
-		// Invoke entry point kernel.
-		kernel_t* kernel = kernels["__kernelgen_main"];
+		// Structure defining aggregate form of main entry
+		// parameters. Return value is also packed, since
+		// in CUDA and OpenCL kernels must return void.
 		struct __attribute__((packed)) args_t
 		{
 			int64_t size;
 			int argc;
 			char** argv;
+			int ret;
+		};
+		
+		// Load arguments, depending on the target runmode
+		// and invoke the entry point kernel.
+		kernel_t* kernel = kernels["__kernelgen_main"];
+		switch (runmode)
+		{
+			case KERNELGEN_RUNMODE_NATIVE :
+			{
+				args_t args;
+				args.size = sizeof(int);
+				args.argc = argc;
+				args.argv = argv;
+				kernelgen_launch((char*)kernel, (int*)&args);
+				return args.ret;
+			}
+			case KERNELGEN_RUNMODE_CUDA :
+			{
+				kernelgen::bind::cuda::init();
+				char** argv_dev = NULL;
+				{
+					size_t size = sizeof(char*) * argc;
+					for (int i = 0; i < argc; i++)
+						size += strlen(argv[i]) + 1;
+					int err = cuMemAlloc((void**)&argv_dev, size);
+					if (err) THROW("Error in cuMemAlloc " << err);
+				}
+				for (int i = 0, offset = 0; i < argc; i++)
+				{
+					char* arg = (char*)(argv_dev + argc) + offset;
+					int err = cuMemcpyHtoD(argv_dev + i, &arg, sizeof(char*));
+					if (err) THROW("Error in cuMemcpyHtoD " << err);
+					size_t length = strlen(argv[i]) + 1;
+					err = cuMemcpyHtoD(arg, argv[i], length);
+					if (err) THROW("Error in cuMemcpyDtoH " << err);
+					offset += length;
+				}
+				args_t args_host;
+				args_host.size = sizeof(int);
+				args_host.argc = argc;
+				args_host.argv = argv_dev;
+				args_t* args_dev = NULL;
+				int err = cuMemAlloc((void**)&args_dev, sizeof(args_t));
+				if (err) THROW("Error in cuMemAlloc " << err);
+				err = cuMemcpyHtoD(args_dev, &args_host, sizeof(args_t));
+				if (err) THROW("Error in cuMemcpyHtoD " << err);
+				kernelgen_launch((char*)kernel, (int*)args_dev);
+				err = cuMemcpyDtoH(&args_host.ret, &args_dev->ret, sizeof(int));
+				if (err) THROW("Error in cuMemcpyDtoH " << err);
+				err = cuMemFree(args_dev);
+				if (err) THROW("Error in cuMemFree " << err);
+				err = cuMemFree(argv_dev);
+				if (err) THROW("Error in cuMemFree " << err);
+				return args_host.ret;
+			}
+			case KERNELGEN_RUNMODE_OPENCL :
+			{
+				THROW("Unsupported runmode" << runmode);
+			}
+			default :
+				THROW("Unknown runmode " << runmode);
 		}
-		args;
-		args.size = sizeof(int);
-		args.argc = argc;
-		args.argv = argv;
-		return kernelgen_launch((char*)kernel, (int*)&args);
 	}
 	
 	// Chain to entry point of the regular binary.

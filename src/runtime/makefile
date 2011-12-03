@@ -32,7 +32,7 @@ LLVMINC = \
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT) $(LLVMINC) $(LLVMDEF)
 
-OBJECTS = entry compile launch timing io elf execute
+OBJECTS = entry compile launch timing io elf execute bind
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -54,9 +54,9 @@ endif
 64/libkernelgen.a: $(OBJECTS64)
 	$(AR) rcs $@ $(OBJECTS64)
 
-32/entry.o: entry.cpp
+32/entry.o: entry.cpp bind.h
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/entry.o: entry.cpp
+64/entry.o: entry.cpp bind.h
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/compile.o: compile.cpp runtime.h
@@ -106,6 +106,11 @@ NUM_SYMBOLS ?= 1
 32/execute.o: execute.cpp
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/execute.o: execute.cpp
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
+
+32/bind.o: bind.cpp bind.h
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/bind.o: bind.cpp bind.h
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 clean:
