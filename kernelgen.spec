@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target debian
+%define target fedora
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -43,6 +43,7 @@ Patch2:		llvm.gpu.patch
 Patch3:		gcc.patch
 Patch4:		gcc.opencl.patch
 Patch5:		dragonegg.opencl.patch
+Patch6:		dragonegg.ptx.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -91,6 +92,7 @@ tar -xf $RPM_SOURCE_DIR/kernelgen-r544.tar.gz
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
+%patch6 -p1
 %endif
 
 
