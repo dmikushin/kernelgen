@@ -44,6 +44,7 @@
 
 #include "polly/LinkAllPasses.h"
 
+#include "bind.h"
 #include "io.h"
 #include "util.h"
 #include "runtime.h"
@@ -52,6 +53,7 @@
 #include <fstream>
 #include <list>
 
+using namespace kernelgen::bind::cuda;
 using namespace util::io;
 using namespace llvm;
 using namespace polly;
@@ -381,7 +383,7 @@ char* kernelgen::runtime::compile(
 				manager.run(*hostm);
 			}
 
-			m->dump();
+			//m->dump();
 			//hostm->dump();
 			
 			// Compile host code, using native target compiler.
@@ -439,7 +441,7 @@ char* kernelgen::runtime::compile(
 			// underlying string.
 			stream.flush();
 
-			cout << bin_string;
+			//cout << bin_string;
 
 			// Dump generated kernel object to first temporary file.
 			cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
@@ -454,7 +456,7 @@ char* kernelgen::runtime::compile(
 			// Compile CUDA code in temporary file.
 			cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
 			{
-				string nvopencc = "nvopencc";
+				string nvopencc = "/opt/cuda/open64/bin/nvopencc";
 				std::list<string> nvopencc_args;
 				nvopencc_args.push_back("-D__CUDA_DEVICE_FUNC__");
 				nvopencc_args.push_back("-I/opt/kernelgen/include");
@@ -462,7 +464,6 @@ char* kernelgen::runtime::compile(
 				nvopencc_args.push_back("kernelgen_runtime.h");
 				nvopencc_args.push_back("-x");
 				nvopencc_args.push_back("c");
-				nvopencc_args.push_back("-O3");
 				nvopencc_args.push_back("-TARG:compute_20");
 				nvopencc_args.push_back("-m64");
 				nvopencc_args.push_back("-OPT:ftz=1");
@@ -482,6 +483,52 @@ char* kernelgen::runtime::compile(
                                 }
                                 execute(nvopencc, nvopencc_args, "", NULL, NULL);
 			}
+
+			// Load PTX into string.
+			string ptx;
+			{
+				std::ifstream tmp_stream(tmp2.getFilename().c_str());
+				tmp_stream.seekg(0, std::ios::end);   
+				ptx.reserve(tmp_stream.tellg());
+				tmp_stream.seekg(0, std::ios::beg);
+
+				ptx.assign((std::istreambuf_iterator<char>(tmp_stream)),
+					std::istreambuf_iterator<char>());
+				tmp_stream.close();
+			}
+
+			cout << ptx;
+			
+			// Load PTX from string into module.
+			void* module;
+#define PTX_LOG_SIZE 1024
+			char log[PTX_LOG_SIZE], elog[PTX_LOG_SIZE];
+			int options[] =
+			{
+				CU_JIT_INFO_LOG_BUFFER, CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES,
+				CU_JIT_ERROR_LOG_BUFFER, CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES
+			};
+			void* values[] =
+			{
+				&log, (void*)PTX_LOG_SIZE,
+				&elog, (void*)PTX_LOG_SIZE
+			};
+			int err = cuModuleLoadDataEx(&module, ptx.c_str(), 4, options, values);
+			if (verbose)
+				cout << log << endl;
+			if (err)
+				THROW("Error in cuModuleLoadData " << err << " " << elog);
+
+			kernel_func_t kernel_func = NULL;
+			err = cuModuleGetFunction((void**)&kernel_func, module, kernel->name.c_str());
+			if (err)
+				THROW("Error in cuModuleGetFunction " << err);
+
+			if (verbose)
+				cout << "Loaded '" << kernel->name << "' at: " << (void*)kernel_func << endl;
+
+			return (char*)kernel_func;
+
 			break;
 		}
 		case KERNELGEN_RUNMODE_OPENCL :

@@ -24,6 +24,13 @@
 
 #include <dlfcn.h>
 
+#define CU_JIT_INFO_LOG_BUFFER 3
+#define CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES 4
+#define CU_JIT_ERROR_LOG_BUFFER 5
+#define CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES 6
+#define CU_JIT_TARGET 9
+#define CU_TARGET_COMPUTE_21 5
+
 namespace kernelgen { namespace bind {
 
 namespace cuda {
@@ -34,6 +41,9 @@ namespace cuda {
 	typedef int (*cuMemAlloc_t)(void**, size_t);
 	typedef int (*cuMemFree_t)(void*);
 	typedef int (*cuMemcpy_t)(void*, void*, size_t);
+	typedef int (*cuModuleLoad_t)(void**, const char*);
+	typedef int (*cuModuleLoadDataEx_t)(void**, const char*, unsigned int, int* options, void**);
+	typedef int (*cuModuleGetFunction_t)(void**, void*, const char*);
 
 	extern cuInit_t cuInit;
 	extern cuDeviceGet_t cuDeviceGet;
@@ -41,6 +51,10 @@ namespace cuda {
 	extern cuMemAlloc_t cuMemAlloc;
 	extern cuMemFree_t cuMemFree;
 	extern cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
+	extern cuModuleLoad_t cuModuleLoad;
+	extern cuModuleLoad_t cuModuleLoadData;
+	extern cuModuleLoadDataEx_t cuModuleLoadDataEx;
+	extern cuModuleGetFunction_t cuModuleGetFunction;
 
 	void init();
 }}}

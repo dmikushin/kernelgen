@@ -36,6 +36,10 @@ namespace kernelgen { namespace bind { namespace cuda {
 	cuMemAlloc_t cuMemAlloc = NULL;
 	cuMemFree_t cuMemFree = NULL;
 	cuMemcpy_t cuMemcpyHtoD = NULL, cuMemcpyDtoH = NULL;
+	cuModuleLoad_t cuModuleLoad = NULL;
+	cuModuleLoad_t cuModuleLoadData = NULL;
+	cuModuleLoadDataEx_t cuModuleLoadDataEx = NULL;
+	cuModuleGetFunction_t cuModuleGetFunction = NULL;
 
 	void init()
 	{
@@ -67,6 +71,18 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuMemcpyDtoH = (cuMemcpy_t)dlsym(handle, "cuMemcpyDtoH");
 		if (!cuMemcpyDtoH)
 			THROW("Cannot dlsym cuMemcpyDtoH " << dlerror());
+		cuModuleLoad = (cuModuleLoad_t)dlsym(handle, "cuModuleLoad");
+		if (!cuModuleLoad)
+			THROW("Cannot dlsym cuModuleLoad " << dlerror());
+		cuModuleLoadData = (cuModuleLoad_t)dlsym(handle, "cuModuleLoadData");
+		if (!cuModuleLoadData)
+			THROW("Cannot dlsym cuModuleLoadData " << dlerror());
+		cuModuleLoadDataEx = (cuModuleLoadDataEx_t)dlsym(handle, "cuModuleLoadDataEx");
+		if (!cuModuleLoadDataEx)
+			THROW("Cannot dlsym cuModuleLoadDataEx " << dlerror());
+		cuModuleGetFunction = (cuModuleGetFunction_t)dlsym(handle, "cuModuleGetFunction");
+		if (!cuModuleGetFunction)
+			THROW("Cannot dlsym cuModuleGetFunction " << dlerror());
 
 		int err = cuInit(0);
 		if (err)
