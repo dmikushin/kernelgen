@@ -82,6 +82,16 @@ typedef struct
 		
 		// Kernel source version, more close to specific target.
 		std::string source;
+		
+		// Monitoring kernel (applicable for some targets).
+		void* monitor_kernel_func;
+		
+		// Monitoring kernel lock variable (applicable for some targets).
+		void* monitor_lock;
+		
+		// Streams for work and monitor kernels.
+		void* monitor_kernel_stream;
+		void* kernel_stream;
 	}
 	target[KERNELGEN_RUNMODE_COUNT];
 }
@@ -97,6 +107,10 @@ namespace runtime {
 // Compile kernel with the specified arguments,
 // and return its handle.
 char* compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL);
+
+// Compile C source to PTX using NVISA-enabled
+// Open64 compiler variant.
+char* nvopencc(std::string source, std::string name);
 
 } }
 
