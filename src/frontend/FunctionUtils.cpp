@@ -55,10 +55,10 @@ Function * transformToVoidFunction(Function * &functionToTranform)
 	}
 	
 	functionToTranform->dropAllReferences();
-	functionToTranform->removeFromParent();
-	//if(functionToTranform -> use_empty()) functionToTranform->eraseFromParent();
-	//   else functionToTranform->removeFromParent();
-	functionToTranform = newFunction;
+	if(functionToTranform -> use_empty()) functionToTranform->eraseFromParent();
+	   else functionToTranform->removeFromParent();
+	//functionToTranform = newFunction;
 	return newFunction;
 }
 };
+
