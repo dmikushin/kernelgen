@@ -43,8 +43,8 @@
 #include "llvm/Transforms/Utils/FunctionUtils.h"
 
 #include "polly/LinkAllPasses.h"
+#include "CodeGeneration.h"
 
-#include "bind.h"
 #include "io.h"
 #include "util.h"
 #include "runtime.h"
@@ -53,7 +53,6 @@
 #include <fstream>
 #include <list>
 
-using namespace kernelgen::bind::cuda;
 using namespace util::io;
 using namespace llvm;
 using namespace polly;
@@ -80,8 +79,7 @@ char* kernelgen::runtime::compile(
 	
 	//m->dump();
 
-	PassManager manager;
-	Pass* codegenPass;
+	PassManager polly;
 	{
 		PassRegistry &Registry = *PassRegistry::getPassRegistry();
 		initializeCore(Registry);
@@ -94,31 +92,28 @@ char* kernelgen::runtime::compile(
 		initializeInstrumentation(Registry);
 		initializeTarget(Registry);
 
-		manager.add(new TargetData(m));
-		manager.add(createBasicAliasAnalysisPass());		// -basicaa
-		manager.add(createPromoteMemoryToRegisterPass());	// -mem2reg
-		manager.add(createCFGSimplificationPass());		// -simplifycfg
-		manager.add(createInstructionCombiningPass());		// -instcombine
-		manager.add(createTailCallEliminationPass());		// -tailcallelim
-		manager.add(createLoopSimplifyPass());			// -loop-simplify
-		manager.add(createLCSSAPass());				// -lcssa
-		manager.add(createLoopRotatePass());			// -loop-rotate
-		manager.add(createLCSSAPass());				// -lcssa
-		manager.add(createLoopUnswitchPass());			// -loop-unswitch
-		manager.add(createInstructionCombiningPass());		// -instcombine
-		manager.add(createLoopSimplifyPass());			// -loop-simplify
-		manager.add(createLCSSAPass());				// -lcssa
-		manager.add(createIndVarSimplifyPass());		// -indvars
-		manager.add(createLoopDeletionPass());			// -loop-deletion
-		manager.add(createInstructionCombiningPass());		// -instcombine		
-		manager.add(createCodePreperationPass());		// -polly-prepare
-		manager.add(createRegionSimplifyPass());		// -polly-region-simplify
-		manager.add(createIndVarSimplifyPass());		// -indvars
-		manager.add(createBasicAliasAnalysisPass());		// -basicaa
-		manager.add(createScheduleOptimizerPass());		// -polly-optimize-isl
-		codegenPass = createCodeGenerationPass();
-		manager.add(codegenPass);				// -polly-codegen
-		manager.run(*m);
+		polly.add(new TargetData(m));
+		polly.add(createBasicAliasAnalysisPass());	// -basicaa
+		polly.add(createPromoteMemoryToRegisterPass());	// -mem2reg
+		polly.add(createCFGSimplificationPass());	// -simplifycfg
+		polly.add(createInstructionCombiningPass());	// -instcombine
+		polly.add(createTailCallEliminationPass());	// -tailcallelim
+		polly.add(createLoopSimplifyPass());		// -loop-simplify
+		polly.add(createLCSSAPass());			// -lcssa
+		polly.add(createLoopRotatePass());		// -loop-rotate
+		polly.add(createLCSSAPass());			// -lcssa
+		polly.add(createLoopUnswitchPass());		// -loop-unswitch
+		polly.add(createInstructionCombiningPass());	// -instcombine
+		polly.add(createLoopSimplifyPass());		// -loop-simplify
+		polly.add(createLCSSAPass());			// -lcssa
+		polly.add(createIndVarSimplifyPass());		// -indvars
+		polly.add(createLoopDeletionPass());		// -loop-deletion
+		polly.add(createInstructionCombiningPass());	// -instcombine		
+		polly.add(createCodePreperationPass());		// -polly-prepare
+		polly.add(createRegionSimplifyPass());		// -polly-region-simplify
+		polly.add(createIndVarSimplifyPass());		// -indvars
+		polly.add(createBasicAliasAnalysisPass());	// -basicaa
+		polly.add(createScheduleOptimizerPass());	// -polly-optimize-isl
 	}
 	
 	// Emit target assembly and binary image, depending
@@ -151,6 +146,10 @@ char* kernelgen::runtime::compile(
 				// Override default to generate verbose assembly.
 				mcpu[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
 			}
+
+			// Apply the Polly codegen for native target.
+			polly.add(polly::createCodeGenerationPass()); // -polly-codegen
+			polly.run(*m);
 			
 			const TargetData* tdata = 
 				mcpu[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
@@ -225,6 +224,12 @@ char* kernelgen::runtime::compile(
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{
+			// Apply the Polly codegen for native target.
+			Pass* codegenPass;
+			codegenPass = kernelgen::createCodeGenerationPass();
+			polly.add(codegenPass); // -polly-codegen
+			polly.run(*m);
+
 			// Convert external functions CallInst-s into
 			// host callback form. Do not convert CallInst-s
 			// to device-resolvable intrinsics (syscalls and math).
@@ -449,91 +454,7 @@ char* kernelgen::runtime::compile(
 
 			//cout << bin_string;
 
-			// Dump generated kernel object to first temporary file.
-			cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
-			{
-				fstream tmp_stream;
-				tmp_stream.open(tmp1.getFilename().c_str(),
-					fstream::binary | fstream::out | fstream::trunc);
-				tmp_stream << bin_string;
-				tmp_stream.close();
-			}
-
-			// Compile CUDA code in temporary file.
-			cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
-			{
-				string nvopencc = "nvopencc";
-				std::list<string> nvopencc_args;
-				nvopencc_args.push_back("-D__CUDA_DEVICE_FUNC__");
-				nvopencc_args.push_back("-I/opt/kernelgen/include");
-				nvopencc_args.push_back("-include");
-				nvopencc_args.push_back("kernelgen_runtime.h");
-				nvopencc_args.push_back("-x");
-				nvopencc_args.push_back("c");
-				nvopencc_args.push_back("-TARG:compute_20");
-				nvopencc_args.push_back("-m64");
-				nvopencc_args.push_back("-OPT:ftz=1");
-				nvopencc_args.push_back("-CG:ftz=1");
-				nvopencc_args.push_back("-CG:prec_div=0");
-				nvopencc_args.push_back("-CG:prec_sqrt=0");
-				nvopencc_args.push_back(tmp1.getFilename());
-				nvopencc_args.push_back("-o");
-				nvopencc_args.push_back(tmp2.getFilename());
-				if (verbose)
-				{
-					cout << nvopencc;
-                                        for (std::list<string>::iterator it = nvopencc_args.begin();
-                                                it != nvopencc_args.end(); it++)
-                                                cout << " " << *it;
-                                        cout << endl;
-                                }
-                                execute(nvopencc, nvopencc_args, "", NULL, NULL);
-			}
-
-			// Load PTX into string.
-			string ptx;
-			{
-				std::ifstream tmp_stream(tmp2.getFilename().c_str());
-				tmp_stream.seekg(0, std::ios::end);   
-				ptx.reserve(tmp_stream.tellg());
-				tmp_stream.seekg(0, std::ios::beg);
-
-				ptx.assign((std::istreambuf_iterator<char>(tmp_stream)),
-					std::istreambuf_iterator<char>());
-				tmp_stream.close();
-			}
-
-			cout << ptx;
-			
-			// Load PTX from string into module.
-			void* module;
-#define PTX_LOG_SIZE 1024
-			char log[PTX_LOG_SIZE], elog[PTX_LOG_SIZE];
-			int options[] =
-			{
-				CU_JIT_INFO_LOG_BUFFER, CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES,
-				CU_JIT_ERROR_LOG_BUFFER, CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES
-			};
-			void* values[] =
-			{
-				&log, (void*)PTX_LOG_SIZE,
-				&elog, (void*)PTX_LOG_SIZE
-			};
-			int err = cuModuleLoadDataEx(&module, ptx.c_str(), 4, options, values);
-			if (verbose)
-				cout << log << endl;
-			if (err)
-				THROW("Error in cuModuleLoadData " << err << " " << elog);
-
-			kernel_func_t kernel_func = NULL;
-			err = cuModuleGetFunction((void**)&kernel_func, module, kernel->name.c_str());
-			if (err)
-				THROW("Error in cuModuleGetFunction " << err);
-
-			if (verbose)
-				cout << "Loaded '" << kernel->name << "' at: " << (void*)kernel_func << endl;
-
-			return (char*)kernel_func;
+			return (char*)nvopencc(bin_string, kernel->name);
 
 			break;
 		}
