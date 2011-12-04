@@ -309,11 +309,17 @@ char* kernelgen::runtime::compile(
 
 					// Start forming new function call argument list
 					// with aggregated struct pointer.
-					Instruction* cast = CastInst::CreatePointerCast(
-						call->getArgOperand(0), PointerType::getInt32PtrTy(context),
-						"cast", call);
 					SmallVector<Value*, 16> call_args;
-					call_args.push_back(cast);
+					if (call->getNumArgOperands())
+					{
+						Instruction* cast = CastInst::CreatePointerCast(
+							call->getArgOperand(0), PointerType::getInt32PtrTy(context),
+							"cast", call);
+						call_args.push_back(cast);
+					}
+					else
+						call_args.push_back(Constant::getNullValue(
+							Type::getInt32PtrTy(context)));
 			
 					// Create a constant array holding original called
 					// function name.

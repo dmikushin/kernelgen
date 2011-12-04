@@ -1,5 +1,5 @@
---- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-04 05:52:40.191285398 +0400
-+++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-04 05:51:47.799025581 +0400
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-04 17:05:14.427375487 +0300
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-04 17:04:32.609276879 +0300
 @@ -510,7 +510,9 @@
      if (!IgnoreName)
        return Out << getStructName(STy) << ' ' << NameSoFar;
@@ -241,10 +241,10 @@
    Out << "  float Float;\n";
 +  Out << "#ifdef __OPENCL_DEVICE_FUNC__\n";
 +  Out << "#ifdef __OPENCL_HAVE_DOUBLE__\n";
-   Out << "  double Double;\n";
++  Out << "  double Double;\n";
 +  Out << "#endif\n";
 +  Out << "#else\n";
-+  Out << "  double Double;\n";
+   Out << "  double Double;\n";
 +  Out << "#endif\n";
    Out << "} llvmBitCastUnion;\n";
  
@@ -261,7 +261,16 @@
      FunctionInnards << "void"; // ret() -> ret(void) in C.
    }
    FunctionInnards << ')';
-@@ -3477,9 +3510,9 @@
+@@ -2282,6 +2315,8 @@
+   /// isStructReturn - Should this function actually return a struct by-value?
+   bool isStructReturn = F.hasStructRetAttr();
+ 
++  Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribute__((global)) __attribute__((used))\n#endif // __CUDA_DEVICE_FUNC__\n";
++
+   printFunctionSignature(&F, false);
+   Out << " {\n";
+ 
+@@ -3477,9 +3512,9 @@
    bool IsUnaligned = Alignment &&
      Alignment < TD->getABITypeAlignment(OperandType);
  
@@ -273,7 +282,7 @@
      Out << "((";
      if (IsUnaligned)
        Out << "struct __attribute__ ((packed, aligned(" << Alignment << "))) {";
-@@ -3490,15 +3523,15 @@
+@@ -3490,15 +3525,15 @@
        Out << "*";
      }
      Out << ")";
@@ -292,7 +301,7 @@
  }
  
  void CWriter::visitLoadInst(LoadInst &I) {
-@@ -3508,23 +3541,37 @@
+@@ -3508,23 +3543,37 @@
  }
  
  void CWriter::visitStoreInst(StoreInst &I) {
