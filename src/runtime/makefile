@@ -25,14 +25,18 @@ OPT ?= 0
 
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = \
-	-I/home/marcusmae/rpmbuild/BUILD/llvm/build/include \
-	-I/home/marcusmae/rpmbuild/BUILD/llvm/tools/polly/include \
-	-I/home/marcusmae/rpmbuild/BUILD/llvm/build/tools/polly/include
+	-I${HOME}/rpmbuild/BUILD/llvm/build/include \
+	-I${HOME}/rpmbuild/BUILD/llvm/tools/polly/include \
+	-I${HOME}/rpmbuild/BUILD/cloog/include \
+	-I${HOME}/rpmbuild/BUILD/cloog/isl/include \
+	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 
 CFLAGS = -g -fPIC -std=c99 -O$(OPT)
 CXXFLAGS = -g -fPIC -O$(OPT) $(LLVMINC) $(LLVMDEF)
 
-OBJECTS = entry compile launch timing io elf execute bind
+OBJECTS = \
+	entry compile launch timing io elf execute bind nvopencc \
+	BlockGenerator ClastExpCodegen ClastStmtCodeGen CodeGeneration
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -112,6 +116,31 @@ NUM_SYMBOLS ?= 1
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/bind.o: bind.cpp bind.h
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
+
+32/nvopencc.o: nvopencc.cpp
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/nvopencc.o: nvopencc.cpp
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
+
+32/BlockGenerator.o: BlockGenerator.cpp
+	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
+64/BlockGenerator.o: BlockGenerator.cpp
+	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
+
+32/ClastExpCodegen.o: ClastExpCodegen.cpp
+	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
+64/ClastExpCodegen.o: ClastExpCodegen.cpp
+	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
+
+32/ClastStmtCodeGen.o: ClastStmtCodeGen.cpp
+	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
+64/ClastStmtCodeGen.o: ClastStmtCodeGen.cpp
+	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
+
+32/CodeGeneration.o: CodeGeneration.cpp
+	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
+64/CodeGeneration.o: CodeGeneration.cpp
+	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
 
 clean:
 	rm -rf 32/*.o 64/*.o 32/*.a 64/*.a \
