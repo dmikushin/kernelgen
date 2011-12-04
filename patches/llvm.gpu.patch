@@ -1,5 +1,5 @@
---- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-02 23:30:24.285117902 +0400
-+++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-02 23:26:37.807994861 +0400
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-04 05:52:40.191285398 +0400
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-04 05:51:47.799025581 +0400
 @@ -510,7 +510,9 @@
      if (!IgnoreName)
        return Out << getStructName(STy) << ' ' << NameSoFar;
@@ -57,54 +57,7 @@
        << "typedef int __attribute__((mode(TI))) llvmInt128;\n"
        << "typedef unsigned __attribute__((mode(TI))) llvmUInt128;\n"
        << "#endif\n\n";
-@@ -1651,6 +1658,46 @@
-   }
- }
- 
-+// Filter out functions tha are predefined for nvcc/nvopen64 compiler,
-+// or incompatible definition may clash and cause errors.
-+static bool cudaFuncFilter(const std::string &name)
-+{
-+  std::string cudaFuncs[] =
-+  {
-+    "abs", "labs", "llabs", "fabs", "fabsf", "min", "umin", "llmin",
-+    "ullmin", "fminf", "fmin", "max", "umax", "llmax", "ullmax", "fmax",
-+    "fmax", "sin", "cos", "sincos", "sincosf", "tan", "sqrt", "rsqrt",
-+    "rsqrtf", "exp2", "exp2f", "exp10", "exp10f", "expm1", "expm1f",
-+    "log2", "log2f", "log10", "log", "log1p", "log1pf", "floor", "exp",
-+    "cosh", "sinh", "tanh", "acosh", "acoshf", "asinh", "asinhf", "atanh",
-+    "atanhf", "ldexp", "ldexpf", "logb", "logbf", "ilogb", "ilogbf",
-+    "scalbn", "scalbnf", "scalbln", "scalblnf", "frexp", "frexpf",
-+    "round", "roundf", "lround", "lroundf", "llround", "llroundf",
-+    "rint", "rintf", "lrint", "lrintf", "llrint", "llrintf", "nearbyint",
-+    "nearbyintf", "ceil", "trunc", "truncf", "fdim", "fdimf", "atan2", "atan", 
-+    "asin", "acos", "hypot", "hypot", "hypotf", "cbrt", "cbrtf", "rcbrt",
-+    "rcbrtf", "sinpi", "sinpif", "cospi", "cospif", "pow", "modf", "fmod",
-+    "remainder", "remainderf", "remquo", "remquof", "erf", "erff", "erfinv",
-+    "erfinvf", "erfc", "erfcf", "erfcinv", "erfcinvf", "lgamma", "lgammaf",
-+    "tgamma", "tgammaf", "copysign", "copysignf", "nextafter", "nextafterf", 
-+    "nan", "nanf", "__isinf", "__isinff", "__isnan", "__isnanf", "__isfinited",
-+    "__isfinitef", "__signbitd", "__finite", "__finitef", "__signbit", "__signbitf",
-+    "fma", "fmaf", "__signbitl", "__isinfl", "__isnanl", "signbit", "isfinite",
-+    "isnan", "isinf", "abort", "acosf", "asinf", "atanf", "atan2f", "cosf",
-+    "sinf", "tanf", "coshf", "sinhf", "tanhf", "expf", "logf", "log10f", "modff",
-+    "powf", "sqrtf", "ceilf", "floorf", "fmodf", "printf", "malloc", "free",
-+    "kernelgen_launch", "kernelgen_hostcall"
-+  };
-+  
-+  for (unsigned int i = 0; i < sizeof(cudaFuncs) / sizeof(std::string); i++)
-+  {
-+  	if (name == cudaFuncs[i])
-+  		return true;
-+  }
-+  
-+  return false;
-+}
-+
- // PrintEscapedString - Print each character of the specified string, escaping
- // it if it is not printable or if it is an escape char.
- static void PrintEscapedString(const std::string &Str, raw_ostream &Out) {
-@@ -1696,17 +1743,29 @@
+@@ -1696,17 +1703,29 @@
        break;
      }
    }
@@ -135,7 +88,7 @@
  
        << "\n\n/* Support for floating point constants */\n"
        << "typedef unsigned long long ConstantDoubleTy;\n"
-@@ -1754,9 +1813,15 @@
+@@ -1754,9 +1773,15 @@
      for (Module::global_iterator I = M.global_begin(), E = M.global_end();
           I != E; ++I) {
  
@@ -152,7 +105,7 @@
        else if (I->hasDLLImportLinkage())
          Out << "__declspec(dllimport) ";
        else
-@@ -1776,9 +1841,11 @@
+@@ -1776,6 +1801,7 @@
  
    // Function declarations
    Out << "\n/* Function Declarations */\n";
@@ -160,34 +113,15 @@
    Out << "double fmod(double, double);\n";   // Support for FP rem
    Out << "float fmodf(float, float);\n";
    Out << "long double fmodl(long double, long double);\n";
-+  Out << "#endif // __CUDA_DEVICE_FUNC__\n";
- 
-   // Store the intrinsics which will be declared/defined below.
-   SmallVector<const Function*, 8> intrinsicsToDefine;
-@@ -1802,6 +1869,12 @@
-         I->getName() == "longjmp" || I->getName() == "_setjmp")
-       continue;
- 
-+    int cudaFiltered = cudaFuncFilter(I->getName());
-+    if (cudaFiltered)
-+      Out << "#if !defined(__CUDA_DEVICE_FUNC__) && !defined(__OPENCL_DEVICE_FUNC__)\n";
-+    else
-+      Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribute__((device))\n#endif\n";
-+
-     if (I->hasExternalWeakLinkage())
-       Out << "extern ";
-     printFunctionSignature(I, true);
-@@ -1820,6 +1893,9 @@
-       Out << " LLVM_ASM(\"" << I->getName().substr(1) << "\")";
+@@ -1821,6 +1847,7 @@
  
      Out << ";\n";
-+
-+    if (cudaFiltered)
-+      Out << "#endif // __CUDA_DEVICE_FUNC__ && __OPENCL_DEVICE_FUNC__\n";
    }
++  Out << "#endif // __CUDA_DEVICE_FUNC__\n";
  
    // Output the global variable declarations
-@@ -1835,7 +1911,9 @@
+   if (!M.global_empty()) {
+@@ -1835,7 +1862,9 @@
          if (I->hasLocalLinkage())
            Out << "static ";
          else
@@ -198,7 +132,7 @@
  
          // Thread Local Storage
          if (I->isThreadLocal())
-@@ -1855,6 +1933,9 @@
+@@ -1855,6 +1884,9 @@
          if (I->hasHiddenVisibility())
            Out << " __HIDDEN__";
          Out << ";\n";
@@ -208,7 +142,7 @@
        }
    }
  
-@@ -1868,6 +1949,11 @@
+@@ -1868,6 +1900,11 @@
          if (getGlobalVariableClass(I))
            continue;
  
@@ -220,7 +154,7 @@
          if (I->hasLocalLinkage())
            Out << "static ";
          else if (I->hasDLLImportLinkage())
-@@ -1926,34 +2012,20 @@
+@@ -1926,34 +1963,20 @@
  
    // Emit some helper functions for dealing with FCMP instruction's
    // predicates
@@ -269,7 +203,7 @@
  
    // Emit definitions of the intrinsics.
    for (SmallVector<const Function*, 8>::const_iterator
-@@ -2002,6 +2074,7 @@
+@@ -2002,6 +2025,7 @@
    if (FPC->getType() == Type::getDoubleTy(FPC->getContext())) {
      double Val = FPC->getValueAPF().convertToDouble();
      uint64_t i = FPC->getValueAPF().bitcastToAPInt().getZExtValue();
@@ -277,7 +211,7 @@
      Out << "static const ConstantDoubleTy FPConstant" << FPCounter++
      << " = 0x" << utohexstr(i)
      << "ULL;    /* " << Val << " */\n";
-@@ -2009,6 +2082,7 @@
+@@ -2009,6 +2033,7 @@
      float Val = FPC->getValueAPF().convertToFloat();
      uint32_t i = (uint32_t)FPC->getValueAPF().bitcastToAPInt().
      getZExtValue();
@@ -285,7 +219,7 @@
      Out << "static const ConstantFloatTy FPConstant" << FPCounter++
      << " = 0x" << utohexstr(i)
      << "U;    /* " << Val << " */\n";
-@@ -2016,6 +2090,7 @@
+@@ -2016,6 +2041,7 @@
      // api needed to prevent premature destruction
      APInt api = FPC->getValueAPF().bitcastToAPInt();
      const uint64_t *p = api.getRawData();
@@ -293,7 +227,7 @@
      Out << "static const ConstantFP80Ty FPConstant" << FPCounter++
      << " = { 0x" << utohexstr(p[0])
      << "ULL, 0x" << utohexstr((uint16_t)p[1]) << ",{0,0,0}"
-@@ -2024,6 +2099,7 @@
+@@ -2024,6 +2050,7 @@
               FPC->getType() == Type::getFP128Ty(FPC->getContext())) {
      APInt api = FPC->getValueAPF().bitcastToAPInt();
      const uint64_t *p = api.getRawData();
@@ -301,21 +235,21 @@
      Out << "static const ConstantFP128Ty FPConstant" << FPCounter++
      << " = { 0x"
      << utohexstr(p[0]) << ", 0x" << utohexstr(p[1])
-@@ -2044,7 +2120,13 @@
+@@ -2044,7 +2071,13 @@
    Out << "  unsigned int Int32;\n";
    Out << "  unsigned long long Int64;\n";
    Out << "  float Float;\n";
 +  Out << "#ifdef __OPENCL_DEVICE_FUNC__\n";
 +  Out << "#ifdef __OPENCL_HAVE_DOUBLE__\n";
-+  Out << "  double Double;\n";
+   Out << "  double Double;\n";
 +  Out << "#endif\n";
 +  Out << "#else\n";
-   Out << "  double Double;\n";
++  Out << "  double Double;\n";
 +  Out << "#endif\n";
    Out << "} llvmBitCastUnion;\n";
  
    // Get all of the struct types used in the module.
-@@ -2247,9 +2329,9 @@
+@@ -2247,9 +2280,9 @@
    // Finish printing arguments... if this is a vararg function, print the ...,
    // unless there are no known types, in which case, we just emit ().
    //
@@ -327,7 +261,7 @@
      FunctionInnards << "void"; // ret() -> ret(void) in C.
    }
    FunctionInnards << ')';
-@@ -3477,9 +3559,9 @@
+@@ -3477,9 +3510,9 @@
    bool IsUnaligned = Alignment &&
      Alignment < TD->getABITypeAlignment(OperandType);
  
@@ -339,7 +273,7 @@
      Out << "((";
      if (IsUnaligned)
        Out << "struct __attribute__ ((packed, aligned(" << Alignment << "))) {";
-@@ -3490,15 +3572,15 @@
+@@ -3490,15 +3523,15 @@
        Out << "*";
      }
      Out << ")";
@@ -358,7 +292,7 @@
  }
  
  void CWriter::visitLoadInst(LoadInst &I) {
-@@ -3508,23 +3590,37 @@
+@@ -3508,23 +3541,37 @@
  }
  
  void CWriter::visitStoreInst(StoreInst &I) {

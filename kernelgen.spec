@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target fedora
+%define target debian
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -18,7 +18,7 @@
 %define debug 1
 
 # Rebuild everything or only kernelgen
-%define fullrepack 1
+%define fullrepack 0
 
 # The number of parallel compilation jobs
 %define njobs 24
@@ -1086,7 +1086,6 @@ rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libprofile_rt.so
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libscoplib.a
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libscoplib.la
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libscoplib.so
-rm $RPM_BUILD_ROOT/opt/kernelgen/lib/libscoplib.so.0
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/pkgconfig/cloog-isl.pc
 rm $RPM_BUILD_ROOT/opt/kernelgen/lib/pkgconfig/isl.pc
 rm $RPM_BUILD_ROOT/opt/kernelgen/%{lib32}/libgcc_s.so
@@ -1211,6 +1210,7 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/lib/libisl.so.7
 /opt/kernelgen/lib/libisl.so.7.0.0
 /opt/kernelgen/lib/libLLVM-3.0svn.so
+/opt/kernelgen/lib/libscoplib.so.0
 /opt/kernelgen/lib/libscoplib.so.0.0.0
 /opt/kernelgen/lib/LLVMPolly.so
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so

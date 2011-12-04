@@ -456,7 +456,7 @@ char* kernelgen::runtime::compile(
 			// Compile CUDA code in temporary file.
 			cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
 			{
-				string nvopencc = "/opt/cuda/open64/bin/nvopencc";
+				string nvopencc = "nvopencc";
 				std::list<string> nvopencc_args;
 				nvopencc_args.push_back("-D__CUDA_DEVICE_FUNC__");
 				nvopencc_args.push_back("-I/opt/kernelgen/include");
@@ -464,7 +464,7 @@ char* kernelgen::runtime::compile(
 				nvopencc_args.push_back("kernelgen_runtime.h");
 				nvopencc_args.push_back("-x");
 				nvopencc_args.push_back("c");
-				nvopencc_args.push_back("-TARG:compute_20");
+				nvopencc_args.push_back("-TARG:compute_10");
 				nvopencc_args.push_back("-m64");
 				nvopencc_args.push_back("-OPT:ftz=1");
 				nvopencc_args.push_back("-CG:ftz=1");
