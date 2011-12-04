@@ -109,12 +109,26 @@ int kernelgen_launch(char* entry, int* args)
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{
-			// TODO: Launch kernel using CUDA Driver API
+			struct { unsigned int x, y, z; } gridDim, blockDim;
+			gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+			blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+			size_t szshmem = 0;
+			void* kernel_func_args[] = { (void*)&args };
+			int err = cuLaunchKernel((void*)kernel_func,
+				gridDim.x, gridDim.y, gridDim.z,
+				blockDim.x, blockDim.y, blockDim.z, szshmem,
+				NULL, kernel_func_args, NULL);
+			if (err)
+				THROW("Error in cuLaunchKernel " << err);
+			err = cuCtxSynchronize();
+			if (err)
+				THROW("Error in cuCtxSynchronize " << err);
 			break;
 		}
 		case KERNELGEN_RUNMODE_OPENCL :
 		{
 			// TODO: Launch kernel using OpenCL API
+			THROW("Unsupported runmode" << runmode);
 			break;
 		}
 		default :

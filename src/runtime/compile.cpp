@@ -470,7 +470,7 @@ char* kernelgen::runtime::compile(
 				nvopencc_args.push_back("kernelgen_runtime.h");
 				nvopencc_args.push_back("-x");
 				nvopencc_args.push_back("c");
-				nvopencc_args.push_back("-TARG:compute_10");
+				nvopencc_args.push_back("-TARG:compute_20");
 				nvopencc_args.push_back("-m64");
 				nvopencc_args.push_back("-OPT:ftz=1");
 				nvopencc_args.push_back("-CG:ftz=1");
