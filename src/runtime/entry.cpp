@@ -171,6 +171,14 @@ int main(int argc, char* argv[])
 							ConstantInt::get(Type::getInt64Ty(context), (uint64_t)kernel),
 							Type::getInt8PtrTy(context)));
 
+						// Delete occasional users, like lifetime.start/end.
+						for (Value::use_iterator i = namePtr->use_begin(),
+							ie = namePtr->use_end(); i != ie; i++)
+						{
+							Instruction* inst = dyn_cast<Instruction>(*i);
+							if (inst) inst->eraseFromParent();
+						}
+
 						namePtr->eraseFromParent();
 						nameAlloc->eraseFromParent();
 					}
