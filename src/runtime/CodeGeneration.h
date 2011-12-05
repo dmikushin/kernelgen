@@ -291,6 +291,9 @@ class ClastStmtCodeGen
     //That position is computes in runtime for each dimension of grid
     //PositionInGrid contains respectively Value *
 	vector<Value* > positionInGrid;
+	
+	vector<Value* > BlockPositionInGrid;
+	vector<Value* > ThreadPositionInBlock; 
 
     //For each dimension of grid compute it's size (count of threads)
     //GridSize contains respectively Value *

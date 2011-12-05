@@ -94,8 +94,10 @@ bool CodeGeneration::runOnScop(polly::Scop &scop)
 	Function * region_func = region->getEntry()->getParent();
 	Module * region_module = region_func->getParent();
 	string ModuleName = region_module->getModuleIdentifier();
+	BasicBlock *EnteringBlock = region->getEnteringBlock();
 	SetVector<BasicBlock *> region_blocks;
 	SetVector<BasicBlock *> tail_blocks;
+	SetVector<BasicBlock *> oldSuccessors;
 	{
 		////////////////////////////////////////////////////////////////////////////////////////
 		// fill in set of region blocks                                                       //
@@ -128,8 +130,14 @@ bool CodeGeneration::runOnScop(polly::Scop &scop)
 			}                                                                     //
 		}                                                                         //
 		////////////////////////////////////////////////////////////////////////////
+		
+		for(succ_iterator Succ = succ_begin(EnteringBlock), SuccEnd = succ_end(EnteringBlock);
+		    Succ != SuccEnd ; Succ ++)
+		{
+		    	oldSuccessors.insert(*Succ);
+		}
 	}
-	BasicBlock *EnteringBlock = region->getEnteringBlock();
+	
 	// The builder will be set to startBlock.
 	IRBuilder<> builder(region->getEnteringBlock());
 
@@ -148,6 +156,23 @@ bool CodeGeneration::runOnScop(polly::Scop &scop)
 	parallelLoops.insert(parallelLoops.begin(),
 	                     CodeGen.getParallelLoops().begin(),
 	                     CodeGen.getParallelLoops().end());
+						 BasicBlock * NewEnryBlock;//= *succ_begin(EnteringBlock);//wrong!
+	int newSuccCount=0;
+	int SuccCount = 0; 
+	for(succ_iterator Succ = succ_begin(EnteringBlock), SuccEnd = succ_end(EnteringBlock);
+		    Succ != SuccEnd ; Succ ++)
+		{
+			SuccCount++;
+			if(!oldSuccessors.count(*Succ));
+			{
+			   newSuccCount++;
+			   NewEnryBlock = *Succ;
+			}
+				
+		}
+	assert(newSuccCount==1 && "Generation added either more or less than \
+	                           one new Successor Block of Entering Block");
+	assert(SuccCount == oldSuccessors.size() && "Successor's count must not changed");
 						
 	{
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,8 +200,6 @@ bool CodeGeneration::runOnScop(polly::Scop &scop)
 		}                                                                                                 //
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 	}
-
-	BasicBlock * NewEnryBlock = *succ_begin(EnteringBlock);
 	BasicBlock * oldExitingBlock = region->getExitingBlock();
 	BasicBlock * newExitingBlock = builder.GetInsertBlock();
 	BasicBlock * ExitBlock = region->getExit();
@@ -203,7 +226,7 @@ bool CodeGeneration::runOnScop(polly::Scop &scop)
 	assert(!verifyFunction(*region_func) && "error at function verifying");
    
     DT->DT->recalculate(*region_func);
-	//Region * newRegion = new Region(NewEnryBlock, ExitBlock, RI, DT);
+	Region * newRegion = new Region(NewEnryBlock, ExitBlock, RI, DT);
 	//SD->markFunctionAsInvalid(region_func);
 
 	return true;

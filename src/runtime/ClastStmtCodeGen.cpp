@@ -83,13 +83,13 @@ void ClastStmtCodeGen::codegenForCUDA(const clast_for *f)
 			Value * gridDim =  GridParameters[dimension*4 + 3]; //
 			//////////////////////////////////////////////////////
 			
-			///////////////////////////////////////////////////////////////////////////
-			// position in grid                                                      //
-			// blockId.x * blockDim.x + threadId.x - index of thread for dimension X // 
-		    ///////////////////////////////////////////////////////////////////////////
+			/////////////////////////////////////////////////////////////////////////////
+			// absolute position of block's first thread (position of block)           //
+			// blockId.x * blockDim.x - "position of block's thread 0 for dimension X" // 
+		    /////////////////////////////////////////////////////////////////////////////
 			Value* Position =                                                        //
-			         Builder.CreateAdd(Builder.CreateMul(blockId,blockDim),          //
-					 threadId, string("PositionInGrid.") + dimensions[dimension]);   //
+			         Builder.CreateMul(blockId,blockDim,
+					 string("PositionOfBlockInGrid.") + dimensions[dimension]);   //
 			///////////////////////////////////////////////////////////////////////////
 			
 			//////////////////////////////////////////////////////////////////////
@@ -103,7 +103,8 @@ void ClastStmtCodeGen::codegenForCUDA(const clast_for *f)
 			//////////////////////////////////////
 			// store value *                    //
 			//////////////////////////////////////
-			positionInGrid.push_back(Position); //
+			BlockPositionInGrid.push_back(Position); //
+			ThreadPositionInBlock.push_back(threadId);
 			GridSize.push_back(Size);           //
 			BlockSize.push_back(blockDim);      //
 			//////////////////////////////////////
@@ -148,51 +149,60 @@ void ClastStmtCodeGen::codegenForCUDA(const clast_for *f)
 	
 	//assert(число нитей по текущему измерению меньше числа итераций)
 	
+	Value * One = ConstantInt::get(lowerBound->getType(), 1);
+	
 	//////////////////////////////////////////////////////////////////////////////////////////
 	// Compute Iteration's count per thred                                                  //
 	// Loop's IterationsCount = upperBound - lowerBound + 1                                 //
 	// Iteration's Count per thread is ((IterationsCount-1) / GridSize + 1)                 //
-	// (IterationsCount-1) = upperBound - loweBound                                         //
+	// (IterationsCount-1) = upperBound - lowerBound                                        //
 	//////////////////////////////////////////////////////////////////////////////////////////
 	Value * IterationsCountMinusOne =                                                       //
 	  Builder.CreateSub(upperBound,lowerBound, string("IterationsCount.") + dimensionName); //
 	Value * Division =                                                                      //
 	   Builder.CreateSDiv(IterationsCountMinusOne,GridSize[dimension]);                     //
 	Value * IterationsPerThread =                                                           //
-	   Builder.CreateAdd(Division,ConstantInt::get(Division->getType(), 1),                 // 
+	   Builder.CreateAdd(Division,One,                 // 
 	           string("IterationsPerThread.") + dimensionName);                             //
 	//////////////////////////////////////////////////////////////////////////////////////////
 	
 	///////////////////////////////////////////////////////////////////////////////////////
 	// compute Thread's Upper Bound, Lower Bounds and Stride                             //
-	// LowerBound = IterationsPerThread*ThreadPosition                                   //
-	// UpperBound = LowerBound + Stride*IterationsPerThread                              //
+	// LowerBound = IterationsPerThread*BlockPosition + ThreadPositionInBlock            //
+	// UpperBound = LowerBound + Stride*(IterationsPerThread-1)                          //
 	// Stride = BlockSize (to increase probability of coalescing transactions to memory) //
 	///////////////////////////////////////////////////////////////////////////////////////
-	Value * ThreadLowerBound =                                             //
-	  Builder.CreateMul(positionInGrid[dimension], IterationsPerThread,    //
-	       string("ThreadLoverBound.") + dimensionName);                   //
-																		   //
-	Value * Stride = BlockSize[dimension];                                 //
-	Value * StrideMultIterPerThread =                                      //
-	    Builder.CreateMul(Stride,IterationsPerThread);                     //
-														                   //
-	Value * ThreadUpperBound =                                             //
-	   Builder.CreateAdd(ThreadLowerBound,StrideMultIterPerThread,         //
-	        string("ThreadUpperBound.") + dimensionName);                  //
-	/////////////////////////////////////////////////////////////////////////
+	Value * BlockLowerBound =                                                  //
+	   Builder.CreateMul(BlockPositionInGrid[dimension],  IterationsPerThread, //
+	       string("BlockLowerBound.") + dimensionName);                        //
+	                                                                           //
+	Value * ThreadLowerBound =                                                 //
+	  Builder.CreateAdd( BlockLowerBound, ThreadPositionInBlock[dimension],    //
+	       string("ThreadLowerBound.") + dimensionName);                       //
+																		       //
+	Value * StrideValue = BlockSize[dimension];                                     //
+																			   //
+    Value * IterationsPerThreadMinusOne =                                      //
+	     Builder.CreateSub(IterationsPerThread,One,                            //
+		     string("IterationsPerThreadMinusOne.") + dimensionName);          //
+																		       //
+    Value * StrideMultIterPerThreadMinusOne =                                  //
+	    Builder.CreateMul(IterationsPerThreadMinusOne, StrideValue);                //
+			                                                                   //
+	Value * ThreadUpperBound =                                                 //
+	   Builder.CreateAdd(ThreadLowerBound,StrideMultIterPerThreadMinusOne,     //
+	        string("ThreadUpperBound.") + dimensionName);                      //
+	/////////////////////////////////////////////////////////////////////////////
 	
 	//////////////////////////////////////////////////////////////////////////////////
 	// compute LoopStride - for general case, if OriginalLoopStride not equal to 1  //
 	//////////////////////////////////////////////////////////////////////////////////
 	IntegerType *LoopIVType = dyn_cast<IntegerType>(upperBound->getType());         //
-	assert(LoopIVType && "UB is not integer?");                                     //
-	                                                                                //
-	APInt LoopStride = polly::APInt_from_MPZ(f->stride);                            //
-    Value * StrideValue =                                                           //
-	      Builder.CreateMul(Stride, ConstantInt::get(upperBound->getType(),         //
-						               LoopStride.zext(LoopIVType->getBitWidth())), //
-				string("ThreadStride.") + dimensionName );                          //
+	assert(LoopIVType && "UB is not integer?");                                     //                                                                               //
+	APInt LoopStride = polly::APInt_from_MPZ(f->stride); 
+	assert(LoopStride == 1); //I hope...
+
+
 	//////////////////////////////////////////////////////////////////////////////////
 	Builder.SetInsertPoint(CountBoundsBB);
 	
@@ -301,7 +311,7 @@ void ClastStmtCodeGen::addParameters(const CloogNames *names)
 	for (polly::Scop::param_iterator PI = S->param_begin(), PE = S->param_end();
 	     PI != PE; ++PI) {
 		assert(i < names->nb_parameters && "Not enough parameter names");
-
+ 
 		const SCEV *Param = *PI;
 		Type *Ty = Param->getType();
 
