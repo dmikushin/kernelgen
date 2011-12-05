@@ -36,12 +36,17 @@ namespace kernelgen { namespace bind { namespace cuda {
 	cuCtxSynchronize_t cuCtxSynchronize = NULL;
 	cuMemAlloc_t cuMemAlloc = NULL;
 	cuMemFree_t cuMemFree = NULL;
+	cuMemAlloc_t cuMemAllocHost = NULL;
+	cuMemFree_t cuMemFreeHost = NULL;
 	cuMemcpy_t cuMemcpyHtoD = NULL, cuMemcpyDtoH = NULL;
+	cuMemcpyAsync_t cuMemcpyHtoDAsync = NULL, cuMemcpyDtoHAsync = NULL;
 	cuModuleLoad_t cuModuleLoad = NULL;
 	cuModuleLoad_t cuModuleLoadData = NULL;
 	cuModuleLoadDataEx_t cuModuleLoadDataEx = NULL;
 	cuModuleGetFunction_t cuModuleGetFunction = NULL;
 	cuLaunchKernel_t cuLaunchKernel = NULL;
+	cuStreamCreate_t cuStreamCreate = NULL;
+	cuStreamSynchronize_t cuStreamSynchronize = NULL;
 
 	void init()
 	{
@@ -70,12 +75,24 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuMemFree = (cuMemFree_t)dlsym(handle, "cuMemFree");
 		if (!cuMemFree)
 			THROW("Cannot dlsym cuMemFree " << dlerror());
+		cuMemAllocHost = (cuMemAlloc_t)dlsym(handle, "cuMemAllocHost");
+		if (!cuMemAllocHost)
+			THROW("Cannot dlsym cuMemAllocHost " << dlerror());
+		cuMemFreeHost = (cuMemFree_t)dlsym(handle, "cuMemFreeHost");
+		if (!cuMemFreeHost)
+			THROW("Cannot dlsym cuMemFreeHost " << dlerror());
 		cuMemcpyHtoD = (cuMemcpy_t)dlsym(handle, "cuMemcpyHtoD");
 		if (!cuMemcpyHtoD)
 			THROW("Cannot dlsym cuMemcpyHtoD " << dlerror());
 		cuMemcpyDtoH = (cuMemcpy_t)dlsym(handle, "cuMemcpyDtoH");
 		if (!cuMemcpyDtoH)
 			THROW("Cannot dlsym cuMemcpyDtoH " << dlerror());
+		cuMemcpyHtoDAsync = (cuMemcpyAsync_t)dlsym(handle, "cuMemcpyHtoDAsync");
+		if (!cuMemcpyHtoDAsync)
+			THROW("Cannot dlsym cuMemcpyHtoDAsync " << dlerror());
+		cuMemcpyDtoHAsync = (cuMemcpyAsync_t)dlsym(handle, "cuMemcpyDtoHAsync");
+		if (!cuMemcpyDtoHAsync)
+			THROW("Cannot dlsym cuMemcpyDtoHAsync " << dlerror());
 		cuModuleLoad = (cuModuleLoad_t)dlsym(handle, "cuModuleLoad");
 		if (!cuModuleLoad)
 			THROW("Cannot dlsym cuModuleLoad " << dlerror());
@@ -91,6 +108,12 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuLaunchKernel = (cuLaunchKernel_t)dlsym(handle, "cuLaunchKernel");
 		if (!cuLaunchKernel)
 			THROW("Cannot dlsym cuLaunchKernel " << dlerror());
+		cuStreamCreate = (cuStreamCreate_t)dlsym(handle, "cuStreamCreate");
+		if (!cuStreamCreate)
+			THROW("Cannot dlsym cuStreamCreate " << dlerror());
+		cuStreamSynchronize = (cuStreamSynchronize_t)dlsym(handle, "cuStreamSynchronize");
+		if (!cuStreamSynchronize)
+			THROW("Cannot dlsym cuStreamSynchronize " << dlerror());
 
 		int err = cuInit(0);
 		if (err)

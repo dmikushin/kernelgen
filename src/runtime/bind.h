@@ -42,11 +42,14 @@ namespace cuda {
 	typedef int (*cuMemAlloc_t)(void**, size_t);
 	typedef int (*cuMemFree_t)(void*);
 	typedef int (*cuMemcpy_t)(void*, void*, size_t);
+	typedef int (*cuMemcpyAsync_t)(void*, void*, size_t, void*);
 	typedef int (*cuModuleLoad_t)(void**, const char*);
 	typedef int (*cuModuleLoadDataEx_t)(void**, const char*, unsigned int, int* options, void**);
 	typedef int (*cuModuleGetFunction_t)(void**, void*, const char*);
 	typedef int (*cuLaunchKernel_t)(void*, unsigned int, unsigned int, unsigned int,
 		unsigned int, unsigned int, unsigned int, unsigned int, void*, void**, void**);
+	typedef int (*cuStreamCreate_t)(void*, unsigned int);
+	typedef int (*cuStreamSynchronize_t)(void*);
 
 	extern cuInit_t cuInit;
 	extern cuDeviceGet_t cuDeviceGet;
@@ -54,12 +57,17 @@ namespace cuda {
 	extern cuCtxSynchronize_t cuCtxSynchronize;
 	extern cuMemAlloc_t cuMemAlloc;
 	extern cuMemFree_t cuMemFree;
+	extern cuMemAlloc_t cuMemAllocHost;
+	extern cuMemFree_t cuMemFreeHost;
 	extern cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
+	extern cuMemcpyAsync_t cuMemcpyHtoDAsync, cuMemcpyDtoHAsync;
 	extern cuModuleLoad_t cuModuleLoad;
 	extern cuModuleLoad_t cuModuleLoadData;
 	extern cuModuleLoadDataEx_t cuModuleLoadDataEx;
 	extern cuModuleGetFunction_t cuModuleGetFunction;
 	extern cuLaunchKernel_t cuLaunchKernel;
+	extern cuStreamCreate_t cuStreamCreate;
+	extern cuStreamSynchronize_t cuStreamSynchronize;
 
 	void init();
 }}}

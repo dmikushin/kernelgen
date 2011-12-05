@@ -44,6 +44,24 @@ using namespace llvm;
 using namespace std;
 using namespace util::elf;
 
+// GPU monitoring kernel source.
+string cuda_monitor_kernel_source =
+	"extern __attribute__((device)) int __iAtomicCAS(int *address, int compare, int val);"
+	"\n"
+	"__attribute__((global)) __attribute__((used)) void kernelgen_monitor(int* lock)\n"
+	"{\n"
+	"	// Unlock blocked gpu kernel associated\n"
+	"	// with lock. It simply waits for lock\n"
+	"	// to be dropped to zero.\n"
+	"	__iAtomicCAS(lock, 1, 0);\n"
+	"\n"
+	"	// Wait for lock to be set.\n"
+	"	// When lock is set this thread exits,\n"
+	"	// and CPU monitor thread gets notified\n"
+	"	// by synchronization.\n"
+	"	while (!__iAtomicCAS(lock, 1, 1)) continue;\n"
+	"}\n";
+
 // Kernels runmode (target).
 int kernelgen::runmode = -1;
 
@@ -178,7 +196,7 @@ int main(int argc, char* argv[])
 							Instruction* inst = dyn_cast<Instruction>(*i);
 							if (inst) inst->eraseFromParent();
 						}
-
+						
 						namePtr->eraseFromParent();
 						nameAlloc->eraseFromParent();
 					}
@@ -218,6 +236,33 @@ int main(int argc, char* argv[])
 			case KERNELGEN_RUNMODE_CUDA :
 			{
 				kernelgen::bind::cuda::init();
+				
+				// Initialize thread locker variable.
+				// Initial state is "locked". It will be dropped
+				// by gpu side monitor that must be started *before*
+				// target GPU kernel.
+				void* lock = NULL;
+				int err = cuMemAlloc(&lock, sizeof(int));
+				if (err) THROW("Error in cuMemAlloc " << err);
+				int one = 1;
+				err = cuMemcpyHtoD(lock, &one, sizeof(int));
+				if (err) THROW("Error in cuMemcpyHtoD " << err);
+				kernel->target[runmode].monitor_lock = lock;
+
+				// Create streams where monitoring and target kernels
+				// will be executed.
+				err = cuStreamCreate(
+					&kernel->target[runmode].monitor_kernel_stream, 0);
+				if (err) THROW("Error in cuStreamCreate " << err);
+				err = cuStreamCreate(
+					&kernel->target[runmode].kernel_stream, 0);
+				if (err) THROW("Error in cuStreamCreate " << err);
+				
+				// Compile GPU monitoring kernel.
+				kernel->target[runmode].monitor_kernel_func =
+					kernelgen::runtime::nvopencc(cuda_monitor_kernel_source,
+					"kernelgen_monitor");
+	
 				char** argv_dev = NULL;
 				{
 					size_t size = sizeof(char*) * argc;
@@ -229,7 +274,7 @@ int main(int argc, char* argv[])
 				for (int i = 0, offset = 0; i < argc; i++)
 				{
 					char* arg = (char*)(argv_dev + argc) + offset;
-					int err = cuMemcpyHtoD(argv_dev + i, &arg, sizeof(char*));
+					err = cuMemcpyHtoD(argv_dev + i, &arg, sizeof(char*));
 					if (err) THROW("Error in cuMemcpyHtoD " << err);
 					size_t length = strlen(argv[i]) + 1;
 					err = cuMemcpyHtoD(arg, argv[i], length);
@@ -241,7 +286,7 @@ int main(int argc, char* argv[])
 				args_host.argc = argc;
 				args_host.argv = argv_dev;
 				args_t* args_dev = NULL;
-				int err = cuMemAlloc((void**)&args_dev, sizeof(args_t));
+				err = cuMemAlloc((void**)&args_dev, sizeof(args_t));
 				if (err) THROW("Error in cuMemAlloc " << err);
 				err = cuMemcpyHtoD(args_dev, &args_host, sizeof(args_t));
 				if (err) THROW("Error in cuMemcpyHtoD " << err);

@@ -52,12 +52,27 @@ int kernelgen_launch(char* entry, int* args)
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{
-			int64_t size;
-			cuMemcpyDtoH(&size, args, sizeof(int64_t));
-			char* content = (char*)malloc(size);
-			cuMemcpyDtoH(content, args + sizeof(int64_t), size);
-			mhash(td, content, size);
-			free(content);
+			int64_t* size;
+			void* monitor_stream =
+				kernel->target[runmode].monitor_kernel_stream;
+			int err = cuMemAllocHost((void**)&size, sizeof(int64_t));
+			if (err) THROW("Error in cuMemAllocHost " << err); 
+			err = cuMemcpyDtoHAsync(size, args, sizeof(int64_t), monitor_stream);
+			if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
+			err = cuStreamSynchronize(monitor_stream);
+			if (err) THROW("Error in cuStreamSynchronize " << err);
+			char* content;
+			err = cuMemAllocHost((void**)&content, *size);
+			if (err) THROW("Error in cuMemAllocHost " << err);
+			cuMemcpyDtoHAsync(content, args + sizeof(int64_t), *size, monitor_stream);
+			if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
+			err = cuStreamSynchronize(monitor_stream);
+			if (err) THROW("Error in cuStreamSynchronize " << err);
+			mhash(td, content, *size);
+			err = cuMemFreeHost(content);
+			if (err) THROW("Error in cuMemFreeHost " << err);
+			err = cuMemFreeHost(size);
+			if (err) THROW("Error in cuMemFreeHost " << err);
 			break;
 		}
 		case KERNELGEN_RUNMODE_OPENCL :
@@ -109,20 +124,94 @@ int kernelgen_launch(char* entry, int* args)
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{
-			struct { unsigned int x, y, z; } gridDim, blockDim;
-			gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
-			blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
-			size_t szshmem = 0;
-			void* kernel_func_args[] = { (void*)&args };
-			int err = cuLaunchKernel((void*)kernel_func,
-				gridDim.x, gridDim.y, gridDim.z,
-				blockDim.x, blockDim.y, blockDim.z, szshmem,
-				NULL, kernel_func_args, NULL);
-			if (err)
-				THROW("Error in cuLaunchKernel " << err);
-			err = cuCtxSynchronize();
-			if (err)
-				THROW("Error in cuCtxSynchronize " << err);
+			// If this is the main kernel being lauched,
+			// first launch GPU monitor kernel, then launch
+			// target kernel. Otherwise - wise versa.
+			if (kernel->name == "__kernelgen_main")
+			{
+				// Launch monitor GPU kernel.
+				{
+					struct { unsigned int x, y, z; } gridDim, blockDim;
+					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+					size_t szshmem = 0;
+					void* monitor_kernel_func_args[] =
+						{ (void*)&kernel->target[runmode].monitor_lock };
+					int err = cuLaunchKernel(
+						kernel->target[runmode].monitor_kernel_func,
+						gridDim.x, gridDim.y, gridDim.z,
+						blockDim.x, blockDim.y, blockDim.z, szshmem,
+						kernel->target[runmode].monitor_kernel_stream,
+						monitor_kernel_func_args, NULL);
+					if (err)
+						THROW("Error in cuLaunchKernel " << err);
+				}
+			
+				// Launch main GPU kernel.
+				{
+					struct { unsigned int x, y, z; } gridDim, blockDim;
+					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+					size_t szshmem = 0;
+					void* kernel_func_args[] = { (void*)&args };
+					int err = cuLaunchKernel((void*)kernel_func,
+						gridDim.x, gridDim.y, gridDim.z,
+						blockDim.x, blockDim.y, blockDim.z, szshmem,
+						kernel->target[runmode].kernel_stream,
+						kernel_func_args, NULL);
+					if (err)
+						THROW("Error in cuLaunchKernel " << err);
+				}
+
+				// Wait for monitor kernel completion.
+				int err = cuStreamSynchronize(
+					kernel->target[runmode].monitor_kernel_stream);
+				if (err) THROW("Error in cuStreamSynchronize " << err);
+
+				// TODO: check kernel sync state.				
+			}
+			else
+			{
+				// Launch GPU loop kernel.
+				{
+					struct { unsigned int x, y, z; } gridDim, blockDim;
+					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+					size_t szshmem = 0;
+					void* kernel_func_args[] = { (void*)&args };
+					int err = cuLaunchKernel((void*)kernel_func,
+						gridDim.x, gridDim.y, gridDim.z,
+						blockDim.x, blockDim.y, blockDim.z, szshmem,
+						kernel->target[runmode].monitor_kernel_stream,
+						kernel_func_args, NULL);
+					if (err)
+						THROW("Error in cuLaunchKernel " << err);
+				}
+				
+				// Wait for loop kernel completion.
+				int err = cuStreamSynchronize(
+					kernel->target[runmode].monitor_kernel_stream);
+				if (err) THROW("Error in cuStreamSynchronize " << err);
+
+				// Launch monitor GPU kernel.
+				{
+					struct { unsigned int x, y, z; } gridDim, blockDim;
+					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+					size_t szshmem = 0;
+					void* monitor_kernel_func_args[] =
+						{ (void*)&kernel->target[runmode].monitor_lock };
+					int err = cuLaunchKernel(
+						kernel->target[runmode].monitor_kernel_func,
+						gridDim.x, gridDim.y, gridDim.z,
+						blockDim.x, blockDim.y, blockDim.z, szshmem,
+						kernel->target[runmode].monitor_kernel_stream,
+						monitor_kernel_func_args, NULL);
+					if (err)
+						THROW("Error in cuLaunchKernel " << err);
+				}
+			}
+			
 			break;
 		}
 		case KERNELGEN_RUNMODE_OPENCL :
