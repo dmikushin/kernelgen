@@ -37,19 +37,23 @@ static __inline__ __attribute__((always_inline)) void kernelgen_hostcall(
 {
 	// Unblock the monitor kernel and wait for being
 	// unblocked by new instance of monitor.
-	((kernelgen_callback_t*)callback)->state = KERNELGEN_STATE_HOSTCALL;
-	((kernelgen_callback_t*)callback)->name = name;
-	((kernelgen_callback_t*)callback)->arg = args;
-	__iAtomicCAS(&((kernelgen_callback_t*)callback)->lock, 0, 1);
-	while (__iAtomicCAS(&((kernelgen_callback_t*)callback)->lock, 0, 0)) continue;
+	kernelgen_callback_t* callback =
+		(kernelgen_callback_t*)__kernelgen_callback;
+	callback->state = KERNELGEN_STATE_HOSTCALL;
+	callback->name = name;
+	callback->arg = args;
+	__iAtomicCAS(&callback->lock, 0, 1);
+	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
 
 static __inline__ __attribute__((always_inline)) int kernelgen_launch(
 	unsigned char* name, unsigned int* args)
 {
-	((kernelgen_callback_t*)callback)->state = KERNELGEN_STATE_LOOPCALL;
-	((kernelgen_callback_t*)callback)->name = name;
-	callback.arg = args;
+	kernelgen_callback_t* callback =
+		(kernelgen_callback_t*)__kernelgen_callback;
+	callback->state = KERNELGEN_STATE_LOOPCALL;
+	callback->name = name;
+	callback->arg = args;
 
 	// FIXME: Currently, not launching any other kernels.
 	return -1;
@@ -58,8 +62,10 @@ static __inline__ __attribute__((always_inline)) int kernelgen_launch(
 static __inline__ __attribute__((always_inline)) kernelgen_finish()
 {
 	// Unblock the monitor kernel.
-	((kernelgen_callback_t*)callback)->state = KERNELGEN_STATE_INACTIVE;
-	__iAtomicCAS(&((kernelgen_callback_t*)callback)->lock, 0, 1);
+	kernelgen_callback_t* callback =
+		(kernelgen_callback_t*)__kernelgen_callback;
+	callback->state = KERNELGEN_STATE_INACTIVE;
+	__iAtomicCAS(&callback->lock, 0, 1);
 }
 
 #endif // KERNELGEN_RUNTIME_H

@@ -516,11 +516,13 @@ int link(list<string> args, list<string> kgen_args,
 		// Create global variable with pointer to callback structure.
 		GlobalVariable* callback1 = new GlobalVariable(
 			*main.get(), Type::getInt8PtrTy(context), false,
-			GlobalValue::PrivateLinkage, NULL, "");
+			GlobalValue::PrivateLinkage,
+			Constant::getNullValue(Type::getInt8PtrTy(context)),
+			"__kernelgen_callback");
 		
 		// Assign callback structure pointer with value received
 		// from the arguments structure.
-		BasicBlock* root = kernelgen_main_->begin();
+		Instruction* root = kernelgen_main_->begin()->getTerminator();
 		Function::arg_iterator arg = kernelgen_main_->arg_begin();
 		Value *Idx3[1];
 		Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 6);

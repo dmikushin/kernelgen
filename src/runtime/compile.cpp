@@ -49,6 +49,7 @@
 #include "util.h"
 #include "runtime.h"
 
+#include <cstdlib>
 #include <dlfcn.h>
 #include <fstream>
 #include <list>
@@ -59,6 +60,46 @@ using namespace polly;
 using namespace std;
 
 static auto_ptr<TargetMachine> mcpu[KERNELGEN_RUNMODE_COUNT];
+
+static PassManager getPollyPassManager(Module* m)
+{
+	PassManager polly;
+	PassRegistry &Registry = *PassRegistry::getPassRegistry();
+	initializeCore(Registry);
+	initializeScalarOpts(Registry);
+	initializeIPO(Registry);
+	initializeAnalysis(Registry);
+	initializeIPA(Registry);
+	initializeTransformUtils(Registry);
+	initializeInstCombine(Registry);
+	initializeInstrumentation(Registry);
+	initializeTarget(Registry);
+
+	polly.add(new TargetData(m));
+	polly.add(createBasicAliasAnalysisPass());	// -basicaa
+	polly.add(createPromoteMemoryToRegisterPass());	// -mem2reg
+	polly.add(createCFGSimplificationPass());	// -simplifycfg
+	polly.add(createInstructionCombiningPass());	// -instcombine
+	polly.add(createTailCallEliminationPass());	// -tailcallelim
+	polly.add(createLoopSimplifyPass());		// -loop-simplify
+	polly.add(createLCSSAPass());			// -lcssa
+	polly.add(createLoopRotatePass());		// -loop-rotate
+	polly.add(createLCSSAPass());			// -lcssa
+	polly.add(createLoopUnswitchPass());		// -loop-unswitch
+	polly.add(createInstructionCombiningPass());	// -instcombine
+	polly.add(createLoopSimplifyPass());		// -loop-simplify
+	polly.add(createLCSSAPass());			// -lcssa
+	polly.add(createIndVarSimplifyPass());		// -indvars
+	polly.add(createLoopDeletionPass());		// -loop-deletion
+	polly.add(createInstructionCombiningPass());	// -instcombine		
+	polly.add(createCodePreperationPass());		// -polly-prepare
+	polly.add(createRegionSimplifyPass());		// -polly-region-simplify
+	polly.add(createIndVarSimplifyPass());		// -indvars
+	polly.add(createBasicAliasAnalysisPass());	// -basicaa
+	polly.add(createScheduleOptimizerPass());	// -polly-optimize-isl
+
+	return polly;
+}
 
 char* kernelgen::runtime::compile(
 	int runmode, kernel_t* kernel, Module* module)
@@ -79,42 +120,19 @@ char* kernelgen::runtime::compile(
 	
 	//m->dump();
 
-	PassManager polly;
+	// Dump result of polly passes without codegen, if requested
+	// for testing purposes.
+	char* dump_polly = getenv("kernelgen_dump_polly");
+	if (dump_polly)
 	{
-		PassRegistry &Registry = *PassRegistry::getPassRegistry();
-		initializeCore(Registry);
-		initializeScalarOpts(Registry);
-		initializeIPO(Registry);
-		initializeAnalysis(Registry);
-		initializeIPA(Registry);
-		initializeTransformUtils(Registry);
-		initializeInstCombine(Registry);
-		initializeInstrumentation(Registry);
-		initializeTarget(Registry);
-
-		polly.add(new TargetData(m));
-		polly.add(createBasicAliasAnalysisPass());	// -basicaa
-		polly.add(createPromoteMemoryToRegisterPass());	// -mem2reg
-		polly.add(createCFGSimplificationPass());	// -simplifycfg
-		polly.add(createInstructionCombiningPass());	// -instcombine
-		polly.add(createTailCallEliminationPass());	// -tailcallelim
-		polly.add(createLoopSimplifyPass());		// -loop-simplify
-		polly.add(createLCSSAPass());			// -lcssa
-		polly.add(createLoopRotatePass());		// -loop-rotate
-		polly.add(createLCSSAPass());			// -lcssa
-		polly.add(createLoopUnswitchPass());		// -loop-unswitch
-		polly.add(createInstructionCombiningPass());	// -instcombine
-		polly.add(createLoopSimplifyPass());		// -loop-simplify
-		polly.add(createLCSSAPass());			// -lcssa
-		polly.add(createIndVarSimplifyPass());		// -indvars
-		polly.add(createLoopDeletionPass());		// -loop-deletion
-		polly.add(createInstructionCombiningPass());	// -instcombine		
-		polly.add(createCodePreperationPass());		// -polly-prepare
-		polly.add(createRegionSimplifyPass());		// -polly-region-simplify
-		polly.add(createIndVarSimplifyPass());		// -indvars
-		polly.add(createBasicAliasAnalysisPass());	// -basicaa
-		polly.add(createScheduleOptimizerPass());	// -polly-optimize-isl
+		std::auto_ptr<Module> m_clone;
+		m_clone.reset(CloneModule(m));
+		PassManager polly = getPollyPassManager(m_clone.get());
+		polly.run(*m_clone.get());
+		m_clone.get()->dump();
 	}
+
+	PassManager polly = getPollyPassManager(m);
 	
 	// Emit target assembly and binary image, depending
 	// on runmode.
@@ -150,6 +168,11 @@ char* kernelgen::runtime::compile(
 			// Apply the Polly codegen for native target.
 			polly.add(polly::createCodeGenerationPass()); // -polly-codegen
 			polly.run(*m);
+
+			// Dump result of polly passes with codegen, if requested
+			// for testing purposes.
+			char* dump_pollygen = getenv("kernelgen_dump_pollygen");
+			if (dump_pollygen) m->dump();
 			
 			const TargetData* tdata = 
 				mcpu[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
