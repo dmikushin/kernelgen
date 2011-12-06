@@ -33,6 +33,8 @@
 #define KERNELGEN_RUNMODE_CUDA		1
 #define KERNELGEN_RUNMODE_OPENCL	2
 
+#define KERNELGEN_STATE_INACTIVE	0
+
 // Launch kernel from the spepcified source code address.
 extern "C" int kernelgen_launch(char* kernel, int* args);
 
