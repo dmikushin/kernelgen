@@ -287,55 +287,30 @@ int link(list<string> args, list<string> kgen_args,
 		LoadInst* argc1 = new LoadInst(GEP2, "", root);
 		argc1->setAlignment(1);
 
-		// Create and insert GEP to (int*)(args + 6).
-		Value *Idx3[1];
-		Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 6);
-		GetElementPtrInst *lock = GetElementPtrInst::CreateInBounds(
-			arg, Idx3, "", root);
-
-		// Create and insert GEP to (int*)(args + 7).
-		Value *Idx4[1];
-		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 7);
-		GetElementPtrInst *state = GetElementPtrInst::CreateInBounds(
-			arg, Idx4, "", root);
-
 		// Create argument list and call instruction to
 		// call main_(int argc, char** argv).
-		// TODO: add lock and state to main arguments.
 		SmallVector<Value*, 16> call_args;
 		call_args.push_back(argc1);
 		call_args.push_back(argv2);
-		CallInst* call = CallInst::Create(main_, call_args, "", root);
+		CallInst* call = CallInst::Create(main_, call_args, "call_main_", root);
 		call->setTailCall();
 		call->setDoesNotThrow();
 
 		// Create and insert GEP to (int*)(args + 5).
-		Value *Idx5[1];
-		Idx5[0] = ConstantInt::get(Type::getInt64Ty(context), 5);
-		GetElementPtrInst *GEP5 = GetElementPtrInst::CreateInBounds(
-			arg, Idx5, "", root);
+		Value *Idx4[1];
+		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 5);
+		GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
+			arg, Idx4, "", root);
 
 		// Store call ret value to ret.
-		StoreInst* ret1 = new StoreInst(call, GEP5, "", root);
+		StoreInst* ret1 = new StoreInst(call, GEP4, "", root);
 		ret1->setAlignment(1);
 		
-		// Set main kernel state variable to "finished".
-		StoreInst* finish = new StoreInst(
-			ConstantInt::get(Type::getInt32Ty(context),
-				KERNELGEN_STATE_INACTIVE), state, "", root);
-
-		// Call __iAtomicCAS to unlock the GPU monitor kernel.
-		Function* cas = Function::Create(
-			TypeBuilder<types::i<32>(types::i<32>*, types::i<32>, types::i<32>),
-				true>::get(context),
-			GlobalValue::ExternalLinkage, "__iAtomicCAS", &composite);
-		SmallVector<Value*, 16> cas_args;
-		cas_args.push_back(lock);
-		cas_args.push_back(
-			ConstantInt::get(Type::getInt32Ty(context), 0));
-		cas_args.push_back(
-			ConstantInt::get(Type::getInt32Ty(context), 1));
-		CallInst* cas_call = CallInst::Create(cas, cas_args, "", root);
+		// Call kernelgen_finish to finalize execution.
+		Function* finish = Function::Create(TypeBuilder<void(), true>::get(context),
+			GlobalValue::ExternalLinkage, "kernelgen_finish", &composite);
+		SmallVector<Value*, 16> finish_args;
+		CallInst* finish_call = CallInst::Create(finish, finish_args, "", root);
 
 		// Return the int result of call instruction.
 		ReturnInst::Create(context, 0, root);
@@ -371,6 +346,7 @@ int link(list<string> args, list<string> kgen_args,
 	std::auto_ptr<Module> main;
 	main.reset(CloneModule(&composite));
 	{
+		Instruction* root = NULL;
 		main->setModuleIdentifier("main");
 		std::vector<GlobalValue*> loops_functions;
 		for (Module::iterator f = main.get()->begin(), fe = main.get()->end(); f != fe; f++)
@@ -536,6 +512,26 @@ int link(list<string> args, list<string> kgen_args,
 		// Rename "main" to "__kernelgen_main".
 		Function* kernelgen_main_ = main->getFunction("main");
 		kernelgen_main_->setName("__kernelgen_main");
+
+		// Create global variable with pointer to callback structure.
+		GlobalVariable* callback1 = new GlobalVariable(
+			*main.get(), Type::getInt8PtrTy(context), false,
+			GlobalValue::PrivateLinkage, NULL, "");
+		
+		// Assign callback structure pointer with value received
+		// from the arguments structure.
+		BasicBlock* root = kernelgen_main_->begin();
+		Function::arg_iterator arg = kernelgen_main_->arg_begin();
+		Value *Idx3[1];
+		Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 6);
+		GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
+			arg, Idx3, "", root);		
+		Value* callback2 = new BitCastInst(GEP3, Type::getInt8Ty(context)->
+			getPointerTo(0)->getPointerTo(0), "", root);
+		LoadInst* callback3 = new LoadInst(callback2, "", root);
+		callback3->setAlignment(1);
+		StoreInst* callback4 = new StoreInst(callback3, callback1, "", root);
+		callback4->setAlignment(1);
 
 		//main.get()->dump();
 

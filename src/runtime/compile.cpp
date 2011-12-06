@@ -237,8 +237,8 @@ char* kernelgen::runtime::compile(
 			{
 				#include "cuda_syscalls.h"
 				#include "cuda_intrinsics.h"
-				"printf", "__iAtomicCAS",
-				"kernelgen_launch"
+				"printf",
+				"kernelgen_launch", "kernelgen_finish"
 			};
 			Type* int32Ty = Type::getInt32Ty(context);
 			std::vector<CallInst*> old_calls;

@@ -31,6 +31,7 @@
 #include "util.h"
 #include "runtime.h"
 #include "bind.h"
+#include "kernelgen_interop.h"
 
 #include <iostream>
 #include <cstdlib>
@@ -46,18 +47,18 @@ using namespace util::elf;
 
 // GPU monitoring kernel source.
 string cuda_monitor_kernel_source =
-	"__attribute__((global)) __attribute__((used)) void kernelgen_monitor(int* lock)\n"
+	"__attribute__((global)) __attribute__((used)) void kernelgen_monitor(int* callback)\n"
 	"{\n"
 	"	// Unlock blocked gpu kernel associated\n"
 	"	// with lock. It simply waits for lock\n"
 	"	// to be dropped to zero.\n"
-	"	__iAtomicCAS(lock, 1, 0);\n"
+	"	__iAtomicCAS(((kernelgen_callback_t*)callback)->lock, 1, 0);\n"
 	"\n"
 	"	// Wait for lock to be set.\n"
 	"	// When lock is set this thread exits,\n"
 	"	// and CPU monitor thread gets notified\n"
 	"	// by synchronization.\n"
-	"	while (!__iAtomicCAS(lock, 1, 1)) continue;\n"
+	"	while (!__iAtomicCAS(((kernelgen_callback_t*)callback)->lock, 1, 1)) continue;\n"
 	"}\n";
 
 // Kernels runmode (target).
@@ -213,12 +214,15 @@ int main(int argc, char* argv[])
 		// Structure defining aggregate form of main entry
 		// parameters. Return value is also packed, since
 		// in CUDA and OpenCL kernels must return void.
+		// Also structure aggregates callback record containing
+		// parameters of host-device communication state.
 		struct __attribute__((packed)) args_t
 		{
 			int64_t size;
 			int argc;
 			char** argv;
 			int ret;
+			kernelgen_callback_t* callback;
 		};
 		
 		// Load arguments, depending on the target runmode
@@ -238,17 +242,17 @@ int main(int argc, char* argv[])
 			{
 				kernelgen::bind::cuda::init();
 				
-				// Initialize thread locker variable.
-				// Initial state is "locked". It will be dropped
-				// by gpu side monitor that must be started *before*
+				// Initialize callback structure.
+				// Initial lock state is "locked". It will be dropped
+				// by GPU side monitor that must be started *before*
 				// target GPU kernel.
-				void* lock = NULL;
-				int err = cuMemAlloc(&lock, sizeof(int));
+				kernelgen_callback_t* callback = NULL;
+				int err = cuMemAlloc((void**)&callback, sizeof(kernelgen_callback_t));
 				if (err) THROW("Error in cuMemAlloc " << err);
 				int one = 1;
-				err = cuMemcpyHtoD(lock, &one, sizeof(int));
+				err = cuMemcpyHtoD(&callback->lock, &one, sizeof(int));
 				if (err) THROW("Error in cuMemcpyHtoD " << err);
-				kernel->target[runmode].monitor_lock = lock;
+				kernel->target[runmode].callback = callback;
 
 				// Create streams where monitoring and target kernels
 				// will be executed.
@@ -286,6 +290,7 @@ int main(int argc, char* argv[])
 				args_host.size = sizeof(int);
 				args_host.argc = argc;
 				args_host.argv = argv_dev;
+				args_host.callback = callback;
 				args_t* args_dev = NULL;
 				err = cuMemAlloc((void**)&args_dev, sizeof(args_t));
 				if (err) THROW("Error in cuMemAlloc " << err);

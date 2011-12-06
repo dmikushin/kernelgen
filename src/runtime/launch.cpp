@@ -136,7 +136,7 @@ int kernelgen_launch(char* entry, int* args)
 					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 					size_t szshmem = 0;
 					void* monitor_kernel_func_args[] =
-						{ (void*)&kernel->target[runmode].monitor_lock };
+						{ (void*)&kernel->target[runmode].callback };
 					int err = cuLaunchKernel(
 						kernel->target[runmode].monitor_kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
@@ -200,7 +200,7 @@ int kernelgen_launch(char* entry, int* args)
 					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 					size_t szshmem = 0;
 					void* monitor_kernel_func_args[] =
-						{ (void*)&kernel->target[runmode].monitor_lock };
+						{ (void*)&kernel->target[runmode].callback };
 					int err = cuLaunchKernel(
 						kernel->target[runmode].monitor_kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,

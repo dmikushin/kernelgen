@@ -28,15 +28,18 @@
 #include <map>
 #include <string>
 
+#include "kernelgen_interop.h"
+
 #define KERNELGEN_RUNMODE_COUNT		3
 #define KERNELGEN_RUNMODE_NATIVE	0
 #define KERNELGEN_RUNMODE_CUDA		1
 #define KERNELGEN_RUNMODE_OPENCL	2
 
-#define KERNELGEN_STATE_INACTIVE	0
-
-// Launch kernel from the spepcified source code address.
+// Launch kernel from the specified source code address.
 extern "C" int kernelgen_launch(char* kernel, int* args);
+
+// Finish kernel execution.
+extern "C" void kernelgen_finish();
 
 namespace kernelgen {
 
@@ -88,8 +91,8 @@ typedef struct
 		// Monitoring kernel (applicable for some targets).
 		void* monitor_kernel_func;
 		
-		// Monitoring kernel lock variable (applicable for some targets).
-		void* monitor_lock;
+		// Kernel callback structure.
+		kernelgen_callback_t* callback;
 		
 		// Streams for work and monitor kernels.
 		void* monitor_kernel_stream;

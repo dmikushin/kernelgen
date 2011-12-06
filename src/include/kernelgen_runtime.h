@@ -24,18 +24,42 @@
 
 #include <stddef.h>
 
+#include "kernelgen_interop.h"
+
 extern __attribute__((__malloc__)) void *malloc(size_t);
 extern void free(void*);
 
-extern __attribute__((device)) int __iAtomicCAS(int *address, int compare, int val);
+extern __attribute__((device)) int __iAtomicCAS(
+	int *address, int compare, int val);
 
-static __inline__ __attribute__((always_inline)) void kernelgen_hostcall(unsigned char* name, unsigned int* args)
+static __inline__ __attribute__((always_inline)) void kernelgen_hostcall(
+	unsigned char* name, unsigned int* args)
 {
+	// Unblock the monitor kernel and wait for being
+	// unblocked by new instance of monitor.
+	((kernelgen_callback_t*)callback)->state = KERNELGEN_STATE_HOSTCALL;
+	((kernelgen_callback_t*)callback)->name = name;
+	((kernelgen_callback_t*)callback)->arg = args;
+	__iAtomicCAS(&((kernelgen_callback_t*)callback)->lock, 0, 1);
+	while (__iAtomicCAS(&((kernelgen_callback_t*)callback)->lock, 0, 0)) continue;
 }
 
-static __inline__ __attribute__((always_inline)) int kernelgen_launch(unsigned char* name, unsigned int* args)
+static __inline__ __attribute__((always_inline)) int kernelgen_launch(
+	unsigned char* name, unsigned int* args)
 {
+	((kernelgen_callback_t*)callback)->state = KERNELGEN_STATE_LOOPCALL;
+	((kernelgen_callback_t*)callback)->name = name;
+	callback.arg = args;
+
+	// FIXME: Currently, not launching any other kernels.
 	return -1;
+}
+
+static __inline__ __attribute__((always_inline)) kernelgen_finish()
+{
+	// Unblock the monitor kernel.
+	((kernelgen_callback_t*)callback)->state = KERNELGEN_STATE_INACTIVE;
+	__iAtomicCAS(&((kernelgen_callback_t*)callback)->lock, 0, 1);
 }
 
 #endif // KERNELGEN_RUNTIME_H

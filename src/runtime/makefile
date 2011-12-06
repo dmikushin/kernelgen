@@ -31,11 +31,11 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/cloog/isl/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 
-CFLAGS = -g -fPIC -std=c99 -O$(OPT)
-CXXFLAGS = -g -fPIC -O$(OPT) $(LLVMINC) $(LLVMDEF)
+CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include
+CXXFLAGS = -g -fPIC -O$(OPT) -I../include $(LLVMINC) $(LLVMDEF)
 
 OBJECTS = \
-	entry compile launch timing io elf execute bind nvopencc \
+	entry compile launch finish timing io elf execute bind nvopencc \
 	BlockGenerator ClastExpCodegen ClastStmtCodeGen CodeGeneration
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
@@ -71,6 +71,11 @@ endif
 32/launch.o: launch.cpp runtime.h
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/launch.o: launch.cpp runtime.h
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
+
+32/finish.o: finish.cpp runtime.h
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/finish.o: finish.cpp runtime.h
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/timing.o: timing.c util.h

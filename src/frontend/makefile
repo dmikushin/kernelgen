@@ -25,7 +25,7 @@ LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn /opt/kernelgen/lib/LLVMPolly.so -L/
 EXECINC = -I..
 EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf -lmhash -ldl
 
-CXX = g++ -g $(LLVMINC) $(LLVMDEF)
+CXX = g++ -g -I../include $(LLVMINC) $(LLVMDEF)
 
 OBJECTS = kernelgen.o compile.o link.o BranchedLoopExtractor.o BranchedCodeExtractor.o
 
