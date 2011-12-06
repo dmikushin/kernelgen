@@ -37,7 +37,7 @@ namespace cuda {
 
 	typedef int (*cuInit_t)(unsigned int);
 	typedef int (*cuDeviceGet_t)(int*, int);
-	typedef int (*cuCtxCreate_t)(int*, unsigned int, int);
+	typedef int (*cuCtxCreate_t)(void**, unsigned int, int);
 	typedef int (*cuCtxSynchronize_t)(void);
 	typedef int (*cuMemAlloc_t)(void**, size_t);
 	typedef int (*cuMemFree_t)(void*);

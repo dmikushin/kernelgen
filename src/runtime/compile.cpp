@@ -237,7 +237,7 @@ char* kernelgen::runtime::compile(
 			{
 				#include "cuda_syscalls.h"
 				#include "cuda_intrinsics.h"
-				"printf",
+				"printf", "__iAtomicCAS",
 				"kernelgen_launch"
 			};
 			Type* int32Ty = Type::getInt32Ty(context);

@@ -92,7 +92,7 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 	
 	// Load PTX from string into module.
 	void* module;
-	char log[PTX_LOG_SIZE], elog[PTX_LOG_SIZE];
+	char log[PTX_LOG_SIZE] = "", elog[PTX_LOG_SIZE] = "";
 	int options[] =
 	{
 		CU_JIT_INFO_LOG_BUFFER, CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES,

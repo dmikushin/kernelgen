@@ -27,6 +27,8 @@
 extern __attribute__((__malloc__)) void *malloc(size_t);
 extern void free(void*);
 
+extern __attribute__((device)) int __iAtomicCAS(int *address, int compare, int val);
+
 static __inline__ __attribute__((always_inline)) void kernelgen_hostcall(unsigned char* name, unsigned int* args)
 {
 }

@@ -63,34 +63,34 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuDeviceGet = (cuDeviceGet_t)dlsym(handle, "cuDeviceGet");
 		if (!cuDeviceGet)
 			THROW("Cannot dlsym cuDeviceGet " << dlerror());
-		cuCtxCreate = (cuCtxCreate_t)dlsym(handle, "cuCtxCreate");
+		cuCtxCreate = (cuCtxCreate_t)dlsym(handle, "cuCtxCreate_v2");
 		if (!cuCtxCreate)
 			THROW("Cannot dlsym cuCtxCreate " << dlerror());
 		cuCtxSynchronize = (cuCtxSynchronize_t)dlsym(handle, "cuCtxSynchronize");
 		if (!cuCtxSynchronize)
 			THROW("Cannot dlsym cuCtxSynchronize " << dlerror());
-		cuMemAlloc = (cuMemAlloc_t)dlsym(handle, "cuMemAlloc");
+		cuMemAlloc = (cuMemAlloc_t)dlsym(handle, "cuMemAlloc_v2");
 		if (!cuMemAlloc)
 			THROW("Cannot dlsym cuMemAlloc " << dlerror());
 		cuMemFree = (cuMemFree_t)dlsym(handle, "cuMemFree");
 		if (!cuMemFree)
 			THROW("Cannot dlsym cuMemFree " << dlerror());
-		cuMemAllocHost = (cuMemAlloc_t)dlsym(handle, "cuMemAllocHost");
+		cuMemAllocHost = (cuMemAlloc_t)dlsym(handle, "cuMemAllocHost_v2");
 		if (!cuMemAllocHost)
 			THROW("Cannot dlsym cuMemAllocHost " << dlerror());
 		cuMemFreeHost = (cuMemFree_t)dlsym(handle, "cuMemFreeHost");
 		if (!cuMemFreeHost)
 			THROW("Cannot dlsym cuMemFreeHost " << dlerror());
-		cuMemcpyHtoD = (cuMemcpy_t)dlsym(handle, "cuMemcpyHtoD");
+		cuMemcpyHtoD = (cuMemcpy_t)dlsym(handle, "cuMemcpyHtoD_v2");
 		if (!cuMemcpyHtoD)
 			THROW("Cannot dlsym cuMemcpyHtoD " << dlerror());
-		cuMemcpyDtoH = (cuMemcpy_t)dlsym(handle, "cuMemcpyDtoH");
+		cuMemcpyDtoH = (cuMemcpy_t)dlsym(handle, "cuMemcpyDtoH_v2");
 		if (!cuMemcpyDtoH)
 			THROW("Cannot dlsym cuMemcpyDtoH " << dlerror());
-		cuMemcpyHtoDAsync = (cuMemcpyAsync_t)dlsym(handle, "cuMemcpyHtoDAsync");
+		cuMemcpyHtoDAsync = (cuMemcpyAsync_t)dlsym(handle, "cuMemcpyHtoDAsync_v2");
 		if (!cuMemcpyHtoDAsync)
 			THROW("Cannot dlsym cuMemcpyHtoDAsync " << dlerror());
-		cuMemcpyDtoHAsync = (cuMemcpyAsync_t)dlsym(handle, "cuMemcpyDtoHAsync");
+		cuMemcpyDtoHAsync = (cuMemcpyAsync_t)dlsym(handle, "cuMemcpyDtoHAsync_v2");
 		if (!cuMemcpyDtoHAsync)
 			THROW("Cannot dlsym cuMemcpyDtoHAsync " << dlerror());
 		cuModuleLoad = (cuModuleLoad_t)dlsym(handle, "cuModuleLoad");
@@ -124,7 +124,7 @@ namespace kernelgen { namespace bind { namespace cuda {
 		if (err)
 			THROW("Error in cuDeviceGet " << err);
 		
-		int context;
+		void* context;
 		err = cuCtxCreate(&context, 0, device);
 		if (err)
 			THROW("Error in cuCtxCreate " << err);

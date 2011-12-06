@@ -46,8 +46,6 @@ using namespace util::elf;
 
 // GPU monitoring kernel source.
 string cuda_monitor_kernel_source =
-	"extern __attribute__((device)) int __iAtomicCAS(int *address, int compare, int val);"
-	"\n"
 	"__attribute__((global)) __attribute__((used)) void kernelgen_monitor(int* lock)\n"
 	"{\n"
 	"	// Unlock blocked gpu kernel associated\n"
@@ -124,6 +122,10 @@ int main(int argc, char* argv[])
 			if (verbose) cout << name << endl;
 		}
 		if (verbose) cout << endl;
+
+		// Check internal table contains main entry.
+		kernel_t* kernel = kernels["__kernelgen_main"];
+		if (!kernel) return __regular_main(argc, argv);
 
 		// Walk through kernel index and replace
 		// all names with kernel structure addresses
@@ -221,7 +223,6 @@ int main(int argc, char* argv[])
 		
 		// Load arguments, depending on the target runmode
 		// and invoke the entry point kernel.
-		kernel_t* kernel = kernels["__kernelgen_main"];
 		switch (runmode)
 		{
 			case KERNELGEN_RUNMODE_NATIVE :
