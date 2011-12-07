@@ -49,16 +49,17 @@ using namespace util::elf;
 string cuda_monitor_kernel_source =
 	"__attribute__((global)) __attribute__((used)) void kernelgen_monitor(int* callback)\n"
 	"{\n"
+	"	printf(\"Launched monitor, lock = %d\\n\", ((struct kernelgen_callback_t*)callback)->lock);\n"
 	"	// Unlock blocked gpu kernel associated\n"
 	"	// with lock. It simply waits for lock\n"
 	"	// to be dropped to zero.\n"
-	"	__iAtomicCAS(((kernelgen_callback_t*)callback)->lock, 1, 0);\n"
+	"	__iAtomicCAS(&((struct kernelgen_callback_t*)callback)->lock, 1, 0);\n"
 	"\n"
 	"	// Wait for lock to be set.\n"
 	"	// When lock is set this thread exits,\n"
 	"	// and CPU monitor thread gets notified\n"
 	"	// by synchronization.\n"
-	"	while (!__iAtomicCAS(((kernelgen_callback_t*)callback)->lock, 1, 1)) continue;\n"
+	"	while (!__iAtomicCAS(&((struct kernelgen_callback_t*)callback)->lock, 1, 1)) continue;\n"
 	"}\n";
 
 // Kernels runmode (target).

@@ -32,6 +32,8 @@ using namespace std;
 
 #define PTX_LOG_SIZE 1024
 
+bool debug = true;
+
 char* kernelgen::runtime::nvopencc(string source, string name)
 {
 	// Dump generated kernel object to first temporary file.
@@ -44,7 +46,7 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 		tmp_stream.close();
 	}
 
-	// Compile CUDA code in temporary file.
+	// Compile CUDA code in temporary file to PTX.
 	cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
 	{
 		string nvopencc = "nvopencc";
@@ -57,8 +59,18 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 		nvopencc_args.push_back("c");
 		nvopencc_args.push_back("-TARG:compute_20");
 		nvopencc_args.push_back("-m64");
-		nvopencc_args.push_back("-OPT:ftz=1");
-		nvopencc_args.push_back("-CG:ftz=1");
+		if (debug)
+		{
+			nvopencc_args.push_back("-g");
+			nvopencc_args.push_back("-O0");
+			nvopencc_args.push_back("-OPT:ftz=0");
+			nvopencc_args.push_back("-CG:ftz=0");
+		}
+		else
+		{
+			nvopencc_args.push_back("-OPT:ftz=1");
+			nvopencc_args.push_back("-CG:ftz=1");
+		}
 		nvopencc_args.push_back("-CG:prec_div=0");
 		nvopencc_args.push_back("-CG:prec_sqrt=0");
 		nvopencc_args.push_back(tmp1.getFilename());
@@ -79,7 +91,7 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 	string ptx;
 	{
 		std::ifstream tmp_stream(tmp2.getFilename().c_str());
-		tmp_stream.seekg(0, std::ios::end);   
+		tmp_stream.seekg(0, std::ios::end);
 		ptx.reserve(tmp_stream.tellg());
 		tmp_stream.seekg(0, std::ios::beg);
 
@@ -87,10 +99,50 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 			std::istreambuf_iterator<char>());
 		tmp_stream.close();
 	}
-
-	cout << ptx;
 	
-	// Load PTX from string into module.
+	cout << ptx;
+
+	// Compile PTX code in temporary file to CUBIN.
+	cfiledesc tmp3 = cfiledesc::mktemp("/tmp/");
+	{
+		string ptxas = "ptxas";
+		std::list<string> ptxas_args;
+		ptxas_args.push_back("-arch=sm_21");
+		ptxas_args.push_back("-m64");
+		ptxas_args.push_back(tmp2.getFilename());
+		ptxas_args.push_back("-o");
+		ptxas_args.push_back(tmp3.getFilename());
+		if (debug)
+		{
+			ptxas_args.push_back("-g");
+			ptxas_args.push_back("--dont-merge-basicblocks");
+			ptxas_args.push_back("--return-at-end");
+		}
+		if (verbose)
+		{
+			cout << ptxas;
+                        for (std::list<string>::iterator it = ptxas_args.begin();
+                                it != ptxas_args.end(); it++)
+                                cout << " " << *it;
+                        cout << endl;
+                }
+                execute(ptxas, ptxas_args, "", NULL, NULL);
+	}
+
+	// Load CUBIN into string.
+	string cubin;
+	{
+		std::ifstream tmp_stream(tmp3.getFilename().c_str());
+		tmp_stream.seekg(0, std::ios::end);
+		cubin.reserve(tmp_stream.tellg());
+		tmp_stream.seekg(0, std::ios::beg);
+
+		cubin.assign((std::istreambuf_iterator<char>(tmp_stream)),
+			std::istreambuf_iterator<char>());
+		tmp_stream.close();
+	}
+
+	// Load CUBIN from string into module.
 	void* module;
 	char log[PTX_LOG_SIZE] = "", elog[PTX_LOG_SIZE] = "";
 	int options[] =
@@ -103,19 +155,19 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 		&log, (void*)PTX_LOG_SIZE,
 		&elog, (void*)PTX_LOG_SIZE
 	};
-	int err = cuModuleLoadDataEx(&module, ptx.c_str(), 4, options, values);
+	int err = cuModuleLoadDataEx(&module, cubin.c_str(), 4, options, values);
 	if (verbose)
 		cout << log << endl;
 	if (err)
 		THROW("Error in cuModuleLoadData " << err << " " << elog);
 
-	kernel_func_t kernel_func = NULL;
-	err = cuModuleGetFunction((void**)&kernel_func, module, name.c_str());
+	void* kernel_func = NULL;
+	err = cuModuleGetFunction(&kernel_func, module, name.c_str());
 	if (err)
 		THROW("Error in cuModuleGetFunction " << err);
 
 	if (verbose)
-		cout << "Loaded '" << name << "' at: " << (void*)kernel_func << endl;
+		cout << "Loaded '" << name << "' at: " << kernel_func << endl;
 	
 	return (char*)kernel_func;
 }

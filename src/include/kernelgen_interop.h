@@ -49,7 +49,7 @@
 #define KERNELGEN_STATE_HOSTCALL	3
 
 // Defines callback status structure.
-struct __attribute__((packed)) kernelgen_callback_t
+struct kernelgen_callback_t
 {
 	int lock;
 	int state;

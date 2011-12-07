@@ -129,7 +129,7 @@ int kernelgen_launch(char* entry, int* args)
 			// target kernel. Otherwise - wise versa.
 			if (kernel->name == "__kernelgen_main")
 			{
-				// Launch monitor GPU kernel.
+				/*// Launch monitor GPU kernel.
 				{
 					struct { unsigned int x, y, z; } gridDim, blockDim;
 					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
@@ -145,7 +145,7 @@ int kernelgen_launch(char* entry, int* args)
 						monitor_kernel_func_args, NULL);
 					if (err)
 						THROW("Error in cuLaunchKernel " << err);
-				}
+				}*/
 			
 				// Launch main GPU kernel.
 				{

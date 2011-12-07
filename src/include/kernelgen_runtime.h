@@ -32,13 +32,15 @@ extern void free(void*);
 extern __attribute__((device)) int __iAtomicCAS(
 	int *address, int compare, int val);
 
+extern __attribute__((device)) unsigned int* __kernelgen_callback;
+
 static __inline__ __attribute__((always_inline)) void kernelgen_hostcall(
 	unsigned char* name, unsigned int* args)
 {
 	// Unblock the monitor kernel and wait for being
 	// unblocked by new instance of monitor.
-	kernelgen_callback_t* callback =
-		(kernelgen_callback_t*)__kernelgen_callback;
+	struct kernelgen_callback_t* callback =
+		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_HOSTCALL;
 	callback->name = name;
 	callback->arg = args;
@@ -49,8 +51,8 @@ static __inline__ __attribute__((always_inline)) void kernelgen_hostcall(
 static __inline__ __attribute__((always_inline)) int kernelgen_launch(
 	unsigned char* name, unsigned int* args)
 {
-	kernelgen_callback_t* callback =
-		(kernelgen_callback_t*)__kernelgen_callback;
+	struct kernelgen_callback_t* callback =
+		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_LOOPCALL;
 	callback->name = name;
 	callback->arg = args;
@@ -62,8 +64,8 @@ static __inline__ __attribute__((always_inline)) int kernelgen_launch(
 static __inline__ __attribute__((always_inline)) kernelgen_finish()
 {
 	// Unblock the monitor kernel.
-	kernelgen_callback_t* callback =
-		(kernelgen_callback_t*)__kernelgen_callback;
+	struct kernelgen_callback_t* callback =
+		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_INACTIVE;
 	__iAtomicCAS(&callback->lock, 0, 1);
 }

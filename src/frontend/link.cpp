@@ -515,25 +515,42 @@ int link(list<string> args, list<string> kgen_args,
 
 		// Create global variable with pointer to callback structure.
 		GlobalVariable* callback1 = new GlobalVariable(
-			*main.get(), Type::getInt8PtrTy(context), false,
+			*main.get(), Type::getInt32PtrTy(context), false,
 			GlobalValue::PrivateLinkage,
-			Constant::getNullValue(Type::getInt8PtrTy(context)),
+			Constant::getNullValue(Type::getInt32PtrTy(context)),
 			"__kernelgen_callback");
 		
 		// Assign callback structure pointer with value received
 		// from the arguments structure.
-		Instruction* root = kernelgen_main_->begin()->getTerminator();
+		// %struct.callback_t = type { i32, i32, i8*, i32 }
+		// %0 = getelementptr inbounds i32* %args, i64 6
+		// %1 = bitcast i32* %0 to %struct.callback_t**
+		// %2 = load %struct.callback_t** %1, align 1
+		// %3 = getelementptr inbounds %struct.callback_t* %2, i64 0, i32 0
+		// store i32* %3, i32** @__kernelgen_callback, align 8		
+		Instruction* root = kernelgen_main_->begin()->begin();
 		Function::arg_iterator arg = kernelgen_main_->arg_begin();
 		Value *Idx3[1];
 		Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 6);
 		GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
-			arg, Idx3, "", root);		
-		Value* callback2 = new BitCastInst(GEP3, Type::getInt8Ty(context)->
+			arg, Idx3, "", root);  
+		Type* callback_t = StructType::get(
+			TypeBuilder<types::i<32>, true>::get(context),
+			TypeBuilder<types::i<32>, true>::get(context),
+			TypeBuilder<types::i<8>*, true>::get(context),
+			TypeBuilder<types::i<32>, true>::get(context),
+			NULL);
+		Value* callback2 = new BitCastInst(GEP3, callback_t->
 			getPointerTo(0)->getPointerTo(0), "", root);
 		LoadInst* callback3 = new LoadInst(callback2, "", root);
 		callback3->setAlignment(1);
-		StoreInst* callback4 = new StoreInst(callback3, callback1, "", root);
-		callback4->setAlignment(1);
+		Value *Idx4[2];
+		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+		Idx4[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
+		GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
+			callback3, Idx4, "", root);
+		StoreInst* callback4 = new StoreInst(GEP4, callback1, "", root);
+		callback4->setAlignment(8);
 
 		//main.get()->dump();
 

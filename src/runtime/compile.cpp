@@ -417,7 +417,7 @@ char* kernelgen::runtime::compile(
 				manager.run(*hostm);
 			}
 
-			//m->dump();
+			m->dump();
 			//hostm->dump();
 			
 			// Compile host code, using native target compiler.
@@ -477,7 +477,7 @@ char* kernelgen::runtime::compile(
 
 			//cout << bin_string;
 
-			return (char*)nvopencc(bin_string, kernel->name);
+			return nvopencc(bin_string, kernel->name);
 
 			break;
 		}
