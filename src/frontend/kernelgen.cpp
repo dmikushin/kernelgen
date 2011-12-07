@@ -66,18 +66,20 @@ extern "C" int __regular_main(int argc, char* argv[])
 
 	//
 	// The regular compiler used for host-side source code.
+	// Will be selected, depending on extension.
 	//
-	const char* host_compiler = "gfortran";
+	const char* host_compiler = "gcc";
 
 	//
 	// Supported source code files extensions.
 	//
-	list<string> source_ext;
-	source_ext.push_back(".c");
-	source_ext.push_back(".f");
-	source_ext.push_back(".f90");
-	source_ext.push_back(".F");
-	source_ext.push_back(".F90");
+	map<string, string> source_ext;
+	source_ext[".c"]   = "gcc";
+	source_ext[".cpp"] = "g++";
+	source_ext[".f"]   = "gfortran";
+	source_ext[".f90"] = "gfortran";
+	source_ext[".F"]   = "gfortran";
+	source_ext[".F90"] = "gfortran";
 
 	//
 	// Split kgen args from other args in the command line.
@@ -119,11 +121,12 @@ extern "C" int __regular_main(int argc, char* argv[])
 	for (list<string>::iterator it1 = args.begin(); (it1 != args.end()) && !input.size(); it1++)
 	{
 		const char* arg = (*it1).c_str();
-		for (list<string>::iterator it2 = source_ext.begin(); it2 != source_ext.end(); it2++)
+		for (map<string, string>::iterator it2 = source_ext.begin(); it2 != source_ext.end(); it2++)
 		{
-			if (a_ends_with_b(*it1, *it2))
+			if (a_ends_with_b(*it1, (*it2).first))
 			{
 				input = *it1;
+				host_compiler = (*it2).second.c_str();
 				break;
 			}
 		}
