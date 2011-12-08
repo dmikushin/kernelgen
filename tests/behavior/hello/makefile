@@ -24,21 +24,34 @@ LEVEL = ../../..
 include ../../makefile.in
 
 ifeq ($(ARCH), 64)
-all: 32/hello 64/hello
+all: 32/hello_c 64/hello_c 32/hello_f 64/hello_f
 else
-all: 32/hello
+all: 32/hello_c 32/hello_f
 endif
 
-32/hello: 32/main.o
-	$(FCOMP32) 32/main.o -o $@
-64/hello: 64/main.o
-	$(FCOMP64) 64/main.o -o $@
+32/hello_c: 32/main.c.o
+	$(CCOMP32) 32/main.c.o -o $@
+64/hello_c: 64/main.c.o
+	$(CCOMP64) 64/main.c.o -o $@
 
-32/main.o: main.f90
+32/main.c.o: main.c
+	$(CCOMP32) -g -c $< -o $@
+64/main.c.o: main.c
+	$(CCOMP64) -g -c $< -o $@
+
+32/hello_f: 32/main.f90.o
+	$(FCOMP32) 32/main.f90.o -o $@
+64/hello_f: 64/main.f90.o
+	$(FCOMP64) 64/main.f90.o -o $@
+
+32/main.f90.o: main.f90
 	$(FCOMP32) -g -c $< -o $@
-64/main.o: main.f90
+64/main.f90.o: main.f90
 	$(FCOMP64) -g -c $< -o $@
 
 clean:
-	rm -rf 32/*.o 32/*.mod 32/hello 64/*.o 64/*.mod 64/hello \
+	rm -rf \
+	32/*.o 32/*.mod 32/hello_c 32/hello_f \
+	64/*.o 64/*.mod 64/hello_c 64/hello_f \
 	*.bc* *.o *.mod *_kernelgen.* *.host.*
+

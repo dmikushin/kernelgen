@@ -265,7 +265,7 @@ int link(list<string> args, list<string> kgen_args,
 
 		// Create and insert GEP to (int*)(args + 3).
 		Value *Idx1[1];
-		Idx1[0] = ConstantInt::get(Type::getInt64Ty(context), 3);
+		Idx1[0] = ConstantInt::get(Type::getInt64Ty(context), 4);
 		GetElementPtrInst *GEP1 = GetElementPtrInst::CreateInBounds(
 			arg, Idx1, "", root);
 
@@ -292,13 +292,13 @@ int link(list<string> args, list<string> kgen_args,
 		SmallVector<Value*, 16> call_args;
 		call_args.push_back(argc1);
 		call_args.push_back(argv2);
-		CallInst* call = CallInst::Create(main_, call_args, "call_main_", root);
+		CallInst* call = CallInst::Create(main_, call_args, "", root);
 		call->setTailCall();
 		call->setDoesNotThrow();
 
 		// Create and insert GEP to (int*)(args + 5).
 		Value *Idx4[1];
-		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 5);
+		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 6);
 		GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
 			arg, Idx4, "", root);
 
@@ -531,7 +531,7 @@ int link(list<string> args, list<string> kgen_args,
 		Instruction* root = kernelgen_main_->begin()->begin();
 		Function::arg_iterator arg = kernelgen_main_->arg_begin();
 		Value *Idx3[1];
-		Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 6);
+		Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 8);
 		GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
 			arg, Idx3, "", root);  
 		Type* callback_t = StructType::get(

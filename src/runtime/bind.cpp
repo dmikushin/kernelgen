@@ -72,7 +72,7 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuMemAlloc = (cuMemAlloc_t)dlsym(handle, "cuMemAlloc_v2");
 		if (!cuMemAlloc)
 			THROW("Cannot dlsym cuMemAlloc " << dlerror());
-		cuMemFree = (cuMemFree_t)dlsym(handle, "cuMemFree");
+		cuMemFree = (cuMemFree_t)dlsym(handle, "cuMemFree_v2");
 		if (!cuMemFree)
 			THROW("Cannot dlsym cuMemFree " << dlerror());
 		cuMemAllocHost = (cuMemAlloc_t)dlsym(handle, "cuMemAllocHost_v2");

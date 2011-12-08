@@ -49,7 +49,6 @@ using namespace util::elf;
 string cuda_monitor_kernel_source =
 	"__attribute__((global)) __attribute__((used)) void kernelgen_monitor(int* callback)\n"
 	"{\n"
-	"	printf(\"Launched monitor, lock = %d\\n\", ((struct kernelgen_callback_t*)callback)->lock);\n"
 	"	// Unlock blocked gpu kernel associated\n"
 	"	// with lock. It simply waits for lock\n"
 	"	// to be dropped to zero.\n"
@@ -217,7 +216,7 @@ int main(int argc, char* argv[])
 		// in CUDA and OpenCL kernels must return void.
 		// Also structure aggregates callback record containing
 		// parameters of host-device communication state.
-		struct __attribute__((packed)) args_t
+		struct args_t
 		{
 			int64_t size;
 			int argc;

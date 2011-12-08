@@ -126,51 +126,8 @@ int kernelgen_launch(char* entry, int* args)
 		{
 			// If this is the main kernel being lauched,
 			// first launch GPU monitor kernel, then launch
-			// target kernel. Otherwise - wise versa.
-			if (kernel->name == "__kernelgen_main")
-			{
-				/*// Launch monitor GPU kernel.
-				{
-					struct { unsigned int x, y, z; } gridDim, blockDim;
-					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
-					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
-					size_t szshmem = 0;
-					void* monitor_kernel_func_args[] =
-						{ (void*)&kernel->target[runmode].callback };
-					int err = cuLaunchKernel(
-						kernel->target[runmode].monitor_kernel_func,
-						gridDim.x, gridDim.y, gridDim.z,
-						blockDim.x, blockDim.y, blockDim.z, szshmem,
-						kernel->target[runmode].monitor_kernel_stream,
-						monitor_kernel_func_args, NULL);
-					if (err)
-						THROW("Error in cuLaunchKernel " << err);
-				}*/
-			
-				// Launch main GPU kernel.
-				{
-					struct { unsigned int x, y, z; } gridDim, blockDim;
-					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
-					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
-					size_t szshmem = 0;
-					void* kernel_func_args[] = { (void*)&args };
-					int err = cuLaunchKernel((void*)kernel_func,
-						gridDim.x, gridDim.y, gridDim.z,
-						blockDim.x, blockDim.y, blockDim.z, szshmem,
-						kernel->target[runmode].kernel_stream,
-						kernel_func_args, NULL);
-					if (err)
-						THROW("Error in cuLaunchKernel " << err);
-				}
-
-				// Wait for monitor kernel completion.
-				int err = cuStreamSynchronize(
-					kernel->target[runmode].monitor_kernel_stream);
-				if (err) THROW("Error in cuStreamSynchronize " << err);
-
-				// TODO: check kernel sync state.				
-			}
-			else
+			// target kernel. Otherwise - vise versa.
+			if (kernel->name != "__kernelgen_main")
 			{
 				// Launch GPU loop kernel.
 				{
@@ -192,6 +149,95 @@ int kernelgen_launch(char* entry, int* args)
 				int err = cuStreamSynchronize(
 					kernel->target[runmode].monitor_kernel_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
+				break;
+			}
+
+			// Launch monitor GPU kernel.
+			{
+				struct { unsigned int x, y, z; } gridDim, blockDim;
+				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+				size_t szshmem = 0;
+				void* monitor_kernel_func_args[] =
+					{ (void*)&kernel->target[runmode].callback };
+				int err = cuLaunchKernel(
+					kernel->target[runmode].monitor_kernel_func,
+					gridDim.x, gridDim.y, gridDim.z,
+					blockDim.x, blockDim.y, blockDim.z, szshmem,
+					kernel->target[runmode].monitor_kernel_stream,
+					monitor_kernel_func_args, NULL);
+				if (err)
+					THROW("Error in cuLaunchKernel " << err);
+			}
+	
+			// Launch main GPU kernel.
+			{
+				struct { unsigned int x, y, z; } gridDim, blockDim;
+				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+				size_t szshmem = 0;
+				void* kernel_func_args[] = { (void*)&args };
+				int err = cuLaunchKernel((void*)kernel_func,
+					gridDim.x, gridDim.y, gridDim.z,
+					blockDim.x, blockDim.y, blockDim.z, szshmem,
+					kernel->target[runmode].kernel_stream,
+					kernel_func_args, NULL);
+				if (err)
+					THROW("Error in cuLaunchKernel " << err);
+			}
+
+			while (1)
+			{
+				// Wait for monitor kernel completion.
+				int err = cuStreamSynchronize(
+					kernel->target[runmode].monitor_kernel_stream);
+				if (err) THROW("Error in cuStreamSynchronize " << err);
+
+				// Copy callback structure back to host memory and
+				// check the state.
+				struct kernelgen_callback_t callback;			
+				err = cuMemcpyDtoHAsync(
+					&callback, kernel->target[runmode].callback,
+					sizeof(struct kernelgen_callback_t),
+					kernel->target[runmode].monitor_kernel_stream);
+				if (err) THROW("Error in cuMemcpyDtoHAsync");
+				err = cuStreamSynchronize(
+					kernel->target[runmode].monitor_kernel_stream);
+				if (err) THROW("Error in cuStreamSynchronize " << err);
+				switch (callback.state)
+				{
+					case KERNELGEN_STATE_INACTIVE :
+					{
+						if (verbose) 
+							cout << "Kernel " << kernel->name <<
+								" has finished" << endl;
+						break;
+					}
+					case KERNELGEN_STATE_LOOPCALL :
+					{
+						if (verbose)
+							cout << "Kernel " << kernel->name <<
+								" requested loop kernel call " << endl;
+
+						// TODO: handle loop call.
+
+						break;
+					}
+					case KERNELGEN_STATE_HOSTCALL :
+					{
+						if (verbose)
+							cout << "Kernel " << kernel->name <<
+								" requested host function call " << endl;
+					
+						// TODO: handle host call
+
+						break;
+					}
+					default :
+						THROW("Unknown callback state : " << callback.state);
+				}
+				
+				if (callback.state == KERNELGEN_STATE_INACTIVE) break;
 
 				// Launch monitor GPU kernel.
 				{
@@ -211,6 +257,11 @@ int kernelgen_launch(char* entry, int* args)
 						THROW("Error in cuLaunchKernel " << err);
 				}
 			}
+
+			// Finally, sychronize kernel stream.
+			int err = cuStreamSynchronize(
+				kernel->target[runmode].kernel_stream);
+			if (err) THROW("Error in cuStreamSynchronize " << err);
 			
 			break;
 		}
