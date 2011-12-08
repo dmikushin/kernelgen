@@ -22,7 +22,7 @@
 #ifndef KERNELGEN_RUNTIME_H
 #define KERNELGEN_RUNTIME_H
 
-#include <stddef.h>
+#include <stdio.h>
 
 #include "kernelgen_interop.h"
 
@@ -61,13 +61,20 @@ static __inline__ __attribute__((always_inline)) int kernelgen_launch(
 	return -1;
 }
 
-static __inline__ __attribute__((always_inline)) kernelgen_finish()
+static __inline__ __attribute__((always_inline)) void kernelgen_finish()
 {
 	// Unblock the monitor kernel.
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_INACTIVE;
 	__iAtomicCAS(&callback->lock, 0, 1);
+}
+
+static __inline__ __attribute__((always_inline)) int puts(const char* str)
+{
+	int ret = printf("%s\n", str);
+	if (ret < 0) return EOF;
+	return ret;
 }
 
 #endif // KERNELGEN_RUNTIME_H

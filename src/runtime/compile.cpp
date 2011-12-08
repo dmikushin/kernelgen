@@ -260,7 +260,7 @@ char* kernelgen::runtime::compile(
 			{
 				#include "cuda_syscalls.h"
 				#include "cuda_intrinsics.h"
-				"printf",
+				"printf", "puts",
 				"kernelgen_launch", "kernelgen_finish"
 			};
 			Type* int32Ty = Type::getInt32Ty(context);

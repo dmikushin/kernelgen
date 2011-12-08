@@ -2,7 +2,7 @@
 
 int main(int argc, char* argv[])
 {
-	printf("Hello, kernelgen!");
+	printf("Hello, kernelgen!\n");
 	return 0;
 }
 

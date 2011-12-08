@@ -54,7 +54,7 @@ struct kernelgen_callback_t
 	int lock;
 	int state;
 	unsigned char* name;
-	int arg;
+	int* arg;
 };
 
 #endif // KERNELGEN_INTEROP_H

@@ -246,13 +246,17 @@ int main(int argc, char* argv[])
 				// Initial lock state is "locked". It will be dropped
 				// by GPU side monitor that must be started *before*
 				// target GPU kernel.
-				kernelgen_callback_t* callback = NULL;
-				int err = cuMemAlloc((void**)&callback, sizeof(kernelgen_callback_t));
+				kernelgen_callback_t callback;
+				callback.lock = 1;
+				callback.state = KERNELGEN_STATE_INACTIVE;
+				callback.name = NULL;
+				callback.arg = NULL;
+				kernelgen_callback_t* callback_dev = NULL;
+				int err = cuMemAlloc((void**)&callback_dev, sizeof(kernelgen_callback_t));
 				if (err) THROW("Error in cuMemAlloc " << err);
-				int one = 1;
-				err = cuMemcpyHtoD(&callback->lock, &one, sizeof(int));
+				err = cuMemcpyHtoD(callback_dev, &callback, sizeof(kernelgen_callback_t));
 				if (err) THROW("Error in cuMemcpyHtoD " << err);
-				kernel->target[runmode].callback = callback;
+				kernel->target[runmode].callback = callback_dev;
 
 				// Create streams where monitoring and target kernels
 				// will be executed.
@@ -290,7 +294,7 @@ int main(int argc, char* argv[])
 				args_host.size = sizeof(int);
 				args_host.argc = argc;
 				args_host.argv = argv_dev;
-				args_host.callback = callback;
+				args_host.callback = callback_dev;
 				args_t* args_dev = NULL;
 				err = cuMemAlloc((void**)&args_dev, sizeof(args_t));
 				if (err) THROW("Error in cuMemAlloc " << err);
@@ -302,6 +306,8 @@ int main(int argc, char* argv[])
 				err = cuMemFree(args_dev);
 				if (err) THROW("Error in cuMemFree " << err);
 				err = cuMemFree(argv_dev);
+				if (err) THROW("Error in cuMemFree " << err);
+				err = cuMemFree(callback_dev);
 				if (err) THROW("Error in cuMemFree " << err);
 				return args_host.ret;
 			}
