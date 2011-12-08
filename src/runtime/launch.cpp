@@ -127,7 +127,7 @@ int kernelgen_launch(char* entry, int* args)
 			// If this is the main kernel being lauched,
 			// first launch GPU monitor kernel, then launch
 			// target kernel. Otherwise - vise versa.
-			if (kernel->name != "__kernelgen_main")
+			if (strcmp(kernel->name.c_str(), "__kernelgen_main"))
 			{
 				// Launch GPU loop kernel.
 				{
