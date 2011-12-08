@@ -58,9 +58,9 @@ namespace kernelgen
 //CudaFunctions defined and filled in CodeGeneration.cpp
 extern std::vector<const char*> CudaFunctions;
 
-//CudaIntricic is some information about thread position in grid
-//CudaInricics defined and filled in CodeGeneration.cpp
-extern DenseMap<const char*,const char *> CudaInricics;
+//CudaIntrinsics is some information about thread position in grid
+//CudaIntrinsics defined and filled in CodeGeneration.cpp
+extern DenseMap<const char*,const char *> CudaIntrinsics;
 
 //dimensions contains names of dimensions
 //dimensions defined and filled in CodeGeneration.cpp

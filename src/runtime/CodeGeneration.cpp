@@ -24,7 +24,7 @@ namespace kernelgen
 {
 
 std::vector<const char*> CudaFunctions;
-DenseMap<const char*,const char *> CudaInricics;
+DenseMap<const char*,const char *> CudaIntrinsics;
 vector<string> dimensions;
 //Add definitions of functions, which returns CUDA intricics
 //For each dimension defines four functions, which returns parameters
@@ -54,20 +54,20 @@ void CodeGeneration::addCUDADefinitions(IRBuilder<> &Builder)
 	// define parameters of dimensions    //
 	////////////////////////////////////////
 		vector<string> parameters;        //
-		parameters.push_back("threadId"); //
-		parameters.push_back("blockId");  //
+		parameters.push_back("threadIdx"); //
+		parameters.push_back("blockIdx");  //
 		parameters.push_back("blockDim"); //
 		parameters.push_back("gridDim");  //
     ////////////////////////////////////////
 	
-	    string prefix1("_get_");
+	    string prefix1("kernelgen_");
 		string prefix2("_");
 		string prefix3(".");
 
 		for(int i = 0; i < dimensions.size(); i++)
 			for(int j =0; j < parameters.size(); j++) {
 				CudaFunctions.push_back((new string(prefix1 + parameters[j] + prefix2 + dimensions[i]))->c_str());
-				CudaInricics[CudaFunctions.back()] = (new string(parameters[j] + prefix3 + dimensions[i]))->c_str();
+				CudaIntrinsics[CudaFunctions.back()] = (new string(parameters[j] + prefix3 + dimensions[i]))->c_str();
 			}
 		for(int i = 0; i < CudaFunctions.size(); i++) {
 			FunctionType *FT = FunctionType::get(intType, std::vector<Type*>(), false);

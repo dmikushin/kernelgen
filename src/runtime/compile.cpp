@@ -261,6 +261,10 @@ char* kernelgen::runtime::compile(
 				#include "cuda_syscalls.h"
 				#include "cuda_intrinsics.h"
 				"printf", "puts",
+				"kernelgen_threadIdx_x", "kernelgen_threadIdx_y", "kernelgen_threadIdx_z",
+				"kernelgen_blockIdx_x", "kernelgen_blockIdx_y", "kernelgen_blockIdx_z",
+				"kernelgen_blockDim_x", "kernelgen_blockDim_y", "kernelgen_blockDim_z",
+				"kernelgen_gridDim_x", "kernelgen_gridDim_y", "kernelgen_girdDim_z",
 				"kernelgen_launch", "kernelgen_finish"
 			};
 			Type* int32Ty = Type::getInt32Ty(context);

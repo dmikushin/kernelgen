@@ -68,7 +68,7 @@ void ClastStmtCodeGen::codegenForCUDA(const clast_for *f)
 		    {                                                                                      //
 			    GridParameters.push_back(                                                          //
 			      Builder.CreateCall( M->getFunction(CudaFunctions[dimension*4 + GridParameter]),  //    
-				                      CudaInricics[CudaFunctions[dimension*4 + GridParameter]] )); //
+				                      CudaIntrinsics[CudaFunctions[dimension*4 + GridParameter]] )); //
 		    }                                                                                      //
 			/////////////////////////////////////////////////////////////////////////////////////////
    		    

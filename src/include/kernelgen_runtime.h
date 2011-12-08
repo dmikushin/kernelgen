@@ -26,6 +26,8 @@
 
 #include "kernelgen_interop.h"
 
+#define __device__  static __inline__ __attribute__((always_inline))
+
 extern __attribute__((__malloc__)) void *malloc(size_t);
 extern void free(void*);
 
@@ -34,8 +36,12 @@ extern __attribute__((device)) int __iAtomicCAS(
 
 extern __attribute__((device)) unsigned int* __kernelgen_callback;
 
-static __inline__ __attribute__((always_inline)) void kernelgen_hostcall(
-	unsigned char* name, unsigned int* args)
+typedef struct { unsigned int x, y, z; } uint3;
+
+uint3 extern const threadIdx, blockIdx, blockDim, gridDim;
+int extern const warpSize;
+
+__device__ void kernelgen_hostcall(unsigned char* name, unsigned int* args)
 {
 	// Unblock the monitor kernel and wait for being
 	// unblocked by new instance of monitor.
@@ -48,8 +54,7 @@ static __inline__ __attribute__((always_inline)) void kernelgen_hostcall(
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
 
-static __inline__ __attribute__((always_inline)) int kernelgen_launch(
-	unsigned char* name, unsigned int* args)
+__device__ int kernelgen_launch(unsigned char* name, unsigned int* args)
 {
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
@@ -61,7 +66,7 @@ static __inline__ __attribute__((always_inline)) int kernelgen_launch(
 	return -1;
 }
 
-static __inline__ __attribute__((always_inline)) void kernelgen_finish()
+__device__ void kernelgen_finish()
 {
 	// Unblock the monitor kernel.
 	struct kernelgen_callback_t* callback =
@@ -70,12 +75,28 @@ static __inline__ __attribute__((always_inline)) void kernelgen_finish()
 	__iAtomicCAS(&callback->lock, 0, 1);
 }
 
-static __inline__ __attribute__((always_inline)) int puts(const char* str)
+__device__ int puts(const char* str)
 {
 	int ret = printf("%s\n", str);
 	if (ret < 0) return EOF;
 	return ret;
 }
+
+__device__ int kernelgen_threadIdx_x() { return threadIdx.x; }
+__device__ int kernelgen_threadIdx_y() { return threadIdx.y; }
+__device__ int kernelgen_threadIdx_z() { return threadIdx.z; }
+
+__device__ int kernelgen_blockIdx_x() { return blockIdx.x; }
+__device__ int kernelgen_blockIdx_y() { return blockIdx.y; }
+__device__ int kernelgen_blockIdx_z() { return blockIdx.z; }
+
+__device__ int kernelgen_blockDim_x() { return blockDim.x; }
+__device__ int kernelgen_blockDim_y() { return blockDim.y; }
+__device__ int kernelgen_blockDim_z() { return blockDim.z; }
+
+__device__ int kernelgen_gridDim_x() { return gridDim.x; }
+__device__ int kernelgen_gridDim_y() { return gridDim.y; }
+__device__ int kernelgen_gridDim_z() { return gridDim.z; }
 
 #endif // KERNELGEN_RUNTIME_H
 
