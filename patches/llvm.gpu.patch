@@ -330,7 +330,7 @@
 +    Out << ", ";
 +    printConstantArray(CA, true);
 +    Out << ", sizeof(";
-+    printType(Out, I.getType());
++    printType(Out, I.getOperand(0)->getType());
 +    Out << "))";
 +  }
 +  else
