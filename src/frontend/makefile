@@ -22,7 +22,12 @@
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
 LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn /opt/kernelgen/lib/LLVMPolly.so -L/opt/kernelgen/lib -lisl -lcloog-isl
-EXECINC = -I..
+EXECINC = -I.. \
+        -I${HOME}/rpmbuild/BUILD/llvm/build/include \
+        -I${HOME}/rpmbuild/BUILD/llvm/tools/polly/include \
+        -I${HOME}/rpmbuild/BUILD/cloog/include \
+        -I${HOME}/rpmbuild/BUILD/cloog/isl/include \
+        -I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf -lmhash -ldl
 
 CXX = g++ -g -I../include $(LLVMINC) $(LLVMDEF)

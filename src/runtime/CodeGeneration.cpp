@@ -1,5 +1,7 @@
 #include "CodeGeneration.h"
 #include "llvm/Analysis/Verifier.h"
+#include "BranchedCodeExtractor.h"
+#include "BranchedLoopExtractor.h"
 //using namespace polly;
 using namespace llvm;
 namespace kernelgen
@@ -39,28 +41,28 @@ void CodeGeneration::addCUDADefinitions(IRBuilder<> &Builder)
 	LLVMContext &Context = Builder.getContext();
 	IntegerType *intType = Type::getInt64Ty(Context); //TD->getInt32Type(Context);
 
-	
 
-	if (!M->getFunction("_get_threadId_x")) {
-	/////////////////////////////////////////////////////////////////////
-	//  define all dimensions, that can be used while code generation  //
-	/////////////////////////////////////////////////////////////////////
-    	dimensions.push_back("x");                                     //
+
+	if (!M->getFunction("kernelgen_threadId_x")) {
+		/////////////////////////////////////////////////////////////////////
+		//  define all dimensions, that can be used while code generation  //
+		/////////////////////////////////////////////////////////////////////
+		dimensions.push_back("x");                                     //
 		dimensions.push_back("y");                                     //
 		dimensions.push_back("z");                                     //
-    /////////////////////////////////////////////////////////////////////
-	
-	////////////////////////////////////////
-	// define parameters of dimensions    //
-	////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////////
+
+		////////////////////////////////////////
+		// define parameters of dimensions    //
+		////////////////////////////////////////
 		vector<string> parameters;        //
-		parameters.push_back("threadIdx"); //
-		parameters.push_back("blockIdx");  //
+		parameters.push_back("threadId"); //
+		parameters.push_back("blockId");  //
 		parameters.push_back("blockDim"); //
 		parameters.push_back("gridDim");  //
-    ////////////////////////////////////////
-	
-	    string prefix1("kernelgen_");
+		////////////////////////////////////////
+
+		string prefix1("kernelgen_");
 		string prefix2("_");
 		string prefix3(".");
 
@@ -75,7 +77,44 @@ void CodeGeneration::addCUDADefinitions(IRBuilder<> &Builder)
 		}
 	}
 }
+template<class T>
+bool findInVector(std::vector<T> & vec, T elem)
+{
 
+	typedef typename std::vector<T>::iterator iteratorType ;
+	iteratorType iter = vec.begin(), end = vec.end();
+	for(; iter != end; iter++)
+		if(*iter == elem) break;
+	return (iter==end);
+}
+void getRegionBlocks(Region *region, BasicBlock *BB, std::vector<BasicBlock*> *visited)
+{
+	BasicBlock *exit = region -> getExit();
+	visited->push_back(BB);
+	for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI)
+		if (*SI != exit && findInVector(*visited,*SI))
+			getRegionBlocks(region, *SI, visited);
+}
+void getRegionBlocks(Region *region, BasicBlock *BB, SetVector<BasicBlock*> *visited)
+{
+	BasicBlock *exit = region -> getExit();
+	visited->insert(BB);
+	for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI)
+		if (*SI != exit && !visited->count(*SI))
+			getRegionBlocks(region, *SI, visited);
+}
+BasicBlock* MakeNewEntryBlock(BasicBlock* oldEntry, BasicBlock* EnteringBlock)
+{
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Add new Block which is Entry Block of new region. Redirect links                                    //
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	BasicBlock * NewEntry =                                                                        //
+	    BasicBlock::Create(EnteringBlock->getParent()->getContext(), "RegionEntryBlock", EnteringBlock->getParent()); //
+	TerminatorInst *TI = EnteringBlock->getTerminator();                                           //
+	TI->replaceUsesOfWith(oldEntry, NewEntry);                                                     //
+	return NewEntry;
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+}
 bool CodeGeneration::runOnScop(polly::Scop &scop)
 {
 	S = &scop;
@@ -91,35 +130,39 @@ bool CodeGeneration::runOnScop(polly::Scop &scop)
 
 	assert(region->isSimple() && "Only simple regions are supported");
 
-	Function * region_func = region->getEntry()->getParent();
-	Module * region_module = region_func->getParent();
+	Function * region_func   = region->getEntry()->getParent();
+	Module   * region_module = region_func->getParent();
 	string ModuleName = region_module->getModuleIdentifier();
-	BasicBlock *EnteringBlock = region->getEnteringBlock();
+	LLVMContext & context = region_module -> getContext();
+
+	BasicBlock * EnteringBlock = region->getEnteringBlock();
+	BasicBlock * ExitBlock = region->getExit();
+
+	BasicBlock * oldEntry = region->getEntry();
+	BasicBlock * oldExitingBlock = region->getExitingBlock();
+
 	SetVector<BasicBlock *> region_blocks;
 	SetVector<BasicBlock *> tail_blocks;
-	SetVector<BasicBlock *> oldSuccessors;
 	{
 		////////////////////////////////////////////////////////////////////////////////////////
 		// fill in set of region blocks                                                       //
 		////////////////////////////////////////////////////////////////////////////////////////
-		int i = 0;                                                                            //
-		int firstRegionBlockInFunc = -1;                                                      //
+		//int i = 0;                                                                            //
+		int firstRegionBlockInFunc = 0;
+		getRegionBlocks(region,oldEntry,&region_blocks);//
 		for(Function::iterator BB_Begin = region_func->begin(), BB_End = region_func->end();  //
 		    BB_Begin != BB_End; BB_Begin++ ) {                                                //
 			BasicBlock * bb = const_cast<BasicBlock*>(&(*BB_Begin));                          //
-			i++;                                                                              //
-			if(region->contains(bb)) {                                                        //
-				region_blocks.insert(bb);                                                     //
-				if(firstRegionBlockInFunc ==-1) firstRegionBlockInFunc=i;                     //
-			}                                                                                 //
+			firstRegionBlockInFunc++;                                                                              //
+			if(region->contains(bb)) break;                                                                           //
 		}                                                                                     //
 		////////////////////////////////////////////////////////////////////////////////////////
-		
+
 		////////////////////////////////////////////////////////////////////////////
 		// fill in "tail" - blocks of function that are not of region blocks and  //
 		// and they place is after region entry                                   //
 		////////////////////////////////////////////////////////////////////////////
-		i=0;                                                                      //
+		int i=0;                                                                      //
 		Function::BasicBlockListType & BBList = region_func->getBasicBlockList(); //
 		for(Function::iterator BB_Begin = BBList.begin(), BB_End = BBList.end();  //
 		    BB_Begin != BB_End; BB_Begin++ ) {                                    //
@@ -130,87 +173,168 @@ bool CodeGeneration::runOnScop(polly::Scop &scop)
 			}                                                                     //
 		}                                                                         //
 		////////////////////////////////////////////////////////////////////////////
-		
-		for(succ_iterator Succ = succ_begin(EnteringBlock), SuccEnd = succ_end(EnteringBlock);
-		    Succ != SuccEnd ; Succ ++)
-		{
-		    	oldSuccessors.insert(*Succ);
-		}
 	}
-	
-	// The builder will be set to startBlock.
-	IRBuilder<> builder(region->getEnteringBlock());
 
-    if (flags.CUDA)                                             
+	IRBuilder<> builder(EnteringBlock);
+	if (flags.CUDA)
 		addCUDADefinitions(builder);
-	
+	// The builder will be set to startBlock.
+
+	BasicBlock *newEntry = MakeNewEntryBlock(oldEntry, EnteringBlock);
+	DT->addNewBlock(newEntry, EnteringBlock);
+	builder.SetInsertPoint(newEntry);
 	////////////////////////////////////////////////////////////////////////////////////////////
 	// generate code                                                                          //
-	////////////////////////////////////////////////////////////////////////////////////////////                
-    int MaxDimensionsCount = 2;                                                               //
+	////////////////////////////////////////////////////////////////////////////////////////////
+	int MaxDimensionsCount;
+	if(flags.CUDA) MaxDimensionsCount = dimensions.size();                                    //
+	else MaxDimensionsCount = 0;                                                              //
 	kernelgen::ClastStmtCodeGen CodeGen(S, *SE, DT, SD, DP, TD, builder, MaxDimensionsCount); //
 	polly::CloogInfo &C = getAnalysis<polly::CloogInfo>();                                    //
 	CodeGen.codegen(C.getClast());                                                            //
 	////////////////////////////////////////////////////////////////////////////////////////////
-	
+
 	parallelLoops.insert(parallelLoops.begin(),
 	                     CodeGen.getParallelLoops().begin(),
 	                     CodeGen.getParallelLoops().end());
-						 BasicBlock * NewEnryBlock;//= *succ_begin(EnteringBlock);//wrong!
-	int newSuccCount=0;
-	int SuccCount = 0; 
-	for(succ_iterator Succ = succ_begin(EnteringBlock), SuccEnd = succ_end(EnteringBlock);
-		    Succ != SuccEnd ; Succ ++)
-		{
-			SuccCount++;
-			if(!oldSuccessors.count(*Succ));
-			{
-			   newSuccCount++;
-			   NewEnryBlock = *Succ;
-			}
-				
-		}
-	assert(newSuccCount==1 && "Generation added either more or less than \
-	                           one new Successor Block of Entering Block");
-	assert(SuccCount == oldSuccessors.size() && "Successor's count must not changed");
-						
+
+	BasicBlock * newExitingBlock = builder.GetInsertBlock();
+	builder.CreateBr(ExitBlock);
+
 	{
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// remove region blocks from function                                                                     //
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// remove region blocks from function                                                                     //
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		for(SetVector<BasicBlock *>::iterator BB_Begin = region_blocks.begin(), BB_End = region_blocks.end(); //
-			BB_Begin != BB_End; BB_Begin++ ) {                                                                //
+		    BB_Begin != BB_End; BB_Begin++ ) {                                                                //
 			BasicBlock * bb = *BB_Begin;                                                                      //
 			bb->dropAllReferences();                                                                          //
 		}                                                                                                     //
 		for(SetVector<BasicBlock *>::iterator BB_Begin = region_blocks.begin(), BB_End = region_blocks.end(); //
 		    BB_Begin != BB_End; BB_Begin++ ) {                                                                //
 			BasicBlock * bb = *BB_Begin;                                                                      //
-			bb->removeFromParent();                                                                           //
+			bb->eraseFromParent();                                                                           //
 		}                                                                                                     //
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	
-	////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// move tail to back of the region function                                                           //
-	////////////////////////////////////////////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// move tail to back of the region function                                                           //
+		////////////////////////////////////////////////////////////////////////////////////////////////////////
 		for(SetVector<BasicBlock *>::iterator BB_Begin = tail_blocks.begin(), BB_End = tail_blocks.end(); //
 		    BB_Begin != BB_End; BB_Begin++ ) {                                                            //
 			BasicBlock * bb = *BB_Begin;                                                                  //
 			bb->moveAfter(&region_func->back());                                                          //
 		}                                                                                                 //
-	////////////////////////////////////////////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////////////////////////////////////////////
 	}
-	BasicBlock * oldExitingBlock = region->getExitingBlock();
-	BasicBlock * newExitingBlock = builder.GetInsertBlock();
-	BasicBlock * ExitBlock = region->getExit();
-	builder.CreateBr(ExitBlock);
-	//ExitBlock->removePredecessor(oldExitingBlock);
 
-    /////////////////////////////////////////////////////////////////////////////
+	DT->DT->recalculate(*region_func); //TO DO - change DT manually, bacause recalculate all is very expensive
+	assert(!verifyFunction(*region_func) && "error at function verifying");
+
+	std::vector<Value *> LaunchParameters = CodeGen.LaunchParameters;
+	if(LaunchParameters.size() > 0) {
+/////////////////////////////////////////////////////////////////////////////
+// extract function                                                        //
+/////////////////////////////////////////////////////////////////////////////
+		std::vector<BasicBlock*> BlocksToExtract;                          //
+		region-> replaceEntry (newEntry);                                  //
+		getRegionBlocks(region, *(succ_begin(newEntry)), &BlocksToExtract);//
+		//
+		CallInst *LoopFunctionCall =                                       //
+		    BranchedExtractBlocks(*DT, BlocksToExtract,true);              //
+		SD->markFunctionAsInvalid(LoopFunctionCall->getCalledFunction());  //
+		Function * LoopFunction = LoopFunctionCall -> getCalledFunction(); //
+/////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// create struct with launch parameters                                                             //
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+		std::vector<Type*> structFields;                                                            //
+		std::vector<Value*> params, StructValues;                                                   //                         //
+		//
+		for(int i =0; i < dimensions.size(); i++) {                                                 //
+			structFields.push_back(TD->getIntPtrType(context));                                     //
+			if(i < LaunchParameters.size())                                                         //
+				StructValues.push_back(LaunchParameters[i]);                                        //
+			else StructValues.push_back(ConstantInt::get(TD->getIntPtrType(context), 1));           //
+		}                                                                                           //
+		//
+		structFields.push_back(LoopFunctionCall -> getArgOperand(0)->getType());                    //
+		StructValues.push_back(LoopFunctionCall -> getArgOperand(0));                               //
+		//
+		Type * StructTy = StructType::get(context,structFields,false);                              //
+		Value * Struct = new AllocaInst(StructTy,"launch_parameters",LoopFunctionCall);             //
+		//
+		Value *Idx[2];                                                                              //
+		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));                                 //
+		//
+		for(int i =0; i < StructValues.size(); i++) {                                               //
+			Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i);                                //
+			GetElementPtrInst *GEP = GetElementPtrInst::Create(Struct, Idx, "", LoopFunctionCall);  //
+			new StoreInst(StructValues[i], GEP, "",	LoopFunctionCall);                              //
+		}                                                                                           //
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// function name                                                                                     //
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+		// Create a constant array holding original called function name.                            //
+		Constant* name = ConstantArray::get(context, LoopFunction->getName(), true);                 //
+		//
+		// Create and initialize the memory buffer for name.                                         //
+		ArrayType* nameTy = cast<ArrayType>(name->getType());                                        //
+		AllocaInst* nameAlloc = new AllocaInst(nameTy, "", LoopFunctionCall);                        //
+		StoreInst* nameInit = new StoreInst(name, nameAlloc, "", LoopFunctionCall);                  //
+		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));                                  //
+		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);                                     //
+		GetElementPtrInst* namePtr = GetElementPtrInst::Create(nameAlloc, Idx, "", LoopFunctionCall);//
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// function kernelgen_launch
+//////////////////////////////////////////////////////////////////////////////////////////////////
+		Function * KernelgenLaunch;
+		if (!(KernelgenLaunch = region_module->getFunction("kernelgen_launch"))) {                //
+			// create kernelgen_launch function
+			Type * retTy = Type::getInt32Ty(context);
+			std::vector<Type*> paramTy; 
+			paramTy.push_back(namePtr->getType());                                                 //
+			paramTy.push_back(Struct->getType()); //paramTy.push_back(StructTy);                   //
+			FunctionType * KernelgenLaunchType = FunctionType::get(retTy, paramTy, false);         //
+			KernelgenLaunch = Function::Create(KernelgenLaunchType, GlobalValue::ExternalLinkage,  //
+			                                   "kernelgen_launch", region_module);                 //
+		}
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		SmallVector<Value*, 16> call_args;
+		call_args.push_back(namePtr);
+		call_args.push_back(Struct);
+
+		// Create new function call with new call arguments
+		// and copy old call properties.
+		CallInst* newcall =
+		    CallInst::Create(KernelgenLaunch, call_args, "kernelgen_launch", LoopFunctionCall);
+		//newcall->takeName(call);
+		newcall->setCallingConv(LoopFunctionCall->getCallingConv());
+		newcall->setAttributes(LoopFunctionCall->getAttributes());
+		newcall->setDebugLoc(LoopFunctionCall->getDebugLoc());
+
+		// Replace old call with new one.
+		LoopFunctionCall->replaceAllUsesWith(newcall);
+		LoopFunctionCall->eraseFromParent();
+	}
+
+
+	//recalculate DT and RI or not? Is their information about current scop needed later?
+	DT->DT->recalculate(*region_func); //TO DO - change DT manually, bacause recalculate all is very expensive
+	//RI->runOnFunction(*region_func); //TO DO - change RI manually, bacause recalculate all is very expensive
+
+
+	/////////////////////////////////////////////////////////////////////////////
 	// decomment to obrain some dump information                               //
-    /////////////////////////////////////////////////////////////////////////////
-    // ofstream fout;                                                          //                                                        
-	// fout.open((ModuleName + ".dump").c_str());                              //
+	/////////////////////////////////////////////////////////////////////////////
+	// ofstream fout;                                                          //
+	// fout.open(("../examples/for.dump"));                              //
 	// raw_os_ostream OS(fout);                                                //
 	// region_func -> getParent() ->print(OS, NULL);                           //
 	// fout.close();                                                           //
@@ -222,13 +346,6 @@ bool CodeGeneration::runOnScop(polly::Scop &scop)
 	// raw_os_ostream OS1(cloog_print);                                        //
 	// C.pprint(OS1);                                                          //
 	/////////////////////////////////////////////////////////////////////////////
-	
-	assert(!verifyFunction(*region_func) && "error at function verifying");
-   
-    DT->DT->recalculate(*region_func);
-	Region * newRegion = new Region(NewEnryBlock, ExitBlock, RI, DT);
-	//SD->markFunctionAsInvalid(region_func);
-
 	return true;
 }
 

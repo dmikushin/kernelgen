@@ -42,7 +42,8 @@
 #include "llvm/ADT/SetVector.h"
 
 #include "BranchedLoopExtractor.h"
-#include "CodeGeneration.h"
+#include "runtime/CodeGeneration.h"
+#include "polly/LinkAllPasses.h"
 
 using namespace kernelgen;
 using namespace llvm;
@@ -181,7 +182,7 @@ int compile(list<string> args, list<string> kgen_args,
 		initializeInstrumentation(Registry);
 		initializeTarget(Registry);
 
-		manager.add(new TargetData(m2));
+		manager.add(new TargetData(m2.get()));
 		manager.add(createBasicAliasAnalysisPass());		// -basicaa
 		manager.add(createPromoteMemoryToRegisterPass());	// -mem2reg
 		manager.add(createCFGSimplificationPass());		// -simplifycfg

@@ -58,7 +58,7 @@ namespace kernelgen
 //CudaFunctions defined and filled in CodeGeneration.cpp
 extern std::vector<const char*> CudaFunctions;
 
-//CudaIntrinsics is some information about thread position in grid
+//CudaIntrinsic is some information about thread position in grid
 //CudaIntrinsics defined and filled in CodeGeneration.cpp
 extern DenseMap<const char*,const char *> CudaIntrinsics;
 
@@ -287,24 +287,24 @@ class ClastStmtCodeGen
 	polly::Dependences *DP;
 	TargetData *TD;
 
-    //Each thread has it's own position in Grid 
-    //That position is computes in runtime for each dimension of grid
-    //PositionInGrid contains respectively Value *
+	//Each thread has it's own position in Grid
+	//That position is computes in runtime for each dimension of grid
+	//PositionInGrid contains respectively Value *
 	vector<Value* > positionInGrid;
-	
-	vector<Value* > BlockPositionInGrid;
-	vector<Value* > ThreadPositionInBlock; 
 
-    //For each dimension of grid compute it's size (count of threads)
-    //GridSize contains respectively Value *
+	vector<Value* > BlockPositionInGrid;
+	vector<Value* > ThreadPositionInBlock;
+
+	//For each dimension of grid compute it's size (count of threads)
+	//GridSize contains respectively Value *
 	vector<Value*> GridSize;
 
-    //For each dimension of block it's size obtained by call ti one of the CUDA Functions 
-    //BlockSize contains respectively Value *
+	//For each dimension of block it's size obtained by call ti one of the CUDA Functions
+	//BlockSize contains respectively Value *
 	vector<Value*> BlockSize;
 
 	int goodNestedParallelLoopsCount;
-	
+
 	//Maximal count of good nested parallel loops, which can be parallelized
 	int MaxDimensionsCount;
 
@@ -364,7 +364,7 @@ protected:
 	/// @brief Create a classical sequential loop.                                 //
 	void codegenForSequential(const clast_for *f, Value *lowerBound =0,
 	                          Value *upperBound =0, Value * ThreadStride = 0,const char * dimensionName = "");            //
-	
+
 	/// @brief Generate code for Loop on terms of CUDA kernel
 	void codegenForCUDA(const clast_for *f);
 /////////////////////////////////////////////////////////////////////////////////////
@@ -502,39 +502,35 @@ protected:
 	}
 	int GoodNestedParallelLoops(const clast_stmt * stmt, int CurrentCount);
 
+	void computeLaunchParameters(std::vector<Value*> & LaunchParameters, const  clast_root *r);
+
 public:
-	
+
+	std::vector<Value*> LaunchParameters;
+
 	void codegen(const clast_root *r) {
 		clastVars = new CharMapT();
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Add new Block which is Entry Block of new region. Redirect links                                    //        
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-		BasicBlock * EnteringBlock = Builder.GetInsertBlock();                                         //
-		BasicBlock * OldEntry  = S->getRegion().getEntry();                                            //
-		BasicBlock * NewEntry =                                                                        //
-		     BasicBlock::Create(Builder.getContext(), "RegionEntryBlock", EnteringBlock->getParent()); //
-		TerminatorInst *TI = EnteringBlock->getTerminator();                                           //
-		TI->replaceUsesOfWith(OldEntry, NewEntry);                                                     //
-		DT->addNewBlock(NewEntry, EnteringBlock);                                                      //
-		Builder.SetInsertPoint(NewEntry);                                                              //
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
 		addParameters(r->names);
 		ExpGen.setIVS(clastVars);
-
 		const clast_stmt *stmt = (const clast_stmt*) r;
 /////////////////////////////////////////////////////////////////////////////////
-// Determ if there is possibility to parallel Code Generation                  // 
+// Determ if there is possibility to parallel Code Generation                  //
 /////////////////////////////////////////////////////////////////////////////////
 		goodNestedParallelLoopsCount = GoodNestedParallelLoops(stmt->next,0);  //
+		if(MaxDimensionsCount == 0 && goodNestedParallelLoopsCount > 0) {
+			LaunchParameters.clear();
+			computeLaunchParameters(LaunchParameters, r);
+		}
 		if(goodNestedParallelLoopsCount > MaxDimensionsCount)                  //
 			goodNestedParallelLoopsCount = MaxDimensionsCount;                 //
-                                                                               //
+		//
 		parallelCodeGeneration = goodNestedParallelLoopsCount > 0;             //
 /////////////////////////////////////////////////////////////////////////////////
+
 		if (stmt->next) {
 			codegen(stmt->next);
-
 		}
+
 		delete clastVars;
 	}
 

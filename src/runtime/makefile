@@ -31,8 +31,8 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/cloog/isl/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 
-CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include
-CXXFLAGS = -g -fPIC -O$(OPT) -I../include $(LLVMINC) $(LLVMDEF)
+CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include -I../frontend
+CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../frontend $(LLVMINC) $(LLVMDEF)
 
 OBJECTS = \
 	entry compile launch finish timing io elf execute bind nvopencc \

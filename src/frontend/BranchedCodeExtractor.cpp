@@ -1,4 +1,4 @@
-//===- CodeExtractor.cpp - Pull code region into a new function -----------===//
+//===- BranchedCodeExtractor.cpp - Pull code region into a new function ----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,31 +13,30 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/FunctionUtils.h"
+#include "BranchedCodeExtractor.h"
+#include "BranchedLoopExtractor.h"
+
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
 #include "llvm/Intrinsics.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/Analysis/Dominators.h"
-#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/StringExtras.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/FunctionUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
-#include "BranchedLoopExtractor.h"
-
 #include <algorithm>
 #include <set>
+#include <iostream>
 
 using namespace llvm;
 
@@ -48,7 +47,7 @@ using namespace llvm;
 static cl::opt<bool>
 AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
-#include <iostream>
+
 using namespace std;
 
 namespace
