@@ -31,11 +31,12 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/cloog/isl/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 
-CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include -I../frontend
-CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../frontend $(LLVMINC) $(LLVMDEF)
+CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include
+CXXFLAGS = -g -fPIC -O$(OPT) -I../include $(LLVMINC) $(LLVMDEF)
 
 OBJECTS = \
 	entry compile launch finish timing io elf execute bind nvopencc \
+	BranchedLoopExtractor BranchedCodeExtractor \
 	BlockGenerator ClastExpCodegen ClastStmtCodeGen CodeGeneration
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
@@ -125,6 +126,16 @@ NUM_SYMBOLS ?= 1
 32/nvopencc.o: nvopencc.cpp
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/nvopencc.o: nvopencc.cpp
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
+
+32/BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
+	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
+64/BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
+	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
+
+32/BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/BlockGenerator.o: BlockGenerator.cpp

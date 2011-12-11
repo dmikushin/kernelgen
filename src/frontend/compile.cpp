@@ -41,7 +41,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SetVector.h"
 
-#include "BranchedLoopExtractor.h"
+#include "runtime/BranchedLoopExtractor.h"
 #include "runtime/CodeGeneration.h"
 #include "polly/LinkAllPasses.h"
 
