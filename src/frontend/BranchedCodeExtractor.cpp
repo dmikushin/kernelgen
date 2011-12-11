@@ -265,18 +265,11 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 	     ce = BlocksToExtract.end(); ci != ce; ++ci) {
 		BasicBlock *BB = *ci;
 
-		for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I)
-		{
+		for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 			// If a used value is defined outside the region, it's an input.  If an
 			// instruction is used outside the region, it's an output.
-			
-			// Let all integer inputs to go first (to simplify
-			// generated kernels identification).
 			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
-				if (definedInCaller(*O) && (*O)->getType()->isIntegerTy())
-					inputs.insert(*O);
-			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
-				if (definedInCaller(*O) && !(*O)->getType()->isIntegerTy())
+				if (definedInCaller(*O))
 					inputs.insert(*O);
 
 			// Consider uses of this instruction (outputs).
@@ -316,6 +309,9 @@ Function *BranchedCodeExtractor::constructFunction(const Values &inputs,
 	std::vector<Type*> paramTy;
 
 	// Add the types of the input values to the function's argument list
+	if(AggregateArgs)
+		paramTy.push_back(Type::getInt64Ty(header->getContext()));
+		
 	for (Values::const_iterator i = inputs.begin(),
 	     e = inputs.end(); i != e; ++i) {
 		const Value *value = *i;
@@ -343,9 +339,9 @@ Function *BranchedCodeExtractor::constructFunction(const Values &inputs,
 
 	//Aggregate args types into struct type
 
-	if (AggregateArgs && (inputs.size() + outputs.size() > 0)) {
-		PointerType *StructPtr =
-		    PointerType::getUnqual(StructType::get(M->getContext(), paramTy));
+	if (AggregateArgs) {
+		//PointerType *StructPtr =
+		//    PointerType::getUnqual(StructType::get(M->getContext(), paramTy));
 		paramTy.clear();
 		//paramTy.push_back(StructPtr);
 		paramTy.push_back(PointerType::getInt32PtrTy(header->getContext()));
@@ -489,8 +485,8 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 
 		// Aggregate args types into struct type
 		PointerType *StructPtrType;
-		if (inputs.size() + outputs.size() > 0)
-			StructPtrType = PointerType::getUnqual(StructType::get(header->getContext(), paramTy,true));
+		//if (inputs.size() + outputs.size() > 0)
+		StructPtrType = PointerType::getUnqual(StructType::get(header->getContext(), paramTy,true));
 
 		structArg = CastInst::CreatePointerCast(AI,StructPtrType,"structArg", FuncRoot->getTerminator());
 		//structArg = new BitCastInst(AI, StructPtrType,"structArg", FuncRoot->getTerminator());
@@ -662,17 +658,9 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 	LLVMContext &Context = LoopFunc->getContext();
 
 	// Add inputs as params, or to be filled into the struct
-	Constant* size = ConstantInt::get(Type::getInt64Ty(Context), 0);
 	for (Values::iterator i = inputs.begin(), e = inputs.end(); i != e; ++i)
 		if (AggregateArgs)
-		{
 			StructValues.push_back(*i);
-
-			// Calculate the total size of integer inputs.
-			Type* type = (*i)->getType();
-			if (type->isIntegerTy())
-				size = ConstantExpr::getAdd(size, ConstantExpr::getSizeOf(type));
-		}
 		else
 			params.push_back(*i);
 
@@ -699,11 +687,16 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 		
 		// Add size of stuct as the first field.
 		ArgTypes.push_back(Type::getInt64Ty(Context));
+		Constant* size = ConstantExpr::getSizeOf(Type::getInt64Ty(Context));
 		for (Values::iterator v = StructValues.begin(),
 			ve = StructValues.end(); v != ve; ++v)
-			ArgTypes.push_back((*v)->getType());
+		{
+			Type* type = (*v)->getType();
+			ArgTypes.push_back(type);
+			size = ConstantExpr::getAdd(size, ConstantExpr::getSizeOf(type));
+		}
 
-		// Allocate memory for struct at the beginning of function, which contains the Loop
+		// Allocate memoty for struct at the beginning of function, which contains the Loop
 		Type *StructArgTy = StructType::get(Context, ArgTypes, true);
 		Struct = new AllocaInst(StructArgTy, 0, "structArg_ptr",
 			callAndBranchBlock->getParent()->begin()->begin());
@@ -718,6 +711,11 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 			// Get address of the first field in struct.
 			GetElementPtrInst *GEP = GetElementPtrInst::Create(
 				Struct, Idx, "", callAndBranchBlock);
+
+			// Create a global variable with this constant.
+			/*GlobalVariable* GV = new GlobalVariable(
+				*LoopFunc->getParent(), size->getType(),
+				true, GlobalValue::PrivateLinkage, size, "size", 0, false);*/
 
 			// Store to that address
 			StoreInst *SI = new StoreInst(size, GEP, "structSize", callAndBranchBlock);
@@ -968,7 +966,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 			assert(BlocksToExtract.count(*PI) &&
 			       "No blocks in this region may have entries from outside the region"
 			       " except for the first block!"); // make assertion if predesesor is not in the region
-
+   
 
 	// If we have to split PHI nodes or the entry block, do so now.
 	severSplitPHINodes(header);
@@ -1007,9 +1005,9 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	OriginalLoopBlocks.insert(BlocksToExtract.begin(), BlocksToExtract.end());
 
 
-	Function *oldFunction = header->getParent();
-
-	////////////////////////////////////////////////////////////////////////////////
+   Function *oldFunction = header->getParent();
+   
+    ////////////////////////////////////////////////////////////////////////////////
 	// This takes place of the original loop                                      //
 	////////////////////////////////////////////////////////////////////////////////
 	BasicBlock *loadAndSwitchExitBlock = BasicBlock::Create(header->getContext(), //
@@ -1021,10 +1019,11 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	                                 loadAndSwitchExitBlock);                     //
 	////////////////////////////////////////////////////////////////////////////////
 
-	// Construct new function based on inputs/outputs & add allocas for all defs.
+    // Construct new function based on inputs/outputs & add allocas for all defs.
 	Function *newFunction = constructFunction(inputs, outputs, header,
 	                        oldFunction,
 	                        oldFunction->getParent());
+							
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Rename Blocks
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1103,8 +1102,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	updatePhiNodes( outputs, OutputsToLoadInstMap, loadAndSwitchExitBlock, ExitBlocks);
 
 
-	DT->DT->recalculate(*oldFunction);
-	DT->DT->recalculate(*newFunction);
+	//DT->DT->recalculate(*newFunction);
 	//cerr << "NEW FUNCTION: " << *newFunction;
 	//  verifyFunction(*newFunction);
 
@@ -1113,9 +1111,11 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 
 	DEBUG(if (verifyFunction(*newFunction))
 	      report_fatal_error("verifyFunction failed!"));
+		  
+	assert(!verifyFunction(*newFunction));
 
-	if (verifyFunction(*newFunction))
-		cout << "verifyFunction failed!";
+	//if (verifyFunction(*newFunction))
+		//cout << "verifyFunction failed!";
 	return callLoopFuctionInst;
 }
 
@@ -1125,6 +1125,11 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 CallInst* llvm::BranchedExtractLoop(DominatorTree &DT, Loop *L, bool AggregateArgs)
 {
 	return BranchedCodeExtractor(&DT, AggregateArgs).ExtractCodeRegion(L->getBlocks());
+}
+CallInst* llvm::BranchedExtractBlocks(DominatorTree &DT, 
+                 std::vector<BasicBlock *> BlocksToExtract, bool AggregateArgs)
+{
+	return BranchedCodeExtractor(&DT, AggregateArgs).ExtractCodeRegion(BlocksToExtract);
 }
 
 
