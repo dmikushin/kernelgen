@@ -364,7 +364,7 @@ void ClastStmtCodeGen::computeLaunchParameters(std::vector<Value*> & LaunchParam
 				Value * UpperBound = ExpGen.codegen(for_loop->UB,TD->getIntPtrType(Builder.getContext()));
 				Value * Sub = Builder.CreateSub(UpperBound,LowerBound);
 				Value * IterationsCount = Builder.CreateAdd(Sub, ConstantInt::get(TD->getIntPtrType(Builder.getContext()), 1),string("IterationsCount.") + dimensions[dimensions.size() - i - 1] );
-				LaunchParameters.insert(LaunchParameters.begin(),Sub);
+				LaunchParameters.insert(LaunchParameters.begin(),IterationsCount);
 			} else
 				LaunchParameters.insert(LaunchParameters.begin(),
 				                        ConstantInt::get(TD->getIntPtrType(Builder.getContext()), 1));
