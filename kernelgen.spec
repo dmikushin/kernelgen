@@ -18,7 +18,7 @@
 %define debug 1
 
 # Rebuild everything or only kernelgen
-%define fullrepack 0
+%define fullrepack 1
 
 # The number of parallel compilation jobs
 %define njobs 24
@@ -44,6 +44,7 @@ Patch3:		gcc.patch
 Patch4:		gcc.opencl.patch
 Patch5:		dragonegg.opencl.patch
 Patch6:		dragonegg.ptx.patch
+Patch7: 	nvopencc.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -93,6 +94,7 @@ tar -xf $RPM_SOURCE_DIR/kernelgen-r544.tar.gz
 %patch4 -p1
 %patch5 -p1
 %patch6 -p1
+%patch7 -p1
 %endif
 
 
