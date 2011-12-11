@@ -24,7 +24,6 @@
 #include "llvm/Instructions.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/Analysis/Passes.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/Host.h"
@@ -33,7 +32,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
@@ -42,8 +40,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/FunctionUtils.h"
 
-#include "polly/LinkAllPasses.h"
 #include "CodeGeneration.h"
+#include "pollygen.h"
 
 #include "io.h"
 #include "util.h"
@@ -54,52 +52,14 @@
 #include <fstream>
 #include <list>
 
+#include "polly/LinkAllPasses.h"
+
 using namespace util::io;
 using namespace llvm;
 using namespace polly;
 using namespace std;
 
 static auto_ptr<TargetMachine> mcpu[KERNELGEN_RUNMODE_COUNT];
-
-static PassManager getPollyPassManager(Module* m)
-{
-	PassManager polly;
-	PassRegistry &Registry = *PassRegistry::getPassRegistry();
-	initializeCore(Registry);
-	initializeScalarOpts(Registry);
-	initializeIPO(Registry);
-	initializeAnalysis(Registry);
-	initializeIPA(Registry);
-	initializeTransformUtils(Registry);
-	initializeInstCombine(Registry);
-	initializeInstrumentation(Registry);
-	initializeTarget(Registry);
-
-	polly.add(new TargetData(m));
-	polly.add(createBasicAliasAnalysisPass());	// -basicaa
-	polly.add(createPromoteMemoryToRegisterPass());	// -mem2reg
-	polly.add(createCFGSimplificationPass());	// -simplifycfg
-	polly.add(createInstructionCombiningPass());	// -instcombine
-	polly.add(createTailCallEliminationPass());	// -tailcallelim
-	polly.add(createLoopSimplifyPass());		// -loop-simplify
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createLoopRotatePass());		// -loop-rotate
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createLoopUnswitchPass());		// -loop-unswitch
-	polly.add(createInstructionCombiningPass());	// -instcombine
-	polly.add(createLoopSimplifyPass());		// -loop-simplify
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createIndVarSimplifyPass());		// -indvars
-	polly.add(createLoopDeletionPass());		// -loop-deletion
-	polly.add(createInstructionCombiningPass());	// -instcombine		
-	polly.add(createCodePreperationPass());		// -polly-prepare
-	polly.add(createRegionSimplifyPass());		// -polly-region-simplify
-	polly.add(createIndVarSimplifyPass());		// -indvars
-	polly.add(createBasicAliasAnalysisPass());	// -basicaa
-	polly.add(createScheduleOptimizerPass());	// -polly-optimize-isl
-
-	return polly;
-}
 
 char* kernelgen::runtime::compile(
 	int runmode, kernel_t* kernel, Module* module)
@@ -127,12 +87,12 @@ char* kernelgen::runtime::compile(
 	{
 		std::auto_ptr<Module> m_clone;
 		m_clone.reset(CloneModule(m));
-		PassManager polly = getPollyPassManager(m_clone.get());
+		PassManager polly = pollygen(m_clone.get());
 		polly.run(*m_clone.get());
 		m_clone.get()->dump();
 	}
 
-	PassManager polly = getPollyPassManager(m);
+	PassManager polly = pollygen(m);
 	
 	// Emit target assembly and binary image, depending
 	// on runmode.

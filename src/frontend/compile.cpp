@@ -163,6 +163,20 @@ int compile(list<string> args, list<string> kgen_args,
 	
 	//m1.get()->dump();
 
+	// Dump result of polly passes without codegen, if requested
+	// for testing purposes.
+	/*char* dump_polly = getenv("kernelgen_dump_polly");
+	if (dump_polly)
+	{
+		std::auto_ptr<Module> m_clone;
+		m_clone.reset(CloneModule(m));
+		PassManager polly = pollygen(m_clone.get());
+		polly.run(*m_clone.get());
+		m_clone.get()->dump();
+	}
+
+	PassManager polly = pollygen(m);*/
+
 	//
 	// 4) Inline calls and extract loops into new functions.
 	//
@@ -209,6 +223,15 @@ int compile(list<string> args, list<string> kgen_args,
                 kernelgen::set_flags(0);
 		manager.run(*m2.get());
 	}
+
+			// Apply the Polly codegen for native target.
+//			polly.add(polly::createCodeGenerationPass()); // -polly-codegen
+//			polly.run(*m);
+
+			// Dump result of polly passes with codegen, if requested
+			// for testing purposes.
+//			char* dump_pollygen = getenv("kernelgen_dump_pollygen");
+//			if (dump_pollygen) m->dump();
 
 	//m2.get()->dump();
 	
