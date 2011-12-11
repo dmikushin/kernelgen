@@ -217,7 +217,7 @@ int kernelgen_launch(char* entry, int* args)
 					{
 						if (verbose)
 							cout << "Kernel " << kernel->name <<
-								" requested loop kernel call " << endl;
+								" requested loop kernel call " << (void*)callback.name << endl;
 
 						// TODO: handle loop call.
 
@@ -225,12 +225,22 @@ int kernelgen_launch(char* entry, int* args)
 					}
 					case KERNELGEN_STATE_HOSTCALL :
 					{
+						char* name = (char*)malloc(callback.szname);
+						err = cuMemcpyDtoHAsync(
+							name, callback.name, callback.szname,
+							kernel->target[runmode].monitor_kernel_stream);
+						if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
+						err = cuStreamSynchronize(
+							kernel->target[runmode].monitor_kernel_stream);
+						if (err) THROW("Error in cuStreamSynchronize " << err);
 						if (verbose)
 							cout << "Kernel " << kernel->name <<
-								" requested host function call " << endl;
+								" requested host function call " << name << endl;
 					
 						// TODO: handle host call
 
+
+						free(name);
 						break;
 					}
 					default :

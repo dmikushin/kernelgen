@@ -73,6 +73,12 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 		}
 		nvopencc_args.push_back("-CG:prec_div=0");
 		nvopencc_args.push_back("-CG:prec_sqrt=0");
+
+		// Since the main kernel may need to pass its data to other
+		// kernels or host, all symbols must be globally available.
+		if (name == "__kernelgen_main")
+			nvopencc_args.push_back("-CG:auto_as_static=0");
+
 		nvopencc_args.push_back(tmp1.getFilename());
 		nvopencc_args.push_back("-o");
 		nvopencc_args.push_back(tmp2.getFilename());

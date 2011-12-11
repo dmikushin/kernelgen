@@ -270,7 +270,7 @@ char* kernelgen::runtime::compile(
 			Type* int32Ty = Type::getInt32Ty(context);
 			std::vector<CallInst*> old_calls;
 			Function* hostcall = Function::Create(
-				TypeBuilder<void(types::i<8>*, types::i<32>*), true>::get(context),
+				TypeBuilder<void(types::i<8>*, types::i<64>, types::i<32>*), true>::get(context),
 				GlobalValue::ExternalLinkage, "kernelgen_hostcall", m);
 
 			// Vector of wrapper functions considered for inclusion
@@ -368,8 +368,11 @@ char* kernelgen::runtime::compile(
 					GetElementPtrInst* namePtr =
 						GetElementPtrInst::Create(nameAlloc, Idx, "", call);
 
-					// Insert extra argument - the pointer to the
-					// original function string name.
+					// Insert the size of the original function string name.
+					call_args.insert(call_args.begin(),
+						ConstantExpr::getSizeOf(nameTy));
+
+					// Insert the pointer to the original function string name.
 					call_args.insert(call_args.begin(), namePtr);
 
 					// Create new function call with new call arguments
@@ -479,7 +482,7 @@ char* kernelgen::runtime::compile(
 			// underlying string.
 			stream.flush();
 
-			//cout << bin_string;
+			cout << bin_string;
 
 			return nvopencc(bin_string, kernel->name);
 

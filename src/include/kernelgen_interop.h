@@ -54,6 +54,7 @@ struct kernelgen_callback_t
 	int lock;
 	int state;
 	unsigned char* name;
+	int szname;
 	int* arg;
 };
 
