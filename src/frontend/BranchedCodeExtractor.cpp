@@ -28,6 +28,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
@@ -490,10 +491,11 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 		// Aggregate args types into struct type
 		PointerType *StructPtrType;
 		if (inputs.size() + outputs.size() > 0)
-			StructPtrType = PointerType::getUnqual(StructType::get(header->getContext(), paramTy,true));
+			StructPtrType = PointerType::getUnqual(
+				StructType::get(header->getContext(), paramTy, false /* isPacked */));
 
-		structArg = CastInst::CreatePointerCast(AI,StructPtrType,"structArg", FuncRoot->getTerminator());
-		//structArg = new BitCastInst(AI, StructPtrType,"structArg", FuncRoot->getTerminator());
+		structArg = CastInst::CreatePointerCast(AI, StructPtrType, "",
+			FuncRoot->getTerminator());
 	}
 	
 	// Rewrite all users of the inputs in the cloned region to use the
@@ -661,8 +663,9 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 
 	LLVMContext &Context = LoopFunc->getContext();
 
-	// Add inputs as params, or to be filled into the struct
-	Constant* size = ConstantInt::get(Type::getInt64Ty(Context), 0);
+	// Add inputs as params, or to be filled into the struct.
+	// Also calculate the number of integer fields.
+	unsigned int numints = 0;
 	for (Values::iterator i = inputs.begin(), e = inputs.end(); i != e; ++i)
 		if (AggregateArgs)
 		{
@@ -670,12 +673,11 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 
 			// Calculate the total size of integer inputs.
 			Type* type = (*i)->getType();
-			if (type->isIntegerTy())
-				size = ConstantExpr::getAdd(size, ConstantExpr::getSizeOf(type));
+			if (type->isIntegerTy()) numints++;
 		}
 		else
 			params.push_back(*i);
-
+	
 	// Create allocas for the outputs
 	for (Values::iterator i = outputs.begin(), e = outputs.end(); i != e; ++i) {
 		if (AggregateArgs) {
@@ -704,9 +706,15 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 			ArgTypes.push_back((*v)->getType());
 
 		// Allocate memory for struct at the beginning of function, which contains the Loop
-		Type *StructArgTy = StructType::get(Context, ArgTypes, true);
+		StructType *StructArgTy = StructType::get(Context, ArgTypes, false /* isPacked */);
 		Struct = new AllocaInst(StructArgTy, 0, "structArg_ptr",
 			callAndBranchBlock->getParent()->begin()->begin());
+		
+		// Initially, fill struct with zeros.
+		IRBuilder<> Builder(Struct);
+		CallInst* MI = Builder.CreateMemSet(Struct,
+			Constant::getNullValue(Type::getInt8Ty(Context)),
+			ConstantExpr::getSizeOf(StructArgTy), 1);
 
 		// Load struct size into the first field.
 		{
@@ -720,6 +728,13 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 				Struct, Idx, "", callAndBranchBlock);
 
 			// Store to that address
+			Constant* size = 
+				Constant::getNullValue(Type::getInt64Ty(Context));;
+			if (numints)
+				size = ConstantExpr::getAdd(size, ConstantExpr::getAdd(
+					ConstantExpr::getOffsetOf(StructArgTy, numints),
+					ConstantExpr::getSizeOf(ArgTypes[numints - 1])));
+
 			StoreInst *SI = new StoreInst(size, GEP, "structSize", callAndBranchBlock);
 		}
 		
