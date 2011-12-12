@@ -62,9 +62,13 @@ __device__ int kernelgen_launch(unsigned char* name, unsigned int* args)
 	callback->state = KERNELGEN_STATE_LOOPCALL;
 	callback->name = name;
 	callback->arg = args;
+	__iAtomicCAS(&callback->lock, 0, 1);
+	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 
-	// FIXME: Currently, not launching any other kernels.
-	return -1;
+	// The launch status is returned through the
+	// state value. If it is -1, then serial version
+	// of kernel is executed in the main thread.
+	return callback->state;
 }
 
 __device__ void kernelgen_finish()

@@ -273,9 +273,8 @@ char* kernelgen::runtime::compile(
 				TypeBuilder<void(types::i<8>*, types::i<64>, types::i<32>*), true>::get(context),
 				GlobalValue::ExternalLinkage, "kernelgen_hostcall", m);
 
-			// Vector of wrapper functions considered for inclusion
-			// into host module.
-			map<Function*, string> funcs;
+			// Wrap host calls in the kernel code.
+			vector<CallInst*> erase_calls;
 			Function* f = m->getFunction(kernel->name);
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++)
@@ -307,111 +306,119 @@ char* kernelgen::runtime::compile(
 					if (verbose)
 						cout << "hostcall: " << callee->getName().data() << endl;
 
-					// Extract call into separate basic block.
-					BasicBlock* bbcall = SplitBlock(bb, call, codegenPass);
-					if (bbcall->getInstList().size() > 1)
+					// Locate entire hostcall in the native code.
+					void* host_func = (void*)dlsym(NULL, callee->getName().data());
+					if (!host_func) THROW("Cannot dlsym " << dlerror());
+
+					// Fill the arguments types structure.
+					// Start with the pointer to hold the aggregated
+					// arguments structure itself.
+					std::vector<Type*> ArgTypes;
+					ArgTypes.push_back(Type::getInt8PtrTy(context));
+					for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
+						ArgTypes.push_back(call->getArgOperand(i)->getType());
+
+					// Lastly, add the type of return value, if not void.
+					Type* retTy = callee->getReturnType();
+					if (!retTy->isVoidTy())
+						ArgTypes.push_back(retTy);
+
+					// Allocate memory for the struct.
+					StructType *StructArgTy = StructType::get(
+						context, ArgTypes, false /* isPacked */);
+					AllocaInst* Struct = new AllocaInst(StructArgTy, 0, "", call);
+		
+					// Initially, fill struct with zeros.
+					IRBuilder<> Builder(Struct);
+					CallInst* MI = Builder.CreateMemSet(Struct,
+						Constant::getNullValue(Type::getInt8Ty(context)),
+						ConstantExpr::getSizeOf(StructArgTy), 1);
+					
+					// Store the struct type itself
 					{
-						BasicBlock::iterator start = bbcall->begin();
-						start++;
-						SplitBlock(bbcall, start, codegenPass);
+						// Generate index.
+						Value *Idx[2];
+						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+						Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
+
+						// Get address of "inputs[i]" in struct
+						GetElementPtrInst *GEP = GetElementPtrInst::Create(
+							Struct, Idx, "", call);
+
+						// Store to that address.
+						StructType *StructArgTy = StructType::get(
+							context, ArgTypes, false /* isPacked */);
+						StoreInst *SI = new StoreInst(ConstantExpr::getIntToPtr(
+							ConstantInt::get(Type::getInt64Ty(context),
+							(uint64_t)StructArgTy), Type::getInt8PtrTy(context)),
+							GEP, "", call);
 					}
 
-					// Extract basic block with call into function.
-					Function* func = ExtractBasicBlock(bbcall, true);
-					funcs[func] = callee->getName();
+				    	// Store input values to arguments struct
+				    	// together with their types.
+					for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
+					{
+						// Generate index.
+						Value *Idx[2];
+						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+						Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 1);
 
-					// Stop processing the current block, which is finished.
-					break;
-				}
+						// Get address of "inputs[i]" in struct
+						GetElementPtrInst *GEP = GetElementPtrInst::Create(
+							Struct, Idx, "", call);
 
-			// Replace newly inserted function calls with kernelgen_hostcall.
-			vector<GlobalValue*> host_calls;
-			vector<CallInst*> erase_calls;
-			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-				for (BasicBlock::iterator ii = bb->begin(); ii != bb->end(); ii++)
-				{
-					// Check if instruction in focus is a call.
-					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-					if (!call) continue;
+						// Store to that address.
+						StoreInst *SI = new StoreInst(call->getArgOperand(i), GEP, "", call);
+					}
 
-					// Check if function is called (needs -instcombine pass).
-					Function* callee = call->getCalledFunction();
-					if (!callee) continue;							
-					if (funcs.find(callee) == funcs.end()) continue;
-
-					// Start forming new function call argument list
-					// with aggregated struct pointer.
+					// Store pointer to the host call function entry point.
 					SmallVector<Value*, 16> call_args;
-					if (call->getNumArgOperands())
-					{
-						Instruction* cast = CastInst::CreatePointerCast(
-							call->getArgOperand(0), PointerType::getInt32PtrTy(context),
-							"cast", call);
-						call_args.push_back(cast);
-					}
-					else
-						call_args.push_back(Constant::getNullValue(
-							Type::getInt32PtrTy(context)));
-			
-					// Create a constant array holding original called
-					// function name.
-					Constant* name = ConstantArray::get(
-						context, funcs[callee], true);
-			
-					// Create and initialize the memory buffer for name.
-					ArrayType* nameTy = dyn_cast<ArrayType>(name->getType());
-					AllocaInst* nameAlloc = new AllocaInst(nameTy, "", call);
-					StoreInst* nameInit = new StoreInst(name, nameAlloc, "", call);
-					Value* Idx[2];
-					Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-					Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
-					GetElementPtrInst* namePtr =
-						GetElementPtrInst::Create(nameAlloc, Idx, "", call);
+					call_args.push_back(ConstantExpr::getIntToPtr(
+						ConstantInt::get(Type::getInt64Ty(context),
+						(uint64_t)host_func), Type::getInt8PtrTy(context)));
+					
+					// Store the sizeof structure.
+					call_args.push_back(ConstantExpr::getSizeOf(StructArgTy));
 
-					// Insert the size of the original function string name.
-					call_args.insert(call_args.begin(),
-						ConstantExpr::getSizeOf(nameTy));
-
-					// Insert the pointer to the original function string name.
-					call_args.insert(call_args.begin(), namePtr);
-
-					// Create new function call with new call arguments
-					// and copy old call properties.
-					CallInst* newcall = CallInst::Create(
-						hostcall, call_args, "", call);
+					// Store pointer to aggregated arguments struct
+					// to the new call args list.
+					Instruction* IntPtrToStruct = CastInst::CreatePointerCast(
+						Struct, PointerType::getInt32PtrTy(context), "", call);
+					call_args.push_back(IntPtrToStruct);
+		
+					// Emit call to kernelgen_hostcall.
+					CallInst *newcall = CallInst::Create(hostcall, call_args, "", call);
 					newcall->setCallingConv(call->getCallingConv());
 					newcall->setAttributes(call->getAttributes());
 					newcall->setDebugLoc(call->getDebugLoc());
 
-					// Replace function from device module and add it
-					// to host module, if it is not already there.					
-					call->replaceAllUsesWith(newcall);
+					// Replace function from device module.
+					if (retTy->isVoidTy())
+						call->replaceAllUsesWith(newcall);
+					else
+					{
+						// Generate index.
+						Value *Idx[2];
+						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+						Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
+							call->getNumArgOperands() + 1);
+
+						GetElementPtrInst *GEP = GetElementPtrInst::Create(
+							Struct, Idx, "", call);
+
+						LoadInst* LI = new LoadInst(GEP, "", call);
+						call->replaceAllUsesWith(LI);
+					}
 					erase_calls.push_back(call);
 					callee->setVisibility(GlobalValue::DefaultVisibility);
 					callee->setLinkage(GlobalValue::ExternalLinkage);
-					callee->setName("__kernelgen_" + funcs[callee]);
-					host_calls.push_back(callee);
 				}
 
 			for (vector<CallInst*>::iterator i = erase_calls.begin(),
 				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
 
-			Module* hostm = CloneModule(m);
-			hostm->getFunction(kernel->name)->eraseFromParent();
-
-			// Remove host wrappers functions from device module.
-			{
-				PassManager manager;
-				manager.add(new TargetData(m));
-				manager.add(createGVExtractionPass(host_calls, true));
-				manager.add(createGlobalDCEPass());
-				manager.add(createStripDeadDebugInfoPass());
-				manager.add(createStripDeadPrototypesPass());
-				manager.run(*m);
-			}
-			
-			// Optimize both device and host modules.
+			// Optimize module.
 			{
 				PassManager manager;
 				manager.add(createLowerSetJmpPass());
@@ -421,14 +428,9 @@ char* kernelgen::runtime::compile(
 				builder.DisableSimplifyLibCalls = true;
 				builder.populateModulePassManager(manager);
 				manager.run(*m);
-				manager.run(*hostm);
 			}
 
 			m->dump();
-			//hostm->dump();
-			
-			// Compile host code, using native target compiler.
-			compile(KERNELGEN_RUNMODE_NATIVE, kernel, hostm);
 
 			// Create target machine for CUDA target and get its target data.
 			if (!mcpu[KERNELGEN_RUNMODE_CUDA].get())

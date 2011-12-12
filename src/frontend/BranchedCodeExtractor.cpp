@@ -697,15 +697,16 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 	
 	if (AggregateArgs && (inputs.size() + outputs.size() > 0))
 	{
-		std::vector<Type*> ArgTypes;
-		
+		// Fill the arguments types structure.
 		// Add size of stuct as the first field.
+		std::vector<Type*> ArgTypes;
 		ArgTypes.push_back(Type::getInt64Ty(Context));
 		for (Values::iterator v = StructValues.begin(),
 			ve = StructValues.end(); v != ve; ++v)
 			ArgTypes.push_back((*v)->getType());
 
-		// Allocate memory for struct at the beginning of function, which contains the Loop
+		// Allocate memory for the struct at the beginning of
+		// function, which contains the Loop.
 		StructType *StructArgTy = StructType::get(Context, ArgTypes, false /* isPacked */);
 		Struct = new AllocaInst(StructArgTy, 0, "structArg_ptr",
 			callAndBranchBlock->getParent()->begin()->begin());
@@ -738,7 +739,7 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 			StoreInst *SI = new StoreInst(size, GEP, "structSize", callAndBranchBlock);
 		}
 		
-	    	// Store Inputs to Struct
+	    	// Store input values to arguments struct.
 		for (unsigned i = 0, e = inputs.size(); i != e; ++i)
 		{
 			// Generate index.
@@ -756,8 +757,11 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 				callAndBranchBlock);
 		}
 	}
-	Instruction * IntPtrToStruct = CastInst::CreatePointerCast(Struct, PointerType::getInt32PtrTy(Context),
-		                                                           "IntPtrToStruct",callAndBranchBlock);
+
+	// Store pointer to aggregated arguments struct
+	// to the new call args list.
+	Instruction * IntPtrToStruct = CastInst::CreatePointerCast(
+		Struct, PointerType::getInt32PtrTy(Context), "", callAndBranchBlock);
 	params.push_back(IntPtrToStruct);
 		
 	// Emit the call to the function
