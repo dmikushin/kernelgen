@@ -42,10 +42,11 @@
 #include "llvm/ADT/SetVector.h"
 
 #include "runtime/BranchedLoopExtractor.h"
-#include "runtime/CodeGeneration.h"
-#include "polly/LinkAllPasses.h"
+//#include "runtime/CodeGeneration.h"
+#include "runtime/pollygen.h"
 
 using namespace kernelgen;
+using namespace kernelgen::runtime;
 using namespace llvm;
 using namespace std;
 using namespace util::elf;
@@ -153,90 +154,40 @@ int compile(list<string> args, list<string> kgen_args,
 	}
 
 	//
-	// 3) Record existing module functions.
+	// 3) Dump result of polly passes without codegen, if requested
+	// for testing purposes.
 	//
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
-	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(out);
-	auto_ptr<Module> m1;
-	m1.reset(ParseIR(buffer1, diag, context));
-	
-	//m1.get()->dump();
-
-	// Dump result of polly passes without codegen, if requested
-	// for testing purposes.
-	/*char* dump_polly = getenv("kernelgen_dump_polly");
+	char* dump_polly = getenv("kernelgen_dump_polly");
 	if (dump_polly)
 	{
-		std::auto_ptr<Module> m_clone;
-		m_clone.reset(CloneModule(m));
-		PassManager polly = pollygen(m_clone.get());
-		polly.run(*m_clone.get());
-		m_clone.get()->dump();
+		MemoryBuffer* buffer2 = MemoryBuffer::getMemBuffer(out);
+		auto_ptr<Module> m;
+		m.reset(ParseIR(buffer2, diag, context));
+		PassManager polly = pollygen(m.get(), 0, false);
+		polly.run(*m.get());
+		m.get()->dump();
 	}
-
-	PassManager polly = pollygen(m);*/
 
 	//
 	// 4) Inline calls and extract loops into new functions.
 	//
 	MemoryBuffer* buffer2 = MemoryBuffer::getMemBuffer(out);
-	auto_ptr<Module> m2;
-	m2.reset(ParseIR(buffer2, diag, context));
- 	{
-		PassManager manager;
-		PassRegistry &Registry = *PassRegistry::getPassRegistry();
-		initializeCore(Registry);
-		initializeScalarOpts(Registry);
-		initializeIPO(Registry);
-		initializeAnalysis(Registry);
-		initializeIPA(Registry);
-		initializeTransformUtils(Registry);
-		initializeInstCombine(Registry);
-		initializeInstrumentation(Registry);
-		initializeTarget(Registry);
+	auto_ptr<Module> m;
+	m.reset(ParseIR(buffer2, diag, context));
+	{
+		PassManager manager = pollygen(m.get(), 0);
+		manager.run(*m.get());
 
-		manager.add(new TargetData(m2.get()));
-		manager.add(createBasicAliasAnalysisPass());		// -basicaa
-		manager.add(createPromoteMemoryToRegisterPass());	// -mem2reg
-		manager.add(createCFGSimplificationPass());		// -simplifycfg
-		manager.add(createInstructionCombiningPass());		// -instcombine
-		manager.add(createTailCallEliminationPass());		// -tailcallelim
-		manager.add(createLoopSimplifyPass());			// -loop-simplify
-		manager.add(createLCSSAPass());				// -lcssa
-		manager.add(createLoopRotatePass());			// -loop-rotate
-		manager.add(createLCSSAPass());				// -lcssa
-		manager.add(createLoopUnswitchPass());			// -loop-unswitch
-		manager.add(createInstructionCombiningPass());		// -instcombine
-		manager.add(createLoopSimplifyPass());			// -loop-simplify
-		manager.add(createLCSSAPass());				// -lcssa
-		manager.add(createIndVarSimplifyPass());		// -indvars
-		manager.add(createLoopDeletionPass());			// -loop-deletion
-		manager.add(createInstructionCombiningPass());		// -instcombine
-		manager.add(createCodePreperationPass());		// -polly-prepare
-		manager.add(createRegionSimplifyPass());		// -polly-region-simplify
-		manager.add(createIndVarSimplifyPass());		// -indvars
-
-		manager.add(createBasicAliasAnalysisPass());		// -basicaa
-		manager.add(createScheduleOptimizerPass());		// -polly-optimize-isl
-		manager.add(kernelgen::createCodeGenerationPass());// -polly-codegen
-                kernelgen::set_flags(0);
-		manager.run(*m2.get());
+		// Dump result of polly passes with codegen, if requested
+		// for testing purposes.
+		char* dump_pollygen = getenv("kernelgen_dump_pollygen");
+		if (dump_pollygen) m->dump();
 	}
 
-			// Apply the Polly codegen for native target.
-//			polly.add(polly::createCodeGenerationPass()); // -polly-codegen
-//			polly.run(*m);
-
-			// Dump result of polly passes with codegen, if requested
-			// for testing purposes.
-//			char* dump_pollygen = getenv("kernelgen_dump_pollygen");
-//			if (dump_pollygen) m->dump();
-
-	//m2.get()->dump();
-	
 	//
-	// 6) Apply optimization passes to the resulting common
+	// 5) Apply optimization passes to the resulting common
 	// module.
 	//
 	{
@@ -247,18 +198,18 @@ int compile(list<string> args, list<string> kgen_args,
 		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
-		manager.run(*m2.get());
+		manager.run(*m.get());
 	}
 	
-	//m2.get()->dump();
+	m.get()->dump();
 
 	//
-	// 7) Embed the resulting module into object file.
+	// 6) Embed the resulting module into object file.
 	//
 	{
 		string ir_string;
 		raw_string_ostream ir(ir_string);
-		ir << (*m2.get());
+		ir << (*m.get());
 		celf e(tmp_output.getFilename(), output);
 		e.getSection(".data")->addSymbol(
 			"__kernelgen_" + string(input),

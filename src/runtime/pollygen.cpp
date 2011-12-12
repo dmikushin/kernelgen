@@ -26,12 +26,13 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Target/TargetData.h"
 
+#include "CodeGeneration.h"
+
 using namespace llvm;
 using namespace polly;
 
-PassManager kernelgen::runtime::pollygen(Module* m)
+PassManager kernelgen::runtime::pollygen(Module* m, unsigned int mode, bool codegen)
 {
-	PassManager polly;
 	PassRegistry &Registry = *PassRegistry::getPassRegistry();
 	initializeCore(Registry);
 	initializeScalarOpts(Registry);
@@ -43,29 +44,36 @@ PassManager kernelgen::runtime::pollygen(Module* m)
 	initializeInstrumentation(Registry);
 	initializeTarget(Registry);
 
-	polly.add(new TargetData(m));
-	polly.add(createBasicAliasAnalysisPass());	// -basicaa
-	polly.add(createPromoteMemoryToRegisterPass());	// -mem2reg
-	polly.add(createCFGSimplificationPass());	// -simplifycfg
-	polly.add(createInstructionCombiningPass());	// -instcombine
-	polly.add(createTailCallEliminationPass());	// -tailcallelim
-	polly.add(createLoopSimplifyPass());		// -loop-simplify
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createLoopRotatePass());		// -loop-rotate
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createLoopUnswitchPass());		// -loop-unswitch
-	polly.add(createInstructionCombiningPass());	// -instcombine
-	polly.add(createLoopSimplifyPass());		// -loop-simplify
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createIndVarSimplifyPass());		// -indvars
-	polly.add(createLoopDeletionPass());		// -loop-deletion
-	polly.add(createInstructionCombiningPass());	// -instcombine		
-	polly.add(createCodePreperationPass());		// -polly-prepare
-	polly.add(createRegionSimplifyPass());		// -polly-region-simplify
-	polly.add(createIndVarSimplifyPass());		// -indvars
-	polly.add(createBasicAliasAnalysisPass());	// -basicaa
-	polly.add(createScheduleOptimizerPass());	// -polly-optimize-isl
+	PassManager manager;
+	manager.add(new TargetData(m));
+	manager.add(createBasicAliasAnalysisPass());			// -basicaa
+	manager.add(createPromoteMemoryToRegisterPass());		// -mem2reg
+	manager.add(createCFGSimplificationPass());			// -simplifycfg
+	manager.add(createInstructionCombiningPass());			// -instcombine
+	manager.add(createTailCallEliminationPass());			// -tailcallelim
+	manager.add(createLoopSimplifyPass());				// -loop-simplify
+	manager.add(createLCSSAPass());					// -lcssa
+	manager.add(createLoopRotatePass());				// -loop-rotate
+	manager.add(createLCSSAPass());					// -lcssa
+	manager.add(createLoopUnswitchPass());				// -loop-unswitch
+	manager.add(createInstructionCombiningPass());			// -instcombine
+	manager.add(createLoopSimplifyPass());				// -loop-simplify
+	manager.add(createLCSSAPass());					// -lcssa
+	manager.add(createIndVarSimplifyPass());			// -indvars
+	manager.add(createLoopDeletionPass());				// -loop-deletion
+	manager.add(createInstructionCombiningPass());			// -instcombine
+	manager.add(createCodePreperationPass());			// -polly-prepare
+	manager.add(createRegionSimplifyPass());			// -polly-region-simplify
+	manager.add(createIndVarSimplifyPass());			// -indvars
+	manager.add(createBasicAliasAnalysisPass());			// -basicaa
+	manager.add(createScheduleOptimizerPass());			// -polly-optimize-isl
 
-	return polly;
+	if (codegen)
+	{
+		manager.add(kernelgen::createCodeGenerationPass());	// -polly-codegen
+		kernelgen::set_flags(0);
+	}
+
+	return manager;
 }
 

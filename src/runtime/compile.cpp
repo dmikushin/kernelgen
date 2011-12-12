@@ -87,12 +87,12 @@ char* kernelgen::runtime::compile(
 	{
 		std::auto_ptr<Module> m_clone;
 		m_clone.reset(CloneModule(m));
-		PassManager polly = pollygen(m_clone.get());
+		PassManager polly = pollygen(m_clone.get(), 0, false);
 		polly.run(*m_clone.get());
 		m_clone.get()->dump();
 	}
 
-	PassManager polly = pollygen(m);
+	PassManager polly = pollygen(m, 0);
 	
 	// Emit target assembly and binary image, depending
 	// on runmode.

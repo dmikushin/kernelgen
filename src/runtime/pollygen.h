@@ -29,7 +29,7 @@ using namespace llvm;
 
 namespace kernelgen { namespace runtime {
 
-	PassManager pollygen(Module* m);
+	PassManager pollygen(Module* m, unsigned int mode, bool codegen = true);
 
 }}
 
