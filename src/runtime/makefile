@@ -25,6 +25,7 @@ OPT ?= 0
 
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = \
+	-I/usr/lib64/libffi-3.0.9/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/tools/polly/include \
 	-I${HOME}/rpmbuild/BUILD/cloog/include \

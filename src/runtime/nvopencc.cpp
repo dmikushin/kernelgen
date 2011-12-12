@@ -113,6 +113,7 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 	{
 		string ptxas = "ptxas";
 		std::list<string> ptxas_args;
+		ptxas_args.push_back("-v");
 		ptxas_args.push_back("-arch=sm_21");
 		ptxas_args.push_back("-m64");
 		ptxas_args.push_back(tmp2.getFilename());

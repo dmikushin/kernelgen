@@ -311,9 +311,10 @@ char* kernelgen::runtime::compile(
 					if (!host_func) THROW("Cannot dlsym " << dlerror());
 
 					// Fill the arguments types structure.
-					// Start with the pointer to hold the aggregated
-					// arguments structure itself.
+					// First, place pointer to the function type.
+					// Second, place pointer to the structure itself.
 					std::vector<Type*> ArgTypes;
+					ArgTypes.push_back(Type::getInt8PtrTy(context));
 					ArgTypes.push_back(Type::getInt8PtrTy(context));
 					for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
 						ArgTypes.push_back(call->getArgOperand(i)->getType());
@@ -333,7 +334,26 @@ char* kernelgen::runtime::compile(
 					CallInst* MI = Builder.CreateMemSet(Struct,
 						Constant::getNullValue(Type::getInt8Ty(context)),
 						ConstantExpr::getSizeOf(StructArgTy), 1);
-					
+
+					// Store the function type.
+					{
+						// Generate index.
+						Value *Idx[2];
+						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+						Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
+
+						// Get address of "inputs[i]" in struct
+						GetElementPtrInst *GEP = GetElementPtrInst::Create(
+							Struct, Idx, "", call);
+
+						// Store to that address.
+						Type* type = callee->getFunctionType();
+						StoreInst *SI = new StoreInst(ConstantExpr::getIntToPtr(
+							ConstantInt::get(Type::getInt64Ty(context),
+							(uint64_t)type), Type::getInt8PtrTy(context)),
+							GEP, "", call);
+					}
+
 					// Store the struct type itself
 					{
 						// Generate index.
@@ -354,8 +374,7 @@ char* kernelgen::runtime::compile(
 							GEP, "", call);
 					}
 
-				    	// Store input values to arguments struct
-				    	// together with their types.
+				    	// Store input values to arguments struct.
 					for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
 					{
 						// Generate index.
