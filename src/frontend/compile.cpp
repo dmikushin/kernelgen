@@ -186,6 +186,8 @@ int compile(list<string> args, list<string> kgen_args,
 		if (dump_pollygen) m->dump();
 	}
 
+	m.get()->dump();
+
 	//
 	// 5) Apply optimization passes to the resulting common
 	// module.
@@ -201,7 +203,7 @@ int compile(list<string> args, list<string> kgen_args,
 		manager.run(*m.get());
 	}
 	
-	m.get()->dump();
+	//m.get()->dump();
 
 	//
 	// 6) Embed the resulting module into object file.

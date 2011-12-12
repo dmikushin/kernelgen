@@ -42,9 +42,9 @@ real, intent(inout) :: xy(nx, ny, nz)
 integer :: i, j, k
 real :: sincos_ijk
 
-do k = 1, nz
-  do j = 1, ny
-    do i = 1, nx
+do k = 1, 100
+  do j = 1, 100
+    do i = 1, 100
       xy(i, j, k) = sincos_ijk(x(i, j, k), y(i, j, k))
     enddo
   enddo
