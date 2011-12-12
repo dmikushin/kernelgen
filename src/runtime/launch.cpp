@@ -31,7 +31,8 @@ using namespace kernelgen::runtime;
 using namespace std;
 
 // Launch kernel from the specified source code address.
-int kernelgen_launch(char* entry, int* args)
+int kernelgen_launch(
+	char* entry, unsigned long long szarg, int* arg)
 {
 	kernel_t* kernel = (kernel_t*)entry;
 	
@@ -45,33 +46,23 @@ int kernelgen_launch(char* entry, int* args)
 	{
 		case KERNELGEN_RUNMODE_NATIVE :
 		{
-			int64_t size = *(int64_t*)args;
-			char* content = (char*)args + sizeof(int64_t);
-			mhash(td, content, size);
+			char* content = (char*)arg + sizeof(int64_t);
+			mhash(td, content, szarg);
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{
-			int64_t* size;
 			void* monitor_stream =
 				kernel->target[runmode].monitor_kernel_stream;
-			int err = cuMemAllocHost((void**)&size, sizeof(int64_t));
-			if (err) THROW("Error in cuMemAllocHost " << err); 
-			err = cuMemcpyDtoHAsync(size, args, sizeof(int64_t), monitor_stream);
-			if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
-			err = cuStreamSynchronize(monitor_stream);
-			if (err) THROW("Error in cuStreamSynchronize " << err);
 			char* content;
-			err = cuMemAllocHost((void**)&content, *size);
+			int err = cuMemAllocHost((void**)&content, szarg);
 			if (err) THROW("Error in cuMemAllocHost " << err);
-			cuMemcpyDtoHAsync(content, args + sizeof(int64_t), *size, monitor_stream);
+			cuMemcpyDtoHAsync(content, arg + sizeof(int64_t), szarg, monitor_stream);
 			if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
 			err = cuStreamSynchronize(monitor_stream);
 			if (err) THROW("Error in cuStreamSynchronize " << err);
-			mhash(td, content, *size);
+			mhash(td, content, szarg);
 			err = cuMemFreeHost(content);
-			if (err) THROW("Error in cuMemFreeHost " << err);
-			err = cuMemFreeHost(size);
 			if (err) THROW("Error in cuMemFreeHost " << err);
 			break;
 		}
@@ -119,7 +110,7 @@ int kernelgen_launch(char* entry, int* args)
 		{
 			kernel_func_t native_kernel_func =
 				(kernel_func_t)kernel_func;
-			native_kernel_func(args);
+			native_kernel_func(arg);
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA :
@@ -135,7 +126,7 @@ int kernelgen_launch(char* entry, int* args)
 					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 					size_t szshmem = 0;
-					void* kernel_func_args[] = { (void*)&args };
+					void* kernel_func_args[] = { (void*)&arg };
 					int err = cuLaunchKernel((void*)kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem,
@@ -176,7 +167,7 @@ int kernelgen_launch(char* entry, int* args)
 				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 				size_t szshmem = 0;
-				void* kernel_func_args[] = { (void*)&args };
+				void* kernel_func_args[] = { (void*)&arg };
 				int err = cuLaunchKernel((void*)kernel_func,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem,
@@ -225,22 +216,13 @@ int kernelgen_launch(char* entry, int* args)
 					}
 					case KERNELGEN_STATE_HOSTCALL :
 					{
-						char* name = (char*)malloc(callback.szname);
-						err = cuMemcpyDtoHAsync(
-							name, callback.name, callback.szname,
-							kernel->target[runmode].monitor_kernel_stream);
-						if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
-						err = cuStreamSynchronize(
-							kernel->target[runmode].monitor_kernel_stream);
-						if (err) THROW("Error in cuStreamSynchronize " << err);
 						if (verbose)
 							cout << "Kernel " << kernel->name <<
-								" requested host function call " << name << endl;
+								" requested host function call " << (void*)callback.name << endl;
 					
 						// TODO: handle host call
 
 
-						free(name);
 						break;
 					}
 					default :

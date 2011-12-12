@@ -187,7 +187,7 @@ int compile(list<string> args, list<string> kgen_args,
 	//
 	Type* int32Ty = Type::getInt32Ty(context);
 	Function* launch = Function::Create(
-		TypeBuilder<types::i<32>(types::i<8>*, types::i<32>*), true>::get(context),
+		TypeBuilder<types::i<32>(types::i<8>*, types::i<64>, types::i<32>*), true>::get(context),
 		GlobalValue::ExternalLinkage, "kernelgen_launch", m2.get());
 	for (Module::iterator f1 = m2.get()->begin(), fe1 = m2.get()->end(); f1 != fe1; f1++)
 	{
@@ -235,13 +235,6 @@ int compile(list<string> args, list<string> kgen_args,
 					if (!callee) continue;
 					if (callee->isDeclaration()) continue;
 					if (callee->getName() != func->getName()) continue;
-
-					// Start forming new function call argument list
-					// by copying the list of original function call.
-					int nargs = call->getNumArgOperands();
-					SmallVector<Value*, 16> call_args;
-					for (int i = 0; i < nargs; i++)
-						call_args.push_back(call->getArgOperand(i));
 					
 					// Create a constant array holding original called
 					// function name.
@@ -256,10 +249,23 @@ int compile(list<string> args, list<string> kgen_args,
 					Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
 					Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
 					GetElementPtrInst* namePtr = GetElementPtrInst::Create(nameAlloc, Idx, "", call);
-					
-					// Insert extra argument - the pointer to the
-					// original function string name.
-					call_args.insert(call_args.begin(), namePtr);
+
+					// Add pointer to the original function string name.
+					SmallVector<Value*, 16> call_args;
+					call_args.push_back(namePtr);
+
+					// Add size of the aggregated arguments structure.
+					{
+						BitCastInst* BC = new BitCastInst(
+							call->getArgOperand(0), Type::getInt64PtrTy(context),
+							"", call);
+
+						LoadInst* LI = new LoadInst(BC, "", call);
+						call_args.push_back(LI);
+					}	
+
+					// Add original aggregated structure argument.
+					call_args.push_back(call->getArgOperand(0));
 
 					// Create new function call with new call arguments
 					// and copy old call properties.

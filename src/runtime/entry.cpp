@@ -235,7 +235,7 @@ int main(int argc, char* argv[])
 				args.size = sizeof(int);
 				args.argc = argc;
 				args.argv = argv;
-				kernelgen_launch((char*)kernel, (int*)&args);
+				kernelgen_launch((char*)kernel, sizeof(int), (int*)&args);
 				return args.ret;
 			}
 			case KERNELGEN_RUNMODE_CUDA :
@@ -300,7 +300,7 @@ int main(int argc, char* argv[])
 				if (err) THROW("Error in cuMemAlloc " << err);
 				err = cuMemcpyHtoD(args_dev, &args_host, sizeof(args_t));
 				if (err) THROW("Error in cuMemcpyHtoD " << err);
-				kernelgen_launch((char*)kernel, (int*)args_dev);
+				kernelgen_launch((char*)kernel, sizeof(int), (int*)args_dev);
 				err = cuMemcpyDtoH(&args_host.ret, &args_dev->ret, sizeof(int));
 				if (err) THROW("Error in cuMemcpyDtoH " << err);
 				err = cuMemFree(args_dev);

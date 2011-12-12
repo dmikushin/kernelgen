@@ -36,7 +36,8 @@
 #define KERNELGEN_RUNMODE_OPENCL	2
 
 // Launch kernel from the specified source code address.
-extern "C" int kernelgen_launch(char* kernel, int* args);
+extern "C" int kernelgen_launch(
+	char* kernel, unsigned long long szarg, int* arg);
 
 // Finish kernel execution.
 extern "C" void kernelgen_finish();

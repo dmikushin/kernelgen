@@ -41,7 +41,7 @@ typedef struct { unsigned int x, y, z; } uint3;
 uint3 extern const threadIdx, blockIdx, blockDim, gridDim;
 int extern const warpSize;
 
-__device__ void kernelgen_hostcall(unsigned char* name, unsigned long long szname, unsigned int* args)
+__device__ void kernelgen_hostcall(unsigned char* name, unsigned long long szarg, unsigned int* arg)
 {
 	// Unblock the monitor kernel and wait for being
 	// unblocked by new instance of monitor.
@@ -49,19 +49,20 @@ __device__ void kernelgen_hostcall(unsigned char* name, unsigned long long sznam
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_HOSTCALL;
 	callback->name = name;
-	callback->szname = szname;
-	callback->arg = args;
+	callback->szarg = szarg;
+	callback->arg = arg;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
 
-__device__ int kernelgen_launch(unsigned char* name, unsigned int* args)
+__device__ int kernelgen_launch(unsigned char* name, unsigned long long szarg, unsigned int* arg)
 {
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_LOOPCALL;
 	callback->name = name;
-	callback->arg = args;
+	callback->szarg = szarg;
+	callback->arg = arg;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 
