@@ -21,44 +21,33 @@
 
 include ../makefile.in
 
-KGEN_PREFIX = /opt/kgen
-KGEN_BUILD_PREFIX = $(PREFIX)$(KGEN_PREFIX)
-LLVM_BIN_PREFIX = $(KGEN_PREFIX)/bin/
-GCC_BIN_PREFIX = $(KGEN_PREFIX)/bin/dragonegg-
-ifeq ($(ARCH), 64)
-DRAGONEGG_PREFIX = $(KGEN_PREFIX)/lib${ARCH}/
-else
-DRAGONEGG_PREFIX = $(KGEN_PREFIX)/lib/
-endif
+#
+# Red Hat notation, could be different, for example, for Debian
+#
+LIB32 ?= lib
+LIB64 ?= lib64
+
+PREFIX = $(ROOT)/opt/kernelgen
 CUDA_PREFIX = undefined
 ifeq ($(HAVE_CUDA), 1)
 CUDA_PREFIX = /opt/cuda
 endif
 
-.PHONY: g95xml-tree g95xml-refids libkernelgen kgen-embed
+all: frontend runtime/32/libruntime.a runtime/64/libruntime.a
 
-all: g95xml-tree g95xml-refids libkernelgen kgen-embed
+frontend: runtime/32/libruntime.a runtime/64/libruntime.a
+	cd frontend && $(MAKE)
 
-g95xml-tree:
-	cd g95xml_tree && $(MAKE)
+runtime/32/libruntime.a:
+	cd runtime && $(MAKE)
 
-g95xml-refids:
-	cd g95xml_refids && $(MAKE)
-
-libkernelgen:
-	cd libkernelgen && $(MAKE)
-
-kgen-embed: libkernelgen
-	cd kgen-embed && $(MAKE)
+runtime/64/libruntime.a:
+	cd runtime && $(MAKE)
 
 clean:
-	cd g95xml_tree && $(MAKE) clean
-	cd g95xml_refids && $(MAKE) clean
-	cd libkernelgen && $(MAKE) clean
-	cd kgen-embed && $(MAKE) clean
+	cd frontend && $(MAKE) clean
+	cd runtime && $(MAKE) clean
 
-install: g95xml_tree g95xml_refids libkernelgen kgen-embed
-	perl kgen-install $(ARCH) \
-		$(KGEN_BUILD_PREFIX) $(KGEN_PREFIX) $(LLVM_BIN_PREFIX) $(GCC_BIN_PREFIX) \
-		$(DRAGONEGG_PREFIX) $(CUDA_PREFIX)
+install: frontend runtime include/kernelgen_runtime.h
+	perl install $(ARCH) $(PREFIX) $(LIB32) $(LIB64) $(CUDA_PREFIX)
 

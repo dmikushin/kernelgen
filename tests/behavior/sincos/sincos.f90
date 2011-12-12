@@ -19,6 +19,18 @@
  ! 3. This notice may not be removed or altered from any source distribution.
  !
 
+function sincos_ijk(x, y)
+
+implicit none
+
+real, intent(in) :: x, y
+real :: sincos_ijk
+
+sincos_ijk = sin(x) + cos(y)
+
+end function sincos_ijk
+
+
 subroutine sincos(nx, ny, nz, x, y, xy)
 
 implicit none
@@ -28,18 +40,17 @@ real, intent(in) :: x(nx, ny, nz), y(nx, ny, nz)
 real, intent(inout) :: xy(nx, ny, nz)
 
 integer :: i, j, k
+real :: sincos_ijk
 
 do k = 1, nz
   do j = 1, ny
     do i = 1, nx
-      xy(i, j, k) = sin(x(i, j, k)) + cos(y(i, j, k))
+      xy(i, j, k) = sincos_ijk(x(i, j, k), y(i, j, k))
     enddo
   enddo
 enddo
 
-print *, 'Value of i after cycle = ', i
-print *, 'Value of j after cycle = ', j
-print *, 'Value of k after cycle = ', k
+print *, sum(xy), maxval(xy), minval(xy)
 
 end subroutine sincos
 

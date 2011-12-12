@@ -19,24 +19,36 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-include ../makefile.in
+LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
+LLVMINC = -I/home/marcusmae/rpmbuild/BUILD/llvm/build/include
+LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.0svn /opt/kernelgen/lib/LLVMPolly.so -L/opt/kernelgen/lib -lisl -lcloog-isl
+EXECINC = -I..
+EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf -lmhash -ldl
 
-TESTS = \
-	behavior/sincos/sincos \
+CXX = g++ -g -I../include $(LLVMINC) $(LLVMDEF)
 
-ifeq ($(ARCH), 64)
-tests: tests32 tests64
-else
-tests: tests32
-endif
+OBJECTS = kernelgen.o compile.o link.o BranchedLoopExtractor.o BranchedCodeExtractor.o
 
-tests32: $(TESTS)
-	./runtests 32
-tests64: $(TESTS)
-	./runtests 64
+all: kernelgen
 
-behavior/sincos/sincos:
-	cd behavior/sincos && $(MAKE)
+kernelgen: $(OBJECTS)
+	$(CXX) $(OBJECTS) -o $@ $(EXECLIB) $(LLVMLIB)
+
+kernelgen.o: kernelgen.cpp
+	$(CXX) $(EXECINC) -c $< -o $@
+
+compile.o: compile.cpp
+	$(CXX) $(EXECINC) -c $< -o $@
+
+link.o: link.cpp
+	$(CXX) $(EXECINC) -c $< -o $@
+
+BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
+	$(CXX) $(EXECINC) -fno-rtti -c $< -o $@
+
+BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
+	$(CXX) $(EXECINC) -c $< -o $@
 
 clean:
-	cd behavior/sincos && $(MAKE) clean
+	rm -rf *.o kernelgen
+

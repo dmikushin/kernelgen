@@ -1,0 +1,196 @@
+marcusmae@T61p:~/Programming/kernelgen/branches/accurate/tests/behavior/pollycuda$ make polly
+kernelgen_runmode=1 kernelgen_verbose=1 kernelgen_dump_polly=1 64/pollycuda
+Using KernelGen/CUDA
+
+Building kernels index ...
+__kernelgen_main_loop_7
+__kernelgen_main
+
+__kernelgen_main @ 73147821361666523168175251235173156198189161
+No prebuilt kernel, compiling...
+; ModuleID = '__kernelgen_main_module'
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-f128:128:128-n8:16:32:64"
+target triple = "x86_64-unknown-linux-gnu"
+
+declare i32 @kernelgen_launch(i8*, i32*)
+
+define void @__kernelgen_main(i32* nocapture %args) nounwind uwtable {
+entry:
+  %structArg_ptr2.i = alloca [2 x i64], align 8
+  %memtmp.i = alloca [1000 x [1000 x i32]], align 4
+  br label %entry.split
+
+entry.split:                                      ; preds = %entry
+  %0 = bitcast [2 x i64]* %structArg_ptr2.i to i8*
+  call void @llvm.lifetime.start(i64 -1, i8* %0) nounwind
+  %1 = bitcast [1000 x [1000 x i32]]* %memtmp.i to i8*
+  call void @llvm.lifetime.start(i64 -1, i8* %1) nounwind
+  %structArg_ptr2.sub.i = getelementptr inbounds [2 x i64]* %structArg_ptr2.i, i64 0, i64 0
+  %tmpcast1.i = bitcast [2 x i64]* %structArg_ptr2.i to i32*
+  volatile store i64 0, i64* %structArg_ptr2.sub.i, align 8
+  %"arg_ptr_:memtmp.i" = getelementptr [2 x i64]* %structArg_ptr2.i, i64 0, i64 1
+  %2 = bitcast i64* %"arg_ptr_:memtmp.i" to [1000 x [1000 x i32]]**
+  volatile store [1000 x [1000 x i32]]* %memtmp.i, [1000 x [1000 x i32]]** %2, align 8
+  %3 = call i32 @kernelgen_launch(i8* inttoptr (i64 24580688 to i8*), i32* %tmpcast1.i) nounwind
+  %4 = icmp eq i32 %3, -1
+  br i1 %4, label %"5.orig.preheader.i.preheader", label %main_.exit.single_exit
+
+"5.orig.preheader.i.preheader":                   ; preds = %entry.split
+  br label %"5.orig.preheader.i"
+
+"4.orig.i":                                       ; preds = %"5.orig.preheader.i", %"4.orig.i"
+  %indvar.i = phi i64 [ 0, %"5.orig.preheader.i" ], [ %5, %"4.orig.i" ]
+  %tmp.moved.to.4.orig.i = add i64 %indvar1.i, 200
+  %scevgep.i = getelementptr [1000 x [1000 x i32]]* %memtmp.i, i64 0, i64 %indvar1.i, i64 %indvar.i
+  %tmp16 = add i64 %tmp.moved.to.4.orig.i, %indvar.i
+  %tmp4.i = trunc i64 %tmp16 to i32
+  store i32 %tmp4.i, i32* %scevgep.i, align 4
+  %5 = add i64 %indvar.i, 1
+  %exitcond10 = icmp eq i64 %5, 1000
+  br i1 %exitcond10, label %"6.orig.i", label %"4.orig.i"
+
+"6.orig.i":                                       ; preds = %"4.orig.i"
+  %6 = add i64 %indvar1.i, 1
+  %exitcond15 = icmp eq i64 %6, 1000
+  br i1 %exitcond15, label %main_.exit.loopexit, label %"5.orig.preheader.i"
+
+"5.orig.preheader.i":                             ; preds = %"5.orig.preheader.i.preheader", %"6.orig.i"
+  %indvar1.i = phi i64 [ %6, %"6.orig.i" ], [ 0, %"5.orig.preheader.i.preheader" ]
+  br label %"4.orig.i"
+
+main_.exit.loopexit:                              ; preds = %"6.orig.i"
+  br label %main_.exit.single_exit
+
+main_.exit.single_exit:                           ; preds = %entry.split, %main_.exit.loopexit
+  br label %main_.exit
+
+main_.exit:                                       ; preds = %main_.exit.single_exit
+  %7 = getelementptr inbounds [1000 x [1000 x i32]]* %memtmp.i, i64 0, i64 0, i64 0
+  %8 = load i32* %7, align 4
+  call void @llvm.lifetime.end(i64 -1, i8* %0) nounwind
+  call void @llvm.lifetime.end(i64 -1, i8* %1) nounwind
+  %9 = getelementptr inbounds i32* %args, i64 5
+  volatile store i32 %8, i32* %9, align 1
+  ret void
+}
+
+declare void @llvm.lifetime.start(i64, i8* nocapture) nounwind
+
+declare void @llvm.lifetime.end(i64, i8* nocapture) nounwind
+native: kernelgen_launch
+hostcall: _get_threadId_x
+hostcall: _get_blockId_x
+hostcall: _get_blockDim_x
+hostcall: _get_gridDim_x
+hostcall: _get_threadId_y
+hostcall: _get_blockId_y
+hostcall: _get_blockDim_y
+hostcall: _get_gridDim_y
+; ModuleID = '__kernelgen_main_module'
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-f128:128:128-n8:16:32:64"
+target triple = "x86_64-unknown-linux-gnu"
+
+declare i64 @_get_threadId_x()
+
+declare i64 @_get_blockId_x()
+
+declare i64 @_get_blockDim_x()
+
+declare i64 @_get_gridDim_x()
+
+declare i64 @_get_threadId_y()
+
+declare i64 @_get_blockId_y()
+
+declare i64 @_get_blockDim_y()
+
+declare i64 @_get_gridDim_y()
+
+define void @__kernelgen__get_threadId_x({ i64 }* nocapture) nounwind {
+newFuncRoot:
+  br label %newFuncRoot.split
+
+newFuncRoot.split:                                ; preds = %newFuncRoot
+  %threadId.x = tail call i64 @_get_threadId_x() nounwind
+  %gep_threadId.x = getelementptr { i64 }* %0, i64 0, i32 0
+  store i64 %threadId.x, i64* %gep_threadId.x, align 8
+  ret void
+}
+
+define void @__kernelgen__get_blockId_x({ i64 }* nocapture) nounwind {
+newFuncRoot:
+  br label %newFuncRoot.split
+
+newFuncRoot.split:                                ; preds = %newFuncRoot
+  %blockId.x = tail call i64 @_get_blockId_x() nounwind
+  %gep_blockId.x = getelementptr { i64 }* %0, i64 0, i32 0
+  store i64 %blockId.x, i64* %gep_blockId.x, align 8
+  ret void
+}
+
+define void @__kernelgen__get_blockDim_x({ i64 }* nocapture) nounwind {
+newFuncRoot:
+  br label %newFuncRoot.split
+
+newFuncRoot.split:                                ; preds = %newFuncRoot
+  %blockDim.x = tail call i64 @_get_blockDim_x() nounwind
+  %gep_blockDim.x = getelementptr { i64 }* %0, i64 0, i32 0
+  store i64 %blockDim.x, i64* %gep_blockDim.x, align 8
+  ret void
+}
+
+define void @__kernelgen__get_gridDim_x({ i64 }* nocapture) nounwind {
+newFuncRoot:
+  br label %newFuncRoot.split
+
+newFuncRoot.split:                                ; preds = %newFuncRoot
+  %gridDim.x = tail call i64 @_get_gridDim_x() nounwind
+  %gep_gridDim.x = getelementptr { i64 }* %0, i64 0, i32 0
+  store i64 %gridDim.x, i64* %gep_gridDim.x, align 8
+  ret void
+}
+
+define void @__kernelgen__get_threadId_y({ i64 }* nocapture) nounwind {
+newFuncRoot:
+  br label %newFuncRoot.split
+
+newFuncRoot.split:                                ; preds = %newFuncRoot
+  %threadId.y = tail call i64 @_get_threadId_y() nounwind
+  %gep_threadId.y = getelementptr { i64 }* %0, i64 0, i32 0
+  store i64 %threadId.y, i64* %gep_threadId.y, align 8
+  ret void
+}
+
+define void @__kernelgen__get_blockId_y({ i64 }* nocapture) nounwind {
+newFuncRoot:
+  br label %newFuncRoot.split
+
+newFuncRoot.split:                                ; preds = %newFuncRoot
+  %blockId.y = tail call i64 @_get_blockId_y() nounwind
+  %gep_blockId.y = getelementptr { i64 }* %0, i64 0, i32 0
+  store i64 %blockId.y, i64* %gep_blockId.y, align 8
+  ret void
+}
+
+define void @__kernelgen__get_blockDim_y({ i64 }* nocapture) nounwind {
+newFuncRoot:
+  br label %newFuncRoot.split
+
+newFuncRoot.split:                                ; preds = %newFuncRoot
+  %blockDim.y = tail call i64 @_get_blockDim_y() nounwind
+  %gep_blockDim.y = getelementptr { i64 }* %0, i64 0, i32 0
+  store i64 %blockDim.y, i64* %gep_blockDim.y, align 8
+  ret void
+}
+
+define void @__kernelgen__get_gridDim_y({ i64 }* nocapture) nounwind {
+newFuncRoot:
+  br label %newFuncRoot.split
+
+newFuncRoot.split:                                ; preds = %newFuncRoot
+  %gridDim.y = tail call i64 @_get_gridDim_y() nounwind
+  %gep_gridDim.y = getelementptr { i64 }* %0, i64 0, i32 0
+  store i64 %gridDim.y, i64* %gep_gridDim.y, align 8
+  ret void
+}
+

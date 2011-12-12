@@ -1,0 +1,125 @@
+; ModuleID = '../examples/kernelgen.ir'
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-f128:128:128-n8:16:32:64"
+target triple = "x86_64-unknown-linux-gnu"
+
+module asm "\09.ident\09\22GCC: (GNU) 4.6.2 20111015 (prerelease) LLVM: 136347M\22"
+
+define internal i32 @main_loop_7(i32* %IntPtrToStruct) nounwind {
+"Loop Function Root":
+  br label %"Loop Function Root.split"
+
+"Loop Function Root.split":                       ; preds = %"Loop Function Root"
+  %load_ptr_memtmp = getelementptr i32* %IntPtrToStruct, i64 2
+  %0 = bitcast i32* %load_ptr_memtmp to [1000 x [1000 x i32]]**
+  %load_memtmp = load [1000 x [1000 x i32]]** %0, align 8
+  br label %RegionEntryBlock
+
+RegionEntryBlock:                                 ; preds = %"Loop Function Root.split"
+  %insertInst = zext i1 true to i16
+  br label %CUDA.getGridParams
+
+CUDA.getGridParams:                               ; preds = %RegionEntryBlock
+  %threadId.x = call i64 @_get_threadId_x()
+  %blockId.x = call i64 @_get_blockId_x()
+  %blockDim.x = call i64 @_get_blockDim_x()
+  %gridDim.x = call i64 @_get_gridDim_x()
+  %threadId.y = call i64 @_get_threadId_y()
+  %blockId.y = call i64 @_get_blockId_y()
+  %blockDim.y = call i64 @_get_blockDim_y()
+  %gridDim.y = call i64 @_get_gridDim_y()
+  br label %CUDA.getPositionInGrid
+
+CUDA.getPositionInGrid:                           ; preds = %CUDA.getGridParams
+  %1 = mul i64 %blockId.x, %blockDim.x
+  %PositionInGrid.x = add i64 %1, %threadId.x
+  %GridSize.x = mul i64 %gridDim.x, %blockDim.x
+  %2 = mul i64 %blockId.y, %blockDim.y
+  %PositionInGrid.y = add i64 %2, %threadId.y
+  %GridSize.y = mul i64 %gridDim.y, %blockDim.y
+  br label %CUDA.CountBounds.y
+
+CUDA.CountBounds.y:                               ; preds = %CUDA.getPositionInGrid
+  %3 = sdiv i64 999, %GridSize.y
+  %IterationsPerThread.y = add i64 %3, 1
+  %ThreadLoverBound.y = mul i64 %PositionInGrid.y, %IterationsPerThread.y
+  %4 = mul i64 %blockDim.y, %IterationsPerThread.y
+  %ThreadUpperBound.y = add i64 %ThreadLoverBound.y, %4
+  %ThreadStride.y = mul i64 %blockDim.y, 1
+  br label %CUDA.LoopHeader.y
+
+CUDA.LoopHeader.y:                                ; preds = %CUDA.AfterLoop.x, %CUDA.CountBounds.y
+  %CUDA.loopiv.y = phi i64 [ 0, %CUDA.CountBounds.y ], [ %CUDA.next_loopiv.y, %CUDA.AfterLoop.x ]
+  %CUDA.next_loopiv.y = add i64 %CUDA.loopiv.y, %ThreadStride.y
+  %isInThreadBounds.y = icmp sle i64 %CUDA.loopiv.y, %ThreadUpperBound.y
+  %isInLoopBounds.y = icmp sle i64 %CUDA.loopiv.y, 999
+  %isInBounds.y = mul i1 %isInThreadBounds.y, %isInLoopBounds.y
+  br i1 %isInBounds.y, label %CUDA.LoopBody.y, label %CUDA.AfterLoop.y
+
+CUDA.LoopBody.y:                                  ; preds = %CUDA.LoopHeader.y
+  br label %CUDA.CountBounds.x
+
+CUDA.CountBounds.x:                               ; preds = %CUDA.LoopBody.y
+  %5 = sdiv i64 999, %GridSize.x
+  %IterationsPerThread.x = add i64 %5, 1
+  %ThreadLoverBound.x = mul i64 %PositionInGrid.x, %IterationsPerThread.x
+  %6 = mul i64 %blockDim.x, %IterationsPerThread.x
+  %ThreadUpperBound.x = add i64 %ThreadLoverBound.x, %6
+  %ThreadStride.x = mul i64 %blockDim.x, 1
+  br label %CUDA.LoopHeader.x
+
+CUDA.LoopHeader.x:                                ; preds = %polly.stmt_4.cloned, %CUDA.CountBounds.x
+  %CUDA.loopiv.x = phi i64 [ 0, %CUDA.CountBounds.x ], [ %CUDA.next_loopiv.x, %polly.stmt_4.cloned ]
+  %CUDA.next_loopiv.x = add i64 %CUDA.loopiv.x, %ThreadStride.x
+  %isInThreadBounds.x = icmp sle i64 %CUDA.loopiv.x, %ThreadUpperBound.x
+  %isInLoopBounds.x = icmp sle i64 %CUDA.loopiv.x, 999
+  %isInBounds.x = mul i1 %isInThreadBounds.x, %isInLoopBounds.x
+  br i1 %isInBounds.x, label %CUDA.LoopBody.x, label %CUDA.AfterLoop.x
+
+CUDA.LoopBody.x:                                  ; preds = %CUDA.LoopHeader.x
+  %7 = mul i64 1, %CUDA.loopiv.y
+  %8 = mul i64 1, %CUDA.loopiv.x
+  br label %polly.stmt_4.cloned
+
+polly.stmt_4.cloned:                              ; preds = %CUDA.LoopBody.x
+  %tmp.moved.to.4.clonedp_sca = add i64 %7, 200
+  %p_scevgep = getelementptr [1000 x [1000 x i32]]* %load_memtmp, i64 0, i64 %7, i64 %8
+  %tmp19p_sca = add i64 %tmp.moved.to.4.clonedp_sca, %8
+  %p_tmp4 = trunc i64 %tmp19p_sca to i32
+  store i32 %p_tmp4, i32* %p_scevgep, align 4
+  %p_sca = add i64 %8, 1
+  %p_exitcond = icmp eq i64 %p_sca, 1000
+  br label %CUDA.LoopHeader.x
+
+CUDA.AfterLoop.x:                                 ; preds = %CUDA.LoopHeader.x
+  br label %CUDA.LoopHeader.y
+
+CUDA.AfterLoop.y:                                 ; preds = %CUDA.LoopHeader.y
+  br label %"8.exitStub"
+
+"8.exitStub":                                     ; preds = %CUDA.AfterLoop.y
+  ret i32 0
+}
+
+declare i64 @_get_threadId_x()
+
+declare i64 @_get_blockId_x()
+
+declare i64 @_get_blockDim_x()
+
+declare i64 @_get_gridDim_x()
+
+declare i64 @_get_threadId_y()
+
+declare i64 @_get_blockId_y()
+
+declare i64 @_get_blockDim_y()
+
+declare i64 @_get_gridDim_y()
+
+declare i64 @_get_threadId_z()
+
+declare i64 @_get_blockId_z()
+
+declare i64 @_get_blockDim_z()
+
+declare i64 @_get_gridDim_z()

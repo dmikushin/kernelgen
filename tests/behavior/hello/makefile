@@ -19,24 +19,39 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-include ../makefile.in
+LEVEL = ../../..
 
-TESTS = \
-	behavior/sincos/sincos \
+include ../../makefile.in
 
 ifeq ($(ARCH), 64)
-tests: tests32 tests64
+all: 32/hello_c 64/hello_c 32/hello_f 64/hello_f
 else
-tests: tests32
+all: 32/hello_c 32/hello_f
 endif
 
-tests32: $(TESTS)
-	./runtests 32
-tests64: $(TESTS)
-	./runtests 64
+32/hello_c: 32/main.c.o
+	$(CCOMP32) 32/main.c.o -o $@
+64/hello_c: 64/main.c.o
+	$(CCOMP64) 64/main.c.o -o $@
 
-behavior/sincos/sincos:
-	cd behavior/sincos && $(MAKE)
+32/main.c.o: main.c
+	$(CCOMP32) -g -c $< -o $@
+64/main.c.o: main.c
+	$(CCOMP64) -g -c $< -o $@
+
+32/hello_f: 32/main.f90.o
+	$(FCOMP32) 32/main.f90.o -o $@
+64/hello_f: 64/main.f90.o
+	$(FCOMP64) 64/main.f90.o -o $@
+
+32/main.f90.o: main.f90
+	$(FCOMP32) -g -c $< -o $@
+64/main.f90.o: main.f90
+	$(FCOMP64) -g -c $< -o $@
 
 clean:
-	cd behavior/sincos && $(MAKE) clean
+	rm -rf \
+	32/*.o 32/*.mod 32/hello_c 32/hello_f \
+	64/*.o 64/*.mod 64/hello_c 64/hello_f \
+	*.bc* *.o *.mod *_kernelgen.* *.host.*
+

@@ -19,13 +19,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include <kernelgen.h>
 #include <malloc.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define real float
+
+const char *a = "aa", *z = "zz";
 
 void sincos_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
 
@@ -33,13 +33,11 @@ int main(int argc, char* argv[])
 {
 	if (argc != 4)
 	{
-		printf("Usage: %s <nx> <ny> <ns>\n", argv[0]);
+		printf("Usage: %s <nx> <ny> <nz>\n", argv[0]);
 		return 0;
 	}
-	
-	int nx = atoi(argv[1]);
-	int ny = atoi(argv[2]);
-	int nz = atoi(argv[3]);
+
+	int nx = atoi(argv[1]), ny = atoi(argv[2]), nz = atoi(argv[3]);
 	real* x = (real*)malloc(sizeof(real) * nx * ny * nz);
 	real* y = (real*)malloc(sizeof(real) * nx * ny * nz);
 	real* xy = (real*)malloc(sizeof(real) * nx * ny * nz);
@@ -51,17 +49,14 @@ int main(int argc, char* argv[])
 	}
 	
 	sincos_(&nx, &ny, &nz, x, y, xy);
+	sincos_(&nx, &ny, &nz, x, y, xy);
+
+	nx--; ny--; nz--;
+	sincos_(&nx, &ny, &nz, x, y, xy);
 
 	free(x);
 	free(y);
 	free(xy);
-
-	kernelgen_status_t status = kernelgen_get_last_error();
-	if (status.value != kernelgen_success)
-	{
-		printf("%s\n", kernelgen_get_error_string(status));
-		return 1;
-	}
 	
 	return 0;
 }

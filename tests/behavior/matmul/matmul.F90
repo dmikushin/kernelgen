@@ -1,11 +1,14 @@
   program main
 
-  integer, parameter :: N = 1536
+  integer, parameter :: N = 512
   real, dimension(N, N) :: A, B, C
 
   integer :: i, j, k
+  real, volatile :: start, finish
 
   call init_array
+
+  call cpu_time(start)
 
   do i = 1, N
     do j = 1, N
@@ -16,9 +19,10 @@
     enddo
   enddo
 
-#ifdef PRINT
-  call print_array
-#endif
+  call cpu_time(finish)
+
+  print *, sum(C), minval(C), maxval(C)
+  print *, 'time = ', finish - start
 
   contains
 
@@ -35,23 +39,6 @@
   enddo
 
   end subroutine init_array
-
-
-
-  subroutine print_array
-  implicit none
-
-  integer :: i, j
-
-  do i = 1, N
-    do j = 1, N
-      write(*, *) C(i, j)
-      if (mod(j, 80) .eq. 79) print *
-    enddo
-    print *
-  enddo
-
-  end subroutine print_array
 
   end program main
 
