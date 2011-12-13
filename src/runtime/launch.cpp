@@ -39,31 +39,119 @@ using namespace std;
 
 static ffi_type* ffiTypeFor(Type *Ty)
 {
+	if (!verbose)
+	{
+		switch (Ty->getTypeID())
+		{
+		case Type::VoidTyID : return &ffi_type_void;
+		case Type::IntegerTyID :
+			switch (cast<IntegerType>(Ty)->getBitWidth())
+			{
+			case 8 : return &ffi_type_sint8;
+			case 16 : return &ffi_type_sint16;
+			case 32 : return &ffi_type_sint32;
+			case 64 : return &ffi_type_sint64;
+			}
+		case Type::FloatTyID : return &ffi_type_float;
+		case Type::DoubleTyID : return &ffi_type_double;
+		case Type::PointerTyID : return &ffi_type_pointer;
+		default :
+			// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
+			THROW("Type could not be mapped for use with libffi.");
+		}
+	}
+
 	switch (Ty->getTypeID())
 	{
-	case Type::VoidTyID : return &ffi_type_void;
+	case Type::VoidTyID :
+		cout << "void";
+		return &ffi_type_void;
 	case Type::IntegerTyID :
 		switch (cast<IntegerType>(Ty)->getBitWidth())
 		{
-		case 8 : return &ffi_type_sint8;
-		case 16 : return &ffi_type_sint16;
-		case 32 : return &ffi_type_sint32;
-		case 64 : return &ffi_type_sint64;
+		case 8 :
+			cout << "ffi_type_sint8";
+			return &ffi_type_sint8;
+		case 16 :
+			cout << "ffi_type_sint16";
+			return &ffi_type_sint16;
+		case 32 :
+			cout << "ffi_type_sint32";
+			return &ffi_type_sint32;
+		case 64 :
+			cout << "ffi_type_sint64"; 
+			return &ffi_type_sint64;
 		}
-	case Type::FloatTyID : return &ffi_type_float;
-	case Type::DoubleTyID : return &ffi_type_double;
-	case Type::PointerTyID : return &ffi_type_pointer;
+	case Type::FloatTyID :
+		cout << "ffi_type_float";
+		return &ffi_type_float;
+	case Type::DoubleTyID :
+		cout << "ffi_type_double";
+		return &ffi_type_double;
+	case Type::PointerTyID :
+		cout << "ffi_type_pointer";
+		return &ffi_type_pointer;
 	default : break;
+		// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
+		THROW("Type could not be mapped for use with libffi.");
 	}
 	
-	// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
-	THROW("Type could not be mapped for use with libffi.");
 	return NULL;
 }
 
 static void* ffiValueFor(
-	Type* Ty, const GenericValue &AV, void* ArgDataPtr)
+	Type* Ty, void* AV, void* ArgDataPtr)
 {
+	if (!verbose)
+	{
+		switch (Ty->getTypeID())
+		{
+		case Type::IntegerTyID :
+			switch (cast<IntegerType>(Ty)->getBitWidth())
+			{
+			case 8 : 
+				{
+					*((int8_t*)ArgDataPtr) = *((int8_t*)AV);
+					return ArgDataPtr;
+				}
+			case 16 :
+				{
+					*((int16_t*)ArgDataPtr) = *((int16_t*)AV);
+					return ArgDataPtr;
+				}
+			case 32 :
+				{
+					*((int32_t*)ArgDataPtr) = *((int32_t*)AV);
+					return ArgDataPtr;
+				}
+			case 64 :
+				{
+					*((int64_t*)ArgDataPtr) = *((int64_t*)AV);
+					return ArgDataPtr;
+				}
+			}
+		case Type::FloatTyID :
+		{
+			*((float*)ArgDataPtr) = *((float*)AV);
+			return ArgDataPtr;
+		}
+		case Type::DoubleTyID :
+		{
+			*((double*)ArgDataPtr) = *((double*)AV);
+			return ArgDataPtr;
+		}
+		case Type::PointerTyID :
+		{
+			// TODO: map device pointer to host.
+			*((void**)ArgDataPtr) = *((void**)AV);
+			return ArgDataPtr;
+		}
+		default :
+			// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
+			THROW("Type value could not be mapped for use with libffi.");
+		}
+	}
+
 	switch (Ty->getTypeID())
 	{
 	case Type::IntegerTyID :
@@ -71,119 +159,150 @@ static void* ffiValueFor(
 		{
 		case 8 : 
 			{
-				int8_t* I8Ptr = (int8_t *) ArgDataPtr;
-				*I8Ptr = (int8_t) AV.IntVal.getZExtValue();
+				*((int8_t*)ArgDataPtr) = *((int8_t*)AV);
+				cout << *((int8_t*)AV);
 				return ArgDataPtr;
 			}
 		case 16 :
 			{
-				int16_t* I16Ptr = (int16_t *) ArgDataPtr;
-				*I16Ptr = (int16_t) AV.IntVal.getZExtValue();
+				*((int16_t*)ArgDataPtr) = *((int16_t*)AV);
+				cout << *((int16_t*)AV);
 				return ArgDataPtr;
 			}
 		case 32 :
 			{
-				int32_t* I32Ptr = (int32_t *) ArgDataPtr;
-				*I32Ptr = (int32_t) AV.IntVal.getZExtValue();
+				*((int32_t*)ArgDataPtr) = *((int32_t*)AV);
+				cout << *((int32_t*)AV);
 				return ArgDataPtr;
 			}
 		case 64 :
 			{
-				int64_t* I64Ptr = (int64_t *) ArgDataPtr;
-				*I64Ptr = (int64_t) AV.IntVal.getZExtValue();
+				*((int64_t*)ArgDataPtr) = *((int64_t*)AV);
+				cout << *((int64_t*)AV);
 				return ArgDataPtr;
 			}
 		}
 	case Type::FloatTyID :
 	{
-		float* FloatPtr = (float *) ArgDataPtr;
-		*FloatPtr = AV.FloatVal;
+		*((float*)ArgDataPtr) = *((float*)AV);
+		cout << *((float*)AV);
 		return ArgDataPtr;
 	}
 	case Type::DoubleTyID :
 	{
-		double* DoublePtr = (double *) ArgDataPtr;
-		*DoublePtr = AV.DoubleVal;
+		*((double*)ArgDataPtr) = *((double*)AV);
+		cout << *((double*)AV);
 		return ArgDataPtr;
 	}
 	case Type::PointerTyID :
 	{
-		void** PtrPtr = (void **) ArgDataPtr;
-		*PtrPtr = GVTOP(AV);
+		*((void**)ArgDataPtr) = *((void**)AV);
+		cout << *((void**)AV);
 		return ArgDataPtr;
 	}
-	default: break;
+	default :
+		// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
+		THROW("Type value could not be mapped for use with libffi.");
 	}
 
-	// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
-	THROW("Type value could not be mapped for use with libffi.");
 	return NULL;
 }
 
 typedef void (*func_t)();
 
-static bool ffiInvoke(func_t Fn, Function *F,
-                      const std::vector<GenericValue> &ArgVals,
-                      const TargetData *TD, GenericValue &Result) {
-  ffi_cif cif;
-  FunctionType *FTy = F->getFunctionType();
-  const unsigned NumArgs = F->arg_size();
+static void ffiInvoke(
+	func_t func, FunctionType* FTy,
+	StructType* StructTy, void* params,
+	const TargetData* TD)
+{
+	const std::vector<GenericValue> ArgVals;
+	GenericValue Result;
 
-  // TODO: We don't have type information about the remaining arguments, because
-  // this information is never passed into ExecutionEngine::runFunction().
-  if (ArgVals.size() > NumArgs && F->isVarArg()) {
-    THROW("Calling external var arg function '" << F->getName().data() << "' is not supported by the Interpreter.");
-  }
+	// Skip first two fields, that are FunctionType and
+	// StructureType itself, respectively.
+	unsigned ArgBytes = 0;
+	const unsigned NumArgs = StructTy->getNumElements() - 2;
+	std::vector<ffi_type*> args(NumArgs);
+	if (!verbose)
+	{
+		for (int i = 0; i < NumArgs; i++)
+		{
+			Type* ArgTy = StructTy->getElementType(i + 2);
+			args[i] = ffiTypeFor(ArgTy);
+			ArgBytes += TD->getTypeStoreSize(ArgTy);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < NumArgs; i++)
+		{
+			cout << "arg " << i << " type: ";
+			Type* ArgTy = StructTy->getElementType(i + 2);
+			args[i] = ffiTypeFor(ArgTy);
+			ArgBytes += TD->getTypeStoreSize(ArgTy);
+			cout << endl;
+		}
+	}
 
-  unsigned ArgBytes = 0;
+	const StructLayout* layout = TD->getStructLayout(StructTy);
+	SmallVector<uint8_t, 128> ArgData;
+	ArgData.resize(ArgBytes);
+	uint8_t *ArgDataPtr = ArgData.data();
+	SmallVector<void*, 16> values(NumArgs);
+	if (!verbose)
+	{
+		for (int i = 0; i < NumArgs; i++)
+		{
+			Type* ArgTy = StructTy->getElementType(i + 2);
+			int offset = layout->getElementOffset(i + 2);
+			values[i] = ffiValueFor(ArgTy,
+				(void*)((char*)params + offset), ArgDataPtr);
+			ArgDataPtr += TD->getTypeStoreSize(ArgTy);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < NumArgs; i++)
+		{
+			cout << "arg " << i << " value: ";
+			Type* ArgTy = StructTy->getElementType(i + 2);
+			int offset = layout->getElementOffset(i + 2);
+			values[i] = ffiValueFor(ArgTy,
+				(void*)((char*)params + offset), ArgDataPtr);
+			ArgDataPtr += TD->getTypeStoreSize(ArgTy);
+			cout << endl;
+		}
+	}
 
-  std::vector<ffi_type*> args(NumArgs);
-  for (Function::const_arg_iterator A = F->arg_begin(), E = F->arg_end();
-       A != E; ++A) {
-    const unsigned ArgNo = A->getArgNo();
-    Type *ArgTy = FTy->getParamType(ArgNo);
-    args[ArgNo] = ffiTypeFor(ArgTy);
-    ArgBytes += TD->getTypeStoreSize(ArgTy);
-  }
+	Type* RetTy = FTy->getReturnType();
+	ffi_type* rtype = ffiTypeFor(RetTy);
 
-  SmallVector<uint8_t, 128> ArgData;
-  ArgData.resize(ArgBytes);
-  uint8_t *ArgDataPtr = ArgData.data();
-  SmallVector<void*, 16> values(NumArgs);
-  for (Function::const_arg_iterator A = F->arg_begin(), E = F->arg_end();
-       A != E; ++A) {
-    const unsigned ArgNo = A->getArgNo();
-    Type *ArgTy = FTy->getParamType(ArgNo);
-    values[ArgNo] = ffiValueFor(ArgTy, ArgVals[ArgNo], ArgDataPtr);
-    ArgDataPtr += TD->getTypeStoreSize(ArgTy);
-  }
+	ffi_cif cif;
+	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, NumArgs,
+		rtype, &args[0]) != FFI_OK)
+		THROW("Error in fi_prep_cif");
 
-  Type *RetTy = FTy->getReturnType();
-  ffi_type *rtype = ffiTypeFor(RetTy);
-
-  if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, NumArgs, rtype, &args[0]) == FFI_OK) {
-    SmallVector<uint8_t, 128> ret;
-    if (RetTy->getTypeID() != Type::VoidTyID)
-      ret.resize(TD->getTypeStoreSize(RetTy));
-    ffi_call(&cif, Fn, ret.data(), values.data());
-    switch (RetTy->getTypeID()) {
-      case Type::IntegerTyID:
-        switch (cast<IntegerType>(RetTy)->getBitWidth()) {
-          case 8:  Result.IntVal = APInt(8 , *(int8_t *) ret.data()); break;
-          case 16: Result.IntVal = APInt(16, *(int16_t*) ret.data()); break;
-          case 32: Result.IntVal = APInt(32, *(int32_t*) ret.data()); break;
-          case 64: Result.IntVal = APInt(64, *(int64_t*) ret.data()); break;
-        }
-        break;
-      case Type::FloatTyID:   Result.FloatVal   = *(float *) ret.data(); break;
-      case Type::DoubleTyID:  Result.DoubleVal  = *(double*) ret.data(); break;
-      case Type::PointerTyID: Result.PointerVal = *(void **) ret.data(); break;
-      default: break;
-    }
-    return true;
-  }
-
-  return false;
+	SmallVector<uint8_t, 128> ret;
+	if (RetTy->getTypeID() != Type::VoidTyID)
+		ret.resize(TD->getTypeStoreSize(RetTy));
+	ffi_call(&cif, func, ret.data(), values.data());
+	
+	switch (RetTy->getTypeID())
+	{
+	case Type::IntegerTyID :
+		switch (cast<IntegerType>(RetTy)->getBitWidth())
+		{
+		case  8 : Result.IntVal = APInt(8 , *(int8_t *) ret.data()); break;
+		case 16 : Result.IntVal = APInt(16, *(int16_t*) ret.data()); break;
+		case 32 : Result.IntVal = APInt(32, *(int32_t*) ret.data()); break;
+		case 64 : Result.IntVal = APInt(64, *(int64_t*) ret.data()); break;
+		}
+		break;
+	case Type::FloatTyID : Result.FloatVal   = *(float *) ret.data(); break;
+	case Type::DoubleTyID : Result.DoubleVal  = *(double*) ret.data(); break;
+	case Type::PointerTyID : Result.PointerVal = *(void **) ret.data(); break;
+	default: break;
+	}
 }
 
 
@@ -387,7 +506,6 @@ int kernelgen_launch(
 						{
 							FunctionType* FunctionTy;
 							StructType* StructTy;
-							void* params;
 						}
 						*arg = NULL;
 						err = cuMemAllocHost((void**)&arg, callback->szarg);
@@ -398,16 +516,11 @@ int kernelgen_launch(
 						err = cuStreamSynchronize(
 							kernel->target[runmode].monitor_kernel_stream);
 						if (err) THROW("Error in cuStreamSynchronize " << err);
-						
-						// Extract types from call inst and translate them to the
-						// corresponding types of the FFI.
-						FunctionType* FunctionTy = arg->FunctionTy;
-						StructType* StructTy = arg->StructTy;
-						/*for (unsigned i = 0, e = call->getNumArgOperands(); i != e; i++)
-						{
-							Type* type = call->getArgOperand(i)->getType();
-							type->dump();
-						}*/
+
+						// Perform hostcall using FFI.
+						TargetData* TD = new TargetData(kernel->module);					
+						ffiInvoke((func_t)callback->name, arg->FunctionTy, arg->StructTy,
+							(void*)arg, TD);
 
 						err = cuMemFreeHost(arg);
 						if (err) THROW("Error in cuMemFreeHost " << err);

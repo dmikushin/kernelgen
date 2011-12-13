@@ -616,6 +616,7 @@ int link(list<string> args, list<string> kgen_args,
 		args.push_back("-lrt");
 		args.push_back("-lmhash");
 		args.push_back("-ldl");
+		args.push_back("-lffi");
 		args.push_back("-lstdc++");
 		if (verbose)
 		{

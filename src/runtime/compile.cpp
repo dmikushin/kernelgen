@@ -34,7 +34,6 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
@@ -59,7 +58,8 @@ using namespace llvm;
 using namespace polly;
 using namespace std;
 
-static auto_ptr<TargetMachine> mcpu[KERNELGEN_RUNMODE_COUNT];
+// Target machines for runmodes.
+auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
 
 static PassManager getPollyPassManager(Module* m)
 {
@@ -116,6 +116,7 @@ char* kernelgen::runtime::compile(
 			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
 				diag.getLineContents() << ": " << diag.getMessage());
 		m->setModuleIdentifier(kernel->name + "_module");
+		kernel->module = m;
 	}
 	
 	//m->dump();
@@ -141,7 +142,7 @@ char* kernelgen::runtime::compile(
 		case KERNELGEN_RUNMODE_NATIVE :
 		{
 			// Create target machine for NATIVE target and get its target data.
-			if (!mcpu[KERNELGEN_RUNMODE_NATIVE].get())
+			if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
 			{
 				InitializeAllTargets();
 				InitializeAllTargetMCs();
@@ -156,13 +157,13 @@ char* kernelgen::runtime::compile(
 				if (!target)
 					THROW("Error auto-selecting target for module '" << err << "'." << endl <<
 						"Please use the -march option to explicitly pick a target.");
-				mcpu[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
+				targets[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
 					triple.getTriple(), "", "", Reloc::PIC_, CodeModel::Default));
-				if (!mcpu[KERNELGEN_RUNMODE_NATIVE].get())
+				if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
 					THROW("Could not allocate target machine");
 
 				// Override default to generate verbose assembly.
-				mcpu[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
+				targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
 			}
 
 			// Apply the Polly codegen for native target.
@@ -175,7 +176,7 @@ char* kernelgen::runtime::compile(
 			if (dump_pollygen) m->dump();
 			
 			const TargetData* tdata = 
-				mcpu[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
+				targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
 			PassManager manager;
 			manager.add(new TargetData(*tdata));
 
@@ -185,7 +186,7 @@ char* kernelgen::runtime::compile(
 			formatted_raw_ostream stream(bin_stream);
 
 			// Ask the target to add backend passes as necessary.
-			if (mcpu[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(manager, stream,
+			if (targets[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(manager, stream,
 				TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
 				THROW("Target does not support generation of this file type");
 
@@ -359,7 +360,7 @@ char* kernelgen::runtime::compile(
 						// Generate index.
 						Value *Idx[2];
 						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-						Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
+						Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 1);
 
 						// Get address of "inputs[i]" in struct
 						GetElementPtrInst *GEP = GetElementPtrInst::Create(
@@ -380,7 +381,7 @@ char* kernelgen::runtime::compile(
 						// Generate index.
 						Value *Idx[2];
 						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-						Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 1);
+						Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 2);
 
 						// Get address of "inputs[i]" in struct
 						GetElementPtrInst *GEP = GetElementPtrInst::Create(
@@ -452,7 +453,7 @@ char* kernelgen::runtime::compile(
 			m->dump();
 
 			// Create target machine for CUDA target and get its target data.
-			if (!mcpu[KERNELGEN_RUNMODE_CUDA].get())
+			if (!targets[KERNELGEN_RUNMODE_CUDA].get())
 			{
 				InitializeAllTargets();
 				InitializeAllTargetMCs();
@@ -476,13 +477,13 @@ char* kernelgen::runtime::compile(
 				if (!target)
 					THROW("LLVM is built without C Backend support");
 
-				mcpu[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
+				targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
 					triple.getTriple(), "", "", Reloc::PIC_, CodeModel::Default));
-				if (!mcpu[KERNELGEN_RUNMODE_CUDA].get())
+				if (!targets[KERNELGEN_RUNMODE_CUDA].get())
 					THROW("Could not allocate target machine");
 
 				// Override default to generate verbose assembly.
-				mcpu[KERNELGEN_RUNMODE_CUDA].get()->setAsmVerbosityDefault(true);
+				targets[KERNELGEN_RUNMODE_CUDA].get()->setAsmVerbosityDefault(true);
 			}
 			
 			PassManager manager;
@@ -493,7 +494,7 @@ char* kernelgen::runtime::compile(
 			formatted_raw_ostream stream(bin_stream);
 
 			// Ask the target to add backend passes as necessary.
-			if (mcpu[KERNELGEN_RUNMODE_CUDA].get()->addPassesToEmitFile(manager, stream,
+			if (targets[KERNELGEN_RUNMODE_CUDA].get()->addPassesToEmitFile(manager, stream,
 				TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Aggressive))
 				THROW("Target does not support generation of this file type");
 

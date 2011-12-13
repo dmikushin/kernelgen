@@ -23,6 +23,7 @@
 #define KERNELGEN_RUNTIME_H
 
 #include "llvm/Module.h"
+#include "llvm/Target/TargetMachine.h"
 
 #include <cstdarg>
 #include <map>
@@ -107,6 +108,9 @@ kernel_t;
 // After kernel is loaded, we pin it here
 // for futher references.
 extern std::map<std::string, kernel_t*> kernels;
+
+// Target machines for runmodes.
+extern std::auto_ptr<llvm::TargetMachine> targets[KERNELGEN_RUNMODE_COUNT];
 
 namespace runtime {
 
