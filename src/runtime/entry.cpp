@@ -47,7 +47,8 @@ using namespace util::elf;
 
 // GPU monitoring kernel source.
 string cuda_monitor_kernel_source =
-	"__attribute__((global)) __attribute__((used)) void kernelgen_monitor(int* callback)\n"
+	"__attribute__((global)) __attribute__((used)) __attribute__((launch_bounds(1, 1)))\n"
+	"void kernelgen_monitor(int* callback)\n"
 	"{\n"
 	"	// Unlock blocked gpu kernel associated\n"
 	"	// with lock. It simply waits for lock\n"

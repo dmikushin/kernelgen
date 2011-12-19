@@ -43,6 +43,7 @@ namespace cuda {
 	typedef int (*cuMemFree_t)(void*);
 	typedef int (*cuMemcpy_t)(void*, void*, size_t);
 	typedef int (*cuMemcpyAsync_t)(void*, void*, size_t, void*);
+	typedef int (*cuMemGetAddressRange_t)(void**, size_t*, void*);
 	typedef int (*cuModuleLoad_t)(void**, const char*);
 	typedef int (*cuModuleLoadDataEx_t)(void**, const char*, unsigned int, int* options, void**);
 	typedef int (*cuModuleGetFunction_t)(void**, void*, const char*);
@@ -61,6 +62,7 @@ namespace cuda {
 	extern cuMemFree_t cuMemFreeHost;
 	extern cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
 	extern cuMemcpyAsync_t cuMemcpyHtoDAsync, cuMemcpyDtoHAsync;
+	extern cuMemGetAddressRange_t cuMemGetAddressRange;
 	extern cuModuleLoad_t cuModuleLoad;
 	extern cuModuleLoad_t cuModuleLoadData;
 	extern cuModuleLoadDataEx_t cuModuleLoadDataEx;

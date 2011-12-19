@@ -100,7 +100,7 @@ static ffi_type* ffiTypeFor(Type *Ty)
 }
 
 static void* ffiValueFor(
-	Type* Ty, void* AV, void* ArgDataPtr)
+	kernel_t* kernel, Type* Ty, void* AV, void* ArgDataPtr)
 {
 	if (!verbose)
 	{
@@ -142,8 +142,23 @@ static void* ffiValueFor(
 		}
 		case Type::PointerTyID :
 		{
-			// TODO: map device pointer to host.
-			*((void**)ArgDataPtr) = *((void**)AV);
+			// Use host memory instead of device:
+			// figure out the allocated device memory range
+			// and duplicate it on host.
+			void* device = NULL;
+			size_t size = 0;
+			int err = cuMemGetAddressRange(&device, &size, AV);
+			if (err) THROW("Error in cuMemGetAddressRange " << err);
+			void* host = NULL;
+			err = cuMemAllocHost((void**)&host, size);
+			if (err) THROW("Error in cuMemAllocHost " << err);
+			err = cuMemcpyDtoHAsync(host, device, size,
+				kernel->target[runmode].monitor_kernel_stream);
+			if (err) THROW("Error in cuMemcpyDtoHAsync");
+			err = cuStreamSynchronize(
+				kernel->target[runmode].monitor_kernel_stream);
+			if (err) THROW("Error in cuStreamSynchronize " << err);
+			*((void**)ArgDataPtr) = host;
 			return ArgDataPtr;
 		}
 		default :
@@ -196,8 +211,24 @@ static void* ffiValueFor(
 	}
 	case Type::PointerTyID :
 	{
-		*((void**)ArgDataPtr) = *((void**)AV);
-		cout << *((void**)AV);
+		// Use host memory instead of device:
+		// figure out the allocated device memory range
+		// and duplicate it on host.
+		void* base = NULL;
+		size_t size = 0;
+		int err = cuMemGetAddressRange(&base, &size, *((void**)AV));
+		if (err) THROW("Error in cuMemGetAddressRange " << err);
+		void* host = NULL;
+		err = cuMemAllocHost((void**)&host, size);
+		if (err) THROW("Error in cuMemAllocHost " << err);
+		err = cuMemcpyDtoHAsync(host, base, size,
+			kernel->target[runmode].monitor_kernel_stream);
+		if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
+		err = cuStreamSynchronize(
+			kernel->target[runmode].monitor_kernel_stream);
+		if (err) THROW("Error in cuStreamSynchronize " << err);
+		*((void**)ArgDataPtr) = host + ((ptrdiff_t)*((void**)AV) - (ptrdiff_t)base);
+		cout << *((void**)AV) << " -> " << *((void**)ArgDataPtr);
 		return ArgDataPtr;
 	}
 	default :
@@ -211,17 +242,16 @@ static void* ffiValueFor(
 typedef void (*func_t)();
 
 static void ffiInvoke(
-	func_t func, FunctionType* FTy,
+	kernel_t* kernel, func_t func, FunctionType* FTy,
 	StructType* StructTy, void* params,
 	const TargetData* TD)
 {
-	const std::vector<GenericValue> ArgVals;
-	GenericValue Result;
-
 	// Skip first two fields, that are FunctionType and
 	// StructureType itself, respectively.
+	// Also exclude return arguent in case of non-void function.
 	unsigned ArgBytes = 0;
-	const unsigned NumArgs = StructTy->getNumElements() - 2;
+	unsigned NumArgs = StructTy->getNumElements() - 2;
+	if (!FTy->getReturnType()->isVoidTy()) NumArgs--;
 	std::vector<ffi_type*> args(NumArgs);
 	if (!verbose)
 	{
@@ -255,7 +285,7 @@ static void ffiInvoke(
 		{
 			Type* ArgTy = StructTy->getElementType(i + 2);
 			int offset = layout->getElementOffset(i + 2);
-			values[i] = ffiValueFor(ArgTy,
+			values[i] = ffiValueFor(kernel, ArgTy,
 				(void*)((char*)params + offset), ArgDataPtr);
 			ArgDataPtr += TD->getTypeStoreSize(ArgTy);
 		}
@@ -267,7 +297,7 @@ static void ffiInvoke(
 			cout << "arg " << i << " value: ";
 			Type* ArgTy = StructTy->getElementType(i + 2);
 			int offset = layout->getElementOffset(i + 2);
-			values[i] = ffiValueFor(ArgTy,
+			values[i] = ffiValueFor(kernel, ArgTy,
 				(void*)((char*)params + offset), ArgDataPtr);
 			ArgDataPtr += TD->getTypeStoreSize(ArgTy);
 			cout << endl;
@@ -275,7 +305,15 @@ static void ffiInvoke(
 	}
 
 	Type* RetTy = FTy->getReturnType();
-	ffi_type* rtype = ffiTypeFor(RetTy);
+	ffi_type* rtype = NULL;
+	if (!verbose)
+		rtype = ffiTypeFor(RetTy);
+	else
+	{
+		cout << "ret type: ";
+		rtype = ffiTypeFor(RetTy);
+		cout << endl;
+	}
 
 	ffi_cif cif;
 	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, NumArgs,
@@ -286,22 +324,38 @@ static void ffiInvoke(
 	if (RetTy->getTypeID() != Type::VoidTyID)
 		ret.resize(TD->getTypeStoreSize(RetTy));
 	ffi_call(&cif, func, ret.data(), values.data());
-	
-	switch (RetTy->getTypeID())
+
+	if (!RetTy->isVoidTy())
 	{
-	case Type::IntegerTyID :
-		switch (cast<IntegerType>(RetTy)->getBitWidth())
+		Type* ArgTy = StructTy->getElementType(NumArgs - 1);
+		int offset = layout->getElementOffset(NumArgs - 1);
+		memcpy((void*)((char*)params + offset), ret.data(),
+			TD->getTypeStoreSize(ArgTy));
+	}
+
+	for (int i = 0; i < NumArgs; i++)
+	{
+		Type* ArgTy = StructTy->getElementType(i + 2);
+		int offset = layout->getElementOffset(i + 2);
+		size_t size = TD->getTypeStoreSize(ArgTy);
+		if (!ArgTy->isPointerTy())
+			memcpy((void*)((char*)params + offset), values[i], size);
+		else
 		{
-		case  8 : Result.IntVal = APInt(8 , *(int8_t *) ret.data()); break;
-		case 16 : Result.IntVal = APInt(16, *(int16_t*) ret.data()); break;
-		case 32 : Result.IntVal = APInt(32, *(int32_t*) ret.data()); break;
-		case 64 : Result.IntVal = APInt(64, *(int64_t*) ret.data()); break;
+			// Move changed data back from host to device memory.
+			void* device = *(void**)((char*)params + offset);
+			void* base = NULL;
+			size_t size = 0;
+			int err = cuMemGetAddressRange(&base, &size, device);
+			if (err) THROW("Error in cuMemGetAddressRange " << err);
+			void* host = values[i] - ((ptrdiff_t)device - (ptrdiff_t)base);
+			err = cuMemcpyHtoDAsync(base, host, size,
+				kernel->target[runmode].monitor_kernel_stream);
+			if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
+			err = cuStreamSynchronize(
+				kernel->target[runmode].monitor_kernel_stream);
+			if (err) THROW("Error in cuStreamSynchronize " << err);
 		}
-		break;
-	case Type::FloatTyID : Result.FloatVal   = *(float *) ret.data(); break;
-	case Type::DoubleTyID : Result.DoubleVal  = *(double*) ret.data(); break;
-	case Type::PointerTyID : Result.PointerVal = *(void **) ret.data(); break;
-	default: break;
 	}
 }
 
@@ -419,6 +473,11 @@ int kernelgen_launch(
 				break;
 			}
 
+			// Create host-pinned callback structure buffer.
+			struct kernelgen_callback_t* callback = NULL;
+			int err = cuMemAllocHost((void**)&callback, sizeof(struct kernelgen_callback_t));
+			if (err) THROW("Error in cuMemAllocHost " << err);
+
 			// Launch monitor GPU kernel.
 			{
 				struct { unsigned int x, y, z; } gridDim, blockDim;
@@ -452,11 +511,6 @@ int kernelgen_launch(
 				if (err)
 					THROW("Error in cuLaunchKernel " << err);
 			}
-
-			// Create host-pinned callback structure buffer.
-			struct kernelgen_callback_t* callback = NULL;
-			int err = cuMemAllocHost((void**)&callback, sizeof(struct kernelgen_callback_t));
-			if (err) THROW("Error in cuMemAllocHost " << err);
 
 			while (1)
 			{
@@ -497,9 +551,14 @@ int kernelgen_launch(
 					}
 					case KERNELGEN_STATE_HOSTCALL :
 					{
+						Dl_info info;
 						if (verbose)
+						{
+							if (!dladdr((void*)callback->name, &info))
+								THROW("Error in dladdr " << dlerror());
 							cout << "Kernel " << kernel->name <<
-								" requested host function call " << (void*)callback->name << endl;
+								" requested host function call " << info.dli_sname << endl;
+						}
 					
 						// Copy arguments to the host memory.
 						struct
@@ -519,10 +578,10 @@ int kernelgen_launch(
 
 						// Perform hostcall using FFI.
 						TargetData* TD = new TargetData(kernel->module);					
-						ffiInvoke((func_t)callback->name, arg->FunctionTy, arg->StructTy,
-							(void*)arg, TD);
+						ffiInvoke(kernel, (func_t)callback->name, arg->FunctionTy,
+							arg->StructTy, (void*)arg, TD);
 
-						err = cuMemFreeHost(arg);
+						//err = cuMemFreeHost(arg);
 						if (err) THROW("Error in cuMemFreeHost " << err);
 
 						break;

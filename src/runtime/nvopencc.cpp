@@ -32,7 +32,7 @@ using namespace std;
 
 #define PTX_LOG_SIZE 1024
 
-bool debug = false;
+bool debug = true;
 
 char* kernelgen::runtime::nvopencc(string source, string name)
 {
@@ -172,6 +172,10 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 	err = cuModuleGetFunction(&kernel_func, module, name.c_str());
 	if (err)
 		THROW("Error in cuModuleGetFunction " << err);
+
+	err = cuCtxSynchronize();
+	if (err)
+		THROW("Error in cuCtxSynchronize " << err);
 
 	if (verbose)
 		cout << "Loaded '" << name << "' at: " << kernel_func << endl;
