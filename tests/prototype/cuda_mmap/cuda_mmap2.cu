@@ -20,7 +20,7 @@ void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	if (cuerr == CUDA_SUCCESS)
 	{
 		void* map = mmap(base, size,
-			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
 			-1, 0);
 		if (map == (void*)-1)
 		{
@@ -43,9 +43,14 @@ void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	}
 }
 
-__global__ void kernel(int* array)
+__global__ void kernel_1313(int* array)
 {
 	array[10] = 1313;
+}
+
+__global__ void kernel_1414(int* array)
+{
+	array[11] = array[10];
 }
 
 int main(int argc, char* argv[])
@@ -69,7 +74,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Launch GPU kernel, assigning value to GPU array.
-	kernel<<<1, 1>>>(array);
+	kernel_1313<<<1, 1>>>(array);
 	cuerr = cudaDeviceSynchronize();
 	if (cuerr != cudaSuccess)
 	{
@@ -80,8 +85,18 @@ int main(int argc, char* argv[])
 
 	printf("Trying to read: array[10] = %d\n", array[10]);
 
+	array[10] = 1414;
+
 	for (std::list<void*>::iterator i = maps.begin(), e = maps.end(); i != e; i++)
 	{
+		cuerr = cudaMemcpy(array, array, length, cudaMemcpyHostToDevice);
+		if (cuerr != cudaSuccess)
+		{
+			fprintf(stderr, "Cannot copy data from host to device: %s\n",
+				cudaGetErrorString(cuerr));
+			return -1;
+		}
+
 		void* map = *i;
 		int err = munmap(map, length);
 		if (err == -1)
@@ -91,6 +106,19 @@ int main(int argc, char* argv[])
 			return -1;
 		}
 	}
+
+	// Set and check out the final value?
+	kernel_1414<<<1,1>>>(array);
+	int val = 0;
+	cuerr = cudaMemcpy(&val, array + 11, sizeof(int), cudaMemcpyDeviceToHost);
+	if (cuerr != cudaSuccess)
+	{
+		fprintf(stderr, "Cannot copy data from device to host: %s\n",
+			cudaGetErrorString(cuerr));
+		return -1;
+	}
+
+	printf("Finally, we have array[11] = %d\n", val);
 
 	return 0;
 }
