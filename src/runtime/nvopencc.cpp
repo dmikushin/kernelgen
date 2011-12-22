@@ -32,7 +32,7 @@ using namespace std;
 
 #define PTX_LOG_SIZE 1024
 
-bool debug = true;
+bool debug = false;
 
 char* kernelgen::runtime::nvopencc(string source, string name)
 {
@@ -106,14 +106,14 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 		tmp_stream.close();
 	}
 	
-	cout << ptx;
+	if (verbose) cout << ptx;
 
 	// Compile PTX code in temporary file to CUBIN.
 	cfiledesc tmp3 = cfiledesc::mktemp("/tmp/");
 	{
 		string ptxas = "ptxas";
 		std::list<string> ptxas_args;
-		ptxas_args.push_back("-v");
+		if (verbose) ptxas_args.push_back("-v");
 		ptxas_args.push_back("-arch=sm_21");
 		ptxas_args.push_back("-m64");
 		ptxas_args.push_back(tmp2.getFilename());

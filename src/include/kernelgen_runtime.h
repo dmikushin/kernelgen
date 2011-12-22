@@ -81,13 +81,6 @@ __device__ void kernelgen_finish()
 	__iAtomicCAS(&callback->lock, 0, 1);
 }
 
-__device__ int puts(const char* str)
-{
-	int ret = printf("%s\n", str);
-	if (ret < 0) return EOF;
-	return ret;
-}
-
 __device__ int kernelgen_threadIdx_x() { return threadIdx.x; }
 __device__ int kernelgen_threadIdx_y() { return threadIdx.y; }
 __device__ int kernelgen_threadIdx_z() { return threadIdx.z; }

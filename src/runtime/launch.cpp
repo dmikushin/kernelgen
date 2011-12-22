@@ -25,6 +25,9 @@
 
 #include <ffi.h>
 #include <mhash.h>
+#include <signal.h>
+#include <sys/mman.h>
+#include <sys/types.h>
 
 #include "llvm/DerivedTypes.h"
 #include "llvm/Function.h"
@@ -39,204 +42,71 @@ using namespace std;
 
 static ffi_type* ffiTypeFor(Type *Ty)
 {
-	if (!verbose)
-	{
-		switch (Ty->getTypeID())
-		{
-		case Type::VoidTyID : return &ffi_type_void;
-		case Type::IntegerTyID :
-			switch (cast<IntegerType>(Ty)->getBitWidth())
-			{
-			case 8 : return &ffi_type_sint8;
-			case 16 : return &ffi_type_sint16;
-			case 32 : return &ffi_type_sint32;
-			case 64 : return &ffi_type_sint64;
-			}
-		case Type::FloatTyID : return &ffi_type_float;
-		case Type::DoubleTyID : return &ffi_type_double;
-		case Type::PointerTyID : return &ffi_type_pointer;
-		default :
-			// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
-			THROW("Type could not be mapped for use with libffi.");
-		}
-	}
-
 	switch (Ty->getTypeID())
 	{
-	case Type::VoidTyID :
-		cout << "void";
-		return &ffi_type_void;
+	case Type::VoidTyID : return &ffi_type_void;
 	case Type::IntegerTyID :
 		switch (cast<IntegerType>(Ty)->getBitWidth())
 		{
-		case 8 :
-			cout << "ffi_type_sint8";
-			return &ffi_type_sint8;
-		case 16 :
-			cout << "ffi_type_sint16";
-			return &ffi_type_sint16;
-		case 32 :
-			cout << "ffi_type_sint32";
-			return &ffi_type_sint32;
-		case 64 :
-			cout << "ffi_type_sint64"; 
-			return &ffi_type_sint64;
+		case 8 : return &ffi_type_sint8;
+		case 16 : return &ffi_type_sint16;
+		case 32 : return &ffi_type_sint32;
+		case 64 : return &ffi_type_sint64;
 		}
-	case Type::FloatTyID :
-		cout << "ffi_type_float";
-		return &ffi_type_float;
-	case Type::DoubleTyID :
-		cout << "ffi_type_double";
-		return &ffi_type_double;
-	case Type::PointerTyID :
-		cout << "ffi_type_pointer";
-		return &ffi_type_pointer;
-	default : break;
+	case Type::FloatTyID : return &ffi_type_float;
+	case Type::DoubleTyID : return &ffi_type_double;
+	case Type::PointerTyID : return &ffi_type_pointer;
+	default :
 		// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
 		THROW("Type could not be mapped for use with libffi.");
 	}
-	
 	return NULL;
 }
 
-static void* ffiValueFor(
-	kernel_t* kernel, Type* Ty, void* AV, void* ArgDataPtr)
+struct mmap_t
 {
-	if (!verbose)
-	{
-		switch (Ty->getTypeID())
-		{
-		case Type::IntegerTyID :
-			switch (cast<IntegerType>(Ty)->getBitWidth())
-			{
-			case 8 : 
-				{
-					*((int8_t*)ArgDataPtr) = *((int8_t*)AV);
-					return ArgDataPtr;
-				}
-			case 16 :
-				{
-					*((int16_t*)ArgDataPtr) = *((int16_t*)AV);
-					return ArgDataPtr;
-				}
-			case 32 :
-				{
-					*((int32_t*)ArgDataPtr) = *((int32_t*)AV);
-					return ArgDataPtr;
-				}
-			case 64 :
-				{
-					*((int64_t*)ArgDataPtr) = *((int64_t*)AV);
-					return ArgDataPtr;
-				}
-			}
-		case Type::FloatTyID :
-		{
-			*((float*)ArgDataPtr) = *((float*)AV);
-			return ArgDataPtr;
-		}
-		case Type::DoubleTyID :
-		{
-			*((double*)ArgDataPtr) = *((double*)AV);
-			return ArgDataPtr;
-		}
-		case Type::PointerTyID :
-		{
-			// Use host memory instead of device:
-			// figure out the allocated device memory range
-			// and duplicate it on host.
-			void* device = NULL;
-			size_t size = 0;
-			int err = cuMemGetAddressRange(&device, &size, AV);
-			if (err) THROW("Error in cuMemGetAddressRange " << err);
-			void* host = NULL;
-			err = cuMemAllocHost((void**)&host, size);
-			if (err) THROW("Error in cuMemAllocHost " << err);
-			err = cuMemcpyDtoHAsync(host, device, size,
-				kernel->target[runmode].monitor_kernel_stream);
-			if (err) THROW("Error in cuMemcpyDtoHAsync");
-			err = cuStreamSynchronize(
-				kernel->target[runmode].monitor_kernel_stream);
-			if (err) THROW("Error in cuStreamSynchronize " << err);
-			*((void**)ArgDataPtr) = host;
-			return ArgDataPtr;
-		}
-		default :
-			// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
-			THROW("Type value could not be mapped for use with libffi.");
-		}
-	}
+	void* addr;
+	size_t size, align;
+};
 
-	switch (Ty->getTypeID())
-	{
-	case Type::IntegerTyID :
-		switch (cast<IntegerType>(Ty)->getBitWidth())
-		{
-		case 8 : 
-			{
-				*((int8_t*)ArgDataPtr) = *((int8_t*)AV);
-				cout << *((int8_t*)AV);
-				return ArgDataPtr;
-			}
-		case 16 :
-			{
-				*((int16_t*)ArgDataPtr) = *((int16_t*)AV);
-				cout << *((int16_t*)AV);
-				return ArgDataPtr;
-			}
-		case 32 :
-			{
-				*((int32_t*)ArgDataPtr) = *((int32_t*)AV);
-				cout << *((int32_t*)AV);
-				return ArgDataPtr;
-			}
-		case 64 :
-			{
-				*((int64_t*)ArgDataPtr) = *((int64_t*)AV);
-				cout << *((int64_t*)AV);
-				return ArgDataPtr;
-			}
-		}
-	case Type::FloatTyID :
-	{
-		*((float*)ArgDataPtr) = *((float*)AV);
-		cout << *((float*)AV);
-		return ArgDataPtr;
-	}
-	case Type::DoubleTyID :
-	{
-		*((double*)ArgDataPtr) = *((double*)AV);
-		cout << *((double*)AV);
-		return ArgDataPtr;
-	}
-	case Type::PointerTyID :
-	{
-		// Use host memory instead of device:
-		// figure out the allocated device memory range
-		// and duplicate it on host.
-		void* base = NULL;
-		size_t size = 0;
-		int err = cuMemGetAddressRange(&base, &size, *((void**)AV));
-		if (err) THROW("Error in cuMemGetAddressRange " << err);
-		void* host = NULL;
-		err = cuMemAllocHost((void**)&host, size);
-		if (err) THROW("Error in cuMemAllocHost " << err);
-		err = cuMemcpyDtoHAsync(host, base, size,
-			kernel->target[runmode].monitor_kernel_stream);
-		if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
-		err = cuStreamSynchronize(
-			kernel->target[runmode].monitor_kernel_stream);
-		if (err) THROW("Error in cuStreamSynchronize " << err);
-		*((void**)ArgDataPtr) = host + ((ptrdiff_t)*((void**)AV) - (ptrdiff_t)base);
-		cout << *((void**)AV) << " -> " << *((void**)ArgDataPtr);
-		return ArgDataPtr;
-	}
-	default :
-		// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
-		THROW("Type value could not be mapped for use with libffi.");
-	}
+static list<struct mmap_t> mmaps;
 
-	return NULL;
+static kernel_t* active_kernel;
+
+// SIGSEGV signal handler to catch accesses to GPU memory.
+static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
+{
+	// Check if address is valid on GPU.
+	void* addr = siginfo->si_addr;
+
+	void* base;
+	size_t size;
+	int err = cuMemGetAddressRange(&base, &size, addr);
+	if (err) THROW("Not a GPU memory: " << addr);
+
+	size_t align = (size_t)base % 4096;
+	void* map = mmap((char*)base - align, size + align,
+		PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+		-1, 0);
+	if (map == (void*)-1)
+		THROW("Cannot map memory onto " << base << " + " << size);
+
+	mmap_t mmap;
+	mmap.addr = map;
+	mmap.size = size;
+	mmap.align = align;
+	mmaps.push_back(mmap);
+
+	if (verbose)
+		cout << "Mapped memory " << map << "(" << base << " - " <<
+		align << ") + " << size << endl;
+
+	err = cuMemcpyDtoHAsync(base, base, size,
+		active_kernel->target[runmode].monitor_kernel_stream);
+	if (err) THROW("Error in cuMemcpyDtoH " << err);
+	err = cuStreamSynchronize(
+		active_kernel->target[runmode].monitor_kernel_stream);
+	if (err) THROW("Error in cuStreamSynchronize " << err);
 }
 
 typedef void (*func_t)();
@@ -246,6 +116,8 @@ static void ffiInvoke(
 	StructType* StructTy, void* params,
 	const TargetData* TD)
 {
+	active_kernel = kernel;
+
 	// Skip first two fields, that are FunctionType and
 	// StructureType itself, respectively.
 	// Also exclude return arguent in case of non-void function.
@@ -253,25 +125,11 @@ static void ffiInvoke(
 	unsigned NumArgs = StructTy->getNumElements() - 2;
 	if (!FTy->getReturnType()->isVoidTy()) NumArgs--;
 	std::vector<ffi_type*> args(NumArgs);
-	if (!verbose)
+	for (int i = 0; i < NumArgs; i++)
 	{
-		for (int i = 0; i < NumArgs; i++)
-		{
-			Type* ArgTy = StructTy->getElementType(i + 2);
-			args[i] = ffiTypeFor(ArgTy);
-			ArgBytes += TD->getTypeStoreSize(ArgTy);
-		}
-	}
-	else
-	{
-		for (int i = 0; i < NumArgs; i++)
-		{
-			cout << "arg " << i << " type: ";
-			Type* ArgTy = StructTy->getElementType(i + 2);
-			args[i] = ffiTypeFor(ArgTy);
-			ArgBytes += TD->getTypeStoreSize(ArgTy);
-			cout << endl;
-		}
+		Type* ArgTy = StructTy->getElementType(i + 2);
+		args[i] = ffiTypeFor(ArgTy);
+		ArgBytes += TD->getTypeStoreSize(ArgTy);
 	}
 
 	const StructLayout* layout = TD->getStructLayout(StructTy);
@@ -279,41 +137,91 @@ static void ffiInvoke(
 	ArgData.resize(ArgBytes);
 	uint8_t *ArgDataPtr = ArgData.data();
 	SmallVector<void*, 16> values(NumArgs);
-	if (!verbose)
+	for (int i = 0; i < NumArgs; i++)
 	{
-		for (int i = 0; i < NumArgs; i++)
+		Type* ArgTy = StructTy->getElementType(i + 2);
+		int offset = layout->getElementOffset(i + 2);
+		size_t size = TD->getTypeStoreSize(ArgTy);
+		void** address = (void**)((char*)params + offset);
+		memcpy(ArgDataPtr, address, size);
+		values[i] = ArgDataPtr;
+		ArgDataPtr += size;
+		if (ArgTy->isPointerTy())
 		{
-			Type* ArgTy = StructTy->getElementType(i + 2);
-			int offset = layout->getElementOffset(i + 2);
-			values[i] = ffiValueFor(kernel, ArgTy,
-				(void*)((char*)params + offset), ArgDataPtr);
-			ArgDataPtr += TD->getTypeStoreSize(ArgTy);
-		}
-	}
-	else
-	{
-		for (int i = 0; i < NumArgs; i++)
-		{
-			cout << "arg " << i << " value: ";
-			Type* ArgTy = StructTy->getElementType(i + 2);
-			int offset = layout->getElementOffset(i + 2);
-			values[i] = ffiValueFor(kernel, ArgTy,
-				(void*)((char*)params + offset), ArgDataPtr);
-			ArgDataPtr += TD->getTypeStoreSize(ArgTy);
-			cout << endl;
+			// If pointer corresponds to device memory,
+			// use the host memory instead:
+			// figure out the allocated device memory range
+			// and shadow it with host memory mapping.
+			void* base;
+			size_t size;
+			int err = cuMemGetAddressRange(&base, &size, *address);
+			if (!err)
+			{			
+				size_t align = (size_t)base % 4096;
+
+				size_t mapped = (size_t)-1;
+				for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
+				{
+					struct mmap_t mmap = *i;
+					if (mmap.addr == (char*)base - align)
+					{
+						mapped = mmap.size + mmap.align;
+						break;
+					}
+				}
+
+				if (mapped == (size_t)-1)
+				{
+					// Map host memory with the same address and size
+					// device memory has.
+					void* map = mmap((char*)base - align, size + align,
+						PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+						-1, 0);
+					if (map == (void*)-1)
+						THROW("Cannot map host memory onto " << base << " + " << size);
+				
+
+					// Track the mapped memory in list of mappings,
+					// to synchronize them after the hostcall finishes.
+					struct mmap_t mmap;
+					mmap.addr = map;
+					mmap.size = size;
+					mmap.align = align;								
+					mmaps.push_back(mmap);
+				}
+				else
+				{
+					// Remap the existing mapping, if it is required
+					// to be larger.
+					if (size + align > mapped)
+					{
+						void* map = mremap((char*)base - align, mapped, size + align,
+							PROT_READ | PROT_WRITE);
+						if (map == (void*)-1)
+							THROW("Cannot map host memory onto " << base << " + " << size);
+					
+						// TODO: store new size in mmaps.
+					}
+				}
+
+				if (verbose)
+					cout << "Mapped memory " << base - align << "(" << base << " - " <<
+					align << ") + " << size << endl;
+
+				// Copy device memory to host mapped memory.
+				err = cuMemcpyDtoHAsync(base, base, size,
+					kernel->target[runmode].monitor_kernel_stream);
+				if (err) THROW("Error in cuMemcpyDtoHAsync");
+				err = cuStreamSynchronize(
+					kernel->target[runmode].monitor_kernel_stream);
+				if (err) THROW("Error in cuStreamSynchronize " << err);
+			}
 		}
 	}
 
 	Type* RetTy = FTy->getReturnType();
 	ffi_type* rtype = NULL;
-	if (!verbose)
-		rtype = ffiTypeFor(RetTy);
-	else
-	{
-		cout << "ret type: ";
-		rtype = ffiTypeFor(RetTy);
-		cout << endl;
-	}
+	rtype = ffiTypeFor(RetTy);
 
 	ffi_cif cif;
 	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, NumArgs,
@@ -323,7 +231,27 @@ static void ffiInvoke(
 	SmallVector<uint8_t, 128> ret;
 	if (RetTy->getTypeID() != Type::VoidTyID)
 		ret.resize(TD->getTypeStoreSize(RetTy));
+
+	// Register SIGSEGV signal handler to catch
+	// accesses to GPU memory and remebmer the original handler.
+        struct sigaction sa_new, sa_old;
+        sa_new.sa_flags = SA_SIGINFO;
+        sigfillset(&sa_new.sa_mask);
+        sa_new.sa_sigaction = sighandler;
+        sigaction(SIGSEGV, &sa_new, &sa_old);
+        
+        if (verbose)
+        	cout << "Starting hostcall to " << (void*)func << endl;
+
 	ffi_call(&cif, func, ret.data(), values.data());
+
+        if (verbose)
+        	cout << "Finishing hostcall to " << (void*)func << endl;
+	
+	// Unregister SIGSEGV signal handler and resore the
+	// original handler.
+	memset(&sa_new, 0, sizeof(struct sigaction));
+        sigaction(SIGSEGV, &sa_old, 0);
 
 	if (!RetTy->isVoidTy())
 	{
@@ -338,27 +266,38 @@ static void ffiInvoke(
 		Type* ArgTy = StructTy->getElementType(i + 2);
 		int offset = layout->getElementOffset(i + 2);
 		size_t size = TD->getTypeStoreSize(ArgTy);
-		if (!ArgTy->isPointerTy())
-			memcpy((void*)((char*)params + offset), values[i], size);
-		else
-		{
-			// Move changed data back from host to device memory.
-			void* device = *(void**)((char*)params + offset);
-			void* base = NULL;
-			size_t size = 0;
-			int err = cuMemGetAddressRange(&base, &size, device);
-			if (err) THROW("Error in cuMemGetAddressRange " << err);
-			void* host = values[i] - ((ptrdiff_t)device - (ptrdiff_t)base);
-			err = cuMemcpyHtoDAsync(base, host, size,
-				kernel->target[runmode].monitor_kernel_stream);
-			if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
-			err = cuStreamSynchronize(
-				kernel->target[runmode].monitor_kernel_stream);
-			if (err) THROW("Error in cuStreamSynchronize " << err);
-		}
+		void* address = (void*)((char*)params + offset);
+		memcpy(address, values[i], size);
 	}
-}
 
+	// Copy data back from host-mapped memory to device.
+	for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
+	{
+		struct mmap_t mmap = *i;
+		int err = cuMemcpyHtoDAsync(
+			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, mmap.size,
+			kernel->target[runmode].monitor_kernel_stream);
+		if (err) THROW("Error in cuMemcpyHtoDAsync");
+	}
+	
+	// Synchronize and unmap previously mapped host memory.
+	int err = cuStreamSynchronize(
+		kernel->target[runmode].monitor_kernel_stream);
+	if (err) THROW("Error in cuStreamSynchronize " << err);
+	for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
+	{
+		struct mmap_t mmap = *i;
+                err = munmap(mmap.addr, mmap.size + mmap.align);
+                if (err == -1)
+                	THROW("Cannot unmap memory from " << mmap.addr <<
+                		" + " << mmap.size + mmap.align);
+        }
+        
+        mmaps.clear();
+        
+        if (verbose)
+        	cout << "Finished hostcall handler" << endl;
+}
 
 // Launch kernel from the specified source code address.
 int kernelgen_launch(

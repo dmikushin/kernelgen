@@ -261,7 +261,7 @@ char* kernelgen::runtime::compile(
 			{
 				#include "cuda_syscalls.h"
 				#include "cuda_intrinsics.h"
-				"printf", "puts",
+//				"printf", "puts",
 				"kernelgen_threadIdx_x", "kernelgen_threadIdx_y", "kernelgen_threadIdx_z",
 				"kernelgen_blockIdx_x", "kernelgen_blockIdx_y", "kernelgen_blockIdx_z",
 				"kernelgen_blockDim_x", "kernelgen_blockDim_y", "kernelgen_blockDim_z",
@@ -421,7 +421,7 @@ char* kernelgen::runtime::compile(
 						Value *Idx[2];
 						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
 						Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
-							call->getNumArgOperands() + 1);
+							call->getNumArgOperands() + 2);
 
 						GetElementPtrInst *GEP = GetElementPtrInst::Create(
 							Struct, Idx, "", call);
@@ -450,7 +450,7 @@ char* kernelgen::runtime::compile(
 				manager.run(*m);
 			}
 
-			m->dump();
+			if (verbose) m->dump();
 
 			// Create target machine for CUDA target and get its target data.
 			if (!targets[KERNELGEN_RUNMODE_CUDA].get())
@@ -504,7 +504,7 @@ char* kernelgen::runtime::compile(
 			// underlying string.
 			stream.flush();
 
-			cout << bin_string;
+			if (verbose) cout << bin_string;
 
 			return nvopencc(bin_string, kernel->name);
 
