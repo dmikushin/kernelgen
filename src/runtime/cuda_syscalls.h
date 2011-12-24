@@ -3,6 +3,6 @@
 
 //    "vprintf",
 //    "vfprintf",
-    "malloc",
-    "free",
+//    "malloc",
+//    "free",
     "__assertfail",

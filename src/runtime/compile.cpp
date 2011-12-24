@@ -303,6 +303,25 @@ char* kernelgen::runtime::compile(
 						}
 					}
 					if (native) continue;
+					
+					// Check if function is malloc or free.
+					// In case it is, replace it with kernelgen_* variant.
+					if ((callee->getName() == "malloc") || (callee->getName() == "free"))
+					{
+						string name = "kernelgen_";
+						name += callee->getName();
+						Function* replacement = m->getFunction(name);
+						if (!replacement)
+						{
+							replacement = Function::Create(callee->getFunctionType(),
+								GlobalValue::ExternalLinkage, name, m);
+						}
+						call->setCalledFunction(replacement);
+						if (verbose)
+							cout << "replacement: " << callee->getName().data() <<
+								" -> kernelgen_" << callee->getName().data() << endl;
+						continue;
+					}
 
 					if (verbose)
 						cout << "hostcall: " << callee->getName().data() << endl;
