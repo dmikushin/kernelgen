@@ -22,14 +22,10 @@
 #ifndef KERNELGEN_RUNTIME_H
 #define KERNELGEN_RUNTIME_H
 
-#include <stdio.h>
-
-#include "kernelgen_interop.h"
-
 #define __device__ static __inline__ __attribute__((always_inline))
 
-extern __attribute__((__malloc__)) void *malloc(size_t);
-extern void free(void*);
+#include "kernelgen_interop.h"
+#include "kernelgen_memory.h"
 
 extern __attribute__((device)) int __iAtomicCAS(
 	int *address, int compare, int val);

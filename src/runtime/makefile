@@ -36,7 +36,7 @@ CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include
 CXXFLAGS = -g -fPIC -O$(OPT) -I../include $(LLVMINC) $(LLVMDEF)
 
 OBJECTS = \
-	entry compile launch finish timing io elf execute bind nvopencc \
+	entry compile launch finish timing io elf execute bind nvopencc memory \
 	BlockGenerator ClastExpCodegen ClastStmtCodeGen CodeGeneration
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
@@ -126,6 +126,11 @@ NUM_SYMBOLS ?= 1
 32/nvopencc.o: nvopencc.cpp
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/nvopencc.o: nvopencc.cpp
+	$(CXX64) $(CXXFLAGS) -c $< -o $@
+
+32/memory.o: memory.cpp
+	$(CXX32) $(CXXFLAGS) -c $< -o $@
+64/memory.o: memory.cpp
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
 
 32/BlockGenerator.o: BlockGenerator.cpp

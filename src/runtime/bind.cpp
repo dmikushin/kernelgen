@@ -41,10 +41,12 @@ namespace kernelgen { namespace bind { namespace cuda {
 	cuMemcpy_t cuMemcpyHtoD = NULL, cuMemcpyDtoH = NULL;
 	cuMemcpyAsync_t cuMemcpyHtoDAsync = NULL, cuMemcpyDtoHAsync = NULL;
 	cuMemGetAddressRange_t cuMemGetAddressRange = NULL;
+	cuMemsetD8_t cuMemsetD8 = NULL;
 	cuModuleLoad_t cuModuleLoad = NULL;
 	cuModuleLoad_t cuModuleLoadData = NULL;
 	cuModuleLoadDataEx_t cuModuleLoadDataEx = NULL;
 	cuModuleGetFunction_t cuModuleGetFunction = NULL;
+	cuModuleGetGlobal_t cuModuleGetGlobal = NULL;
 	cuLaunchKernel_t cuLaunchKernel = NULL;
 	cuStreamCreate_t cuStreamCreate = NULL;
 	cuStreamSynchronize_t cuStreamSynchronize = NULL;
@@ -97,6 +99,9 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuMemGetAddressRange = (cuMemGetAddressRange_t)dlsym(handle, "cuMemGetAddressRange_v2");
 		if (!cuMemGetAddressRange)
 			THROW("Cannot dlsym cuMemGetAddressRange " << dlerror());
+		cuMemsetD8 = (cuMemsetD8_t)dlsym(handle, "cuMemsetD8_v2");
+		if (!cuMemsetD8)
+			THROW("Cannot dlsym cuMemsetD8 " << dlerror());
 		cuModuleLoad = (cuModuleLoad_t)dlsym(handle, "cuModuleLoad");
 		if (!cuModuleLoad)
 			THROW("Cannot dlsym cuModuleLoad " << dlerror());
@@ -109,6 +114,9 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuModuleGetFunction = (cuModuleGetFunction_t)dlsym(handle, "cuModuleGetFunction");
 		if (!cuModuleGetFunction)
 			THROW("Cannot dlsym cuModuleGetFunction " << dlerror());
+		cuModuleGetGlobal = (cuModuleGetGlobal_t)dlsym(handle, "cuModuleGetGlobal_v2");
+		if (!cuModuleGetGlobal)
+			THROW("Cannot dlsym cuModuleGetGlobal " << dlerror());
 		cuLaunchKernel = (cuLaunchKernel_t)dlsym(handle, "cuLaunchKernel");
 		if (!cuLaunchKernel)
 			THROW("Cannot dlsym cuLaunchKernel " << dlerror());

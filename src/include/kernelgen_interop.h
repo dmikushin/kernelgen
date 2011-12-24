@@ -58,5 +58,25 @@ struct kernelgen_callback_t
 	int* arg;
 };
 
+#include <string.h>
+
+// Defines the dynamic memory pool configuration.
+typedef struct
+{
+	// The pointer to the memory pool (a single
+	// large array, allocated with cudaMalloc).
+	char* pool;
+	
+	// The size of the memory pool.
+	size_t szpool;
+	
+	// The size of the used memory.
+	size_t szused;
+
+	// The number of MCB records in pool.
+	int count;
+}
+kernelgen_memory_t;
+
 #endif // KERNELGEN_INTEROP_H
 

@@ -41,12 +41,15 @@ extern "C" int __regular_main(int argc, char* argv[]);
 
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
+using namespace kernelgen::runtime;
 using namespace llvm;
 using namespace std;
 using namespace util::elf;
 
 // GPU monitoring kernel source.
 string cuda_monitor_kernel_source =
+	"__attribute__((device)) __attribute__((used)) kernelgen_memory_t kernelgen_memory;\n"
+	"\n"
 	"__attribute__((global)) __attribute__((used)) __attribute__((launch_bounds(1, 1)))\n"
 	"void kernelgen_monitor(int* callback)\n"
 	"{\n"
@@ -270,9 +273,14 @@ int main(int argc, char* argv[])
 				if (err) THROW("Error in cuStreamCreate " << err);
 				
 				// Compile GPU monitoring kernel.
+				void* module = NULL;
 				kernel->target[runmode].monitor_kernel_func =
 					kernelgen::runtime::nvopencc(cuda_monitor_kernel_source,
-					"kernelgen_monitor");
+					"kernelgen_monitor", &module);
+				
+				// Setup device dynamic memory heap, which is co-located
+				// with GPU monitoring kernel.
+				init_memory_pool(16 * 1024 * 1024, module);
 	
 				char** argv_dev = NULL;
 				{

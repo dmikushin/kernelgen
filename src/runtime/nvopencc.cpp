@@ -32,9 +32,9 @@ using namespace std;
 
 #define PTX_LOG_SIZE 1024
 
-bool debug = false;
+bool debug = true;
 
-char* kernelgen::runtime::nvopencc(string source, string name)
+char* kernelgen::runtime::nvopencc(string source, string name, void** pmodule)
 {
 	// Dump generated kernel object to first temporary file.
 	cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
@@ -116,7 +116,10 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 		if (verbose) ptxas_args.push_back("-v");
 		ptxas_args.push_back("-arch=sm_21");
 		ptxas_args.push_back("-m64");
-		ptxas_args.push_back(tmp2.getFilename());
+		//if (name == "__kernelgen_main")
+		//	ptxas_args.push_back("/tmp/GfZVCR"); //tmp2.getFilename());
+		//else
+			ptxas_args.push_back(tmp2.getFilename());
 		ptxas_args.push_back("-o");
 		ptxas_args.push_back(tmp3.getFilename());
 		if (debug)
@@ -179,6 +182,8 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 
 	if (verbose)
 		cout << "Loaded '" << name << "' at: " << kernel_func << endl;
+
+	if (pmodule) *pmodule = module;
 	
 	return (char*)kernel_func;
 }

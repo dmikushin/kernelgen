@@ -57,7 +57,8 @@ foreach $binary (@binaries)
 #
 my(@includes) = (
 	"include/kernelgen_runtime.h",
-	"include/kernelgen_interop.h");
+	"include/kernelgen_interop.h",
+	"include/kernelgen_memory.h");
 foreach $include (@includes)
 {
 	`cp $include $PREFIX\/include\/`;
