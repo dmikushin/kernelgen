@@ -49,6 +49,50 @@ using namespace std;
 using namespace util::elf;
 using namespace util::io;
 
+static Function* transformToVoid(Function* &oldFunction)
+{
+	LLVMContext & context = getGlobalContext();
+	Type* oldReturnType = oldFunction->getReturnType();
+	if (oldReturnType == Type::getVoidTy(context))
+		return oldFunction;
+
+	FunctionType* oldFunctionType = oldFunction->getFunctionType();
+	std::vector<Type*> argTypes;
+	int numParams = oldFunctionType->getNumParams();
+	for(int i = 0; i< numParams; i++)
+		argTypes.push_back(oldFunctionType->getParamType(i));
+
+	FunctionType* newFunctionType = FunctionType::get(Type::getVoidTy(context), argTypes, false);
+	Function* newFunction = Function::Create(
+		newFunctionType, GlobalValue::InternalLinkage, "", oldFunction->getParent());
+	newFunction->takeName(oldFunction);
+	vector<BasicBlock*> Blocks;
+	Function::BasicBlockListType& newBBList = newFunction->getBasicBlockList();
+	for (Function::iterator BB = oldFunction->begin(),
+		BB_End = oldFunction->end(); BB != BB_End; BB++)
+		Blocks.push_back(BB);
+	for (int i = 0; i < Blocks.size(); i++)
+	{
+		Blocks[i]->removeFromParent();
+		newBBList.push_back(Blocks[i]);
+		ReturnInst * TI ;
+		if (TI = dyn_cast<ReturnInst>(Blocks[i]->getTerminator()))
+		{
+			TI->eraseFromParent();
+			ReturnInst::Create(context,Blocks[i]);
+		}
+	}
+	for (Function::arg_iterator AI = oldFunction->arg_begin(),
+		NewAI = newFunction->arg_begin(), AI_End = oldFunction->arg_end();
+		AI != AI_End; AI++,NewAI++)
+	{
+		NewAI->setName(AI->getName());
+		AI->replaceAllUsesWith(NewAI);
+	}
+
+	return newFunction;
+}
+
 int compile(list<string> args, list<string> kgen_args,
 	string merge, list<string> merge_args,
 	string input, string output, int arch,
@@ -213,12 +257,6 @@ int compile(list<string> args, list<string> kgen_args,
 		if (verbose)
 			cout << "Preparing loop function " << func->getName().data() <<
 				" ..." << endl;
-		
-		// Reset to default visibility.
-		func->setVisibility(GlobalValue::DefaultVisibility);
-		
-		// Reset to default linkage.
-		func->setLinkage(GlobalValue::ExternalLinkage);
 
 		// Replace call to this function in module with call to launcher.
 		bool found = false;
@@ -282,6 +320,15 @@ int compile(list<string> args, list<string> kgen_args,
 					found = true;
 					break;
 				}
+
+		// Transform function from returning unsinged int to void.
+		func = transformToVoid(func);
+
+		// Reset to default visibility.
+		func->setVisibility(GlobalValue::DefaultVisibility);
+		
+		// Reset to default linkage.
+		func->setLinkage(GlobalValue::ExternalLinkage);
 	}
 
 	//m2.get()->dump();

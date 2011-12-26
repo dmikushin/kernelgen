@@ -77,9 +77,12 @@ typedef struct
 	// Kernel LLVM IR source code.
 	std::string source;
 
-	// Target-specific
+	// Target-specific configuration.
 	struct
 	{
+		// Kernel source version, more close to specific target.
+		std::string source;
+
 		// References to tables of compiled kernels
 		// for each supported runmode.
 		// Each source may have multiple binaries identified
@@ -87,8 +90,9 @@ typedef struct
 		// of kernel arguments values.
 		binaries_map_t binaries;
 		
-		// Kernel source version, more close to specific target.
-		std::string source;
+		// The universal binary, that is not optimized for
+		// any kernel arguments.
+		std::string binary;
 		
 		// Monitoring kernel (applicable for some targets).
 		void* monitor_kernel_func;

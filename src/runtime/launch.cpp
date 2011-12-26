@@ -304,73 +304,93 @@ int kernelgen_launch(
 	char* entry, unsigned long long szarg, int* arg)
 {
 	kernel_t* kernel = (kernel_t*)entry;
-	
-	// Initialize hashing engine.
-	MHASH td = mhash_init(MHASH_MD5);
-	if (td == MHASH_FAILED)
-		THROW("Cannot inilialize mhash");
-	
-	// Compute hash, depending on the runmode.
-	switch (runmode)
+
+	// Lookup for kernel in table, only if it has at least
+	// one scalar to compute hash footprint. Otherwise, compile
+	// "generalized" kernel.
+	const char* kernel_func = NULL;
+	if (kernel->target[runmode].binary != "")
+		kernel_func = kernel->target[runmode].binary.c_str();
+	if (szarg)
 	{
-		case KERNELGEN_RUNMODE_NATIVE :
-		{
-			char* content = (char*)arg + sizeof(int64_t);
-			mhash(td, content, szarg);
-			break;
-		}
-		case KERNELGEN_RUNMODE_CUDA :
-		{
-			void* monitor_stream =
-				kernel->target[runmode].monitor_kernel_stream;
-			char* content;
-			int err = cuMemAllocHost((void**)&content, szarg);
-			if (err) THROW("Error in cuMemAllocHost " << err);
-			cuMemcpyDtoHAsync(content, arg + sizeof(int64_t), szarg, monitor_stream);
-			if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
-			err = cuStreamSynchronize(monitor_stream);
-			if (err) THROW("Error in cuStreamSynchronize " << err);
-			mhash(td, content, szarg);
-			err = cuMemFreeHost(content);
-			if (err) THROW("Error in cuMemFreeHost " << err);
-			break;
-		}
-		case KERNELGEN_RUNMODE_OPENCL :
-		{
-			THROW("Unsupported runmode" << runmode);
-		}
-		default :
-			THROW("Unknown runmode " << runmode);
-	}
-	unsigned char hash[16];	
-	mhash_deinit(td, hash);
-	if (verbose)
-	{
-		cout << kernel->name << " @ ";
-		for (int i = 0 ; i < 16; i++)
-			cout << (int)hash[i];
-		cout << endl;
-	}
+		// Initialize hashing engine.
+		MHASH td = mhash_init(MHASH_MD5);
+		if (td == MHASH_FAILED)
+			THROW("Cannot inilialize mhash");
 	
-	// Check if kernel with the specified hash is
-	// already compiled.
-	string strhash((char*)hash, 16);
-	binaries_map_t& binaries =
-		kernel->target[runmode].binaries;
-	binaries_map_t::iterator
-		binary = binaries.find(strhash);
-	char* kernel_func = NULL;
-	if (binary == binaries.end())
-	{
+		// Compute hash, depending on the runmode.
+		switch (runmode)
+		{
+			case KERNELGEN_RUNMODE_NATIVE :
+			{
+				char* content = (char*)arg + sizeof(int64_t);
+				mhash(td, content, szarg);
+				break;
+			}
+			case KERNELGEN_RUNMODE_CUDA :
+			{
+				void* monitor_stream =
+					kernel->target[runmode].monitor_kernel_stream;
+				char* content;
+				int err = cuMemAllocHost((void**)&content, szarg);
+				if (err) THROW("Error in cuMemAllocHost " << err);
+				cuMemcpyDtoHAsync(content, arg + sizeof(int64_t), szarg, monitor_stream);
+				if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
+				err = cuStreamSynchronize(monitor_stream);
+				if (err) THROW("Error in cuStreamSynchronize " << err);
+				mhash(td, content, szarg);
+				err = cuMemFreeHost(content);
+				if (err) THROW("Error in cuMemFreeHost " << err);
+				break;
+			}
+			case KERNELGEN_RUNMODE_OPENCL :
+			{
+				THROW("Unsupported runmode" << runmode);
+			}
+			default :
+				THROW("Unknown runmode " << runmode);
+		}
+		unsigned char hash[16];	
+		mhash_deinit(td, hash);
 		if (verbose)
-			cout << "No prebuilt kernel, compiling..." << endl;
+		{
+			cout << kernel->name << " @ ";
+			for (int i = 0 ; i < 16; i++)
+				cout << (int)hash[i];
+			cout << endl;
+		}
 	
-		// Compile kernel for the specified target.
-		kernel_func = compile(runmode, kernel);
-		binaries[strhash] = kernel_func;
+		// Check if kernel with the specified hash is
+		// already compiled.
+		string strhash((char*)hash, 16);
+		binaries_map_t& binaries =
+			kernel->target[runmode].binaries;
+		binaries_map_t::iterator
+			binary = binaries.find(strhash);
+		if (binary == binaries.end())
+		{
+			if (verbose)
+				cout << "No prebuilt kernel, compiling..." << endl;
+	
+			// Compile kernel for the specified target.
+			binaries[strhash] = compile(runmode, kernel);
+			kernel_func = binaries[strhash];
+		}
+		else
+			kernel_func = (*binary).second;
 	}
 	else
-		kernel_func = (*binary).second;
+	{
+		// Compile and store universal binary.
+		if (!kernel_func)
+		{
+			if (verbose)
+				cout << "No prebuilt kernel, compiling..." << endl;
+
+			kernel_func = compile(runmode, kernel);
+			kernel->target[runmode].binary = kernel_func;
+		}
+	}
 	
 	// Execute kernel, depending on target.
 	switch (runmode)
