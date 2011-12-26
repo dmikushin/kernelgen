@@ -48,8 +48,6 @@ using namespace util::elf;
 
 // GPU monitoring kernel source.
 string cuda_monitor_kernel_source =
-	"__attribute__((device)) __attribute__((used)) kernelgen_memory_t kernelgen_memory;\n"
-	"\n"
 	"__attribute__((global)) __attribute__((used)) __attribute__((launch_bounds(1, 1)))\n"
 	"void kernelgen_monitor(int* callback)\n"
 	"{\n"
@@ -228,6 +226,7 @@ int main(int argc, char* argv[])
 			char** argv;
 			int ret;
 			kernelgen_callback_t* callback;
+			kernelgen_memory_t* memory;
 		};
 		
 		// Load arguments, depending on the target runmode
@@ -273,14 +272,12 @@ int main(int argc, char* argv[])
 				if (err) THROW("Error in cuStreamCreate " << err);
 				
 				// Compile GPU monitoring kernel.
-				void* module = NULL;
 				kernel->target[runmode].monitor_kernel_func =
 					kernelgen::runtime::nvopencc(cuda_monitor_kernel_source,
-					"kernelgen_monitor", &module);
+					"kernelgen_monitor");
 				
-				// Setup device dynamic memory heap, which is co-located
-				// with GPU monitoring kernel.
-				init_memory_pool(16 * 1024 * 1024, module);
+				// Setup device dynamic memory heap.
+				kernelgen_memory_t* memory = init_memory_pool(16 * 1024 * 1024);
 	
 				char** argv_dev = NULL;
 				{
@@ -305,6 +302,7 @@ int main(int argc, char* argv[])
 				args_host.argc = argc;
 				args_host.argv = argv_dev;
 				args_host.callback = callback_dev;
+				args_host.memory = memory;
 				args_t* args_dev = NULL;
 				err = cuMemAlloc((void**)&args_dev, sizeof(args_t));
 				if (err) THROW("Error in cuMemAlloc " << err);

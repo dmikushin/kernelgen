@@ -712,7 +712,8 @@ CallInst * BranchedCodeExtractor::createCallAndBranch(Function * LoopFunc,Values
 			callAndBranchBlock->getParent()->begin()->begin());
 		
 		// Initially, fill struct with zeros.
-		IRBuilder<> Builder(Struct);
+		IRBuilder<> Builder(
+			callAndBranchBlock->getParent()->begin()->begin());
 		CallInst* MI = Builder.CreateMemSet(Struct,
 			Constant::getNullValue(Type::getInt8Ty(Context)),
 			ConstantExpr::getSizeOf(StructArgTy), 1);

@@ -522,35 +522,64 @@ int link(list<string> args, list<string> kgen_args,
 		
 		// Assign callback structure pointer with value received
 		// from the arguments structure.
-		// %struct.callback_t = type { i32, i32, i8*, i32 }
-		// %0 = getelementptr inbounds i32* %args, i64 6
+		// %struct.callback_t = type { i32, i32, i8*, i32, i8* }
+		// %0 = getelementptr inbounds i32* %args, i64 8
 		// %1 = bitcast i32* %0 to %struct.callback_t**
-		// %2 = load %struct.callback_t** %1, align 1
+		// %2 = load %struct.callback_t** %1, align 8
 		// %3 = getelementptr inbounds %struct.callback_t* %2, i64 0, i32 0
-		// store i32* %3, i32** @__kernelgen_callback, align 8		
-		Instruction* root = kernelgen_main_->begin()->begin();
-		Function::arg_iterator arg = kernelgen_main_->arg_begin();
-		Value *Idx3[1];
-		Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 8);
-		GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
-			arg, Idx3, "", root);  
-		Type* callback_t = StructType::get(
-			TypeBuilder<types::i<32>, true>::get(context),
-			TypeBuilder<types::i<32>, true>::get(context),
-			TypeBuilder<types::i<8>*, true>::get(context),
-			TypeBuilder<types::i<32>, true>::get(context),
-			NULL);
-		Value* callback2 = new BitCastInst(GEP3, callback_t->
-			getPointerTo(0)->getPointerTo(0), "", root);
-		LoadInst* callback3 = new LoadInst(callback2, "", root);
-		callback3->setAlignment(1);
-		Value *Idx4[2];
-		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
-		Idx4[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
-		GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
-			callback3, Idx4, "", root);
-		StoreInst* callback4 = new StoreInst(GEP4, callback1, "", root);
-		callback4->setAlignment(8);
+		// store i32* %3, i32** @__kernelgen_callback, align 8
+		{	
+			Instruction* root = kernelgen_main_->begin()->begin();
+			Function::arg_iterator arg = kernelgen_main_->arg_begin();
+			Value *Idx3[1];
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 8);
+			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
+				arg, Idx3, "", root);  
+			Value* callback2 = new BitCastInst(GEP3,
+				Type::getInt32PtrTy(context)->getPointerTo(0), "", root);
+			LoadInst* callback3 = new LoadInst(callback2, "", root);
+			callback3->setAlignment(8);
+			Value *Idx4[1];
+			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
+				callback3, Idx4, "", root);
+			StoreInst* callback4 = new StoreInst(GEP4, callback1, "", root);
+			callback4->setAlignment(8);
+		}
+
+		// Create global variable with pointer to memory structure.
+		GlobalVariable* memory1 = new GlobalVariable(
+			*main.get(), Type::getInt32PtrTy(context), false,
+			GlobalValue::PrivateLinkage,
+			Constant::getNullValue(Type::getInt32PtrTy(context)),
+			"__kernelgen_memory");
+		
+		// Assign memory structure pointer with value received
+		// from the arguments structure.
+		// %struct.memory_t = type { i8*, i64, i64, i64 }
+		// %4 = getelementptr inbounds i32* %args, i64 10
+		// %5 = bitcast i32* %4 to %struct.memory_t**
+		// %6 = load %struct.memory_t** %5, align 8
+		// %7 = bitcast %struct.memory_t* %6 to i32*
+		// store i32* %7, i32** @__kernelgen_memory, align 8
+		{	
+			Instruction* root = kernelgen_main_->begin()->begin();
+			Function::arg_iterator arg = kernelgen_main_->arg_begin();
+			Value *Idx3[1];
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 10);
+			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
+				arg, Idx3, "", root);  
+			Value* memory2 = new BitCastInst(GEP3,
+				Type::getInt32PtrTy(context)->getPointerTo(0), "", root);
+			LoadInst* memory3 = new LoadInst(memory2, "", root);
+			memory3->setAlignment(8);
+			Value *Idx4[1];
+			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
+				memory3, Idx4, "", root);
+			StoreInst* memory4 = new StoreInst(GEP4, memory1, "", root);
+			memory4->setAlignment(8);
+		}
 
 		//main.get()->dump();
 

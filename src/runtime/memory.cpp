@@ -37,7 +37,7 @@ using namespace std;
  */
 
 // Setup the device global memory pool initial configuration.
-void kernelgen::runtime::init_memory_pool(size_t szpool, void* module)
+kernelgen_memory_t* kernelgen::runtime::init_memory_pool(size_t szpool)
 {
 	// First, fill config on host.
 	kernelgen_memory_t config_host;
@@ -54,10 +54,11 @@ void kernelgen::runtime::init_memory_pool(size_t szpool, void* module)
 
 	// Copy the resulting config to the special
 	// device variable.
-	kernelgen_memory_t* config_device;
-	err = cuModuleGetGlobal((void**)&config_device, NULL, module, "kernelgen_memory");
-	if (err) THROW("Error in cuModuleGetGlobal: " << err);
+	kernelgen_memory_t* config_device = NULL;
+	err = cuMemAlloc((void**)&config_device, szpool);
+	if (err) THROW("Error in cuMemAlloc: " << err);
 	err = cuMemcpyHtoD(config_device, &config_host, sizeof(kernelgen_memory_t));
 	if (err) THROW("Error in cuMemcpyH2D: " << err);
+	return config_device;
 }
 

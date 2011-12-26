@@ -38,8 +38,6 @@
 #define KERNELGEN_MEM_FREE	0
 #define KERNELGEN_MEM_IN_USE	1
 
-extern __attribute__((used)) __attribute__((device)) kernelgen_memory_t kernelgen_memory;
-
 typedef struct
 {
 	int is_available;
@@ -52,7 +50,7 @@ __device__ void* kernelgen_malloc(size_t size)
 	// Align size.
 	if (size % 16) size += 16 - size % 16;
 
-	kernelgen_memory_t* km = &kernelgen_memory;
+	kernelgen_memory_t* km = __kernelgen_memory;
 
 	// If there is less free space in pool, than requested,
 	// then just return NULL.
@@ -101,7 +99,7 @@ __device__ void* kernelgen_malloc(size_t size)
 
 __device__ void kernelgen_free(void* p)
 {
-	kernelgen_memory_t* km = &kernelgen_memory;
+	kernelgen_memory_t* km = __kernelgen_memory;
 
 	// Mark in MCB that this chunk is free.
 	kerelgen_memory_chunk_t* ptr = (kerelgen_memory_chunk_t*)p - 1;

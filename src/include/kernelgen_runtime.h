@@ -24,13 +24,15 @@
 
 #define __device__ static __inline__ __attribute__((always_inline))
 
-#include "kernelgen_interop.h"
-#include "kernelgen_memory.h"
-
 extern __attribute__((device)) int __iAtomicCAS(
 	int *address, int compare, int val);
 
 extern __attribute__((__used__)) __attribute__((device)) unsigned int* __kernelgen_callback;
+
+extern __attribute__((__used__)) __attribute__((device)) unsigned int* __kernelgen_memory;
+
+#include "kernelgen_interop.h"
+#include "kernelgen_memory.h"
 
 typedef struct { unsigned int x, y, z; } uint3;
 

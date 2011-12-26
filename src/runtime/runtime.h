@@ -120,10 +120,10 @@ char* compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL);
 
 // Compile C source to PTX using NVISA-enabled
 // Open64 compiler variant.
-char* nvopencc(std::string source, std::string name, void** module = NULL);
+char* nvopencc(std::string source, std::string name);
 
 // Setup the device global memory pool initial configuration.
-void init_memory_pool(size_t szpool, void* module);
+kernelgen_memory_t* init_memory_pool(size_t szpool);
 
 } }
 

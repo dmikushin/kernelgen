@@ -350,7 +350,7 @@ char* kernelgen::runtime::compile(
 					AllocaInst* Struct = new AllocaInst(StructArgTy, 0, "", call);
 		
 					// Initially, fill struct with zeros.
-					IRBuilder<> Builder(Struct);
+					IRBuilder<> Builder(call);
 					CallInst* MI = Builder.CreateMemSet(Struct,
 						Constant::getNullValue(Type::getInt8Ty(context)),
 						ConstantExpr::getSizeOf(StructArgTy), 1);

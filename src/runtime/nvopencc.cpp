@@ -34,7 +34,7 @@ using namespace std;
 
 bool debug = true;
 
-char* kernelgen::runtime::nvopencc(string source, string name, void** pmodule)
+char* kernelgen::runtime::nvopencc(string source, string name)
 {
 	// Dump generated kernel object to first temporary file.
 	cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
@@ -182,8 +182,6 @@ char* kernelgen::runtime::nvopencc(string source, string name, void** pmodule)
 
 	if (verbose)
 		cout << "Loaded '" << name << "' at: " << kernel_func << endl;
-
-	if (pmodule) *pmodule = module;
 	
 	return (char*)kernel_func;
 }

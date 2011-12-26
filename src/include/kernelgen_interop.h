@@ -74,7 +74,7 @@ typedef struct
 	size_t szused;
 
 	// The number of MCB records in pool.
-	int count;
+	size_t count;
 }
 kernelgen_memory_t;
 
