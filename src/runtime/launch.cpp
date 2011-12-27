@@ -305,6 +305,9 @@ int kernelgen_launch(
 {
 	kernel_t* kernel = (kernel_t*)entry;
 
+	if (!kernel->target[runmode].supported)
+		return -1;
+
 	// Lookup for kernel in table, only if it has at least
 	// one scalar to compute hash footprint. Otherwise, compile
 	// "generalized" kernel.
@@ -387,7 +390,8 @@ int kernelgen_launch(
 			if (verbose)
 				cout << "No prebuilt kernel, compiling..." << endl;
 
-			kernel_func = compile(runmode, kernel);
+			kernel_func = compile(runmode, kernel);		
+			if (!kernel_func) return -1;
 			kernel->target[runmode].binary = kernel_func;
 		}
 	}
@@ -407,9 +411,9 @@ int kernelgen_launch(
 			// If this is the main kernel being lauched,
 			// first launch GPU monitor kernel, then launch
 			// target kernel. Otherwise - vise versa.
-			if (strcmp(kernel->name.c_str(), "__kernelgen_main"))
+			if (kernel->name != "__kernelgen_main")
 			{
-				// Launch GPU loop kernel.
+				// Launch GPU loop kernel, if it is compiled.
 				{
 					struct { unsigned int x, y, z; } gridDim, blockDim;
 					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
@@ -493,8 +497,7 @@ int kernelgen_launch(
 					case KERNELGEN_STATE_INACTIVE :
 					{
 						if (verbose) 
-							cout << "Kernel " << kernel->name <<
-								" has finished" << endl;
+							cout << "Kernel " << kernel->name << " has finished" << endl;
 						break;
 					}
 					case KERNELGEN_STATE_LOOPCALL :
@@ -504,9 +507,18 @@ int kernelgen_launch(
 								" requested loop kernel call " << (void*)callback->name << endl;
 
 						// Launch the loop kernel.
-						kernelgen_launch((char*)callback->name, callback->szarg, callback->arg);
-
-						break;
+						if (kernelgen_launch((char*)callback->name, callback->szarg, callback->arg) == -1)
+						{
+							// If kernel cannot be launched, compile kernel
+							// into host function and launch it as a hostcall.
+							callback->name = (unsigned char*)compile(KERNELGEN_RUNMODE_NATIVE, kernel);
+							callback->szarg = szarg;
+							callback->arg = arg;
+							
+							// Fallback to case KERNELGEN_STATE_HOSTCALL
+						}
+						else
+							break;
 					}
 					case KERNELGEN_STATE_HOSTCALL :
 					{

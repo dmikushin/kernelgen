@@ -121,6 +121,11 @@ int main(int argc, char* argv[])
 			kernel_t kernel;
 			kernel.name = name;
 			kernel.source = data;
+
+			// Initially, all targets are supported.
+			for (int i = 0; i < KERNELGEN_RUNMODE_COUNT; i++)
+				kernel.target[i].supported = true;
+			
 			kernels_array.push_back(kernel);
 			kernels[name] = &kernels_array.back();
 			if (verbose) cout << name << endl;
@@ -214,7 +219,7 @@ int main(int argc, char* argv[])
 			//m->dump();
 		}
 
-		// Structure defining aggregate form of main entry
+		// Structure defining aggregate form of the main entry
 		// parameters. Return value is also packed, since
 		// in CUDA and OpenCL kernels must return void.
 		// Also structure aggregates callback record containing

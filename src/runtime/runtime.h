@@ -80,6 +80,12 @@ typedef struct
 	// Target-specific configuration.
 	struct
 	{
+		// Indicates if entire runmode is supported
+		// for specific kernel (it could be unsupported,
+		// for example, in case of CUDA target and kernel loop,
+		// that performs hostcalls).
+		bool supported;
+		
 		// Kernel source version, more close to specific target.
 		std::string source;
 

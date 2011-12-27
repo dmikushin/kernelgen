@@ -55,6 +55,11 @@ __device__ void kernelgen_hostcall(unsigned char* name, unsigned long long szarg
 
 __device__ int kernelgen_launch(unsigned char* name, unsigned long long szarg, unsigned int* arg)
 {
+	// Client passes NULL for name/entry argument to indicate
+	// the call is performed from kernel loop and must always
+	// return -1.
+	if (!name) return -1;
+
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_LOOPCALL;
