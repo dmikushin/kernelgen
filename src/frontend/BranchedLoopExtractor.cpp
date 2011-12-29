@@ -147,7 +147,7 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM) {
     if (NumLoops == 0) return Changed;
     --NumLoops;
 	CallInst * Call;
-    if ( (Call = BranchedExtractLoop(DT, L, true)) != 0) {
+    if ( (Call = BranchedExtractLoop(DT, L)) != 0) {
       Changed = true;
       // After extraction, the loop is replaced by a function call, so
       // we shouldn't try to run any more loop passes on it.

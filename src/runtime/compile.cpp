@@ -34,6 +34,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
@@ -73,150 +74,6 @@ static set<string> kernelgen_intrinsics_set, cuda_intrinsics_set;
 
 // Target machines for runmodes.
 auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
-
-static CallInst* wrapIntoHostcall(CallInst* call)
-{
-	LLVMContext &context = getGlobalContext();
-	Function* callee = call->getCalledFunction();
-
-	if (verbose)
-		cout << "hostcall: " << callee->getName().data() << endl;
-
-	// Locate entire hostcall in the native code.
-	void* host_func = (void*)dlsym(NULL, callee->getName().data());
-	if (!host_func) THROW("Cannot dlsym " << dlerror());
-
-	// The host call launcher prototype to be added
-	// to entire module.
-	Module* m = call->getParent()->getParent()->getParent(); 
-	Function* hostcall = m->getFunction("kernelgen_hostcall");
-	if (!hostcall)
-		hostcall = Function::Create(
-			TypeBuilder<void(types::i<8>*, types::i<64>, types::i<32>*), true>::get(context),
-			GlobalValue::ExternalLinkage, "kernelgen_hostcall", m);
-
-	// Fill the arguments types structure.
-	// First, place pointer to the function type.
-	// Second, place pointer to the structure itself.
-	std::vector<Type*> ArgTypes;
-	ArgTypes.push_back(Type::getInt8PtrTy(context));
-	ArgTypes.push_back(Type::getInt8PtrTy(context));
-	for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
-		ArgTypes.push_back(call->getArgOperand(i)->getType());
-
-	// Lastly, add the type of return value, if not void.
-	Type* retTy = callee->getReturnType();
-	if (!retTy->isVoidTy())
-		ArgTypes.push_back(retTy);
-
-	// Allocate memory for the struct.
-	StructType *StructArgTy = StructType::get(
-		context, ArgTypes, false /* isPacked */);
-	AllocaInst* Struct = new AllocaInst(StructArgTy, 0, "", call);
-
-	// Initially, fill struct with zeros.
-	IRBuilder<> Builder(call);
-	CallInst* MI = Builder.CreateMemSet(Struct,
-		Constant::getNullValue(Type::getInt8Ty(context)),
-		ConstantExpr::getSizeOf(StructArgTy), 1);
-
-	// Store the function type.
-	{
-		// Generate index.
-		Value *Idx[2];
-		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
-
-		// Get address of "inputs[i]" in struct
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-
-		// Store to that address.
-		Type* type = callee->getFunctionType();
-		StoreInst *SI = new StoreInst(ConstantExpr::getIntToPtr(
-			ConstantInt::get(Type::getInt64Ty(context),
-			(uint64_t)type), Type::getInt8PtrTy(context)),
-			GEP, "", call);
-	}
-
-	// Store the struct type itself.
-	{
-		// Generate index.
-		Value *Idx[2];
-		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 1);
-
-		// Get address of "inputs[i]" in struct
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-
-		// Store to that address.
-		StructType *StructArgTy = StructType::get(
-			context, ArgTypes, false /* isPacked */);
-		StoreInst *SI = new StoreInst(ConstantExpr::getIntToPtr(
-			ConstantInt::get(Type::getInt64Ty(context),
-			(uint64_t)StructArgTy), Type::getInt8PtrTy(context)),
-			GEP, "", call);
-	}
-
-    	// Store input values to arguments struct.
-	for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
-	{
-		// Generate index.
-		Value *Idx[2];
-		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 2);
-
-		// Get address of "inputs[i]" in struct
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-
-		// Store to that address.
-		StoreInst *SI = new StoreInst(call->getArgOperand(i), GEP, "", call);
-	}
-
-	// Store pointer to the host call function entry point.
-	SmallVector<Value*, 16> call_args;
-	call_args.push_back(ConstantExpr::getIntToPtr(
-		ConstantInt::get(Type::getInt64Ty(context),
-		(uint64_t)host_func), Type::getInt8PtrTy(context)));
-
-	// Store the sizeof structure.
-	call_args.push_back(ConstantExpr::getSizeOf(StructArgTy));
-
-	// Store pointer to aggregated arguments struct
-	// to the new call args list.
-	Instruction* IntPtrToStruct = CastInst::CreatePointerCast(
-		Struct, PointerType::getInt32PtrTy(context), "", call);
-	call_args.push_back(IntPtrToStruct);
-
-	// Emit call to kernelgen_hostcall.
-	CallInst *newcall = CallInst::Create(hostcall, call_args, "", call);
-	newcall->setCallingConv(call->getCallingConv());
-	newcall->setAttributes(call->getAttributes());
-	newcall->setDebugLoc(call->getDebugLoc());
-
-	// Replace function from device module.
-	if (retTy->isVoidTy())
-		call->replaceAllUsesWith(newcall);
-	else
-	{
-		// Generate index.
-		Value *Idx[2];
-		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
-			call->getNumArgOperands() + 2);
-
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-
-		LoadInst* LI = new LoadInst(GEP, "", call);
-		call->replaceAllUsesWith(LI);
-	}
-	callee->setVisibility(GlobalValue::DefaultVisibility);
-	callee->setLinkage(GlobalValue::ExternalLinkage);
-	return newcall;
-}
 
 static PassManager getPollyPassManager(Module* m)
 {
@@ -258,9 +115,12 @@ static PassManager getPollyPassManager(Module* m)
 	return polly;
 }
 
-char* kernelgen::runtime::compile(
+kernel_func_t kernelgen::runtime::compile(
 	int runmode, kernel_t* kernel, Module* module)
 {
+	// Do not compile, if no source.
+	if (kernel->source == "") return NULL;
+
 	Module* m = module;
 	LLVMContext &context = getGlobalContext();
 	if (!m)
@@ -331,7 +191,7 @@ char* kernelgen::runtime::compile(
 			// for testing purposes.
 			char* dump_pollygen = getenv("kernelgen_dump_pollygen");
 			if (dump_pollygen) m->dump();
-			
+
 			const TargetData* tdata = 
 				targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
 			PassManager manager;
@@ -401,7 +261,7 @@ char* kernelgen::runtime::compile(
 			if (verbose)
 				cout << "Loaded '" << kernel->name << "' at: " << (void*)kernel_func << endl;
 
-			return (char*)kernel_func;
+			return kernel_func;
 		}
 		case KERNELGEN_RUNMODE_CUDA :
 		{
@@ -482,7 +342,7 @@ char* kernelgen::runtime::compile(
 
 						// Replace entire call with hostcall and set old
 						// call for erasing.
-						wrapIntoHostcall(call);
+						wrapCallIntoHostcall(call);
 						erase_calls.push_back(call);
 					}
 

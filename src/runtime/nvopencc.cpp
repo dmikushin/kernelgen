@@ -27,6 +27,7 @@
 #include <fstream>
 
 using namespace kernelgen::bind::cuda;
+using namespace kernelgen;
 using namespace util::io;
 using namespace std;
 
@@ -34,7 +35,7 @@ using namespace std;
 
 bool debug = true;
 
-char* kernelgen::runtime::nvopencc(string source, string name)
+kernel_func_t kernelgen::runtime::nvopencc(string source, string name)
 {
 	// Dump generated kernel object to first temporary file.
 	cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
@@ -183,6 +184,6 @@ char* kernelgen::runtime::nvopencc(string source, string name)
 	if (verbose)
 		cout << "Loaded '" << name << "' at: " << kernel_func << endl;
 	
-	return (char*)kernel_func;
+	return (kernel_func_t)kernel_func;
 }
 

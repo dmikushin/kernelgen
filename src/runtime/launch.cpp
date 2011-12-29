@@ -23,13 +23,8 @@
 #include "runtime.h"
 #include "util.h"
 
-#include <ffi.h>
 #include <mhash.h>
-#include <signal.h>
-#include <sys/mman.h>
-#include <sys/types.h>
 
-#include "llvm/DerivedTypes.h"
 #include "llvm/Function.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Target/TargetData.h"
@@ -40,281 +35,20 @@ using namespace kernelgen::runtime;
 using namespace llvm;
 using namespace std;
 
-static ffi_type* ffiTypeFor(Type *Ty)
+// Launch the specified kernel.
+int kernelgen_launch(kernel_t* kernel,
+	unsigned long long szdata, unsigned long long szdatai,
+	kernelgen_callback_data_t* data)
 {
-	switch (Ty->getTypeID())
-	{
-	case Type::VoidTyID : return &ffi_type_void;
-	case Type::IntegerTyID :
-		switch (cast<IntegerType>(Ty)->getBitWidth())
-		{
-		case 8 : return &ffi_type_sint8;
-		case 16 : return &ffi_type_sint16;
-		case 32 : return &ffi_type_sint32;
-		case 64 : return &ffi_type_sint64;
-		}
-	case Type::FloatTyID : return &ffi_type_float;
-	case Type::DoubleTyID : return &ffi_type_double;
-	case Type::PointerTyID : return &ffi_type_pointer;
-	default :
-		// TODO: Support other types such as StructTyID, ArrayTyID, OpaqueTyID, etc.
-		THROW("Type could not be mapped for use with libffi.");
-	}
-	return NULL;
-}
-
-struct mmap_t
-{
-	void* addr;
-	size_t size, align;
-};
-
-static list<struct mmap_t> mmaps;
-
-static kernel_t* active_kernel;
-
-// SIGSEGV signal handler to catch accesses to GPU memory.
-static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
-{
-	// Check if address is valid on GPU.
-	void* addr = siginfo->si_addr;
-
-	void* base;
-	size_t size;
-	int err = cuMemGetAddressRange(&base, &size, addr);
-	if (err) THROW("Not a GPU memory: " << addr);
-
-	size_t align = (size_t)base % 4096;
-	void* map = mmap((char*)base - align, size + align,
-		PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-		-1, 0);
-	if (map == (void*)-1)
-		THROW("Cannot map memory onto " << base << " + " << size);
-
-	mmap_t mmap;
-	mmap.addr = map;
-	mmap.size = size;
-	mmap.align = align;
-	mmaps.push_back(mmap);
-
-	if (verbose)
-		cout << "Mapped memory " << map << "(" << base << " - " <<
-		align << ") + " << size << endl;
-
-	err = cuMemcpyDtoHAsync(base, base, size,
-		active_kernel->target[runmode].monitor_kernel_stream);
-	if (err) THROW("Error in cuMemcpyDtoH " << err);
-	err = cuStreamSynchronize(
-		active_kernel->target[runmode].monitor_kernel_stream);
-	if (err) THROW("Error in cuStreamSynchronize " << err);
-}
-
-typedef void (*func_t)();
-
-static void ffiInvoke(
-	kernel_t* kernel, func_t func, FunctionType* FTy,
-	StructType* StructTy, void* params,
-	const TargetData* TD)
-{
-	active_kernel = kernel;
-
-	// Skip first two fields, that are FunctionType and
-	// StructureType itself, respectively.
-	// Also exclude return arguent in case of non-void function.
-	unsigned ArgBytes = 0;
-	unsigned NumArgs = StructTy->getNumElements() - 2;
-	if (!FTy->getReturnType()->isVoidTy()) NumArgs--;
-	std::vector<ffi_type*> args(NumArgs);
-	for (int i = 0; i < NumArgs; i++)
-	{
-		Type* ArgTy = StructTy->getElementType(i + 2);
-		args[i] = ffiTypeFor(ArgTy);
-		ArgBytes += TD->getTypeStoreSize(ArgTy);
-	}
-
-	const StructLayout* layout = TD->getStructLayout(StructTy);
-	SmallVector<uint8_t, 128> ArgData;
-	ArgData.resize(ArgBytes);
-	uint8_t *ArgDataPtr = ArgData.data();
-	SmallVector<void*, 16> values(NumArgs);
-	for (int i = 0; i < NumArgs; i++)
-	{
-		Type* ArgTy = StructTy->getElementType(i + 2);
-		int offset = layout->getElementOffset(i + 2);
-		size_t size = TD->getTypeStoreSize(ArgTy);
-		void** address = (void**)((char*)params + offset);
-		memcpy(ArgDataPtr, address, size);
-		values[i] = ArgDataPtr;
-		ArgDataPtr += size;
-		if (ArgTy->isPointerTy())
-		{
-			// If pointer corresponds to device memory,
-			// use the host memory instead:
-			// figure out the allocated device memory range
-			// and shadow it with host memory mapping.
-			void* base;
-			size_t size;
-			int err = cuMemGetAddressRange(&base, &size, *address);
-			if (!err)
-			{			
-				size_t align = (size_t)base % 4096;
-
-				size_t mapped = (size_t)-1;
-				for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
-				{
-					struct mmap_t mmap = *i;
-					if (mmap.addr == (char*)base - align)
-					{
-						mapped = mmap.size + mmap.align;
-						break;
-					}
-				}
-
-				if (mapped == (size_t)-1)
-				{
-					// Map host memory with the same address and size
-					// device memory has.
-					void* map = mmap((char*)base - align, size + align,
-						PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-						-1, 0);
-					if (map == (void*)-1)
-						THROW("Cannot map host memory onto " << base << " + " << size);
-				
-
-					// Track the mapped memory in list of mappings,
-					// to synchronize them after the hostcall finishes.
-					struct mmap_t mmap;
-					mmap.addr = map;
-					mmap.size = size;
-					mmap.align = align;								
-					mmaps.push_back(mmap);
-				}
-				else
-				{
-					// Remap the existing mapping, if it is required
-					// to be larger.
-					if (size + align > mapped)
-					{
-						void* map = mremap((char*)base - align, mapped, size + align,
-							PROT_READ | PROT_WRITE);
-						if (map == (void*)-1)
-							THROW("Cannot map host memory onto " << base << " + " << size);
-					
-						// TODO: store new size in mmaps.
-					}
-				}
-
-				if (verbose)
-					cout << "Mapped memory " << base - align << "(" << base << " - " <<
-					align << ") + " << size << endl;
-
-				// Copy device memory to host mapped memory.
-				err = cuMemcpyDtoHAsync(base, base, size,
-					kernel->target[runmode].monitor_kernel_stream);
-				if (err) THROW("Error in cuMemcpyDtoHAsync");
-				err = cuStreamSynchronize(
-					kernel->target[runmode].monitor_kernel_stream);
-				if (err) THROW("Error in cuStreamSynchronize " << err);
-			}
-		}
-	}
-
-	Type* RetTy = FTy->getReturnType();
-	ffi_type* rtype = NULL;
-	rtype = ffiTypeFor(RetTy);
-
-	ffi_cif cif;
-	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, NumArgs,
-		rtype, &args[0]) != FFI_OK)
-		THROW("Error in fi_prep_cif");
-
-	SmallVector<uint8_t, 128> ret;
-	if (RetTy->getTypeID() != Type::VoidTyID)
-		ret.resize(TD->getTypeStoreSize(RetTy));
-
-	// Register SIGSEGV signal handler to catch
-	// accesses to GPU memory and remebmer the original handler.
-        struct sigaction sa_new, sa_old;
-        sa_new.sa_flags = SA_SIGINFO;
-        sigfillset(&sa_new.sa_mask);
-        sa_new.sa_sigaction = sighandler;
-        sigaction(SIGSEGV, &sa_new, &sa_old);
-        
-        if (verbose)
-        	cout << "Starting hostcall to " << (void*)func << endl;
-
-	ffi_call(&cif, func, ret.data(), values.data());
-
-        if (verbose)
-        	cout << "Finishing hostcall to " << (void*)func << endl;
-	
-	// Unregister SIGSEGV signal handler and resore the
-	// original handler.
-	memset(&sa_new, 0, sizeof(struct sigaction));
-        sigaction(SIGSEGV, &sa_old, 0);
-
-	if (!RetTy->isVoidTy())
-	{
-		Type* ArgTy = StructTy->getElementType(NumArgs - 1);
-		int offset = layout->getElementOffset(NumArgs - 1);
-		memcpy((void*)((char*)params + offset), ret.data(),
-			TD->getTypeStoreSize(ArgTy));
-	}
-
-	for (int i = 0; i < NumArgs; i++)
-	{
-		Type* ArgTy = StructTy->getElementType(i + 2);
-		int offset = layout->getElementOffset(i + 2);
-		size_t size = TD->getTypeStoreSize(ArgTy);
-		void* address = (void*)((char*)params + offset);
-		memcpy(address, values[i], size);
-	}
-
-	// Copy data back from host-mapped memory to device.
-	for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
-	{
-		struct mmap_t mmap = *i;
-		int err = cuMemcpyHtoDAsync(
-			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, mmap.size,
-			kernel->target[runmode].monitor_kernel_stream);
-		if (err) THROW("Error in cuMemcpyHtoDAsync");
-	}
-	
-	// Synchronize and unmap previously mapped host memory.
-	int err = cuStreamSynchronize(
-		kernel->target[runmode].monitor_kernel_stream);
-	if (err) THROW("Error in cuStreamSynchronize " << err);
-	for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
-	{
-		struct mmap_t mmap = *i;
-                err = munmap(mmap.addr, mmap.size + mmap.align);
-                if (err == -1)
-                	THROW("Cannot unmap memory from " << mmap.addr <<
-                		" + " << mmap.size + mmap.align);
-        }
-        
-        mmaps.clear();
-        
-        if (verbose)
-        	cout << "Finished hostcall handler" << endl;
-}
-
-// Launch kernel from the specified source code address.
-int kernelgen_launch(
-	char* entry, unsigned long long szarg, int* arg)
-{
-	kernel_t* kernel = (kernel_t*)entry;
-
 	if (!kernel->target[runmode].supported)
 		return -1;
 
 	// Lookup for kernel in table, only if it has at least
 	// one scalar to compute hash footprint. Otherwise, compile
 	// "generalized" kernel.
-	const char* kernel_func = NULL;
-	if (kernel->target[runmode].binary != "")
-		kernel_func = kernel->target[runmode].binary.c_str();
-	if (szarg)
+	kernel_func_t kernel_func =
+		kernel->target[runmode].binary;
+	if (szdatai && (kernel->name != "__kernelgen_main"))
 	{
 		// Initialize hashing engine.
 		MHASH td = mhash_init(MHASH_MD5);
@@ -326,22 +60,21 @@ int kernelgen_launch(
 		{
 			case KERNELGEN_RUNMODE_NATIVE :
 			{
-				char* content = (char*)arg + sizeof(int64_t);
-				mhash(td, content, szarg);
+				mhash(td, &data->args, szdatai);
 				break;
 			}
 			case KERNELGEN_RUNMODE_CUDA :
 			{
 				void* monitor_stream =
 					kernel->target[runmode].monitor_kernel_stream;
-				char* content;
-				int err = cuMemAllocHost((void**)&content, szarg);
+				char* content = NULL;
+				int err = cuMemAllocHost((void**)&content, szdatai);
 				if (err) THROW("Error in cuMemAllocHost " << err);
-				cuMemcpyDtoHAsync(content, arg + sizeof(int64_t), szarg, monitor_stream);
+				cuMemcpyDtoHAsync(content, &data->args, szdatai, monitor_stream);
 				if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
 				err = cuStreamSynchronize(monitor_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
-				mhash(td, content, szarg);
+				mhash(td, content, szdatai);
 				err = cuMemFreeHost(content);
 				if (err) THROW("Error in cuMemFreeHost " << err);
 				break;
@@ -376,8 +109,8 @@ int kernelgen_launch(
 				cout << "No prebuilt kernel, compiling..." << endl;
 	
 			// Compile kernel for the specified target.
-			binaries[strhash] = compile(runmode, kernel);
-			kernel_func = binaries[strhash];
+			kernel_func = compile(runmode, kernel);
+			binaries[strhash] = kernel_func;
 		}
 		else
 			kernel_func = (*binary).second;
@@ -403,7 +136,7 @@ int kernelgen_launch(
 		{
 			kernel_func_t native_kernel_func =
 				(kernel_func_t)kernel_func;
-			native_kernel_func(arg);
+			native_kernel_func(data);
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA :
@@ -419,7 +152,7 @@ int kernelgen_launch(
 					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 					size_t szshmem = 0;
-					void* kernel_func_args[] = { (void*)&arg };
+					void* kernel_func_args[] = { (void*)&data };
 					int err = cuLaunchKernel((void*)kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem,
@@ -450,7 +183,7 @@ int kernelgen_launch(
 				void* monitor_kernel_func_args[] =
 					{ (void*)&kernel->target[runmode].callback };
 				int err = cuLaunchKernel(
-					kernel->target[runmode].monitor_kernel_func,
+					(void*)kernel->target[runmode].monitor_kernel_func,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem,
 					kernel->target[runmode].monitor_kernel_stream,
@@ -465,7 +198,7 @@ int kernelgen_launch(
 				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 				size_t szshmem = 0;
-				void* kernel_func_args[] = { (void*)&arg };
+				void* kernel_func_args[] = { (void*)&data };
 				int err = cuLaunchKernel((void*)kernel_func,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem,
@@ -504,57 +237,31 @@ int kernelgen_launch(
 					{
 						if (verbose)
 							cout << "Kernel " << kernel->name <<
-								" requested loop kernel call " << (void*)callback->name << endl;
+								" requested loop kernel call " <<
+								callback->kernel->function->getName().data() << endl;
 
 						// Launch the loop kernel.
-						if (kernelgen_launch((char*)callback->name, callback->szarg, callback->arg) == -1)
-						{
-							// If kernel cannot be launched, compile kernel
-							// into host function and launch it as a hostcall.
-							callback->name = (unsigned char*)compile(KERNELGEN_RUNMODE_NATIVE, kernel);
-							callback->szarg = szarg;
-							callback->arg = arg;
-							
-							// Fallback to case KERNELGEN_STATE_HOSTCALL
-						}
-						else
+						if (kernelgen_launch(callback->kernel, callback->szdata,
+							callback->szdatai, callback->data) != -1)
 							break;
+
+						// If kernel cannot be launched, fallback to
+						// case KERNELGEN_STATE_HOSTCALL
 					}
 					case KERNELGEN_STATE_HOSTCALL :
 					{
 						Dl_info info;
 						if (verbose)
 						{
-							if (!dladdr((void*)callback->name, &info))
+							if (!dladdr((void*)callback->kernel->target[
+								KERNELGEN_RUNMODE_NATIVE].binary, &info))
 								THROW("Error in dladdr " << dlerror());
 							cout << "Kernel " << kernel->name <<
 								" requested host function call " << info.dli_sname << endl;
 						}
-					
-						// Copy arguments to the host memory.
-						struct
-						{
-							FunctionType* FunctionTy;
-							StructType* StructTy;
-						}
-						*arg = NULL;
-						err = cuMemAllocHost((void**)&arg, callback->szarg);
-						if (err) THROW("Error in cuMemAllocHost " << err);
-						err = cuMemcpyDtoHAsync(arg, callback->arg, callback->szarg,
-							kernel->target[runmode].monitor_kernel_stream);
-						if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
-						err = cuStreamSynchronize(
-							kernel->target[runmode].monitor_kernel_stream);
-						if (err) THROW("Error in cuStreamSynchronize " << err);
 
-						// Perform hostcall using FFI.
-						TargetData* TD = new TargetData(kernel->module);					
-						ffiInvoke(kernel, (func_t)callback->name, arg->FunctionTy,
-							arg->StructTy, (void*)arg, TD);
-
-						//err = cuMemFreeHost(arg);
-						if (err) THROW("Error in cuMemFreeHost " << err);
-
+						kernelgen_hostcall(callback->kernel, callback->szdata,
+							callback->szdatai, callback->data);					
 						break;
 					}
 					default :
@@ -572,7 +279,7 @@ int kernelgen_launch(
 					void* monitor_kernel_func_args[] =
 						{ (void*)&kernel->target[runmode].callback };
 					int err = cuLaunchKernel(
-						kernel->target[runmode].monitor_kernel_func,
+						(void*)kernel->target[runmode].monitor_kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem,
 						kernel->target[runmode].monitor_kernel_stream,

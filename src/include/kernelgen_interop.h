@@ -48,20 +48,43 @@
 // Main kernel requested
 #define KERNELGEN_STATE_HOSTCALL	3
 
+namespace kernelgen
+{
+	struct kernel_t;
+}
+
+struct kernelgen_callback_data_t;
+
 // Defines callback status structure.
 struct kernelgen_callback_t
 {
+	// The synchronization lock shared between
+	// the "main" and "monitor" kernels for atomic
+	// read/write.
 	int lock;
+	
+	// The callback state (see defines above).
 	int state;
-	unsigned char* name;
-	int szarg;
-	int* arg;
+	
+	// The callback kernel.
+	kernelgen::kernel_t* kernel;
+	
+	// The size of callback data (see
+	// kernelgen_callback_data_t).
+	int szdata;
+
+	// The size of integer-only function arguments
+	// in callback data.
+	int szdatai;
+	
+	// The callback data.
+	kernelgen_callback_data_t* data;
 };
 
 #include <string.h>
 
 // Defines the dynamic memory pool configuration.
-typedef struct
+struct kernelgen_memory_t
 {
 	// The pointer to the memory pool (a single
 	// large array, allocated with cudaMalloc).
@@ -75,8 +98,7 @@ typedef struct
 
 	// The number of MCB records in pool.
 	size_t count;
-}
-kernelgen_memory_t;
+};
 
 #endif // KERNELGEN_INTEROP_H
 

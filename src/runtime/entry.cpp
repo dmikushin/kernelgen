@@ -106,8 +106,8 @@ int main(int argc, char* argv[])
 
 		// Build kernels index.
 		if (verbose) cout << "Building kernels index ..." << endl;
-		celf e("/proc/self/exe", "");
-		//celf e("/home/marcusmae/Programming/kernelgen/trunk/tests/behavior/hello/64/hello_f", "");
+		//celf e("/proc/self/exe", "");
+		celf e("/home/marcusmae/Programming/kernelgen/trunk/tests/behavior/sincos/64/sincos", "");
 		cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
 		vector<csymbol*> symbols = e.getSymtab()->find(regex);
 		kernels_array.reserve(symbols.size());
@@ -124,7 +124,10 @@ int main(int argc, char* argv[])
 
 			// Initially, all targets are supported.
 			for (int i = 0; i < KERNELGEN_RUNMODE_COUNT; i++)
+			{
 				kernel.target[i].supported = true;
+				kernel.target[i].binary = NULL;
+			}
 			
 			kernels_array.push_back(kernel);
 			kernels[name] = &kernels_array.back();
@@ -190,6 +193,7 @@ int main(int argc, char* argv[])
 								if (nameArray && nameArray->isCString())
 									name = nameArray->getAsCString();
 								nameInit->eraseFromParent();
+								break;
 							}
 						}
 						if (name == "")
@@ -224,9 +228,10 @@ int main(int argc, char* argv[])
 		// in CUDA and OpenCL kernels must return void.
 		// Also structure aggregates callback record containing
 		// parameters of host-device communication state.
-		struct args_t
+		struct main_args_t
 		{
-			int64_t size;
+			FunctionType* FunctionTy;
+			StructType* StructTy;
 			int argc;
 			char** argv;
 			int ret;
@@ -240,11 +245,11 @@ int main(int argc, char* argv[])
 		{
 			case KERNELGEN_RUNMODE_NATIVE :
 			{
-				args_t args;
-				args.size = sizeof(int);
+				main_args_t args;
 				args.argc = argc;
 				args.argv = argv;
-				kernelgen_launch((char*)kernel, sizeof(int), (int*)&args);
+				kernelgen_launch(kernel, sizeof(main_args_t),
+					sizeof(int), (kernelgen_callback_data_t*)&args);
 				return args.ret;
 			}
 			case KERNELGEN_RUNMODE_CUDA :
@@ -258,8 +263,10 @@ int main(int argc, char* argv[])
 				kernelgen_callback_t callback;
 				callback.lock = 1;
 				callback.state = KERNELGEN_STATE_INACTIVE;
-				callback.name = NULL;
-				callback.arg = NULL;
+				callback.kernel = NULL;
+				callback.data = NULL;
+				callback.szdata = sizeof(main_args_t);
+				callback.szdatai = sizeof(int);
 				kernelgen_callback_t* callback_dev = NULL;
 				int err = cuMemAlloc((void**)&callback_dev, sizeof(kernelgen_callback_t));
 				if (err) THROW("Error in cuMemAlloc " << err);
@@ -302,18 +309,18 @@ int main(int argc, char* argv[])
 					if (err) THROW("Error in cuMemcpyDtoH " << err);
 					offset += length;
 				}
-				args_t args_host;
-				args_host.size = sizeof(int);
+				main_args_t args_host;
 				args_host.argc = argc;
 				args_host.argv = argv_dev;
 				args_host.callback = callback_dev;
 				args_host.memory = memory;
-				args_t* args_dev = NULL;
-				err = cuMemAlloc((void**)&args_dev, sizeof(args_t));
+				main_args_t* args_dev = NULL;
+				err = cuMemAlloc((void**)&args_dev, sizeof(main_args_t));
 				if (err) THROW("Error in cuMemAlloc " << err);
-				err = cuMemcpyHtoD(args_dev, &args_host, sizeof(args_t));
+				err = cuMemcpyHtoD(args_dev, &args_host, sizeof(main_args_t));
 				if (err) THROW("Error in cuMemcpyHtoD " << err);
-				kernelgen_launch((char*)kernel, sizeof(int), (int*)args_dev);
+				kernelgen_launch(kernel, sizeof(main_args_t), sizeof(int),
+					(kernelgen_callback_data_t*)args_dev);
 				err = cuMemcpyDtoH(&args_host.ret, &args_dev->ret, sizeof(int));
 				if (err) THROW("Error in cuMemcpyDtoH " << err);
 				err = cuMemFree(args_dev);

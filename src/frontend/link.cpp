@@ -265,7 +265,7 @@ int link(list<string> args, list<string> kgen_args,
 
 		// Create and insert GEP to (int*)(args + 3).
 		Value *Idx1[1];
-		Idx1[0] = ConstantInt::get(Type::getInt64Ty(context), 4);
+		Idx1[0] = ConstantInt::get(Type::getInt64Ty(context), 6);
 		GetElementPtrInst *GEP1 = GetElementPtrInst::CreateInBounds(
 			arg, Idx1, "", root);
 
@@ -279,7 +279,7 @@ int link(list<string> args, list<string> kgen_args,
 
 		// Create and insert GEP to (int*)(args + 2).
 		Value *Idx2[1];
-		Idx2[0] = ConstantInt::get(Type::getInt64Ty(context), 2);
+		Idx2[0] = ConstantInt::get(Type::getInt64Ty(context), 4);
 		GetElementPtrInst *GEP2 = GetElementPtrInst::CreateInBounds(
 			arg, Idx2, "", root);
 
@@ -298,7 +298,7 @@ int link(list<string> args, list<string> kgen_args,
 
 		// Create and insert GEP to (int*)(args + 5).
 		Value *Idx4[1];
-		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 6);
+		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 8);
 		GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
 			arg, Idx4, "", root);
 
@@ -523,7 +523,7 @@ int link(list<string> args, list<string> kgen_args,
 		// Assign callback structure pointer with value received
 		// from the arguments structure.
 		// %struct.callback_t = type { i32, i32, i8*, i32, i8* }
-		// %0 = getelementptr inbounds i32* %args, i64 8
+		// %0 = getelementptr inbounds i32* %args, i64 10
 		// %1 = bitcast i32* %0 to %struct.callback_t**
 		// %2 = load %struct.callback_t** %1, align 8
 		// %3 = getelementptr inbounds %struct.callback_t* %2, i64 0, i32 0
@@ -532,7 +532,7 @@ int link(list<string> args, list<string> kgen_args,
 			Instruction* root = kernelgen_main_->begin()->begin();
 			Function::arg_iterator arg = kernelgen_main_->arg_begin();
 			Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 8);
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 10);
 			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
 				arg, Idx3, "", root);  
 			Value* callback2 = new BitCastInst(GEP3,
@@ -557,7 +557,7 @@ int link(list<string> args, list<string> kgen_args,
 		// Assign memory structure pointer with value received
 		// from the arguments structure.
 		// %struct.memory_t = type { i8*, i64, i64, i64 }
-		// %4 = getelementptr inbounds i32* %args, i64 10
+		// %4 = getelementptr inbounds i32* %args, i64 12
 		// %5 = bitcast i32* %4 to %struct.memory_t**
 		// %6 = load %struct.memory_t** %5, align 8
 		// %7 = bitcast %struct.memory_t* %6 to i32*
@@ -566,7 +566,7 @@ int link(list<string> args, list<string> kgen_args,
 			Instruction* root = kernelgen_main_->begin()->begin();
 			Function::arg_iterator arg = kernelgen_main_->arg_begin();
 			Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 10);
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 12);
 			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
 				arg, Idx3, "", root);  
 			Value* memory2 = new BitCastInst(GEP3,
