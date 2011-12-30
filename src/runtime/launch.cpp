@@ -70,10 +70,10 @@ int kernelgen_launch(kernel_t* kernel,
 			{
 				void* monitor_stream =
 					kernel->target[runmode].monitor_kernel_stream;
-				char* content = (char*)malloc(szdatai);
-				//int err = cuMemAllocHost((void**)&content, szdatai);
-				//if (err) THROW("Error in cuMemAllocHost " << err);
-				int err = cuMemcpyDtoHAsync(content, &data->args, szdatai, monitor_stream);
+				char* content = NULL;
+				int err = cuMemAllocHost((void**)&content, szdatai);
+				if (err) THROW("Error in cuMemAllocHost " << err);
+				err = cuMemcpyDtoHAsync(content, &data->args, szdatai, monitor_stream);
 				if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
 				err = cuStreamSynchronize(monitor_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
@@ -173,11 +173,9 @@ int kernelgen_launch(kernel_t* kernel,
 			}
 
 			// Create host-pinned callback structure buffer.
-			struct kernelgen_callback_t* callback =
-				(struct kernelgen_callback_t*)malloc(
-					sizeof(struct kernelgen_callback_t));
-			//int err = cuMemAllocHost((void**)&callback, sizeof(struct kernelgen_callback_t));
-			//if (err) THROW("Error in cuMemAllocHost " << err);
+			struct kernelgen_callback_t* callback = NULL;
+			int err = cuMemAllocHost((void**)&callback, sizeof(struct kernelgen_callback_t));
+			if (err) THROW("Error in cuMemAllocHost " << err);
 
 			// Launch monitor GPU kernel.
 			{
@@ -282,7 +280,7 @@ int kernelgen_launch(kernel_t* kernel,
 			}
 
 			// Finally, sychronize kernel stream.
-			int err = cuStreamSynchronize(
+			err = cuStreamSynchronize(
 				kernel->target[runmode].kernel_stream);
 			if (err) THROW("Error in cuStreamSynchronize " << err);
 			

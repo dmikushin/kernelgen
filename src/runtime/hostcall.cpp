@@ -26,6 +26,7 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/Target/TargetData.h"
 
+#include <errno.h>
 #include <ffi.h>
 #include <signal.h>
 #include <sys/mman.h>
@@ -237,11 +238,12 @@ static void ffiInvoke(
 
 	// Register SIGSEGV signal handler to catch
 	// accesses to GPU memory and remebmer the original handler.
-        struct sigaction sa_new, sa_old;
-        sa_new.sa_flags = SA_SIGINFO;
-        sigfillset(&sa_new.sa_mask);
-        sa_new.sa_sigaction = sighandler;
-        sigaction(SIGSEGV, &sa_new, &sa_old);
+	struct sigaction sa_new, sa_old;
+	sa_new.sa_flags = SA_SIGINFO;
+	sigemptyset(&sa_new.sa_mask);
+	sa_new.sa_sigaction = sighandler;
+	if (sigaction(SIGSEGV, &sa_new, &sa_old) == -1)
+		THROW("Error in sigaction " << errno);
         
         if (verbose)
         	cout << "Starting hostcall to " << (void*)func << endl;
@@ -253,8 +255,8 @@ static void ffiInvoke(
 	
 	// Unregister SIGSEGV signal handler and resore the
 	// original handler.
-	memset(&sa_new, 0, sizeof(struct sigaction));
-        sigaction(SIGSEGV, &sa_old, 0);
+	if (sigaction(SIGSEGV, &sa_old, &sa_new) == -1)
+        	THROW("Error in sigaction " << errno);
 
 	if (!RetTy->isVoidTy())
 	{
@@ -276,11 +278,17 @@ static void ffiInvoke(
 	// Copy data back from host-mapped memory to device.
 	for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
 	{
+		// TODO: transfer hangs when size is not a multiplier of some power of two.
+		// Currently the guess is 16. So, do we need to pad all array to 16?..
 		struct mmap_t mmap = *i;
+		size_t size = mmap.size;
+		if (size % 16) size -= mmap.size % 16;
 		int err = cuMemcpyHtoDAsync(
-			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, mmap.size,
+			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, size,
 			kernel->target[runmode].monitor_kernel_stream);
-		if (err) THROW("Error in cuMemcpyHtoDAsync");
+		if (err) THROW("Error in cuMemcpyHtoDAsync " << err);
+		cout << "mmap.addr = " << mmap.addr << ", mmap.align = " <<
+			mmap.align << ", mmap.size = " << mmap.size << " (" << size << ")" << endl;
 	}
 	
 	// Synchronize and unmap previously mapped host memory.
@@ -321,11 +329,10 @@ void kernelgen_hostcall(kernel_t* kernel,
 	}
 
 	// Copy arguments to the host memory.
-	kernelgen_callback_data_t* data_host =
-		(kernelgen_callback_data_t*)malloc(sizeof(kernelgen_callback_data_t));
-	//int err = cuMemAllocHost((void**)&data_host, szdata);
-	//if (err) THROW("Error in cuMemAllocHost " << err);
-	int err = cuMemcpyDtoHAsync(data_host, data_dev, szdata,
+	kernelgen_callback_data_t* data_host = NULL;
+	int err = cuMemAllocHost((void**)&data_host, szdata);
+	if (err) THROW("Error in cuMemAllocHost " << err);
+	err = cuMemcpyDtoHAsync(data_host, data_dev, szdata,
 		kernel->target[runmode].monitor_kernel_stream);
 	if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
 	err = cuStreamSynchronize(
