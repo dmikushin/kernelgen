@@ -149,7 +149,7 @@ kernel_func_t nvopencc(std::string source, std::string name);
 kernelgen_memory_t* init_memory_pool(size_t szpool);
 
 // Wrap call instruction into host function call wrapper.
-llvm::CallInst* wrapCallIntoHostcall(llvm::CallInst* call);
+llvm::CallInst* wrapCallIntoHostcall(llvm::CallInst* call, kernel_t* kernel);
 
 } }
 

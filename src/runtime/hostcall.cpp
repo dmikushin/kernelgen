@@ -309,11 +309,23 @@ void kernelgen_hostcall(kernel_t* kernel,
 	// Compile native kernel, if there is source code.
 	kernel_func_t kernel_func = compile(KERNELGEN_RUNMODE_NATIVE, kernel);
 
+	Dl_info info;
+	if (verbose)
+	{
+		if (dladdr((void*)kernel->target[
+			KERNELGEN_RUNMODE_NATIVE].binary, &info))
+			cout << "Host function call " << info.dli_sname << endl;
+		else
+			cout << "Host kernel call " << (void*)kernel->target[
+			KERNELGEN_RUNMODE_NATIVE].binary << endl;
+	}
+
 	// Copy arguments to the host memory.
-	kernelgen_callback_data_t* data_host = NULL;
-	int err = cuMemAllocHost((void**)&data_host, szdata);
-	if (err) THROW("Error in cuMemAllocHost " << err);
-	err = cuMemcpyDtoHAsync(data_host, data_dev, szdata,
+	kernelgen_callback_data_t* data_host =
+		(kernelgen_callback_data_t*)malloc(sizeof(kernelgen_callback_data_t));
+	//int err = cuMemAllocHost((void**)&data_host, szdata);
+	//if (err) THROW("Error in cuMemAllocHost " << err);
+	int err = cuMemcpyDtoHAsync(data_host, data_dev, szdata,
 		kernel->target[runmode].monitor_kernel_stream);
 	if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
 	err = cuStreamSynchronize(

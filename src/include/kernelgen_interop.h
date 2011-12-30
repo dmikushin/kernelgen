@@ -48,10 +48,14 @@
 // Main kernel requested
 #define KERNELGEN_STATE_HOSTCALL	3
 
+#ifdef __cplusplus
 namespace kernelgen
 {
 	struct kernel_t;
 }
+#else
+struct kernel_t;
+#endif
 
 struct kernelgen_callback_data_t;
 
@@ -67,7 +71,11 @@ struct kernelgen_callback_t
 	int state;
 	
 	// The callback kernel.
+#ifdef __cplusplus
 	kernelgen::kernel_t* kernel;
+#else
+	struct kernel_t* kernel;
+#endif
 	
 	// The size of callback data (see
 	// kernelgen_callback_data_t).
@@ -78,13 +86,13 @@ struct kernelgen_callback_t
 	int szdatai;
 	
 	// The callback data.
-	kernelgen_callback_data_t* data;
+	struct kernelgen_callback_data_t* data;
 };
 
 #include <string.h>
 
 // Defines the dynamic memory pool configuration.
-struct kernelgen_memory_t
+typedef struct
 {
 	// The pointer to the memory pool (a single
 	// large array, allocated with cudaMalloc).
@@ -98,7 +106,8 @@ struct kernelgen_memory_t
 
 	// The number of MCB records in pool.
 	size_t count;
-};
+}
+kernelgen_memory_t;
 
 #endif // KERNELGEN_INTEROP_H
 

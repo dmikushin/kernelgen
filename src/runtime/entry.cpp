@@ -74,8 +74,6 @@ bool kernelgen::verbose = false;
 // for futher references.
 std::map<string, kernel_t*> kernelgen::kernels;
 
-vector<kernel_t> kernels_array;
-
 int main(int argc, char* argv[])
 {
 	char* crunmode = getenv("kernelgen_runmode");
@@ -106,11 +104,10 @@ int main(int argc, char* argv[])
 
 		// Build kernels index.
 		if (verbose) cout << "Building kernels index ..." << endl;
-		//celf e("/proc/self/exe", "");
-		celf e("/home/marcusmae/Programming/kernelgen/trunk/tests/behavior/sincos/64/sincos", "");
+		celf e("/proc/self/exe", "");
+		//celf e("/home/marcusmae/Programming/kernelgen/trunk/tests/behavior/sincos/64/sincos", "");
 		cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
 		vector<csymbol*> symbols = e.getSymtab()->find(regex);
-		kernels_array.reserve(symbols.size());
 		int ii = 0;
 		for (vector<csymbol*>::iterator i = symbols.begin(),
 			ie = symbols.end(); i != ie; i++, ii++)
@@ -118,19 +115,18 @@ int main(int argc, char* argv[])
 			csymbol* symbol = *i;
 			const char* data = symbol->getData();
 			const string& name = symbol->getName();
-			kernel_t kernel;
-			kernel.name = name;
-			kernel.source = data;
+			kernel_t* kernel =  new kernel_t();
+			kernel->name = name;
+			kernel->source = data;
 
 			// Initially, all targets are supported.
 			for (int i = 0; i < KERNELGEN_RUNMODE_COUNT; i++)
 			{
-				kernel.target[i].supported = true;
-				kernel.target[i].binary = NULL;
+				kernel->target[i].supported = true;
+				kernel->target[i].binary = NULL;
 			}
 			
-			kernels_array.push_back(kernel);
-			kernels[name] = &kernels_array.back();
+			kernels[name] = kernel;
 			if (verbose) cout << name << endl;
 		}
 		if (verbose) cout << endl;

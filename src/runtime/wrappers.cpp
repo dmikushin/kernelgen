@@ -35,7 +35,7 @@ using namespace llvm;
 using namespace std;
 
 // Wrap call instruction into host function call wrapper.
-CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call)
+CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* kernel)
 {
 	LLVMContext &context = getGlobalContext();
 	Function* callee = call->getCalledFunction();
@@ -46,6 +46,8 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call)
 	// Locate entire hostcall in the native code.
 	void* host_func = (void*)dlsym(NULL, callee->getName().data());
 	if (!host_func) THROW("Cannot dlsym " << dlerror());
+	
+	kernel->target[KERNELGEN_RUNMODE_NATIVE].binary = (kernel_func_t)host_func;
 
 	// The host call launcher prototype to be added
 	// to entire module.
@@ -53,7 +55,8 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call)
 	Function* hostcall = m->getFunction("kernelgen_hostcall");
 	if (!hostcall)
 		hostcall = Function::Create(
-			TypeBuilder<void(types::i<8>*, types::i<64>, types::i<32>*), true>::get(context),
+			TypeBuilder<void(types::i<8>*, types::i<64>,
+				types::i<64>, types::i<32>*), true>::get(context),
 			GlobalValue::ExternalLinkage, "kernelgen_hostcall", m);
 
 	// Fill the arguments types structure.
@@ -122,10 +125,13 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call)
 	SmallVector<Value*, 16> call_args;
 	call_args.push_back(ConstantExpr::getIntToPtr(
 		ConstantInt::get(Type::getInt64Ty(context),
-		(uint64_t)host_func), Type::getInt8PtrTy(context)));
+		(uint64_t)kernel), Type::getInt8PtrTy(context)));
 
 	// Store the sizeof structure.
 	call_args.push_back(ConstantExpr::getSizeOf(StructArgTy));
+
+	// TODO: store szdatai.
+	call_args.push_back(Constant::getNullValue(Type::getInt64Ty(context)));
 
 	// Store pointer to aggregated arguments struct
 	// to the new call args list.

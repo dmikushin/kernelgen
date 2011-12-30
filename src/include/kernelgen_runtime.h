@@ -39,33 +39,37 @@ typedef struct { unsigned int x, y, z; } uint3;
 uint3 extern const threadIdx, blockIdx, blockDim, gridDim;
 int extern const warpSize;
 
-__device__ void kernelgen_hostcall(unsigned char* name, unsigned long long szarg, unsigned int* arg)
+__device__ void kernelgen_hostcall(unsigned char* kernel,
+	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
 {
 	// Unblock the monitor kernel and wait for being
 	// unblocked by new instance of monitor.
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_HOSTCALL;
-	callback->name = name;
-	callback->szarg = szarg;
-	callback->arg = arg;
+	callback->kernel = (struct kernel_t*)kernel;
+	callback->szdata = szdata;
+	callback->szdatai = szdatai;
+	callback->data = data;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
 
-__device__ int kernelgen_launch(unsigned char* name, unsigned long long szarg, unsigned int* arg)
+__device__ int kernelgen_launch(unsigned char* kernel,
+	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
 {
 	// Client passes NULL for name/entry argument to indicate
 	// the call is performed from kernel loop and must always
 	// return -1.
-	if (!name) return -1;
+	if (!kernel) return -1;
 
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_LOOPCALL;
-	callback->name = name;
-	callback->szarg = szarg;
-	callback->arg = arg;
+	callback->kernel = (struct kernel_t*)kernel;
+	callback->szdata = szdata;
+	callback->szdatai = szdatai;
+	callback->data = data;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 

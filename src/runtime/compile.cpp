@@ -119,7 +119,8 @@ kernel_func_t kernelgen::runtime::compile(
 	int runmode, kernel_t* kernel, Module* module)
 {
 	// Do not compile, if no source.
-	if (kernel->source == "") return NULL;
+	if (kernel->source == "")
+		return kernel->target[runmode].binary;
 
 	Module* m = module;
 	LLVMContext &context = getGlobalContext();
@@ -302,6 +303,8 @@ kernel_func_t kernelgen::runtime::compile(
 						if (!callee->isDeclaration()) continue;
 						if (callee->isIntrinsic()) continue;
 
+						string name = callee->getName();
+
 						// Check function is natively supported.
 						bool native = false;
 						set<string>::iterator i1 = 
@@ -309,7 +312,7 @@ kernel_func_t kernelgen::runtime::compile(
 						if (i1 != kernelgen_intrinsics_set.end())
 						{
 							if (verbose)
-								cout << "KernelGen native: " << callee->getName().data() << endl;
+								cout << "KernelGen native: " << name << endl;
 							continue;
 						}
 						set<string>::iterator i2 =
@@ -317,32 +320,54 @@ kernel_func_t kernelgen::runtime::compile(
 						if (i2 != cuda_intrinsics_set.end())
 						{
 							if (verbose)
-								cout << "CUDA native: " << callee->getName().data() << endl;
+								cout << "CUDA native: " << name << endl;
 							continue;
 						}
 					
 						// Check if function is malloc or free.
 						// In case it is, replace it with kernelgen_* variant.
-						if ((callee->getName() == "malloc") || (callee->getName() == "free"))
+						if ((name == "malloc") || (name == "free"))
 						{
-							string name = "kernelgen_";
-							name += callee->getName();
-							Function* replacement = m->getFunction(name);
+							string rename = "kernelgen_";
+							rename += callee->getName();
+							Function* replacement = m->getFunction(rename);
 							if (!replacement)
 							{
 								replacement = Function::Create(callee->getFunctionType(),
-									GlobalValue::ExternalLinkage, name, m);
+									GlobalValue::ExternalLinkage, rename, m);
 							}
 							call->setCalledFunction(replacement);
 							if (verbose)
-								cout << "replacement: " << callee->getName().data() <<
-									" -> kernelgen_" << callee->getName().data() << endl;
+								cout << "replacement: " << name << " -> " << rename << endl;
 							continue;
+						}
+						
+						// Also record hostcall to the kernels map.
+						kernel_t* hostcall = kernels[name];
+						if (!hostcall)
+						{
+							hostcall = new kernel_t();
+							hostcall->name = name;
+							hostcall->source = "";
+
+							// No targets supported, except NATIVE.
+							for (int i = 0; i < KERNELGEN_RUNMODE_COUNT; i++)
+							{
+								hostcall->target[i].supported = false;
+								hostcall->target[i].binary = NULL;
+							}
+							hostcall->target[KERNELGEN_RUNMODE_NATIVE].supported = true;
+							
+							hostcall->target[runmode].monitor_kernel_stream =
+								kernel->target[runmode].monitor_kernel_stream;
+							hostcall->module = kernel->module;
+			
+							kernels[name] = hostcall;
 						}
 
 						// Replace entire call with hostcall and set old
 						// call for erasing.
-						wrapCallIntoHostcall(call);
+						wrapCallIntoHostcall(call, hostcall);
 						erase_calls.push_back(call);
 					}
 
@@ -376,6 +401,14 @@ kernel_func_t kernelgen::runtime::compile(
 						{
 							if (verbose)
 								cout << "KernelGen native: " << callee->getName().data() << endl;
+							continue;
+						}
+						set<string>::iterator i2 =
+							cuda_intrinsics_set.find(callee->getName());
+						if (i2 != cuda_intrinsics_set.end())
+						{
+							if (verbose)
+								cout << "CUDA native: " << callee->getName().data() << endl;
 							continue;
 						}
 						
