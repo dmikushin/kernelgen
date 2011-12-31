@@ -279,7 +279,7 @@ static void ffiInvoke(
 	for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
 	{
 		// TODO: transfer hangs when size is not a multiplier of some power of two.
-		// Currently the guess is 16. So, do we need to pad all array to 16?..
+		// Currently the guess is 16. So, do we need to pad all arrays to 16?..
 		struct mmap_t mmap = *i;
 		size_t size = mmap.size;
 		if (size % 16) size -= mmap.size % 16;
@@ -312,7 +312,7 @@ static void ffiInvoke(
 
 void kernelgen_hostcall(kernel_t* kernel,
 	unsigned long long szdata, unsigned long long szdatai,
-	kernelgen_callback_data_t* data_dev)
+	kernelgen_callback_data_t* data)
 {
 	// Compile native kernel, if there is source code.
 	kernel_func_t kernel_func = compile(KERNELGEN_RUNMODE_NATIVE, kernel);
@@ -328,23 +328,9 @@ void kernelgen_hostcall(kernel_t* kernel,
 			KERNELGEN_RUNMODE_NATIVE].binary << endl;
 	}
 
-	// Copy arguments to the host memory.
-	kernelgen_callback_data_t* data_host = NULL;
-	int err = cuMemAllocHost((void**)&data_host, szdata);
-	if (err) THROW("Error in cuMemAllocHost " << err);
-	err = cuMemcpyDtoHAsync(data_host, data_dev, szdata,
-		kernel->target[runmode].monitor_kernel_stream);
-	if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
-	err = cuStreamSynchronize(
-		kernel->target[runmode].monitor_kernel_stream);
-	if (err) THROW("Error in cuStreamSynchronize " << err);
-
 	// Perform hostcall using FFI.
 	TargetData* TD = new TargetData(kernel->module);					
-	ffiInvoke(kernel, (func_t)kernel_func, data_host->FunctionTy,
-		data_host->StructTy, (void*)data_host, TD);
-
-	//err = cuMemFreeHost(data_host);
-	if (err) THROW("Error in cuMemFreeHost " << err);
+	ffiInvoke(kernel, (func_t)kernel_func, data->FunctionTy,
+		data->StructTy, (void*)data, TD);
 }
 

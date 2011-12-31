@@ -177,9 +177,9 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name)
 	if (err)
 		THROW("Error in cuModuleGetFunction " << err);
 
-	err = cuCtxSynchronize();
-	if (err)
-		THROW("Error in cuCtxSynchronize " << err);
+	//err = cuCtxSynchronize();
+	//if (err)
+	//	THROW("Error in cuCtxSynchronize " << err);
 
 	if (verbose)
 		cout << "Loaded '" << name << "' at: " << kernel_func << endl;

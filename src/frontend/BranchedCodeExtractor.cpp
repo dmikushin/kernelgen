@@ -570,33 +570,6 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	Value* Idx[2];
 	Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
 
-	// Store the function type.
-	// TODO: initializing it here is invalid, move to runtime.
-	{
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", callAndBranchBlock);
-		Type* type = KernelFunc->getFunctionType();
-		StoreInst* SI = new StoreInst(ConstantExpr::getIntToPtr(
-			ConstantInt::get(Type::getInt64Ty(context),
-			(uint64_t)type), Type::getInt8PtrTy(context)),
-			GEP, "", callAndBranchBlock);
-	}
-
-	// Store the struct type itself.
-	// TODO: initializing it here is invalid, move to runtime.
-	{
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 1);
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", callAndBranchBlock);
-		StructType* StructArgTy = StructType::get(
-			context, ArgTypes, false /* isPacked */);
-		StoreInst* SI = new StoreInst(ConstantExpr::getIntToPtr(
-			ConstantInt::get(Type::getInt64Ty(context),
-			(uint64_t)StructArgTy), Type::getInt8PtrTy(context)),
-			GEP, "", callAndBranchBlock);
-	}
-	
     	// Store input values to arguments struct.
 	for (unsigned i = 0, e = inputs.size(); i != e; ++i)
 	{

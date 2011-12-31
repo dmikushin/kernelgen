@@ -27,6 +27,7 @@
 
 #include "llvm/Function.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
 
 using namespace kernelgen;
@@ -245,13 +246,39 @@ int kernelgen_launch(kernel_t* kernel,
 							callback->szdatai, callback->data) != -1)
 							break;
 
-						// If kernel cannot be launched, fallback to
-						// case KERNELGEN_STATE_HOSTCALL
+						// If kernel cannot be launched on device, launch it as
+						// a host call.
+						LLVMContext& context = kernel->module->getContext();
+						kernelgen_callback_data_t data;
+						data.FunctionTy = TypeBuilder<void(types::i<32>*),
+							true>::get(context);
+						data.StructTy = StructType::get(
+							Type::getInt8PtrTy(context),
+							Type::getInt8PtrTy(context),
+							Type::getInt8PtrTy(context), NULL);
+						data.args = callback->data;
+						kernelgen_hostcall(callback->kernel, callback->szdata,
+							callback->szdatai, &data);
+						break;
 					}
 					case KERNELGEN_STATE_HOSTCALL :
 					{
+						// Copy arguments to the host memory.
+						kernelgen_callback_data_t* data = NULL;
+						int err = cuMemAllocHost((void**)&data, callback->szdata);
+						if (err) THROW("Error in cuMemAllocHost " << err);
+						err = cuMemcpyDtoHAsync(data, callback->data, callback->szdata,
+							kernel->target[runmode].monitor_kernel_stream);
+						if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
+						err = cuStreamSynchronize(
+							kernel->target[runmode].monitor_kernel_stream);
+						if (err) THROW("Error in cuStreamSynchronize " << err);
+
 						kernelgen_hostcall(callback->kernel, callback->szdata,
-							callback->szdatai, callback->data);					
+							callback->szdatai, data);
+
+						//err = cuMemFreeHost(data);
+						if (err) THROW("Error in cuMemFreeHost " << err);
 						break;
 					}
 					default :
