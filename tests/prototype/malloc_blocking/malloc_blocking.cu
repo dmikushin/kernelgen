@@ -1,7 +1,21 @@
+__device__ int spinval;
+__device__ void spin(int count)
+{
+	volatile int *spinptr = &spinval;
+	while(count--)
+	{
+		*spinptr = count;
+
+		// ~500 cycles timeout on Fermi
+		__threadfence();
+	}
+}
+
 __global__ void kernel1(int* lock)
 {
 	// Wait for unlock.
-	while (atomicCAS(lock, 0, 0)) continue;
+	while (atomicCAS(lock, 0, 0))
+		spin(10);
 }
 
 __global__ void kernel2(int* lock)
