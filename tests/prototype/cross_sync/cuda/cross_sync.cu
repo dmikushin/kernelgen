@@ -34,7 +34,7 @@ __global__ void gpu_kernel(float* data, size_t size, int npasses,
 	for (int ipass = 0; ipass < npasses; ipass++)
 	{
 		// Run some time-consuming work.
-		for (int i = 1; i < size; i++)
+		for (int i = size - 1; i >= 0; i--)
 			data[i] = data[i - 1];
 		data[0] = data[size - 1];
 	
@@ -247,10 +247,11 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 
-		/*// Do something with GPU data.
+		// Do something with GPU data describing the current
+		// running kernel state from host.
 		int maxidx = 0;
-		custat = cudaMemcpy(&maxidx, params.maxidx, sizeof(int),
-			cudaMemcpyDeviceToHost);
+		custat = cudaMemcpyAsync(&maxidx, gpu.maxidx, sizeof(int),
+			cudaMemcpyDeviceToHost, gpu.stream);
 		if (custat != cudaSuccess)
 		{
 			fprintf(stderr, "Cannot get GPU maxidx value: %s\n",
@@ -258,15 +259,22 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 		float maxval = 0.0;
-		custat = cudaMemcpy(&maxval, params.maxval, sizeof(float),
-			cudaMemcpyDeviceToHost);
+		custat = cudaMemcpyAsync(&maxval, gpu.maxval, sizeof(float),
+			cudaMemcpyDeviceToHost, gpu.stream);
 		if (custat != cudaSuccess)
 		{
 			fprintf(stderr, "Cannot get GPU maxval value: %s\n",
 				cudaGetErrorString(custat));
 			return 1;
 		}
-		printf("max value = %f @ index = %d\n", maxval, maxidx);*/
+		custat = cudaStreamSynchronize(gpu.stream);
+		if (custat != cudaSuccess)
+		{
+			fprintf(stderr, "Cannot synchronize GPU monitor kernel: %s\n",
+				cudaGetErrorString(custat));
+			return 1;
+		}
+		printf("max value = %f @ index = %d\n", maxval, maxidx);
 		
                 // Check if target GPU kernel has finished.
                 if (*gpu.finish == 1) break;
