@@ -32,7 +32,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r622.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r623.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -83,7 +83,7 @@ rm -rf $RPM_BUILD_DIR/nvopencc
 tar -xf $RPM_SOURCE_DIR/nvopencc-r11207187.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r622.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r623.tar.gz
 
 
 %if %fullrepack
@@ -139,7 +139,7 @@ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-
 LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make -j%{njobs}
 %endif
 %endif
-cd $RPM_BUILD_DIR/kernelgen/branches/accurate
+cd $RPM_BUILD_DIR/kernelgen/trunk
 ./configure
 make src
 
@@ -1174,7 +1174,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/incl
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXCodeGen.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXDesc.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXInfo.a
-cd $RPM_BUILD_DIR/kernelgen/branches/accurate
+cd $RPM_BUILD_DIR/kernelgen/trunk
 ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 
 %clean
