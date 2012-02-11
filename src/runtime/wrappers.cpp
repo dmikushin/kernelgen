@@ -96,7 +96,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		StoreInst* SI = new StoreInst(ConstantExpr::getIntToPtr(
 			ConstantInt::get(Type::getInt64Ty(context),
 			(uint64_t)type), Type::getInt8PtrTy(context)),
-			GEP, "", call);
+			GEP, false, call);
 	}
 
 	// Store the struct type itself.
@@ -109,7 +109,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		StoreInst* SI = new StoreInst(ConstantExpr::getIntToPtr(
 			ConstantInt::get(Type::getInt64Ty(context),
 			(uint64_t)StructArgTy), Type::getInt8PtrTy(context)),
-			GEP, "", call);
+			GEP, false, call);
 	}
 
     	// Store actual arguments to arguments struct.
@@ -118,7 +118,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 2);
 		GetElementPtrInst *GEP = GetElementPtrInst::Create(
 			Struct, Idx, "", call);
-		StoreInst* SI = new StoreInst(call->getArgOperand(i), GEP, "", call);
+		StoreInst* SI = new StoreInst(call->getArgOperand(i), GEP, false, call);
 	}
 
 	// Store pointer to the host call function entry point.

@@ -212,7 +212,7 @@ int link(list<string> args, list<string> kgen_args,
 				structArg, Idx, "", first);
 
 			// Store initial value to that address.
-			StoreInst *SI = new StoreInst(gvar->getInitializer(), GEP, "", first);
+			StoreInst *SI = new StoreInst(gvar->getInitializer(), GEP, false, first);
 
 			gvar->replaceAllUsesWith(GEP);
 			remove.push_back(gvar);
@@ -303,7 +303,7 @@ int link(list<string> args, list<string> kgen_args,
 			arg, Idx4, "", root);
 
 		// Store call ret value to ret.
-		StoreInst* ret1 = new StoreInst(call, GEP4, "", root);
+		StoreInst* ret1 = new StoreInst(call, GEP4, false, root);
 		ret1->setAlignment(1);
 		
 		// Call kernelgen_finish to finalize execution.
@@ -543,7 +543,7 @@ int link(list<string> args, list<string> kgen_args,
 			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
 			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
 				callback3, Idx4, "", root);
-			StoreInst* callback4 = new StoreInst(GEP4, callback1, "", root);
+			StoreInst* callback4 = new StoreInst(GEP4, callback1, false, root);
 			callback4->setAlignment(8);
 		}
 
@@ -577,7 +577,7 @@ int link(list<string> args, list<string> kgen_args,
 			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
 			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
 				memory3, Idx4, "", root);
-			StoreInst* memory4 = new StoreInst(GEP4, memory1, "", root);
+			StoreInst* memory4 = new StoreInst(GEP4, memory1, false, root);
 			memory4->setAlignment(8);
 		}
 
