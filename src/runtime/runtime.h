@@ -139,7 +139,7 @@ namespace runtime {
 
 // Compile kernel with the specified arguments,
 // and return its handle.
-kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL);
+kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL, void * data = NULL, int szdatai = 0);
 
 // Compile C source to PTX using NVISA-enabled
 // Open64 compiler variant.
@@ -166,6 +166,7 @@ extern "C" void kernelgen_finish();
 extern "C" void kernelgen_hostcall(kernelgen::kernel_t* kernel,
 	unsigned long long szdata, unsigned long long szdatai,
 	kernelgen_callback_data_t* data);
+
 
 #endif // KERNELGEN_RUNTIME_H
 

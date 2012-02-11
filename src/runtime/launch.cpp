@@ -60,11 +60,13 @@ int kernelgen_launch(kernel_t* kernel,
 			THROW("Cannot inilialize mhash");
 	
 		// Compute hash, depending on the runmode.
+		void * args;
 		switch (runmode)
 		{
 			case KERNELGEN_RUNMODE_NATIVE :
 			{
 				mhash(td, &data->args, szdatai);
+				args = data;
 				break;
 			}
 			case KERNELGEN_RUNMODE_CUDA :
@@ -81,6 +83,10 @@ int kernelgen_launch(kernel_t* kernel,
 				mhash(td, content, szdatai);
 				//err = cuMemFreeHost(content);
 				if (err) THROW("Error in cuMemFreeHost " << err);
+				
+				args = malloc(2*sizeof(void *) + szdatai);//malloc(szdata)
+				memcpy((char *)args + 2*sizeof(void *), content, szdatai);
+				
 				break;
 			}
 			case KERNELGEN_RUNMODE_OPENCL :
@@ -113,7 +119,7 @@ int kernelgen_launch(kernel_t* kernel,
 				cout << "No prebuilt kernel, compiling..." << endl;
 	
 			// Compile kernel for the specified target.
-			kernel_func = compile(runmode, kernel);
+			kernel_func = compile(runmode, kernel,NULL, args, szdatai);
 			binaries[strhash] = kernel_func;
 		}
 		else
