@@ -135,6 +135,7 @@ int main(int argc, char* argv[])
 		kernel_t* kernel = kernels["__kernelgen_main"];
 		if (!kernel) return __regular_main(argc, argv);
 
+        
 		// Walk through kernel index and replace
 		// all names with kernel structure addresses
 		// for each kernelgen_launch call.

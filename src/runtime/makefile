@@ -40,7 +40,8 @@ CXXFLAGS = -g -fPIC -O$(OPT) -I../include $(LLVMINC) $(LLVMDEF)
 OBJECTS = \
 	entry compile launch finish timing io elf execute bind nvopencc \
 	memory hostcall wrappers \
-	BlockGenerator ClastExpCodegen ClastStmtCodeGen CodeGeneration
+	BlockGenerator ClastExpCodegen ClastStmtCodeGen CodeGeneration \
+        ConstantSubstitution
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -164,6 +165,11 @@ NUM_SYMBOLS ?= 1
 32/CodeGeneration.o: CodeGeneration.cpp
 	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
 64/CodeGeneration.o: CodeGeneration.cpp
+	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
+
+32/ConstantSubstitution.o: ConstantSubstitution.cpp
+	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
+64/ConstantSubstitution.o: ConstantSubstitution.cpp
 	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
 
 clean:
