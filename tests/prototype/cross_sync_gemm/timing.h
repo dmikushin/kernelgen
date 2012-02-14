@@ -19,43 +19,80 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef TIME_H
-#define TIME_H
+#include "timing.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include <stdio.h>
+#include <time.h>
 
-#include <stdint.h>
-
-#pragma pack(push, 1)
-
-// The built-in timer value type.
-typedef struct
-{
-	int64_t seconds;
-	int64_t nanoseconds;
-}
-util_time_t;
-
-#pragma pack(pop)
+#define CLOCKID CLOCK_REALTIME
+//#define CLOCKID CLOCK_MONOTONIC
+//#define CLOCKID CLOCK_PROCESS_CPUTIME_ID
+//#define CLOCKID CLOCK_THREAD_CPUTIME_ID
 
 // Get the built-in timer resolution.
-void util_get_timer_resolution(util_time_t* val);
+void util_get_timer_resolution(util_time_t* val)
+{
+	if ((sizeof(int64_t) == sizeof(time_t)) &&
+		(sizeof(int64_t) == sizeof(long)))
+		clock_getres(CLOCKID, (struct timespec *)val);
+	else
+	{
+		struct timespec t;
+		clock_getres(CLOCKID, &t);
+		val->seconds = t.tv_sec;
+		val->nanoseconds = t.tv_nsec;
+	}
+}
 
 // Get the built-in timer value.
-void util_get_time(util_time_t* val);
+void util_get_time(util_time_t* val)
+{
+	if ((sizeof(int64_t) == sizeof(time_t)) &&
+		(sizeof(int64_t) == sizeof(long)))
+		clock_gettime(CLOCKID, (struct timespec *)val);
+	else
+	{
+		struct timespec t;
+		val->seconds = 0;
+		val->nanoseconds = 0;
+		clock_gettime(CLOCKID, &t);
+		val->seconds = t.tv_sec;
+		val->nanoseconds = t.tv_nsec;
+	}
+}
 
 // Get the built-in timer measured values difference.
-double util_get_time_diff(util_time_t* val1, util_time_t* val2);
+double util_get_time_diff(
+	util_time_t* val1, util_time_t* val2)
+{
+	int64_t seconds = val2->seconds - val1->seconds;
+	int64_t nanoseconds = val2->nanoseconds - val1->nanoseconds;
+	
+	if (val2->nanoseconds < val1->nanoseconds)
+	{
+		seconds--;
+		nanoseconds = (1000000000 - val1->nanoseconds) + val2->nanoseconds;
+	}
+	
+	return (double)0.000000001 * nanoseconds + seconds;
+}
 
 // Print the built-in timer measured values difference.
-void util_print_time_diff(util_time_t* val1, util_time_t* val2);
+void util_print_time_diff(
+	util_time_t* val1, util_time_t* val2)
+{
+	int64_t seconds = val2->seconds - val1->seconds;
+	int64_t nanoseconds = val2->nanoseconds - val1->nanoseconds;
+	
+	if (val2->nanoseconds < val1->nanoseconds)
+	{
+		seconds--;
+		nanoseconds = (1000000000 - val1->nanoseconds) + val2->nanoseconds;
+	}
+	if (sizeof(uint64_t) == sizeof(long))
+		printf("%ld.%09ld", (long)seconds, (long)nanoseconds);
+	else
+		printf("%lld.%09lld", (long long)seconds, (long long)nanoseconds);
 
-#ifdef __cplusplus
 }
-#endif
-
-#endif // TIME_H
 
