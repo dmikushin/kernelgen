@@ -1198,6 +1198,8 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/lib/be
 /opt/kernelgen/lib/gfec
 /opt/kernelgen/lib/inline
+/opt/kernelgen/include/kernelgen_interop.h
+/opt/kernelgen/include/kernelgen_memory.h
 /opt/kernelgen/include/kernelgen_runtime.h
 /opt/kernelgen/%{lib64}/dragonegg.so
 /opt/kernelgen/%{lib64}/libkernelgen.a
