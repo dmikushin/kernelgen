@@ -19,6 +19,9 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#ifndef TIMING_H
+#define TIMING_H
+
 #ifdef __cplusplus
 extern "C"
 {
