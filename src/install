@@ -68,7 +68,9 @@ foreach $include (@includes)
 # Copy libraries to install path.
 #
 my(@libraries32) = (
-	"runtime/32/libkernelgen.a");
+	"runtime/32/libkernelgen.a",
+	"libasfermi/libasfermi.so",
+	"libasfermi/tests/dyloader/libdyloader.so");
 foreach $library (@libraries32)
 {
 	`cp $library $PREFIX\/$LIB32\/`;
@@ -76,7 +78,9 @@ foreach $library (@libraries32)
 if ($ARCH eq "64")
 {
 	my(@libraries64) = (
-		"runtime/64/libkernelgen.a");
+		"runtime/64/libkernelgen.a",
+		"libasfermi/libasfermi.so",
+		"libasfermi/tests/dyloader/libdyloader.so");
 	foreach $library (@libraries64)
 	{
 		`cp $library $PREFIX\/$LIB64\/`;

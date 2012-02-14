@@ -33,10 +33,15 @@ ifeq ($(HAVE_CUDA), 1)
 CUDA_PREFIX = /opt/cuda
 endif
 
-all: frontend runtime/32/libruntime.a runtime/64/libruntime.a
+.PHONY: frontend libasfermi
+
+all: frontend libasfermi runtime/32/libruntime.a runtime/64/libruntime.a
 
 frontend: runtime/32/libruntime.a runtime/64/libruntime.a
 	cd frontend && $(MAKE)
+
+libasfermi:
+	cd libasfermi && $(MAKE)
 
 runtime/32/libruntime.a:
 	cd runtime && $(MAKE)

@@ -60,7 +60,9 @@ endif
 CXX = g++
 CXXFLAGS = -g -w -fPIC -std=c++0x
 
-all: asfermi libasfermi.so
+.PHONY: tests
+
+all: asfermi libasfermi.so tests
 
 asfermi: $(exe) $(allobjects)
 	g++ $(exe) $(allobjects) -o $@
@@ -68,9 +70,13 @@ asfermi: $(exe) $(allobjects)
 libasfermi.so: $(lib) $(allobjects)
 	g++ $(lib) $(allobjects) -shared -o $@
 
+tests:
+	cd tests && $(MAKE)
+
 clean:
 	$(RM) -rf *.o
 	$(RM) -rf asfermi libasfermi.so
+	cd tests && $(MAKE) clean
 
 asfermi.exe.o: asfermi.cpp SubString.h DataTypes.h Cubin.h GlobalVariables.h \
  helper.h helper/helperMixed.h helper/helperParse.h helper/helperCubin.h \

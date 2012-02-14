@@ -3,7 +3,7 @@
 all: libdyloader.so test1 test2 test3 test4 test5
 
 ../../libasfermi.so:
-	cd ../.. && $(MAKE)
+	cd ../.. && $(MAKE) libasfermi.so
 
 libdyloader.so: cuda_dyloader.o ../../libasfermi.so
 	nvcc -shared $^ -o $@ -L../.. -lasfermi -lcuda -lelf
