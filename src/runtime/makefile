@@ -41,7 +41,7 @@ OBJECTS = \
 	entry compile launch finish timing io elf execute bind nvopencc \
 	memory hostcall wrappers \
 	BlockGenerator ClastExpCodegen ClastStmtCodeGen CodeGeneration \
-        ConstantSubstitution
+        ConstantSubstitution SizeOfLoops
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
 OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
@@ -171,6 +171,11 @@ NUM_SYMBOLS ?= 1
 	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
 64/ConstantSubstitution.o: ConstantSubstitution.cpp
 	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
+
+32/SizeOfLoops.o: SizeOfLoops.cpp
+	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
+64/SizeOfLoops.o: SizeOfLoops.cpp
+	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
 clean:
 	rm -rf 32/*.o 64/*.o 32/*.a 64/*.a \

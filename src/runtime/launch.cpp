@@ -159,8 +159,11 @@ int kernelgen_launch(kernel_t* kernel,
 				// Launch GPU loop kernel, if it is compiled.
 				{
 					struct { unsigned int x, y, z; } gridDim, blockDim;
-					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+					Size3 launchParameters = kernel->target[runmode].launchParameters;
+					gridDim.x = ((int)launchParameters.x - 1) / blockDim.x + 1;
+					gridDim.y = ((int)launchParameters.y - 1) / blockDim.y + 1;
+					gridDim.z = ((int)launchParameters.z - 1) / blockDim.z + 1;
 					size_t szshmem = 0;
 					void* kernel_func_args[] = { (void*)&data };
 					int err = cuLaunchKernel((void*)kernel_func,
