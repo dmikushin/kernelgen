@@ -311,7 +311,7 @@ kernel_func_t kernelgen::runtime::compile(
 	case KERNELGEN_RUNMODE_CUDA : {
 		// Apply the Polly codegen for native target.
 		polly::CUDA.setValue(true);
-		polly.add(polly::createCodeGenerationPass()); // -polly-codegen
+		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
 		vector<Size3> sizes;
 		if(kernel->name != "__kernelgen_main")
 			polly.add(createSizeOfLoopsPass(&sizes));
