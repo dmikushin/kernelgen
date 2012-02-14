@@ -186,7 +186,7 @@ kernel_func_t kernelgen::runtime::compile(
 		}
 
 		// Apply the Polly codegen for native target.
-		polly::CUDA.setValue(false);
+		//polly::CUDA.setValue(false);
 		polly.add(polly::createCodeGenerationPass()); // -polly-codegen
 		polly.run(*m);
 
@@ -267,7 +267,7 @@ kernel_func_t kernelgen::runtime::compile(
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 		// Apply the Polly codegen for native target.
-		polly::CUDA.setValue(true);
+		//polly::CUDA.setValue(true);
 		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
 		polly.run(*m);
 
