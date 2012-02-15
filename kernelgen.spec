@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target debian
+%define target fedora
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -1206,6 +1206,10 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/%{lib64}/dragonegg.so
 /opt/kernelgen/%{lib64}/libkernelgen.a
 /opt/kernelgen/%{lib32}/libkernelgen.a
+/opt/kernelgen/%{lib32}/libasfermi.so
+/opt/kernelgen/%{lib32}/libdyloader.so
+/opt/kernelgen/%{lib64}/libasfermi.so
+/opt/kernelgen/%{lib64}/libdyloader.so
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/cc1
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/collect2
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/f951
