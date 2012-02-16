@@ -52,6 +52,7 @@ runtime/64/libruntime.a:
 clean:
 	cd frontend && $(MAKE) clean
 	cd runtime && $(MAKE) clean
+	cd libasfermi && $(MAKE) clean
 
 install: frontend runtime include/kernelgen_runtime.h
 	perl install $(ARCH) $(PREFIX) $(LIB32) $(LIB64) $(CUDA_PREFIX)
