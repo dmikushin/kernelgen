@@ -20,6 +20,7 @@
  * THE SOFTWARE.
  */
 
+#include "runtime/bind.h"
 #include "cuda_dyloader.h"
 #include "libasfermi.h"
 #include "loader.h"
@@ -33,12 +34,14 @@
 #include <libelf.h>
 #include <link.h>
 #include <list>
+#include <malloc.h>
 #include <memory>
 #include <string>
 #include <sstream>
 #include <vector>
 
 using namespace std;
+using namespace kernelgen::bind::cuda;
 
 // The maximum number of registers per thread.
 #define MAX_REGCOUNT	63
@@ -67,23 +70,6 @@ struct buffer_t
 };
 
 struct CUDYloader_t;
-
-// Get the ELF binary size, implementation by awalk
-// https://bbs.archlinux.org/viewtopic.php?id=15298
-static size_t elf_size(ElfW(Ehdr) *ehdr)
-{
-	// Find the first program header.
-	ElfW(Phdr)* phdr = (ElfW(Phdr)*)((ElfW(Addr))ehdr + ehdr->e_phoff);
-
-	// Find the final PT_LOAD segment's extent.
-	ElfW(Addr) end;
-	for (int i = 0; i < ehdr->e_phnum; i++)
-	        if (phdr[i].p_type == PT_LOAD)
-        		end = phdr[i].p_vaddr + phdr[i].p_memsz;
-
-	// The start (virtual) address is always zero, so just return end.
-	return (size_t)end;
-}
 
 struct CUDYfunction_t
 {
@@ -127,7 +113,9 @@ struct CUDYfunction_t
 		Elf* e = NULL;
 		try
 		{
-			size_t size = elf_size((ElfW(Ehdr)*)content.c_str());
+			ElfW(Ehdr)* elf_header = (ElfW(Ehdr)*)content.c_str();
+			size_t size = (size_t)elf_header->e_phoff +
+				elf_header->e_phentsize *  elf_header->e_phnum;
 			e = elf_memory((char*)content.c_str(), size);
 			size_t shstrndx;
 			if (elf_getshdrstrndx(e, &shstrndx))
