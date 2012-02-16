@@ -543,7 +543,7 @@ int link(list<string> args, list<string> kgen_args,
 			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
 			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
 				callback3, Idx4, "", root);
-			StoreInst* callback4 = new StoreInst(GEP4, callback1, false, root);
+			StoreInst* callback4 = new StoreInst(GEP4, callback1, true, root); // volatile!
 			callback4->setAlignment(8);
 		}
 
@@ -577,11 +577,11 @@ int link(list<string> args, list<string> kgen_args,
 			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
 			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
 				memory3, Idx4, "", root);
-			StoreInst* memory4 = new StoreInst(GEP4, memory1, false, root);
+			StoreInst* memory4 = new StoreInst(GEP4, memory1, true, root); // volatile!
 			memory4->setAlignment(8);
 		}
 
-		//main.get()->dump();
+		main.get()->dump();
 
 		// Embed "main" module into object.
 		{
@@ -641,6 +641,8 @@ int link(list<string> args, list<string> kgen_args,
 		args.push_back("-rdynamic");
 		args.push_back("/opt/kernelgen/lib/libLLVM-3.0svn.so");
 		args.push_back("/opt/kernelgen/lib/LLVMPolly.so");
+		args.push_back("/opt/kernelgen/lib/libdyloader.so");
+		args.push_back("/opt/kernelgen/lib/libasfermi.so");
 		args.push_back("-lelf");
 		args.push_back("-lrt");
 		args.push_back("-lmhash");
