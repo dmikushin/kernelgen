@@ -37,7 +37,7 @@ endif
 
 all: frontend libasfermi runtime/32/libruntime.a runtime/64/libruntime.a
 
-frontend: runtime/32/libruntime.a runtime/64/libruntime.a
+frontend: runtime/32/libruntime.a runtime/64/libruntime.a libasfermi
 	cd frontend && $(MAKE)
 
 libasfermi:
