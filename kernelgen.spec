@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target fedora
+%define target debian
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -32,7 +32,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r136600.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r136347.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r636.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r644.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r137304.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/cloog-225c2ed62fe37a4db22bf4b95c3731dab1a50dde.tar.gz
 Source6:	ftp://upload.hpcforge.org/pub/kernelgen/scoplib-0.2.0.tar.gz
@@ -62,7 +62,7 @@ Requires:       elfutils-libelf libffi gmp mpfr libmpc
 Packager:       Dmitry Mikushin <maemarcus@gmail.com>
 
 %description
-A tool for automatic generation of GPU kernels from Fortran source code. From user's point of view it acts as regular GNU-compatible compiler.
+A tool for automatic generation of GPU kernels from CPU-targeted source code. From user's point of view it acts as regular GNU-compatible compiler.
 
 
 %prep
@@ -84,7 +84,7 @@ rm -rf $RPM_BUILD_DIR/nvopencc
 tar -xf $RPM_SOURCE_DIR/nvopencc-r11207187.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r636.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r644.tar.gz
 
 
 %if %fullrepack

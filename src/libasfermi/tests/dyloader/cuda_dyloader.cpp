@@ -420,7 +420,8 @@ struct CUDYloader_t
 		function->offset = offset;
 
 		// Increment pool offset by the size of kernel binary.
-		offset += function->szbinary;
+		// XXX: 128 - an extra offset to force no caching/prefetching.
+		offset += function->szbinary + 128;
 		
 		// Track function for disposal.
 		functions.push_back(function);
