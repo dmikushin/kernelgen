@@ -34,7 +34,7 @@
        << "#define inline _inline\n"
        << "#define alloca(x) _alloca(x)\n"
 +      << "#elif defined(__CUDA_DEVICE_FUNC__)\n"
-+      << "#define alloca(x) malloc(x)\n"
++      << "#define alloca(x) kernelgen_malloc(x)\n"
        << "#else\n"
        << "#include <alloca.h>\n"
        << "#endif\n\n";
