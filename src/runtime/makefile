@@ -35,7 +35,7 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 
 CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include
-CXXFLAGS = -g -fPIC -O$(OPT) -I../include $(LLVMINC) $(LLVMDEF)
+CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
 
 OBJECTS = \
 	entry compile launch finish timing io elf execute bind nvopencc \

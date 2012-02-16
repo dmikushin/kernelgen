@@ -22,44 +22,61 @@
 #include "bind.h"
 #include "util.h"
 
+#include <dlfcn.h>
 #include <stddef.h>
 
 using namespace kernelgen;
-using namespace kernelgen::bind::cuda;
 using namespace std;
 
 namespace kernelgen { namespace bind { namespace cuda {
 
-	cuInit_t cuInit = NULL;
-	cuDeviceGet_t cuDeviceGet = NULL;
-	cuCtxCreate_t cuCtxCreate = NULL;
-	cuCtxSynchronize_t cuCtxSynchronize = NULL;
-	cuMemAlloc_t cuMemAlloc = NULL;
-	cuMemFree_t cuMemFree = NULL;
-	cuMemAlloc_t cuMemAllocHost = NULL;
-	cuMemFree_t cuMemFreeHost = NULL;
-	cuMemcpy_t cuMemcpyHtoD = NULL, cuMemcpyDtoH = NULL;
-	cuMemcpyAsync_t cuMemcpyHtoDAsync = NULL, cuMemcpyDtoHAsync = NULL;
-	cuMemGetAddressRange_t cuMemGetAddressRange = NULL;
-	cuMemsetD8_t cuMemsetD8 = NULL;
-	cuModuleLoad_t cuModuleLoad = NULL;
-	cuModuleLoad_t cuModuleLoadData = NULL;
-	cuModuleLoadDataEx_t cuModuleLoadDataEx = NULL;
-	cuModuleGetFunction_t cuModuleGetFunction = NULL;
-	cuModuleGetGlobal_t cuModuleGetGlobal = NULL;
-	cuLaunchKernel_t cuLaunchKernel = NULL;
-	cuStreamCreate_t cuStreamCreate = NULL;
-	cuStreamSynchronize_t cuStreamSynchronize = NULL;
+cuInit_t cuInit;
+cuDeviceGet_t cuDeviceGet;
+cuCtxCreate_t cuCtxCreate;
+cuCtxSynchronize_t cuCtxSynchronize;
+cuMemAlloc_t cuMemAlloc;
+cuMemFree_t cuMemFree;
+cuMemAlloc_t cuMemAllocHost;
+cuMemFree_t cuMemFreeHost;
+cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
+cuMemcpyAsync_t cuMemcpyHtoDAsync, cuMemcpyDtoHAsync;
+cuMemGetAddressRange_t cuMemGetAddressRange;
+cuMemsetD8_t cuMemsetD8;
+cuMemsetD32_t cuMemsetD32;
+cuMemsetD32Async_t cuMemsetD32Async;
+cuMemHostRegister_t cuMemHostRegister;
+cuMemHostUnregister_t cuMemHostUnregister;
+cuModuleLoad_t cuModuleLoad;
+cuModuleLoad_t cuModuleLoadData;
+cuModuleLoadDataEx_t cuModuleLoadDataEx;
+cuModuleUnload_t cuModuleUnload;
+cuModuleGetFunction_t cuModuleGetFunction;
+cuModuleGetGlobal_t cuModuleGetGlobal;
+cuLaunchKernel_t cuLaunchKernel;
+cuStreamCreate_t cuStreamCreate;
+cuStreamSynchronize_t cuStreamSynchronize;
 
-	void init()
+const context context::init(int capacity)
+{
+	// Do not init again, if already bound.
+	if (cuInit) context(NULL, capacity);
+
+	// Load CUDA Driver API shared library.
+	void* handle = dlopen("libcuda.so",
+		RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
+	if (!handle)
+		THROW("Cannot dlopen libcuda.so " << dlerror());
+	
+	return context(handle, capacity);
+}
+
+context::context(void* handle, int capacity) :
+
+handle(handle)
+
+{
+	if (handle)
 	{
-		// Load CUDA Driver API shared library.
-		void* handle = dlopen("libcuda.so",
-			RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
-		if (!handle)
-			THROW("Cannot dlopen libcuda.so " << dlerror());
-
-		// Load functions.
 		cuInit = (cuInit_t)dlsym(handle, "cuInit");
 		if (!cuInit)
 			THROW("Cannot dlsym cuInit " << dlerror());
@@ -102,6 +119,18 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuMemsetD8 = (cuMemsetD8_t)dlsym(handle, "cuMemsetD8_v2");
 		if (!cuMemsetD8)
 			THROW("Cannot dlsym cuMemsetD8 " << dlerror());
+		cuMemsetD32 = (cuMemsetD32_t)dlsym(handle, "cuMemsetD32_v2");
+		if (!cuMemsetD32)
+			THROW("Cannot dlsym cuMemsetD32 " << dlerror());
+		cuMemsetD32Async = (cuMemsetD32Async_t)dlsym(handle, "cuMemsetD32Async");
+		if (!cuMemsetD32Async)
+			THROW("Cannot dlsym cuMemsetD32Async " << dlerror());
+		cuMemHostRegister = (cuMemHostRegister_t)dlsym(handle, "cuMemHostRegister");
+		if (!cuMemHostRegister)
+			THROW("Cannot dlsym cuMemHostRegister " << dlerror());
+		cuMemHostUnregister = (cuMemHostUnregister_t)dlsym(handle, "cuMemHostUnregister");
+		if (!cuMemHostUnregister)
+			THROW("Cannot dlsym cuMemHostUnregister " << dlerror());
 		cuModuleLoad = (cuModuleLoad_t)dlsym(handle, "cuModuleLoad");
 		if (!cuModuleLoad)
 			THROW("Cannot dlsym cuModuleLoad " << dlerror());
@@ -111,6 +140,9 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuModuleLoadDataEx = (cuModuleLoadDataEx_t)dlsym(handle, "cuModuleLoadDataEx");
 		if (!cuModuleLoadDataEx)
 			THROW("Cannot dlsym cuModuleLoadDataEx " << dlerror());
+		cuModuleUnload = (cuModuleUnload_t)dlsym(handle, "cuModuleUnload");
+		if (!cuModuleUnload)
+			THROW("Cannot dlsym cuModuleUnload " << dlerror());
 		cuModuleGetFunction = (cuModuleGetFunction_t)dlsym(handle, "cuModuleGetFunction");
 		if (!cuModuleGetFunction)
 			THROW("Cannot dlsym cuModuleGetFunction " << dlerror());
@@ -126,21 +158,36 @@ namespace kernelgen { namespace bind { namespace cuda {
 		cuStreamSynchronize = (cuStreamSynchronize_t)dlsym(handle, "cuStreamSynchronize");
 		if (!cuStreamSynchronize)
 			THROW("Cannot dlsym cuStreamSynchronize " << dlerror());
-
-		int err = cuInit(0);
-		if (err)
-			THROW("Error in cuInit " << err);
-		
-		int device;
-		err = cuDeviceGet(&device, 0);
-		if (err)
-			THROW("Error in cuDeviceGet " << err);
-		
-		void* context;
-		err = cuCtxCreate(&context, 0, device);
-		if (err)
-			THROW("Error in cuCtxCreate " << err);
 	}
+
+	CUresult err = cuInit(0);
+	if (err)
+		THROW("Error in cuInit " << err);
+	
+	int device;
+	err = cuDeviceGet(&device, 0);
+	if (err)
+		THROW("Error in cuDeviceGet " << err);
+	
+	err = cuCtxCreate(&ctx, 0, device);
+	if (err)
+		THROW("Error in cuCtxCreate " << err);
+
+	// Initialize the dynamic kernels loader.
+	err = cudyInit(&loader, capacity);
+	if (err)
+		THROW("Cannot initialize the dynamic loader " << err);
+}
+
+context::~context()
+{
+	// TODO: destroy context, dlclose.
+
+	// Dispose the dynamic kernels loader.
+	CUresult err = cudyDispose(loader);
+	if (err)
+		THROW("Cannot dispose the dynamic loader " << err);
+}
 
 }}}
 

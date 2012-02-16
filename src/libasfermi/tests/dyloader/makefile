@@ -6,10 +6,10 @@ all: libdyloader.so test1 test2 test3 test4 test5
 	cd ../.. && $(MAKE) libasfermi.so
 
 libdyloader.so: cuda_dyloader.o ../../libasfermi.so
-	nvcc -shared $^ -o $@ -L../.. -lasfermi -lcuda -lelf
+	g++ -shared $< -o $@ -L../.. -lasfermi -lcuda -lelf -L../../../runtime/64 -lkernelgen
 
 cuda_dyloader.o: cuda_dyloader.cpp cuda_dyloader.h loader.h
-	nvcc -I../.. -Xcompiler -fPIC -g -c $< -o $@
+	g++ -std=c99 -I. -I../.. -I../../.. -fPIC -g -c $< -o $@
 
 clean:
 	rm -rf *.o libdyloader.so test1 test2 test3 test4 test5

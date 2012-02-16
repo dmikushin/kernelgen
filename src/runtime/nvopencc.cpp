@@ -24,10 +24,13 @@
 #include "util.h"
 #include "runtime.h"
 
+#include "cuda_dyloader.h"
+
 #include <fstream>
 
-using namespace kernelgen::bind::cuda;
 using namespace kernelgen;
+using namespace kernelgen::bind::cuda;
+using namespace kernelgen::runtime;
 using namespace util::io;
 using namespace std;
 
@@ -35,7 +38,7 @@ using namespace std;
 
 bool debug = true;
 
-kernel_func_t kernelgen::runtime::nvopencc(string source, string name)
+kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream stream)
 {
 	// Dump generated kernel object to first temporary file.
 	cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
@@ -115,7 +118,7 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name)
 		string ptxas = "ptxas";
 		std::list<string> ptxas_args;
 		if (verbose) ptxas_args.push_back("-v");
-		ptxas_args.push_back("-arch=sm_21");
+		ptxas_args.push_back("-arch=sm_20");
 		ptxas_args.push_back("-m64");
 		//if (name == "__kernelgen_main")
 		//	ptxas_args.push_back("/tmp/GfZVCR"); //tmp2.getFilename());
@@ -153,34 +156,29 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name)
 		tmp_stream.close();
 	}
 
-	// Load CUBIN from string into module.
-	void* module;
-	char log[PTX_LOG_SIZE] = "", elog[PTX_LOG_SIZE] = "";
-	int options[] =
-	{
-		CU_JIT_INFO_LOG_BUFFER, CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES,
-		CU_JIT_ERROR_LOG_BUFFER, CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES
-	};
-	void* values[] =
-	{
-		&log, (void*)PTX_LOG_SIZE,
-		&elog, (void*)PTX_LOG_SIZE
-	};
-	int err = cuModuleLoadDataEx(&module, cubin.c_str(), 4, options, values);
-	if (verbose)
-		cout << log << endl;
-	if (err)
-		THROW("Error in cuModuleLoadData " << err << " " << elog);
-
 	void* kernel_func = NULL;
-	err = cuModuleGetFunction(&kernel_func, module, name.c_str());
-	if (err)
-		THROW("Error in cuModuleGetFunction " << err);
+	if (name == "__kernelgen_main")
+	{
+		// Load CUBIN from string into module.
+		void* module;
+		int err = cuModuleLoad(&module, tmp3.getFilename().c_str());
+		if (err)
+			THROW("Error in cuModuleLoadData " << err);
 
-	//err = cuCtxSynchronize();
-	//if (err)
-	//	THROW("Error in cuCtxSynchronize " << err);
-
+		err = cuModuleGetFunction(&kernel_func, module, name.c_str());
+		if (err)
+			THROW("Error in cuModuleGetFunction " << err);
+	}
+	else
+	{
+		// Load kernel function from the binary opcodes.
+		CUresult err = cudyLoadCubin((CUDYfunction*)&kernel_func,
+			cuda_context.loader, (char*)tmp3.getFilename().c_str(),
+			name.c_str(), stream);
+		if (err)
+			THROW("Error in cudyLoadCubin " << err);
+	}
+		
 	if (verbose)
 		cout << "Loaded '" << name << "' at: " << kernel_func << endl;
 	

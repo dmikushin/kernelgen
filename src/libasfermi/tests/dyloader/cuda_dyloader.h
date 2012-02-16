@@ -23,7 +23,7 @@
 #ifndef CUDA_DYLOADER_H
 #define CUDA_DYLOADER_H
 
-#include <cuda.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C"

@@ -26,6 +26,7 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/Target/TargetData.h"
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <ffi.h>
 #include <signal.h>

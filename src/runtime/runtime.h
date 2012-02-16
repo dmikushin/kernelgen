@@ -22,6 +22,7 @@
 #ifndef KERNELGEN_RUNTIME_H
 #define KERNELGEN_RUNTIME_H
 
+#include "bind.h"
 #include "llvm/Instructions.h"
 #include "llvm/Module.h"
 #include "llvm/Target/TargetMachine.h"
@@ -158,7 +159,10 @@ kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL
 
 // Compile C source to PTX using NVISA-enabled
 // Open64 compiler variant.
-kernel_func_t nvopencc(std::string source, std::string name);
+kernel_func_t nvopencc(std::string source, std::string name, CUstream stream);
+
+// CUDA runtime context.
+extern kernelgen::bind::cuda::context cuda_context;
 
 // Setup the device global memory pool initial configuration.
 kernelgen_memory_t* init_memory_pool(size_t szpool);
@@ -181,7 +185,6 @@ extern "C" void kernelgen_finish();
 extern "C" void kernelgen_hostcall(kernelgen::kernel_t* kernel,
 	unsigned long long szdata, unsigned long long szdatai,
 	kernelgen_callback_data_t* data);
-
 
 #endif // KERNELGEN_RUNTIME_H
 

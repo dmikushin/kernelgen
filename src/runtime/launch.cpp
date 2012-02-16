@@ -165,14 +165,13 @@ int kernelgen_launch(kernel_t* kernel,
 					gridDim.y = ((int)launchParameters.y - 1) / blockDim.y + 1;
 					gridDim.z = ((int)launchParameters.z - 1) / blockDim.z + 1;
 					size_t szshmem = 0;
-					void* kernel_func_args[] = { (void*)&data };
-					int err = cuLaunchKernel((void*)kernel_func,
+					int err = cudyLaunch(
+						(CUDYfunction)kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem,
-						kernel->target[runmode].monitor_kernel_stream,
-						kernel_func_args, NULL);
+						&data, kernel->target[runmode].monitor_kernel_stream);
 					if (err)
-						THROW("Error in cuLaunchKernel " << err);
+						THROW("Error in cudyLaunch " << err);
 				}
 				
 				// Wait for loop kernel completion.
@@ -193,16 +192,14 @@ int kernelgen_launch(kernel_t* kernel,
 				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 				size_t szshmem = 0;
-				void* monitor_kernel_func_args[] =
-					{ (void*)&kernel->target[runmode].callback };
-				int err = cuLaunchKernel(
-					(void*)kernel->target[runmode].monitor_kernel_func,
+				int err = cudyLaunch(
+					(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem,
-					kernel->target[runmode].monitor_kernel_stream,
-					monitor_kernel_func_args, NULL);
+					&kernel->target[runmode].callback,
+					kernel->target[runmode].monitor_kernel_stream);
 				if (err)
-					THROW("Error in cuLaunchKernel " << err);
+					THROW("Error in cudyLaunch " << err);
 			}
 	
 			// Launch main GPU kernel.
@@ -218,7 +215,7 @@ int kernelgen_launch(kernel_t* kernel,
 					kernel->target[runmode].kernel_stream,
 					kernel_func_args, NULL);
 				if (err)
-					THROW("Error in cuLaunchKernel " << err);
+					THROW("Error in cudyLaunch " << err);
 			}
 
 			while (1)
@@ -298,20 +295,19 @@ int kernelgen_launch(kernel_t* kernel,
 
 				// Launch monitor GPU kernel.
 				{
+				
 					struct { unsigned int x, y, z; } gridDim, blockDim;
 					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 					size_t szshmem = 0;
-					void* monitor_kernel_func_args[] =
-						{ (void*)&kernel->target[runmode].callback };
-					int err = cuLaunchKernel(
-						(void*)kernel->target[runmode].monitor_kernel_func,
+					int err = cudyLaunch(
+						(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem,
-						kernel->target[runmode].monitor_kernel_stream,
-						monitor_kernel_func_args, NULL);
+						&kernel->target[runmode].callback,
+						kernel->target[runmode].monitor_kernel_stream);
 					if (err)
-						THROW("Error in cuLaunchKernel " << err);
+						THROW("Error in cudyLaunch " << err);
 				}
 			}
 

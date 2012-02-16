@@ -22,60 +22,99 @@
 #ifndef KERNELGEN_BIND_H
 #define KERNELGEN_BIND_H
 
-#include <dlfcn.h>
+typedef int CUresult;
+typedef void* CUstream;
+typedef void* CUmodule;
+typedef void* CUfunction;
+typedef void* CUdeviceptr;
 
-#define CU_JIT_INFO_LOG_BUFFER 3
-#define CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES 4
-#define CU_JIT_ERROR_LOG_BUFFER 5
-#define CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES 6
-#define CU_JIT_TARGET 9
-#define CU_TARGET_COMPUTE_21 5
+#define CUDA_SUCCESS					0
+#define CUDA_ERROR_OUT_OF_MEMORY			2
+#define CUDA_ERROR_INVALID_SOURCE			300
+#define CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED	712
+#define CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED		713
 
-namespace kernelgen { namespace bind {
+#define CU_LAUNCH_PARAM_BUFFER_POINTER	((void*)0x01)
+#define CU_LAUNCH_PARAM_BUFFER_SIZE	((void*)0x02)
+#define CU_LAUNCH_PARAM_END		((void*)0x00)
 
-namespace cuda {
+#include "cuda_dyloader.h"
 
-	typedef int (*cuInit_t)(unsigned int);
-	typedef int (*cuDeviceGet_t)(int*, int);
-	typedef int (*cuCtxCreate_t)(void**, unsigned int, int);
-	typedef int (*cuCtxSynchronize_t)(void);
-	typedef int (*cuMemAlloc_t)(void**, size_t);
-	typedef int (*cuMemFree_t)(void*);
-	typedef int (*cuMemcpy_t)(void*, void*, size_t);
-	typedef int (*cuMemcpyAsync_t)(void*, void*, size_t, void*);
-	typedef int (*cuMemGetAddressRange_t)(void**, size_t*, void*);
-	typedef int (*cuMemsetD8_t)(void*, unsigned char, size_t);
-	typedef int (*cuModuleLoad_t)(void**, const char*);
-	typedef int (*cuModuleLoadDataEx_t)(void**, const char*, unsigned int, int* options, void**);
-	typedef int (*cuModuleGetFunction_t)(void**, void*, const char*);
-	typedef int (*cuModuleGetGlobal_t)(void**, size_t*, void*, const char*);
-	typedef int (*cuLaunchKernel_t)(void*, unsigned int, unsigned int, unsigned int,
-		unsigned int, unsigned int, unsigned int, unsigned int, void*, void**, void**);
-	typedef int (*cuStreamCreate_t)(void*, unsigned int);
-	typedef int (*cuStreamSynchronize_t)(void*);
+namespace kernelgen { namespace bind { namespace cuda {
 
-	extern cuInit_t cuInit;
-	extern cuDeviceGet_t cuDeviceGet;
-	extern cuCtxCreate_t cuCtxCreate;
-	extern cuCtxSynchronize_t cuCtxSynchronize;
-	extern cuMemAlloc_t cuMemAlloc;
-	extern cuMemFree_t cuMemFree;
-	extern cuMemAlloc_t cuMemAllocHost;
-	extern cuMemFree_t cuMemFreeHost;
-	extern cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
-	extern cuMemcpyAsync_t cuMemcpyHtoDAsync, cuMemcpyDtoHAsync;
-	extern cuMemGetAddressRange_t cuMemGetAddressRange;
-	extern cuMemsetD8_t cuMemsetD8;
-	extern cuModuleLoad_t cuModuleLoad;
-	extern cuModuleLoad_t cuModuleLoadData;
-	extern cuModuleLoadDataEx_t cuModuleLoadDataEx;
-	extern cuModuleGetFunction_t cuModuleGetFunction;
-	extern cuModuleGetGlobal_t cuModuleGetGlobal;
-	extern cuLaunchKernel_t cuLaunchKernel;
-	extern cuStreamCreate_t cuStreamCreate;
-	extern cuStreamSynchronize_t cuStreamSynchronize;
+typedef CUresult (*cuInit_t)(unsigned int);
+typedef CUresult (*cuDeviceGet_t)(int*, int);
+typedef CUresult (*cuCtxCreate_t)(void**, unsigned int, int);
+typedef CUresult (*cuCtxSynchronize_t)(void);
+typedef CUresult (*cuMemAlloc_t)(void**, size_t);
+typedef CUresult (*cuMemFree_t)(void*);
+typedef CUresult (*cuMemcpy_t)(void*, void*, size_t);
+typedef CUresult (*cuMemcpyAsync_t)(void*, void*, size_t, void*);
+typedef CUresult (*cuMemGetAddressRange_t)(void**, size_t*, void*);
+typedef CUresult (*cuMemsetD8_t)(void*, unsigned char, size_t);
+typedef CUresult (*cuMemsetD32_t)(void*, unsigned int, size_t);
+typedef CUresult (*cuMemsetD32Async_t)(void*, unsigned int, size_t, void*);
+typedef CUresult (*cuMemHostRegister_t)(void*, size_t, unsigned int);
+typedef CUresult (*cuMemHostUnregister_t)(void*);
+typedef CUresult (*cuModuleLoad_t)(void**, const char*);
+typedef CUresult (*cuModuleLoadDataEx_t)(void**, const char*, unsigned int, int* options, void**);
+typedef CUresult (*cuModuleUnload_t)(void*);
+typedef CUresult (*cuModuleGetFunction_t)(void**, void*, const char*);
+typedef CUresult (*cuModuleGetGlobal_t)(void**, size_t*, void*, const char*);
+typedef CUresult (*cuLaunchKernel_t)(void*, unsigned int, unsigned int, unsigned int,
+	unsigned int, unsigned int, unsigned int, unsigned int, void*, void**, void**);
+typedef CUresult (*cuStreamCreate_t)(void*, unsigned int);
+typedef CUresult (*cuStreamSynchronize_t)(void*);
 
-	void init();
+extern cuInit_t cuInit;
+extern cuDeviceGet_t cuDeviceGet;
+extern cuCtxCreate_t cuCtxCreate;
+extern cuCtxSynchronize_t cuCtxSynchronize;
+extern cuMemAlloc_t cuMemAlloc;
+extern cuMemFree_t cuMemFree;
+extern cuMemAlloc_t cuMemAllocHost;
+extern cuMemFree_t cuMemFreeHost;
+extern cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
+extern cuMemcpyAsync_t cuMemcpyHtoDAsync, cuMemcpyDtoHAsync;
+extern cuMemGetAddressRange_t cuMemGetAddressRange;
+extern cuMemsetD8_t cuMemsetD8;
+extern cuMemsetD32_t cuMemsetD32;
+extern cuMemsetD32Async_t cuMemsetD32Async;
+extern cuMemHostRegister_t cuMemHostRegister;
+extern cuMemHostUnregister_t cuMemHostUnregister;
+extern cuModuleLoad_t cuModuleLoad;
+extern cuModuleLoad_t cuModuleLoadData;
+extern cuModuleLoadDataEx_t cuModuleLoadDataEx;
+extern cuModuleUnload_t cuModuleUnload;
+extern cuModuleGetFunction_t cuModuleGetFunction;
+extern cuModuleGetGlobal_t cuModuleGetGlobal;
+extern cuLaunchKernel_t cuLaunchKernel;
+extern cuStreamCreate_t cuStreamCreate;
+extern cuStreamSynchronize_t cuStreamSynchronize;
+
+struct context {
+
+	// Initialize a new instance of CUDA host API bindings.
+	static const context init(int capacity);
+
+private :
+
+	// CUDA shared library handle.
+	void* handle;
+
+	// CUDA context.
+	void* ctx;
+
+	context(void* handle, int capacity);
+	
+public :
+
+	// Dynamic loader.
+	CUDYloader loader;
+
+	~context();
+};
+
 }}}
 
 #endif // KERNELGEN_BIND_H

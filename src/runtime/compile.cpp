@@ -533,7 +533,8 @@ kernel_func_t kernelgen::runtime::compile(
 
 		if (verbose) cout << bin_string;
 
-		return nvopencc(bin_string, kernel->name);
+		return nvopencc(bin_string, kernel->name,
+			kernel->target[runmode].monitor_kernel_stream);
 
 		break;
 	}

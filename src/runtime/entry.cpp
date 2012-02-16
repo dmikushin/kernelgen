@@ -27,10 +27,10 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "bind.h"
 #include "elf.h"
 #include "util.h"
 #include "runtime.h"
-#include "bind.h"
 #include "kernelgen_interop.h"
 
 #include <iostream>
@@ -40,8 +40,8 @@
 extern "C" int __regular_main(int argc, char* argv[]);
 
 using namespace kernelgen;
-using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;
+using namespace kernelgen::bind::cuda;
 using namespace llvm;
 using namespace std;
 using namespace util::elf;
@@ -73,6 +73,10 @@ bool kernelgen::verbose = false;
 // After kernel is loaded, we pin it here
 // for futher references.
 std::map<string, kernel_t*> kernelgen::kernels;
+
+// CUDA runtime context.
+kernelgen::bind::cuda::context kernelgen::runtime::cuda_context =
+	kernelgen::bind::cuda::context::init(1024);
 
 int main(int argc, char* argv[])
 {
@@ -251,8 +255,6 @@ int main(int argc, char* argv[])
 			}
 			case KERNELGEN_RUNMODE_CUDA :
 			{
-				kernelgen::bind::cuda::init();
-				
 				// Initialize callback structure.
 				// Initial lock state is "locked". It will be dropped
 				// by GPU side monitor that must be started *before*
@@ -283,7 +285,7 @@ int main(int argc, char* argv[])
 				// Compile GPU monitoring kernel.
 				kernel->target[runmode].monitor_kernel_func =
 					kernelgen::runtime::nvopencc(cuda_monitor_kernel_source,
-					"kernelgen_monitor");
+					"kernelgen_monitor", 0);
 				
 				// Setup device dynamic memory heap.
 				kernelgen_memory_t* memory = init_memory_pool(16 * 1024 * 1024);

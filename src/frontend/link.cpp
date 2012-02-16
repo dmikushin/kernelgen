@@ -581,7 +581,7 @@ int link(list<string> args, list<string> kgen_args,
 			memory4->setAlignment(8);
 		}
 
-		main.get()->dump();
+		//main.get()->dump();
 
 		// Embed "main" module into object.
 		{

@@ -279,8 +279,7 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 			for (Value::use_iterator UI = I->use_begin(), E = I->use_end();
 			     UI != E; ++UI)
 				if (!definedInRegion(*UI)) {
-					if(!outputs.count(*UI))
-						outputs.insert(*UI);
+					outputs.insert(I);
 					break;
 				}
 		} // for: insts
