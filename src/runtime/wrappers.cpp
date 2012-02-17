@@ -144,6 +144,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 	newcall->setCallingConv(call->getCallingConv());
 	newcall->setAttributes(call->getAttributes());
 	newcall->setDebugLoc(call->getDebugLoc());
+	newcall->setOnlyReadsMemory(false);
 
 	// Replace function from device module.
 	if (retTy->isVoidTy())

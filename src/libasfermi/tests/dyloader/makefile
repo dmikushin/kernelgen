@@ -13,7 +13,6 @@ cuda_dyloader.o: cuda_dyloader.cpp cuda_dyloader.h loader.h
 
 clean:
 	rm -rf *.o libdyloader.so test1 test2 test3 test4 test5
-	cd ../.. && $(MAKE) clean
 
 test1: test1.c libdyloader.so
 	nvcc -g $< -o $@ -L. -ldyloader -L../.. -lasfermi -lcuda
