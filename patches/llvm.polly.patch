@@ -3031,7 +3031,7 @@
 +		LLVMContext &Context = Builder.getContext();
 +		IntegerType *intType = Type::getInt64Ty(Context); //TD->getInt32Type(Context);
 +
-+		if (!M->getFunction("_get_threadId_x")) {
++		if (!M->getFunction("kernelgen_threadIdx_x")) {
 +			/////////////////////////////////////////////////////////////////////
 +			//  define all dimensions, that can be used while code generation  //
 +			/////////////////////////////////////////////////////////////////////
@@ -3044,13 +3044,13 @@
 +			// define parameters of dimensions    //
 +			////////////////////////////////////////
 +			vector<string> parameters;            //
-+			parameters.push_back("threadId");     //
-+			parameters.push_back("blockId");      //
++			parameters.push_back("threadIdx");    //
++			parameters.push_back("blockIdx");     //
 +			parameters.push_back("blockDim");     //
 +			parameters.push_back("gridDim");      //
 +			////////////////////////////////////////
 +
-+			string prefix1("_get_");
++			string prefix1("kernelgen_");
 +			string prefix2("_");
 +			string prefix3(".");
 +

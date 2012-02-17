@@ -69,9 +69,13 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		ArgTypes.push_back(call->getArgOperand(i)->getType());
 
 	// Lastly, add the type of return value, if not void.
+	// First, store pointer, and then store the actual type.
 	Type* retTy = callee->getReturnType();
 	if (!retTy->isVoidTy())
+	{
+		ArgTypes.push_back(retTy->getPointerTo());
 		ArgTypes.push_back(retTy);
+	}
 
 	// Allocate memory for the struct.
 	StructType *StructArgTy = StructType::get(
@@ -121,6 +125,20 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		StoreInst* SI = new StoreInst(call->getArgOperand(i), GEP, false, call);
 	}
 
+	// Store pointer to return value.
+	if (!retTy->isVoidTy())
+	{
+		Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
+			call->getNumArgOperands() + 2);
+		GetElementPtrInst* GEP1 = GetElementPtrInst::Create(
+			Struct, Idx, "", call);
+		Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
+			call->getNumArgOperands() + 3);
+		GetElementPtrInst* GEP2 = GetElementPtrInst::Create(
+			Struct, Idx, "", call);
+		StoreInst* SI = new StoreInst(GEP2, GEP1, false, call);
+	}
+
 	// Store pointer to the host call function entry point.
 	SmallVector<Value*, 16> call_args;
 	call_args.push_back(ConstantExpr::getIntToPtr(
@@ -153,7 +171,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 	{
 		// Generate index.
 		Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
-			call->getNumArgOperands() + 2);
+			call->getNumArgOperands() + 3);
 		GetElementPtrInst* GEP = GetElementPtrInst::Create(
 			Struct, Idx, "", call);
 		LoadInst* LI = new LoadInst(GEP, "", call);

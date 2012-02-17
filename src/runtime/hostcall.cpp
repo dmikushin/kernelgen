@@ -125,10 +125,13 @@ static void ffiInvoke(
 
 	// Skip first two fields, that are FunctionType and
 	// StructureType itself, respectively.
-	// Also exclude return arguent in case of non-void function.
 	unsigned ArgBytes = 0;
 	unsigned NumArgs = StructTy->getNumElements() - 2;
-	if (!FTy->getReturnType()->isVoidTy()) NumArgs--;
+
+	// Also exclude return argument in case of non-void function.
+	Type* RetTy = FTy->getReturnType();
+	if (!RetTy->isVoidTy()) NumArgs--;
+
 	std::vector<ffi_type*> args(NumArgs);
 	for (int i = 0; i < NumArgs; i++)
 	{
@@ -224,18 +227,25 @@ static void ffiInvoke(
 		}
 	}
 
-	Type* RetTy = FTy->getReturnType();
 	ffi_type* rtype = NULL;
 	rtype = ffiTypeFor(RetTy);
+	if (!RetTy->isVoidTy()) NumArgs--;
 
 	ffi_cif cif;
 	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, NumArgs,
 		rtype, &args[0]) != FFI_OK)
 		THROW("Error in fi_prep_cif");
 
-	SmallVector<uint8_t, 128> ret;
-	if (RetTy->getTypeID() != Type::VoidTyID)
-		ret.resize(TD->getTypeStoreSize(RetTy));
+	void* ret = NULL;
+	if (!RetTy->isVoidTy())
+	{
+		NumArgs++;
+		Type* ArgTy = StructTy->getElementType(
+			StructTy->getNumElements() - 2);
+		int offset = layout->getElementOffset(
+			StructTy->getNumElements() - 2);
+		ret = *(void**)((char*)params + offset);
+	}
 
 	// Register SIGSEGV signal handler to catch
 	// accesses to GPU memory and remebmer the original handler.
@@ -249,7 +259,7 @@ static void ffiInvoke(
         if (verbose)
         	cout << "Starting hostcall to " << (void*)func << endl;
 
-	ffi_call(&cif, func, ret.data(), values.data());
+	ffi_call(&cif, func, ret, values.data());
 
         if (verbose)
         	cout << "Finishing hostcall to " << (void*)func << endl;
@@ -258,14 +268,6 @@ static void ffiInvoke(
 	// original handler.
 	if (sigaction(SIGSEGV, &sa_old, &sa_new) == -1)
         	THROW("Error in sigaction " << errno);
-
-	if (!RetTy->isVoidTy())
-	{
-		Type* ArgTy = StructTy->getElementType(NumArgs - 1);
-		int offset = layout->getElementOffset(NumArgs - 1);
-		memcpy((void*)((char*)params + offset), ret.data(),
-			TD->getTypeStoreSize(ArgTy));
-	}
 
 	for (int i = 0; i < NumArgs; i++)
 	{

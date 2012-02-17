@@ -41,7 +41,7 @@ void CodeGeneration::addCUDADefinitions(IRBuilder<> &Builder)
 
 	
 
-	if (!M->getFunction("_get_threadId_x")) {
+	if (!M->getFunction("kernelgen_threadIdx_x")) {
 	/////////////////////////////////////////////////////////////////////
 	//  define all dimensions, that can be used while code generation  //
 	/////////////////////////////////////////////////////////////////////
