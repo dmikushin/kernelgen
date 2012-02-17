@@ -153,6 +153,16 @@ struct CUDYfunction_t
 					// We are fine, if memory is already registered.
 				}
 
+				// Also need to pin offset.
+				cuerr = cuMemHostRegister(&offset, sizeof(unsigned int), 0);
+				if (cuerr != CUDA_SUCCESS)
+				{
+					if (cuerr != CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED)
+						throw cuerr;
+
+					// We are fine, if memory is already registered.
+				}		
+
 				break;
 			}
 		}
@@ -186,6 +196,16 @@ struct CUDYfunction_t
 
 			// We are fine, if memory is already registered.
 		}
+		
+		// Also need to pin offset.
+		cuerr = cuMemHostRegister(&offset, sizeof(unsigned int), 0);
+		if (cuerr != CUDA_SUCCESS)
+		{
+			if (cuerr != CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED)
+				throw cuerr;
+
+			// We are fine, if memory is already registered.
+		}		
 	}
 	
 	~CUDYfunction_t()
@@ -199,6 +219,16 @@ struct CUDYfunction_t
 			
 			// We are fine, if memory is already unregistered.
 		}
+
+		// Unpin pinned memory for offset.
+		cuerr = cuMemHostUnregister(&offset);
+		if (cuerr != CUDA_SUCCESS)
+		{
+			if (cuerr != CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED)
+				throw cuerr;
+			
+			// We are fine, if memory is already unregistered.
+		}		
 	}
 };
 
@@ -439,6 +469,9 @@ struct CUDYloader_t
 		// XXX: 0x138 is #BRA of uberkernel loader code - the value
 		// may change if loader code gets changed. 
 		CUTHROW( cuMemsetD32Async(command, lepc + 0x138, 1, stream) );
+
+		// Fill the dynamic kernel code BRA target address.
+		CUTHROW( cuMemcpyHtoDAsync(address, &function->offset, sizeof(int), stream) );
 
 		// Synchronize stream.
 		CUTHROW( cuStreamSynchronize(stream) );
