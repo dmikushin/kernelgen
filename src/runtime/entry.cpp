@@ -76,7 +76,7 @@ std::map<string, kernel_t*> kernelgen::kernels;
 
 // CUDA runtime context.
 kernelgen::bind::cuda::context kernelgen::runtime::cuda_context =
-	kernelgen::bind::cuda::context::init(1024);
+	kernelgen::bind::cuda::context::init(2048);
 
 int main(int argc, char* argv[])
 {

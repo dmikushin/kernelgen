@@ -156,11 +156,11 @@ kernel_func_t kernelgen::runtime::compile(
 		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
 
-		//raw_os_ostream OS1(cout);
-		//m->print(OS1, NULL);
-		//OS1.flush()
-		if(szdatai != 0)
-			ConstantSubstitution(m->begin(), data);
+		if (szdatai != 0)
+		{
+			Function* f = m->getFunction(kernel->name);
+			ConstantSubstitution(f, data);
+		}
 	}
 
 	//if (verbose) m->dump();
@@ -174,11 +174,11 @@ kernel_func_t kernelgen::runtime::compile(
 		// Apply the Polly codegen for native target.
 		polly::CUDA.setValue(false);
 		vector<Size3> sizes;
-		if(kernel->name != "__kernelgen_main")
+		if (kernel->name != "__kernelgen_main")
 			polly.add(createSizeOfLoopsPass(&sizes));
 		polly.add(polly::createCodeGenerationPass()); // -polly-codegen
 		polly.run(*m);
-		if(kernel->name != "__kernelgen_main") {
+		if (kernel->name != "__kernelgen_main") {
 			if(sizes.size() == 0)
 				cout << "    No Scops detected in kernel" << endl;
 			else {
@@ -298,11 +298,11 @@ kernel_func_t kernelgen::runtime::compile(
 		// Apply the Polly codegen for native target.
 		polly::CUDA.setValue(true);
 		vector<Size3> sizes;
-		if(kernel->name != "__kernelgen_main")
+		if (kernel->name != "__kernelgen_main")
 			polly.add(createSizeOfLoopsPass(&sizes));
 		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
 		polly.run(*m);
-		if(kernel->name != "__kernelgen_main") {
+		if (kernel->name != "__kernelgen_main") {
 			if(sizes.size() == 0)
 				cout << "    No Scops detected in kernel" << endl;
 			else {
