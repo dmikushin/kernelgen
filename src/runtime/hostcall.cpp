@@ -33,6 +33,12 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
+
+extern "C" FILE* _fopen(const char* name, const char* mode)
+{
+	return fopen(name, mode);
+}
 
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
@@ -69,7 +75,7 @@ struct mmap_t
 	size_t size, align;
 };
 
-static list<struct mmap_t> mmaps;
+static list<struct mmap_t> mmappings;
 
 static kernel_t* active_kernel;
 
@@ -97,7 +103,7 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	mmap.addr = map;
 	mmap.size = size;
 	mmap.align = align;
-	mmaps.push_back(mmap);
+	mmappings.push_back(mmap);
 
 	if (verbose)
 		cout << "Mapped memory " << map << "(" << base << " - " <<
@@ -128,7 +134,13 @@ static void ffiInvoke(
 	unsigned ArgBytes = 0;
 	unsigned NumArgs = StructTy->getNumElements() - 2;
 
-	// Also exclude return argument in case of non-void function.
+	// Also skip the last field, if return value is not void.
+	// In this case the last field would be the return value
+	// buffer itself that is neither function argument, nor
+	// return value buffer pointer.
+	// So, without first two fileds and without last field
+	// NumArgs would only cover pointers to function arguments
+	// and a pointer to return value buffer.
 	Type* RetTy = FTy->getReturnType();
 	if (!RetTy->isVoidTy()) NumArgs--;
 
@@ -167,18 +179,14 @@ static void ffiInvoke(
 			{			
 				size_t align = (size_t)base % szpage;
 
-				size_t mapped = (size_t)-1;
-				for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
+				list<struct mmap_t>::iterator mmapping = mmappings.begin();
+				for ( ; mmapping != mmappings.end(); mmapping++)
 				{
-					struct mmap_t mmap = *i;
-					if (mmap.addr == (char*)base - align)
-					{
-						mapped = mmap.size + mmap.align;
+					if (mmapping->addr == (char*)base - align)
 						break;
-					}
 				}
 
-				if (mapped == (size_t)-1)
+				if (mmapping == mmappings.end())
 				{
 					// Map host memory with the same address and size
 					// device memory has.
@@ -187,28 +195,30 @@ static void ffiInvoke(
 						-1, 0);
 					if (map == (void*)-1)
 						THROW("Cannot map host memory onto " << base << " + " << size);
-				
 
 					// Track the mapped memory in list of mappings,
 					// to synchronize them after the hostcall finishes.
-					struct mmap_t mmap;
-					mmap.addr = map;
-					mmap.size = size;
-					mmap.align = align;								
-					mmaps.push_back(mmap);
+					struct mmap_t mmapping;
+					mmapping.addr = map;
+					mmapping.size = size;
+					mmapping.align = align;								
+					mmappings.push_back(mmapping);
 				}
 				else
 				{
 					// Remap the existing mapping, if it is required
 					// to be larger.
-					if (size + align > mapped)
+					if (size + align > mmapping->size + mmapping->align)
 					{
-						void* map = mremap((char*)base - align, mapped, size + align,
-							PROT_READ | PROT_WRITE);
-						if (map == (void*)-1)
+						void* remap = mremap((char*)base - align,
+							mmapping->size + mmapping->align, size + align,
+							MAP_FIXED, mmapping->addr);
+						if (remap == (void*)-1)
 							THROW("Cannot map host memory onto " << base << " + " << size);
 					
-						// TODO: store new size in mmaps.
+						// Store new size & align.
+						mmapping->size = size;
+						mmapping->align = align;
 					}
 				}
 
@@ -236,6 +246,8 @@ static void ffiInvoke(
 		rtype, &args[0]) != FFI_OK)
 		THROW("Error in fi_prep_cif");
 
+	// Set address of return value buffer. Also mmapped
+	// transparently in the same way as pointer arguments.
 	void* ret = NULL;
 	if (!RetTy->isVoidTy())
 	{
@@ -269,6 +281,7 @@ static void ffiInvoke(
 	if (sigaction(SIGSEGV, &sa_old, &sa_new) == -1)
         	THROW("Error in sigaction " << errno);
 
+	// Refresh arguments and return value pointer.
 	for (int i = 0; i < NumArgs; i++)
 	{
 		Type* ArgTy = StructTy->getElementType(i + 2);
@@ -279,7 +292,7 @@ static void ffiInvoke(
 	}
 
 	// Copy data back from host-mapped memory to device.
-	for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
+	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
 	{
 		// TODO: transfer hangs when size is not a multiplier of some power of two.
 		// Currently the guess is 16. So, do we need to pad all arrays to 16?..
@@ -290,15 +303,16 @@ static void ffiInvoke(
 			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, size,
 			kernel->target[runmode].monitor_kernel_stream);
 		if (err) THROW("Error in cuMemcpyHtoDAsync " << err);
-		cout << "mmap.addr = " << mmap.addr << ", mmap.align = " <<
-			mmap.align << ", mmap.size = " << mmap.size << " (" << size << ")" << endl;
+		if (verbose)
+			cout << "mmap.addr = " << mmap.addr << ", mmap.align = " <<
+				mmap.align << ", mmap.size = " << mmap.size << " (" << size << ")" << endl;
 	}
 	
 	// Synchronize and unmap previously mapped host memory.
 	int err = cuStreamSynchronize(
 		kernel->target[runmode].monitor_kernel_stream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
-	for (list<struct mmap_t>::iterator i = mmaps.begin(), e = mmaps.end(); i != e; i++)
+	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
 	{
 		struct mmap_t mmap = *i;
                 err = munmap(mmap.addr, mmap.size + mmap.align);
@@ -307,7 +321,7 @@ static void ffiInvoke(
                 		" + " << mmap.size + mmap.align);
         }
         
-        mmaps.clear();
+        mmappings.clear();
         
         if (verbose)
         	cout << "Finished hostcall handler" << endl;

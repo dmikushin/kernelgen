@@ -69,7 +69,16 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		ArgTypes.push_back(call->getArgOperand(i)->getType());
 
 	// Lastly, add the type of return value, if not void.
-	// First, store pointer, and then store the actual type.
+	// First, store pointer to return value, and then store
+	// the actual value placeholder itself:
+	// struct {
+	//     ...
+	//     retTy* pret;
+	//     retTy ret;
+	// };
+	// This way transparency between host & device memory
+	// buffer for return value could be organized and handled
+	// in the same way as for pointer arguments.
 	Type* retTy = callee->getReturnType();
 	if (!retTy->isVoidTy())
 	{
@@ -125,7 +134,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		StoreInst* SI = new StoreInst(call->getArgOperand(i), GEP, false, call);
 	}
 
-	// Store pointer to return value.
+	// Store pointer to return value buffer: pret = &ret.
 	if (!retTy->isVoidTy())
 	{
 		Idx[1] = ConstantInt::get(Type::getInt32Ty(context),

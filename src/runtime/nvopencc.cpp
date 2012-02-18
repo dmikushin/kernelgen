@@ -36,7 +36,7 @@ using namespace std;
 
 #define PTX_LOG_SIZE 1024
 
-bool debug = false;
+bool debug = true;
 
 kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream stream)
 {
