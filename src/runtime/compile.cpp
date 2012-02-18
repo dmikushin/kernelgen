@@ -160,21 +160,10 @@ kernel_func_t kernelgen::runtime::compile(
 		//m->print(OS1, NULL);
 		//OS1.flush()
 		if(szdatai != 0)
-			ConstantSubstitution( m -> begin(), data);
+			ConstantSubstitution(m->begin(), data);
 	}
 
-	//m->dump();
-
-	// Dump result of polly passes without codegen, if requested
-	// for testing purposes.
-	char* dump_polly = getenv("kernelgen_dump_polly");
-	if (dump_polly) {
-		std::auto_ptr<Module> m_clone;
-		m_clone.reset(CloneModule(m));
-		PassManager polly = getPollyPassManager(m_clone.get());
-		polly.run(*m_clone.get());
-		m_clone.get()->dump();
-	}
+	//if (verbose) m->dump();
 
 	PassManager polly = getPollyPassManager(m);
 
@@ -182,6 +171,35 @@ kernel_func_t kernelgen::runtime::compile(
 	// on runmode.
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
+		// Apply the Polly codegen for native target.
+		polly::CUDA.setValue(false);
+		vector<Size3> sizes;
+		if(kernel->name != "__kernelgen_main")
+			polly.add(createSizeOfLoopsPass(&sizes));
+		polly.add(polly::createCodeGenerationPass()); // -polly-codegen
+		polly.run(*m);
+		if(kernel->name != "__kernelgen_main") {
+			if(sizes.size() == 0)
+				cout << "    No Scops detected in kernel" << endl;
+			else {
+				Size3 SizeOfLoops = sizes[0]; // 3-dimensional
+				// non-negative define sizes
+				// if parallelized less than 3 loops then remaining will be -1
+				// example:
+				//for (c2=0;c2<=122;c2++) {
+				//   for (c4=0;c4<=c2+13578;c4++) {
+				//      Stmt_polly_stmt_4_cloned(c2,c4);
+				//	}
+				// }
+				// SizeOfLoops : 123 13640 -1
+				Size3 launchParameters = convertLoopSizesToLaunchParameters(SizeOfLoops);
+				kernel->target[runmode].launchParameters = launchParameters;
+			}
+
+		}
+
+		if (verbose) m->dump();
+
 		// Create target machine for NATIVE target and get its target data.
 		if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
 			InitializeAllTargets();
@@ -205,38 +223,6 @@ kernel_func_t kernelgen::runtime::compile(
 			// Override default to generate verbose assembly.
 			targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
 		}
-
-		// Apply the Polly codegen for native target.
-		polly::CUDA.setValue(false);
-		polly.add(polly::createCodeGenerationPass()); // -polly-codegen
-		vector<Size3> sizes;
-		if(kernel->name != "__kernelgen_main")
-			polly.add(createSizeOfLoopsPass(&sizes));
-		polly.run(*m);
-		if(kernel->name != "__kernelgen_main") {
-			if(sizes.size() == 0)
-				cout << "    No Scops detected in kernel" << endl;
-			else {
-				Size3 SizeOfLoops = sizes[0]; // 3-dimensional
-				// non-negative define sizes
-				// if parallelized less than 3 loops then remaining will be -1
-				// example:
-				//for (c2=0;c2<=122;c2++) {
-				//   for (c4=0;c4<=c2+13578;c4++) {
-				//      Stmt_polly_stmt_4_cloned(c2,c4);
-				//	}
-				// }
-				// SizeOfLoops : 123 13640 -1
-				Size3 launchParameters = convertLoopSizesToLaunchParameters(SizeOfLoops);
-				kernel->target[runmode].launchParameters = launchParameters;
-			}
-
-		}
-
-		// Dump result of polly passes with codegen, if requested
-		// for testing purposes.
-		char* dump_pollygen = getenv("kernelgen_dump_pollygen");
-		if (dump_pollygen) m->dump();
 
 		const TargetData* tdata =
 		    targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
@@ -311,10 +297,10 @@ kernel_func_t kernelgen::runtime::compile(
 	case KERNELGEN_RUNMODE_CUDA : {
 		// Apply the Polly codegen for native target.
 		polly::CUDA.setValue(true);
-		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
 		vector<Size3> sizes;
 		if(kernel->name != "__kernelgen_main")
 			polly.add(createSizeOfLoopsPass(&sizes));
+		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
 		polly.run(*m);
 		if(kernel->name != "__kernelgen_main") {
 			if(sizes.size() == 0)

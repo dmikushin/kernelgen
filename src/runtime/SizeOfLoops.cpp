@@ -227,7 +227,7 @@ public:
 	void printSizeOfLoops(Size3 &size3, int numberOfLoops) {
 		cout << "    Number of good nested parallel loops: " << numberOfLoops << endl;
 		if(numberOfLoops) {
-			cout << "    Approximate size of loops: " << size3.x;
+			cout << "    Average size of loops: " << size3.x;
 			if(numberOfLoops >=2) cout << " " << size3.y;
 			if(numberOfLoops >=3) cout << " " << size3.z;
 			cout << endl;
