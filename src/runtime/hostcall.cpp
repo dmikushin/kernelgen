@@ -33,12 +33,6 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <stdio.h>
-
-extern "C" FILE* _fopen(const char* name, const char* mode)
-{
-	return fopen(name, mode);
-}
 
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
@@ -211,8 +205,7 @@ static void ffiInvoke(
 					if (size + align > mmapping->size + mmapping->align)
 					{
 						void* remap = mremap((char*)base - align,
-							mmapping->size + mmapping->align, size + align,
-							MAP_FIXED, mmapping->addr);
+							mmapping->size + mmapping->align, size + align, 0);
 						if (remap == (void*)-1)
 							THROW("Cannot map host memory onto " << base << " + " << size);
 					
@@ -222,17 +215,14 @@ static void ffiInvoke(
 					}
 				}
 
+				// Copy device memory to host mapped memory.
+				int err = cuMemcpyDtoHAsync(base, base, size,
+					kernel->target[runmode].monitor_kernel_stream);
+				if (err) THROW("Error in cuMemcpyDtoHAsync");
+
 				if (verbose)
 					cout << "Mapped memory " << base - align << "(" << base << " - " <<
 					align << ") + " << size << endl;
-
-				// Copy device memory to host mapped memory.
-				err = cuMemcpyDtoHAsync(base, base, size,
-					kernel->target[runmode].monitor_kernel_stream);
-				if (err) THROW("Error in cuMemcpyDtoHAsync");
-				err = cuStreamSynchronize(
-					kernel->target[runmode].monitor_kernel_stream);
-				if (err) THROW("Error in cuStreamSynchronize " << err);
 			}
 		}
 	}
@@ -270,6 +260,11 @@ static void ffiInvoke(
         
         if (verbose)
         	cout << "Starting hostcall to " << (void*)func << endl;
+
+	// Synchronize pending mmapped data transfers.
+	int err = cuStreamSynchronize(
+		kernel->target[runmode].monitor_kernel_stream);
+	if (err) THROW("Error in cuStreamSynchronize " << err);
 
 	ffi_call(&cif, func, ret, values.data());
 
@@ -309,7 +304,7 @@ static void ffiInvoke(
 	}
 	
 	// Synchronize and unmap previously mapped host memory.
-	int err = cuStreamSynchronize(
+	err = cuStreamSynchronize(
 		kernel->target[runmode].monitor_kernel_stream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
