@@ -198,7 +198,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 		}
 
-		if (verbose) m->dump();
+		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 		// Create target machine for NATIVE target and get its target data.
 		if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
@@ -466,7 +466,7 @@ kernel_func_t kernelgen::runtime::compile(
 			manager.run(*m);
 		}
 
-		if (verbose) m->dump();
+		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 		// Create target machine for CUDA target and get its target data.
 		if (!targets[KERNELGEN_RUNMODE_CUDA].get()) {
@@ -517,7 +517,7 @@ kernel_func_t kernelgen::runtime::compile(
 		// underlying string.
 		stream.flush();
 
-		if (verbose) cout << bin_string;
+		if (verbose & KERNELGEN_VERBOSE_SOURCES) cout << bin_string;
 
 		return nvopencc(bin_string, kernel->name,
 			kernel->target[runmode].monitor_kernel_stream);

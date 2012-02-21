@@ -76,7 +76,13 @@ namespace kernelgen {
 extern int runmode;
 
 // Verbose output.
-extern bool verbose;
+extern int verbose;
+
+#define KERNELGEN_VERBOSE_DISABLE	0
+#define KERNELGEN_VERBOSE_SUMMARY	1 << 0
+#define KERNELGEN_VERBOSE_SOURCES	1 << 1
+#define KERNELGEN_VERBOSE_DATAIO	1 << 2
+#define KERNELGEN_VERBOSE_HOSTCALL	1 << 3
 
 // The prototype of kernel function.
 // Thanks to arguments aggregation, all

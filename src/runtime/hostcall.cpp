@@ -99,7 +99,7 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	mmap.align = align;
 	mmappings.push_back(mmap);
 
-	if (verbose)
+	if (verbose & KERNELGEN_VERBOSE_DATAIO)
 		cout << "Mapped memory " << map << "(" << base << " - " <<
 		align << ") + " << size << endl;
 
@@ -220,7 +220,7 @@ static void ffiInvoke(
 					kernel->target[runmode].monitor_kernel_stream);
 				if (err) THROW("Error in cuMemcpyDtoHAsync");
 
-				if (verbose)
+				if (verbose & KERNELGEN_VERBOSE_DATAIO)
 					cout << "Mapped memory " << base - align << "(" << base << " - " <<
 					align << ") + " << size << endl;
 			}
@@ -258,7 +258,7 @@ static void ffiInvoke(
 	if (sigaction(SIGSEGV, &sa_new, &sa_old) == -1)
 		THROW("Error in sigaction " << errno);
         
-        if (verbose)
+        if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
         	cout << "Starting hostcall to " << (void*)func << endl;
 
 	// Synchronize pending mmapped data transfers.
@@ -268,7 +268,7 @@ static void ffiInvoke(
 
 	ffi_call(&cif, func, ret, values.data());
 
-        if (verbose)
+        if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
         	cout << "Finishing hostcall to " << (void*)func << endl;
 	
 	// Unregister SIGSEGV signal handler and resore the
@@ -298,7 +298,7 @@ static void ffiInvoke(
 			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, size,
 			kernel->target[runmode].monitor_kernel_stream);
 		if (err) THROW("Error in cuMemcpyHtoDAsync " << err);
-		if (verbose)
+		if (verbose & KERNELGEN_VERBOSE_DATAIO)
 			cout << "mmap.addr = " << mmap.addr << ", mmap.align = " <<
 				mmap.align << ", mmap.size = " << mmap.size << " (" << size << ")" << endl;
 	}
@@ -318,7 +318,7 @@ static void ffiInvoke(
         
         mmappings.clear();
         
-        if (verbose)
+        if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
         	cout << "Finished hostcall handler" << endl;
 }
 
@@ -330,7 +330,7 @@ void kernelgen_hostcall(kernel_t* kernel,
 	kernel_func_t kernel_func = compile(KERNELGEN_RUNMODE_NATIVE, kernel);
 
 	Dl_info info;
-	if (verbose)
+	if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
 	{
 		if (dladdr((void*)kernel->target[
 			KERNELGEN_RUNMODE_NATIVE].binary, &info))

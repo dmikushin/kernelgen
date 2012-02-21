@@ -110,7 +110,7 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 		tmp_stream.close();
 	}
 	
-	if (verbose) cout << ptx;
+	if (verbose & KERNELGEN_VERBOSE_SOURCES) cout << ptx;
 
 	// Compile PTX code in temporary file to CUBIN.
 	cfiledesc tmp3 = cfiledesc::mktemp("/tmp/");

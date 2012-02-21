@@ -67,7 +67,7 @@ string cuda_monitor_kernel_source =
 int kernelgen::runmode = -1;
 
 // Verbose output.
-bool kernelgen::verbose = false;
+int kernelgen::verbose = 0;
 
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
@@ -76,7 +76,7 @@ std::map<string, kernel_t*> kernelgen::kernels;
 
 // CUDA runtime context.
 kernelgen::bind::cuda::context kernelgen::runtime::cuda_context =
-	kernelgen::bind::cuda::context::init(2048);
+	kernelgen::bind::cuda::context::init(4096);
 
 int main(int argc, char* argv[])
 {
