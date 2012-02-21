@@ -192,11 +192,12 @@ int kernelgen_launch(kernel_t* kernel,
 				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 				size_t szshmem = 0;
+				char args[256];
+				memcpy(args, &kernel->target[runmode].callback, sizeof(void*));
 				int err = cudyLaunch(
 					(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
 					gridDim.x, gridDim.y, gridDim.z,
-					blockDim.x, blockDim.y, blockDim.z, szshmem,
-					&kernel->target[runmode].callback,
+					blockDim.x, blockDim.y, blockDim.z, szshmem, args,
 					kernel->target[runmode].monitor_kernel_stream);
 				if (err)
 					THROW("Error in cudyLaunch " << err);
@@ -300,11 +301,12 @@ int kernelgen_launch(kernel_t* kernel,
 					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
 					size_t szshmem = 0;
+					char args[256];
+					memcpy(args, &kernel->target[runmode].callback, sizeof(void*));
 					int err = cudyLaunch(
 						(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
-						blockDim.x, blockDim.y, blockDim.z, szshmem,
-						&kernel->target[runmode].callback,
+						blockDim.x, blockDim.y, blockDim.z, szshmem, args,
 						kernel->target[runmode].monitor_kernel_stream);
 					if (err)
 						THROW("Error in cudyLaunch " << err);
@@ -316,8 +318,8 @@ int kernelgen_launch(kernel_t* kernel,
 				kernel->target[runmode].kernel_stream);
 			if (err) THROW("Error in cuStreamSynchronize " << err);
 			
-			//err = cuMemFreeHost(callback);
-			//if (err) THROW("Error in cuMemFreeHost " << err);
+			err = cuMemFreeHost(callback);
+			if (err) THROW("Error in cuMemFreeHost " << err);
 			
 			break;
 		}
