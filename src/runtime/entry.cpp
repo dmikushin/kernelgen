@@ -75,8 +75,7 @@ int kernelgen::verbose = 0;
 std::map<string, kernel_t*> kernelgen::kernels;
 
 // CUDA runtime context.
-kernelgen::bind::cuda::context kernelgen::runtime::cuda_context =
-	kernelgen::bind::cuda::context::init(4096);
+std::auto_ptr<kernelgen::bind::cuda::context> kernelgen::runtime::cuda_context;
 
 int main(int argc, char* argv[])
 {
@@ -255,6 +254,10 @@ int main(int argc, char* argv[])
 			}
 			case KERNELGEN_RUNMODE_CUDA :
 			{
+				// Initialize dynamic kernels loader.
+				kernelgen::runtime::cuda_context.reset(
+					kernelgen::bind::cuda::context::init(4096));
+
 				// Initialize callback structure.
 				// Initial lock state is "locked". It will be dropped
 				// by GPU side monitor that must be started *before*

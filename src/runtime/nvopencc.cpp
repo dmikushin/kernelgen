@@ -173,7 +173,7 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 	{
 		// Load kernel function from the binary opcodes.
 		CUresult err = cudyLoadCubin((CUDYfunction*)&kernel_func,
-			cuda_context.loader, (char*)tmp3.getFilename().c_str(),
+			cuda_context->loader, (char*)tmp3.getFilename().c_str(),
 			name.c_str(), stream);
 		if (err)
 			THROW("Error in cudyLoadCubin " << err);

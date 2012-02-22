@@ -95,7 +95,7 @@ extern cuStreamSynchronize_t cuStreamSynchronize;
 struct context {
 
 	// Initialize a new instance of CUDA host API bindings.
-	static const context init(int capacity);
+	static context* init(int capacity);
 
 private :
 

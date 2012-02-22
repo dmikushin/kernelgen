@@ -56,10 +56,10 @@ cuLaunchKernel_t cuLaunchKernel;
 cuStreamCreate_t cuStreamCreate;
 cuStreamSynchronize_t cuStreamSynchronize;
 
-const context context::init(int capacity)
+context* context::init(int capacity)
 {
 	// Do not init again, if already bound.
-	if (cuInit) context(NULL, capacity);
+	if (cuInit) new context(NULL, capacity);
 
 	// Load CUDA Driver API shared library.
 	void* handle = dlopen("libcuda.so",
@@ -67,7 +67,7 @@ const context context::init(int capacity)
 	if (!handle)
 		THROW("Cannot dlopen libcuda.so " << dlerror());
 	
-	return context(handle, capacity);
+	return new context(handle, capacity);
 }
 
 context::context(void* handle, int capacity) :
