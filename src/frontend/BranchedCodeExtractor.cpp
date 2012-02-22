@@ -589,7 +589,7 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 
 	// Create a constant array holding original called
 	// function name.
-	Constant* name = ConstantArray::get(
+	Constant* name = ConstantDataArray::getString(
 	                     context, KernelFunc->getName(), true);
 
 	// Create and initialize the memory buffer for name.

@@ -35,11 +35,12 @@
 #include "llvm/PassManager.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
-#include "llvm/Support/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Transforms/Scalar.h"
 
 #include "BranchedLoopExtractor.h"
 
@@ -234,7 +235,7 @@ int compile(list<string> args, list<string> kgen_args,
 	//
 	{
 		PassManager manager;
-		manager.add(createLowerSetJmpPass());
+		//manager.add(createLowerSetJmpPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = 3;

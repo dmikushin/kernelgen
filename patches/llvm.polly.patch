@@ -1,52 +1,28 @@
---- a/llvm/tools/polly/lib/CodeGeneration.cpp	2011-08-11 18:15:28.000000000 +0400
-+++ b/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-11 21:45:18.000000000 +0400
-@@ -38,6 +38,7 @@
+--- a/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-22 02:51:59.000000000 +0400
++++ b/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-22 16:15:43.000000000 +0400
+@@ -39,6 +39,7 @@
+ #include "llvm/Support/IRBuilder.h"
  #include "llvm/Target/TargetData.h"
- #include "llvm/Module.h"
- #include "llvm/ADT/SetVector.h"
+ #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 +#include "llvm/Analysis/Verifier.h"
  
  #define CLOOG_INT_GMP 1
  #include "cloog/cloog.h"
-@@ -48,10 +49,11 @@
+@@ -48,9 +49,11 @@
+ 
+ #include <vector>
+ #include <utility>
++#include <string>
  
  using namespace polly;
  using namespace llvm;
--
 +using namespace std;
+ 
  struct isl_set;
  
--namespace polly {
-+namespace polly
-+{
- 
- static cl::opt<bool>
- Vector("enable-polly-vector",
-@@ -67,21 +69,39 @@
- 
- static cl::opt<bool>
- AtLeastOnce("enable-polly-atLeastOnce",
--       cl::desc("Give polly the hint, that every loop is executed at least"
--                "once"), cl::Hidden,
--       cl::value_desc("OpenMP code generation enabled if true"),
--       cl::init(false));
-+            cl::desc("Give polly the hint, that every loop is executed at least"
-+                     "once"), cl::Hidden,
-+            cl::value_desc("OpenMP code generation enabled if true"),
-+            cl::init(false));
- 
- static cl::opt<bool>
- Aligned("enable-polly-aligned",
--       cl::desc("Assumed aligned memory accesses."), cl::Hidden,
--       cl::value_desc("OpenMP code generation enabled if true"),
--       cl::init(false));
-+        cl::desc("Assumed aligned memory accesses."), cl::Hidden,
-+        cl::value_desc("OpenMP code generation enabled if true"),
-+        cl::init(false));
- 
- typedef DenseMap<const Value*, Value*> ValueMapT;
- typedef DenseMap<const char*, Value*> CharMapT;
- typedef std::vector<ValueMapT> VectorValueMapT;
+@@ -90,6 +93,24 @@
+   IRBuilder<> *Builder;
+ }IslPwAffUserInfo;
  
 +//////////////////////////////////////////////////////////////////////
 +cl::opt<bool>                                                       //
@@ -69,1326 +45,81 @@
  // Create a new loop.
  //
  // @param Builder The builder used to create the loop.  It also defines the
-@@ -90,1437 +110,1917 @@
- // @param Stride  The number by which the loop iv is incremented after every
- //                iteration.
- static void createLoop(IRBuilder<> *Builder, Value *LB, Value *UB, APInt Stride,
--                PHINode*& IV, BasicBlock*& AfterBB, Value*& IncrementedIV,
--                DominatorTree *DT) {
--  Function *F = Builder->GetInsertBlock()->getParent();
--  LLVMContext &Context = F->getContext();
--
--  BasicBlock *PreheaderBB = Builder->GetInsertBlock();
--  BasicBlock *HeaderBB = BasicBlock::Create(Context, "polly.loop_header", F);
--  BasicBlock *BodyBB = BasicBlock::Create(Context, "polly.loop_body", F);
--  AfterBB = BasicBlock::Create(Context, "polly.after_loop", F);
--
--  Builder->CreateBr(HeaderBB);
--  DT->addNewBlock(HeaderBB, PreheaderBB);
--
--  Builder->SetInsertPoint(BodyBB);
--
--  Builder->SetInsertPoint(HeaderBB);
--
--  // Use the type of upper and lower bound.
--  assert(LB->getType() == UB->getType()
--         && "Different types for upper and lower bound.");
--
--  IntegerType *LoopIVType = dyn_cast<IntegerType>(UB->getType());
--  assert(LoopIVType && "UB is not integer?");
--
--  // IV
--  IV = Builder->CreatePHI(LoopIVType, 2, "polly.loopiv");
--  IV->addIncoming(LB, PreheaderBB);
--
--  // IV increment.
--  Value *StrideValue = ConstantInt::get(LoopIVType,
--                                        Stride.zext(LoopIVType->getBitWidth()));
--  IncrementedIV = Builder->CreateAdd(IV, StrideValue, "polly.next_loopiv");
--
--  // Exit condition.
--  if (AtLeastOnce) { // At least on iteration.
--    UB = Builder->CreateAdd(UB, Builder->getInt64(1));
--    Value *CMP = Builder->CreateICmpEQ(IV, UB);
--    Builder->CreateCondBr(CMP, AfterBB, BodyBB);
--  } else { // Maybe not executed at all.
--    Value *CMP = Builder->CreateICmpSLE(IV, UB);
--    Builder->CreateCondBr(CMP, BodyBB, AfterBB);
--  }
--  DT->addNewBlock(BodyBB, HeaderBB);
--  DT->addNewBlock(AfterBB, HeaderBB);
-+                       PHINode*& IV, BasicBlock*& AfterBB, Value*& IncrementedIV,
-+                       DominatorTree *DT)
-+{
-+	Function *F = Builder->GetInsertBlock()->getParent();
-+	LLVMContext &Context = F->getContext();
-+
-+	BasicBlock *PreheaderBB = Builder->GetInsertBlock();
-+	BasicBlock *HeaderBB = BasicBlock::Create(Context, "polly.loop_header", F);
-+	BasicBlock *BodyBB = BasicBlock::Create(Context, "polly.loop_body", F);
-+	AfterBB = BasicBlock::Create(Context, "polly.after_loop", F);
-+
-+	Builder->CreateBr(HeaderBB);
-+	DT->addNewBlock(HeaderBB, PreheaderBB);
-+
-+	Builder->SetInsertPoint(BodyBB);
-+
-+	Builder->SetInsertPoint(HeaderBB);
-+
-+	// Use the type of upper and lower bound.
-+	assert(LB->getType() == UB->getType()
-+	       && "Different types for upper and lower bound.");
-+
-+	IntegerType *LoopIVType = dyn_cast<IntegerType>(UB->getType());
-+	assert(LoopIVType && "UB is not integer?");
-+
-+	// IV
-+	IV = Builder->CreatePHI(LoopIVType, 2, "polly.loopiv");
-+	IV->addIncoming(LB, PreheaderBB);
-+
-+	// IV increment.
-+	Value *StrideValue = ConstantInt::get(LoopIVType,
-+	                                      Stride.zext(LoopIVType->getBitWidth()));
-+	IncrementedIV = Builder->CreateAdd(IV, StrideValue, "polly.next_loopiv");
-+
-+	// Exit condition.
-+	if (AtLeastOnce) { // At least on iteration.
-+		UB = Builder->CreateAdd(UB, Builder->getInt64(1));
-+		Value *CMP = Builder->CreateICmpEQ(IV, UB);
-+		Builder->CreateCondBr(CMP, AfterBB, BodyBB);
-+	} else { // Maybe not executed at all.
-+		Value *CMP = Builder->CreateICmpSLE(IV, UB);
-+		Builder->CreateCondBr(CMP, BodyBB, AfterBB);
-+	}
-+	DT->addNewBlock(BodyBB, HeaderBB);
-+	DT->addNewBlock(AfterBB, HeaderBB);
-+
-+	Builder->SetInsertPoint(BodyBB);
-+}
-+////////////////////////////////////////////////////////////////////////////////////
-+void createLoopForCUDA(IRBuilder<> *Builder, Value *LB, Value *UB,                //
-+                       Value * ThreadLB, Value * ThreadUB, Value * ThreadStride,  //
-+                       PHINode*& IV, BasicBlock*& AfterBB, Value*& IncrementedIV, //
-+                       DominatorTree *DT, const char * dimension)                 //
-+{
-+	
-+	Function *F = Builder->GetInsertBlock()->getParent();
-+	LLVMContext &Context = F->getContext();
-+
-+	BasicBlock *PreheaderBB = Builder->GetInsertBlock();
-+	BasicBlock *HeaderBB = BasicBlock::Create(Context, (string)"CUDA.LoopHeader." + dimension, F);
-+	BasicBlock *BodyBB = BasicBlock::Create(Context, (string)"CUDA.LoopBody." + dimension, F);
-+
-+	AfterBB = BasicBlock::Create(Context, (string)"CUDA.AfterLoop." + dimension, F); //!!!!!!!!!!!!!
-+	Builder->CreateBr(HeaderBB);
-+	DT->addNewBlock(HeaderBB, PreheaderBB);
-+
-+	Builder->SetInsertPoint(HeaderBB);
-+
-+	// Use the type of upper and lower bound.
-+	assert(LB->getType() == UB->getType()
-+	       && "Different types for upper and lower bound.");
-+
-+	IntegerType *LoopIVType = dyn_cast<IntegerType>(UB->getType());
-+	assert(LoopIVType && "UB is not integer?");
-+
-+	// IV
-+	IV = Builder->CreatePHI(LoopIVType, 2, (string)"CUDA.loopiv." + dimension);
-+	IV->addIncoming(ThreadLB, PreheaderBB); //!!!!!!!!! TreadLB is start value of the induction variable
-+
-+	// IV increment.
-+	Value *StrideValue = ThreadStride;
-+	IncrementedIV = Builder->CreateAdd(IV, StrideValue, (string)"CUDA.next_loopiv." + dimension);
-+
-+	////////////////////////////////////////////////////////////////////////////////////////////////////
-+	// Exit condition.                                                                                //
-+	// Maybe not executed at all.                                                                     //
-+	////////////////////////////////////////////////////////////////////////////////////////////////////
-+	// next iteration performed if loop condition is true:                                            //
-+	// InductionVariable <= ThreadUpperBound && InductionVariable <= LoopUpperBound                   //
-+	////////////////////////////////////////////////////////////////////////////////////////////////////
-+	Value *ThreadCMP = Builder->CreateICmpSLE(IV, ThreadUB, (string)"isInThreadBounds." + dimension); //
-+	Value *LoopCMP = Builder->CreateICmpSLE(IV,UB,(string)"isInLoopBounds." + dimension);             //
-+	Value *ExitCond = Builder->CreateMul(ThreadCMP,LoopCMP,(string)"isInBounds." + dimension);        //
-+	Builder->CreateCondBr(ExitCond, BodyBB, AfterBB);                                                 //
-+	////////////////////////////////////////////////////////////////////////////////////////////////////
-+
-+	DT->addNewBlock(BodyBB, HeaderBB);
-+	DT->addNewBlock(AfterBB, HeaderBB);
-+
-+	Builder->SetInsertPoint(BodyBB);
+@@ -153,6 +174,68 @@
  
--  Builder->SetInsertPoint(BodyBB);
+   return IV;
  }
-+////////////////////////////////////////////////////////////////////////////////////
++						 
++////////////////////////////////////////////////////////////////////////////////////////////////////////////
++static Value *createLoopForCUDA(IRBuilder<> *Builder, Value *LB, Value *UB,                               //
++                       Value * ThreadLB, Value * ThreadUB, Value * ThreadStride,                          //
++					   const char * dimension, DominatorTree *DT, Pass *P,                                //
++                       BasicBlock **AfterBlock)                                                           //
++{                                                                                                         //
++																										  //
++	Function *F = Builder->GetInsertBlock()->getParent();                                                 //
++	LLVMContext &Context = F->getContext();                                                               //
++																										  //
++	BasicBlock *PreheaderBB = Builder->GetInsertBlock();                                                  //
++	BasicBlock *HeaderBB = BasicBlock::Create(Context, (string)"CUDA.LoopHeader." + dimension, F);        //
++	BasicBlock *BodyBB = BasicBlock::Create(Context, (string)"CUDA.LoopBody." + dimension, F);            //
++																										  //
++	BasicBlock *AfterBB = SplitBlock(PreheaderBB, Builder->GetInsertPoint()++, P);                        //
++	AfterBB->setName((string)"CUDA.AfterLoop." + dimension);                                              //
++                                                                                                          //
++	PreheaderBB->getTerminator()->setSuccessor(0, HeaderBB);                                              //
++    DT->addNewBlock(HeaderBB, PreheaderBB);                                                               //
++                                                                                                          //
++    Builder->SetInsertPoint(HeaderBB);                                                                    //
++																										  //
++    // Use the type of upper and lower bound.                                                             //
++    assert(LB->getType() == UB->getType()                                                                 //
++         && "Different types for upper and lower bound.");                                                //
++                                                                                                          //
++    IntegerType *LoopIVType = dyn_cast<IntegerType>(UB->getType());                                       //
++    assert(LoopIVType && "UB is not integer?");                                                           //
++                                                                                                          //
++	// IV                                                                                                 //
++	PHINode *IV = Builder->CreatePHI(LoopIVType, 2, (string)"CUDA.loopiv." + dimension);                  //
++	IV->addIncoming(ThreadLB, PreheaderBB);                                                               //
++                                                                                                          //
++ 	// IV increment.                                                                                      //
++	Value *StrideValue = ThreadStride;                                                                    //
++	Value *IncrementedIV = Builder->CreateAdd(IV, StrideValue, (string)"CUDA.next_loopiv." + dimension);  //
++                                                                                                          //
++	// Exit condition.                                                                                    //
++	// Maybe not executed at all.                                                                         //
++	// next iteration performed if loop condition is true:                                                //
++	// InductionVariable <= ThreadUpperBound && InductionVariable <= LoopUpperBound                       //
++	Value *ThreadCMP = Builder->CreateICmpSLE(IV, ThreadUB, (string)"isInThreadBounds." + dimension);     //
++	Value *LoopCMP = Builder->CreateICmpSLE(IV,UB,(string)"isInLoopBounds." + dimension);                 //
++	Value *ExitCond = Builder->CreateAnd(ThreadCMP,LoopCMP,(string)"isInBounds." + dimension);            //
++                                                                                                          //
++    Builder->CreateCondBr(ExitCond, BodyBB, AfterBB);                                                     //
++    DT->addNewBlock(BodyBB, HeaderBB);																	  //
++                                                                                                          //
++    Builder->SetInsertPoint(BodyBB);                                                                      //
++    Builder->CreateBr(HeaderBB);                                                                          //
++    IV->addIncoming(IncrementedIV, BodyBB);                                                               //
++    DT->changeImmediateDominator(AfterBB, HeaderBB);                                                      //
++																										  //
++    Builder->SetInsertPoint(BodyBB->begin());                                                             //
++    *AfterBlock = AfterBB;                                                                                //
++																										  //
++    return IV;                                                                                            //
++                                                                                                          //
++}                                                                                                         //
++////////////////////////////////////////////////////////////////////////////////////////////////////////////
++
  
--class BlockGenerator {
--  IRBuilder<> &Builder;
--  ValueMapT &VMap;
--  VectorValueMapT &ValueMaps;
--  Scop &S;
--  ScopStmt &statement;
--  isl_set *scatteringDomain;
-+class BlockGenerator
-+{
-+	IRBuilder<> &Builder;
-+	ValueMapT &VMap;
-+	VectorValueMapT &ValueMaps;
-+	Scop &S;
-+	ScopStmt &statement;
-+	isl_set *scatteringDomain;
+ class BlockGenerator {
+   IRBuilder<> &Builder;
+@@ -919,6 +1002,26 @@
  
- public:
--  BlockGenerator(IRBuilder<> &B, ValueMapT &vmap, VectorValueMapT &vmaps,
--                 ScopStmt &Stmt, isl_set *domain)
--    : Builder(B), VMap(vmap), ValueMaps(vmaps), S(*Stmt.getParent()),
--    statement(Stmt), scatteringDomain(domain) {}
--
--  const Region &getRegion() {
--    return S.getRegion();
--  }
--
--  Value* makeVectorOperand(Value *operand, int vectorWidth) {
--    if (operand->getType()->isVectorTy())
--      return operand;
--
--    VectorType *vectorType = VectorType::get(operand->getType(), vectorWidth);
--    Value *vector = UndefValue::get(vectorType);
--    vector = Builder.CreateInsertElement(vector, operand, Builder.getInt32(0));
--
--    std::vector<Constant*> splat;
--
--    for (int i = 0; i < vectorWidth; i++)
--      splat.push_back (Builder.getInt32(0));
--
--    Constant *splatVector = ConstantVector::get(splat);
--
--    return Builder.CreateShuffleVector(vector, vector, splatVector);
--  }
--
--  Value* getOperand(const Value *oldOperand, ValueMapT &BBMap,
--                    ValueMapT *VectorMap = 0) {
--    const Instruction *OpInst = dyn_cast<Instruction>(oldOperand);
--
--    if (!OpInst)
--      return const_cast<Value*>(oldOperand);
--
--    if (VectorMap && VectorMap->count(oldOperand))
--      return (*VectorMap)[oldOperand];
--
--    // IVS and Parameters.
--    if (VMap.count(oldOperand)) {
--      Value *NewOperand = VMap[oldOperand];
--
--      // Insert a cast if types are different
--      if (oldOperand->getType()->getScalarSizeInBits()
--          < NewOperand->getType()->getScalarSizeInBits())
--        NewOperand = Builder.CreateTruncOrBitCast(NewOperand,
--                                                   oldOperand->getType());
--
--      return NewOperand;
--    }
--
--    // Instructions calculated in the current BB.
--    if (BBMap.count(oldOperand)) {
--      return BBMap[oldOperand];
--    }
--
--    // Ignore instructions that are referencing ops in the old BB. These
--    // instructions are unused. They where replace by new ones during
--    // createIndependentBlocks().
--    if (getRegion().contains(OpInst->getParent()))
--      return NULL;
--
--    return const_cast<Value*>(oldOperand);
--  }
--
--  Type *getVectorPtrTy(const Value *V, int vectorWidth) {
--    PointerType *pointerType = dyn_cast<PointerType>(V->getType());
--    assert(pointerType && "PointerType expected");
--
--    Type *scalarType = pointerType->getElementType();
--    VectorType *vectorType = VectorType::get(scalarType, vectorWidth);
--
--    return PointerType::getUnqual(vectorType);
--  }
--
--  /// @brief Load a vector from a set of adjacent scalars
--  ///
--  /// In case a set of scalars is known to be next to each other in memory,
--  /// create a vector load that loads those scalars
--  ///
--  /// %vector_ptr= bitcast double* %p to <4 x double>*
--  /// %vec_full = load <4 x double>* %vector_ptr
--  ///
--  Value *generateStrideOneLoad(const LoadInst *load, ValueMapT &BBMap,
--                               int size) {
--    const Value *pointer = load->getPointerOperand();
--    Type *vectorPtrType = getVectorPtrTy(pointer, size);
--    Value *newPointer = getOperand(pointer, BBMap);
--    Value *VectorPtr = Builder.CreateBitCast(newPointer, vectorPtrType,
--                                             "vector_ptr");
--    LoadInst *VecLoad = Builder.CreateLoad(VectorPtr,
--                                        load->getNameStr()
--                                        + "_p_vec_full");
--    if (!Aligned)
--      VecLoad->setAlignment(8);
--
--    return VecLoad;
--  }
--
--  /// @brief Load a vector initialized from a single scalar in memory
--  ///
--  /// In case all elements of a vector are initialized to the same
--  /// scalar value, this value is loaded and shuffeled into all elements
--  /// of the vector.
--  ///
--  /// %splat_one = load <1 x double>* %p
--  /// %splat = shufflevector <1 x double> %splat_one, <1 x
--  ///       double> %splat_one, <4 x i32> zeroinitializer
--  ///
--  Value *generateStrideZeroLoad(const LoadInst *load, ValueMapT &BBMap,
--                                int size) {
--    const Value *pointer = load->getPointerOperand();
--    Type *vectorPtrType = getVectorPtrTy(pointer, 1);
--    Value *newPointer = getOperand(pointer, BBMap);
--    Value *vectorPtr = Builder.CreateBitCast(newPointer, vectorPtrType,
--                                             load->getNameStr() + "_p_vec_p");
--    LoadInst *scalarLoad= Builder.CreateLoad(vectorPtr,
--                                          load->getNameStr() + "_p_splat_one");
--
--    if (!Aligned)
--      scalarLoad->setAlignment(8);
--
--    std::vector<Constant*> splat;
--
--    for (int i = 0; i < size; i++)
--      splat.push_back (Builder.getInt32(0));
--
--    Constant *splatVector = ConstantVector::get(splat);
--
--    Value *vectorLoad = Builder.CreateShuffleVector(scalarLoad, scalarLoad,
--                                                    splatVector,
--                                                    load->getNameStr()
--                                                    + "_p_splat");
--    return vectorLoad;
--  }
--
--  /// @Load a vector from scalars distributed in memory
--  ///
--  /// In case some scalars a distributed randomly in memory. Create a vector
--  /// by loading each scalar and by inserting one after the other into the
--  /// vector.
--  ///
--  /// %scalar_1= load double* %p_1
--  /// %vec_1 = insertelement <2 x double> undef, double %scalar_1, i32 0
--  /// %scalar 2 = load double* %p_2
--  /// %vec_2 = insertelement <2 x double> %vec_1, double %scalar_1, i32 1
--  ///
--  Value *generateUnknownStrideLoad(const LoadInst *load,
--                                   VectorValueMapT &scalarMaps,
--                                   int size) {
--    const Value *pointer = load->getPointerOperand();
--    VectorType *vectorType = VectorType::get(
--      dyn_cast<PointerType>(pointer->getType())->getElementType(), size);
--
--    Value *vector = UndefValue::get(vectorType);
--
--    for (int i = 0; i < size; i++) {
--      Value *newPointer = getOperand(pointer, scalarMaps[i]);
--      Value *scalarLoad = Builder.CreateLoad(newPointer,
--                                             load->getNameStr() + "_p_scalar_");
--      vector = Builder.CreateInsertElement(vector, scalarLoad,
--                                           Builder.getInt32(i),
--                                           load->getNameStr() + "_p_vec_");
--    }
--
--    return vector;
--  }
--
--  /// @brief Get the new operand address according to the changed access in
--  ///        JSCOP file.
--  Value *getNewAccessOperand(isl_map *newAccessRelation, Value *baseAddr,
--                             const Value *oldOperand, ValueMapT &BBMap) {
--    unsigned accessIdx = 0;
--    Value *newOperand = Builder.CreateStructGEP(baseAddr,
--                                                accessIdx, "p_newarrayidx_");
--    return newOperand;
--  }
--
--  /// @brief Generate the operand address
--  Value *generateLocationAccessed(const Instruction *Inst,
--                                  const Value *pointer, ValueMapT &BBMap ) {
--    MemoryAccess &access = statement.getAccessFor(Inst);
--    isl_map *newAccessRelation = access.getNewAccessFunction();
--    if (!newAccessRelation) {
--      Value *newPointer = getOperand(pointer, BBMap);
--      return newPointer;
--    }
--
--    Value *baseAddr = const_cast<Value*>(access.getBaseAddr());
--    Value *newPointer = getNewAccessOperand(newAccessRelation, baseAddr,
--                                            pointer, BBMap);
--    return newPointer;
--  }
--
--  Value *generateScalarLoad(const LoadInst *load, ValueMapT &BBMap) {
--    const Value *pointer = load->getPointerOperand();
--    const Instruction *Inst = dyn_cast<Instruction>(load);
--    Value *newPointer = generateLocationAccessed(Inst, pointer, BBMap);
--    Value *scalarLoad = Builder.CreateLoad(newPointer,
--                                           load->getNameStr() + "_p_scalar_");
--    return scalarLoad;
--  }
--
--  /// @brief Load a value (or several values as a vector) from memory.
--  void generateLoad(const LoadInst *load, ValueMapT &vectorMap,
--                    VectorValueMapT &scalarMaps, int vectorWidth) {
--
--    if (scalarMaps.size() == 1) {
--      scalarMaps[0][load] = generateScalarLoad(load, scalarMaps[0]);
--      return;
--    }
--
--    Value *newLoad;
--
--    MemoryAccess &Access = statement.getAccessFor(load);
--
--    assert(scatteringDomain && "No scattering domain available");
--
--    if (Access.isStrideZero(scatteringDomain))
--      newLoad = generateStrideZeroLoad(load, scalarMaps[0], vectorWidth);
--    else if (Access.isStrideOne(scatteringDomain))
--      newLoad = generateStrideOneLoad(load, scalarMaps[0], vectorWidth);
--    else
--      newLoad = generateUnknownStrideLoad(load, scalarMaps, vectorWidth);
--
--    vectorMap[load] = newLoad;
--  }
--
--  void copyInstruction(const Instruction *Inst, ValueMapT &BBMap,
--                       ValueMapT &vectorMap, VectorValueMapT &scalarMaps,
--                       int vectorDimension, int vectorWidth) {
--    // If this instruction is already in the vectorMap, a vector instruction
--    // was already issued, that calculates the values of all dimensions. No
--    // need to create any more instructions.
--    if (vectorMap.count(Inst))
--      return;
--
--    // Terminator instructions control the control flow. They are explicitally
--    // expressed in the clast and do not need to be copied.
--    if (Inst->isTerminator())
--      return;
--
--    if (const LoadInst *load = dyn_cast<LoadInst>(Inst)) {
--      generateLoad(load, vectorMap, scalarMaps, vectorWidth);
--      return;
--    }
--
--    if (const BinaryOperator *binaryInst = dyn_cast<BinaryOperator>(Inst)) {
--      Value *opZero = Inst->getOperand(0);
--      Value *opOne = Inst->getOperand(1);
--
--      // This is an old instruction that can be ignored.
--      if (!opZero && !opOne)
--        return;
--
--      bool isVectorOp = vectorMap.count(opZero) || vectorMap.count(opOne);
--
--      if (isVectorOp && vectorDimension > 0)
--        return;
--
--      Value *newOpZero, *newOpOne;
--      newOpZero = getOperand(opZero, BBMap, &vectorMap);
--      newOpOne = getOperand(opOne, BBMap, &vectorMap);
--
--
--      std::string name;
--      if (isVectorOp) {
--        newOpZero = makeVectorOperand(newOpZero, vectorWidth);
--        newOpOne = makeVectorOperand(newOpOne, vectorWidth);
--        name =  Inst->getNameStr() + "p_vec";
--      } else
--        name = Inst->getNameStr() + "p_sca";
--
--      Value *newInst = Builder.CreateBinOp(binaryInst->getOpcode(), newOpZero,
--                                           newOpOne, name);
--      if (isVectorOp)
--        vectorMap[Inst] = newInst;
--      else
--        BBMap[Inst] = newInst;
--
--      return;
--    }
--
--    if (const StoreInst *store = dyn_cast<StoreInst>(Inst)) {
--      if (vectorMap.count(store->getValueOperand()) > 0) {
--
--        // We only need to generate one store if we are in vector mode.
--        if (vectorDimension > 0)
--          return;
--
--        MemoryAccess &Access = statement.getAccessFor(store);
--
--        assert(scatteringDomain && "No scattering domain available");
--
--        const Value *pointer = store->getPointerOperand();
--        Value *vector = getOperand(store->getValueOperand(), BBMap, &vectorMap);
--
--        if (Access.isStrideOne(scatteringDomain)) {
--          Type *vectorPtrType = getVectorPtrTy(pointer, vectorWidth);
--          Value *newPointer = getOperand(pointer, BBMap, &vectorMap);
--
--          Value *VectorPtr = Builder.CreateBitCast(newPointer, vectorPtrType,
--                                                   "vector_ptr");
--          StoreInst *Store = Builder.CreateStore(vector, VectorPtr);
--
--          if (!Aligned)
--            Store->setAlignment(8);
--        } else {
--          for (unsigned i = 0; i < scalarMaps.size(); i++) {
--            Value *scalar = Builder.CreateExtractElement(vector,
--                                                         Builder.getInt32(i));
--            Value *newPointer = getOperand(pointer, scalarMaps[i]);
--            Builder.CreateStore(scalar, newPointer);
--          }
--        }
--
--        return;
--      }
--    }
--
--    Instruction *NewInst = Inst->clone();
--
--    // Copy the operands in temporary vector, as an in place update
--    // fails if an instruction is referencing the same operand twice.
--    std::vector<Value*> Operands(NewInst->op_begin(), NewInst->op_end());
--
--    // Replace old operands with the new ones.
--    for (std::vector<Value*>::iterator UI = Operands.begin(),
--         UE = Operands.end(); UI != UE; ++UI) {
--      Value *newOperand = getOperand(*UI, BBMap);
--
--      if (!newOperand) {
--        assert(!isa<StoreInst>(NewInst)
--               && "Store instructions are always needed!");
--        delete NewInst;
--        return;
--      }
--
--      NewInst->replaceUsesOfWith(*UI, newOperand);
--    }
--
--    Builder.Insert(NewInst);
--    BBMap[Inst] = NewInst;
--
--    if (!NewInst->getType()->isVoidTy())
--      NewInst->setName("p_" + Inst->getName());
--  }
--
--  int getVectorSize() {
--    return ValueMaps.size();
--  }
--
--  bool isVectorBlock() {
--    return getVectorSize() > 1;
--  }
--
--  // Insert a copy of a basic block in the newly generated code.
--  //
--  // @param Builder The builder used to insert the code. It also specifies
--  //                where to insert the code.
--  // @param BB      The basic block to copy
--  // @param VMap    A map returning for any old value its new equivalent. This
--  //                is used to update the operands of the statements.
--  //                For new statements a relation old->new is inserted in this
--  //                map.
--  void copyBB(BasicBlock *BB, DominatorTree *DT) {
--    Function *F = Builder.GetInsertBlock()->getParent();
--    LLVMContext &Context = F->getContext();
--    BasicBlock *CopyBB = BasicBlock::Create(Context,
--                                            "polly.stmt_" + BB->getNameStr(),
--                                            F);
--    Builder.CreateBr(CopyBB);
--    DT->addNewBlock(CopyBB, Builder.GetInsertBlock());
--    Builder.SetInsertPoint(CopyBB);
--
--    // Create two maps that store the mapping from the original instructions of
--    // the old basic block to their copies in the new basic block. Those maps
--    // are basic block local.
--    //
--    // As vector code generation is supported there is one map for scalar values
--    // and one for vector values.
--    //
--    // In case we just do scalar code generation, the vectorMap is not used and
--    // the scalarMap has just one dimension, which contains the mapping.
--    //
--    // In case vector code generation is done, an instruction may either appear
--    // in the vector map once (as it is calculating >vectorwidth< values at a
--    // time. Or (if the values are calculated using scalar operations), it
--    // appears once in every dimension of the scalarMap.
--    VectorValueMapT scalarBlockMap(getVectorSize());
--    ValueMapT vectorBlockMap;
--
--    for (BasicBlock::const_iterator II = BB->begin(), IE = BB->end();
--         II != IE; ++II)
--      for (int i = 0; i < getVectorSize(); i++) {
--        if (isVectorBlock())
--          VMap = ValueMaps[i];
--
--        copyInstruction(II, scalarBlockMap[i], vectorBlockMap,
--                        scalarBlockMap, i, getVectorSize());
--      }
--  }
-+	BlockGenerator(IRBuilder<> &B, ValueMapT &vmap, VectorValueMapT &vmaps,
-+	               ScopStmt &Stmt, isl_set *domain)
-+		: Builder(B), VMap(vmap), ValueMaps(vmaps), S(*Stmt.getParent()),
-+		  statement(Stmt), scatteringDomain(domain) {}
-+
-+	const Region &getRegion() {
-+		return S.getRegion();
-+	}
-+
-+	Value* makeVectorOperand(Value *operand, int vectorWidth) {
-+		if (operand->getType()->isVectorTy())
-+			return operand;
-+
-+		VectorType *vectorType = VectorType::get(operand->getType(), vectorWidth);
-+		Value *vector = UndefValue::get(vectorType);
-+		vector = Builder.CreateInsertElement(vector, operand, Builder.getInt32(0));
-+
-+		std::vector<Constant*> splat;
-+
-+		for (int i = 0; i < vectorWidth; i++)
-+			splat.push_back (Builder.getInt32(0));
-+
-+		Constant *splatVector = ConstantVector::get(splat);
-+
-+		return Builder.CreateShuffleVector(vector, vector, splatVector);
-+	}
-+
-+	Value* getOperand(const Value *oldOperand, ValueMapT &BBMap,
-+	                  ValueMapT *VectorMap = 0) {
-+		const Instruction *OpInst = dyn_cast<Instruction>(oldOperand);
-+
-+		if (!OpInst)
-+			return const_cast<Value*>(oldOperand);
-+
-+		if (VectorMap && VectorMap->count(oldOperand))
-+			return (*VectorMap)[oldOperand];
-+
-+		// IVS and Parameters.
-+		if (VMap.count(oldOperand)) {
-+			Value *NewOperand = VMap[oldOperand];
-+
-+			// Insert a cast if types are different
-+			if (oldOperand->getType()->getScalarSizeInBits()
-+			    < NewOperand->getType()->getScalarSizeInBits())
-+				NewOperand = Builder.CreateTruncOrBitCast(NewOperand,
-+				             oldOperand->getType());
-+
-+			return NewOperand;
-+		}
-+
-+		// Instructions calculated in the current BB.
-+		if (BBMap.count(oldOperand)) {
-+			return BBMap[oldOperand];
-+		}
-+
-+		// Ignore instructions that are referencing ops in the old BB. These
-+		// instructions are unused. They where replace by new ones during
-+		// createIndependentBlocks().
-+		if (getRegion().contains(OpInst->getParent()))
-+			return NULL;
-+
-+		return const_cast<Value*>(oldOperand);
-+	}
-+
-+	Type *getVectorPtrTy(const Value *V, int vectorWidth) {
-+		PointerType *pointerType = dyn_cast<PointerType>(V->getType());
-+		assert(pointerType && "PointerType expected");
-+
-+		Type *scalarType = pointerType->getElementType();
-+		VectorType *vectorType = VectorType::get(scalarType, vectorWidth);
-+
-+		return PointerType::getUnqual(vectorType);
-+	}
-+
-+	/// @brief Load a vector from a set of adjacent scalars
-+	///
-+	/// In case a set of scalars is known to be next to each other in memory,
-+	/// create a vector load that loads those scalars
-+	///
-+	/// %vector_ptr= bitcast double* %p to <4 x double>*
-+	/// %vec_full = load <4 x double>* %vector_ptr
-+	///
-+	Value *generateStrideOneLoad(const LoadInst *load, ValueMapT &BBMap,
-+	                             int size) {
-+		const Value *pointer = load->getPointerOperand();
-+		Type *vectorPtrType = getVectorPtrTy(pointer, size);
-+		Value *newPointer = getOperand(pointer, BBMap);
-+		Value *VectorPtr = Builder.CreateBitCast(newPointer, vectorPtrType,
-+		                   "vector_ptr");
-+		LoadInst *VecLoad = Builder.CreateLoad(VectorPtr,
-+		                                       load->getNameStr()
-+		                                       + "_p_vec_full");
-+		if (!Aligned)
-+			VecLoad->setAlignment(8);
-+
-+		return VecLoad;
-+	}
-+
-+	/// @brief Load a vector initialized from a single scalar in memory
-+	///
-+	/// In case all elements of a vector are initialized to the same
-+	/// scalar value, this value is loaded and shuffeled into all elements
-+	/// of the vector.
-+	///
-+	/// %splat_one = load <1 x double>* %p
-+	/// %splat = shufflevector <1 x double> %splat_one, <1 x
-+	///       double> %splat_one, <4 x i32> zeroinitializer
-+	///
-+	Value *generateStrideZeroLoad(const LoadInst *load, ValueMapT &BBMap,
-+	                              int size) {
-+		const Value *pointer = load->getPointerOperand();
-+		Type *vectorPtrType = getVectorPtrTy(pointer, 1);
-+		Value *newPointer = getOperand(pointer, BBMap);
-+		Value *vectorPtr = Builder.CreateBitCast(newPointer, vectorPtrType,
-+		                   load->getNameStr() + "_p_vec_p");
-+		LoadInst *scalarLoad= Builder.CreateLoad(vectorPtr,
-+		                      load->getNameStr() + "_p_splat_one");
-+
-+		if (!Aligned)
-+			scalarLoad->setAlignment(8);
-+
-+		std::vector<Constant*> splat;
-+
-+		for (int i = 0; i < size; i++)
-+			splat.push_back (Builder.getInt32(0));
-+
-+		Constant *splatVector = ConstantVector::get(splat);
-+
-+		Value *vectorLoad = Builder.CreateShuffleVector(scalarLoad, scalarLoad,
-+		                    splatVector,
-+		                    load->getNameStr()
-+		                    + "_p_splat");
-+		return vectorLoad;
-+	}
-+
-+	/// @Load a vector from scalars distributed in memory
-+	///
-+	/// In case some scalars a distributed randomly in memory. Create a vector
-+	/// by loading each scalar and by inserting one after the other into the
-+	/// vector.
-+	///
-+	/// %scalar_1= load double* %p_1
-+	/// %vec_1 = insertelement <2 x double> undef, double %scalar_1, i32 0
-+	/// %scalar 2 = load double* %p_2
-+	/// %vec_2 = insertelement <2 x double> %vec_1, double %scalar_1, i32 1
-+	///
-+	Value *generateUnknownStrideLoad(const LoadInst *load,
-+	                                 VectorValueMapT &scalarMaps,
-+	                                 int size) {
-+		const Value *pointer = load->getPointerOperand();
-+		VectorType *vectorType = VectorType::get(
-+		                             dyn_cast<PointerType>(pointer->getType())->getElementType(), size);
-+
-+		Value *vector = UndefValue::get(vectorType);
-+
-+		for (int i = 0; i < size; i++) {
-+			Value *newPointer = getOperand(pointer, scalarMaps[i]);
-+			Value *scalarLoad = Builder.CreateLoad(newPointer,
-+			                                       load->getNameStr() + "_p_scalar_");
-+			vector = Builder.CreateInsertElement(vector, scalarLoad,
-+			                                     Builder.getInt32(i),
-+			                                     load->getNameStr() + "_p_vec_");
-+		}
-+
-+		return vector;
-+	}
-+
-+	/// @brief Get the new operand address according to the changed access in
-+	///        JSCOP file.
-+	Value *getNewAccessOperand(isl_map *newAccessRelation, Value *baseAddr,
-+	                           const Value *oldOperand, ValueMapT &BBMap) {
-+		unsigned accessIdx = 0;
-+		Value *newOperand = Builder.CreateStructGEP(baseAddr,
-+		                    accessIdx, "p_newarrayidx_");
-+		return newOperand;
-+	}
-+
-+	/// @brief Generate the operand address
-+	Value *generateLocationAccessed(const Instruction *Inst,
-+	                                const Value *pointer, ValueMapT &BBMap ) {
-+		MemoryAccess &access = statement.getAccessFor(Inst);
-+		isl_map *newAccessRelation = access.getNewAccessFunction();
-+		if (!newAccessRelation) {
-+			Value *newPointer = getOperand(pointer, BBMap);
-+			return newPointer;
-+		}
-+
-+		Value *baseAddr = const_cast<Value*>(access.getBaseAddr());
-+		Value *newPointer = getNewAccessOperand(newAccessRelation, baseAddr,
-+		                                        pointer, BBMap);
-+		return newPointer;
-+	}
-+
-+	Value *generateScalarLoad(const LoadInst *load, ValueMapT &BBMap) {
-+		const Value *pointer = load->getPointerOperand();
-+		const Instruction *Inst = dyn_cast<Instruction>(load);
-+		Value *newPointer = generateLocationAccessed(Inst, pointer, BBMap);
-+		Value *scalarLoad = Builder.CreateLoad(newPointer,
-+		                                       load->getNameStr() + "_p_scalar_");
-+		return scalarLoad;
-+	}
-+
-+	/// @brief Load a value (or several values as a vector) from memory.
-+	void generateLoad(const LoadInst *load, ValueMapT &vectorMap,
-+	                  VectorValueMapT &scalarMaps, int vectorWidth) {
-+
-+		if (scalarMaps.size() == 1) {
-+			scalarMaps[0][load] = generateScalarLoad(load, scalarMaps[0]);
-+			return;
-+		}
-+
-+		Value *newLoad;
-+
-+		MemoryAccess &Access = statement.getAccessFor(load);
-+
-+		assert(scatteringDomain && "No scattering domain available");
-+
-+		if (Access.isStrideZero(scatteringDomain))
-+			newLoad = generateStrideZeroLoad(load, scalarMaps[0], vectorWidth);
-+		else if (Access.isStrideOne(scatteringDomain))
-+			newLoad = generateStrideOneLoad(load, scalarMaps[0], vectorWidth);
-+		else
-+			newLoad = generateUnknownStrideLoad(load, scalarMaps, vectorWidth);
-+
-+		vectorMap[load] = newLoad;
-+	}
-+
-+	void copyInstruction(const Instruction *Inst, ValueMapT &BBMap,
-+	                     ValueMapT &vectorMap, VectorValueMapT &scalarMaps,
-+	                     int vectorDimension, int vectorWidth) {
-+		// If this instruction is already in the vectorMap, a vector instruction
-+		// was already issued, that calculates the values of all dimensions. No
-+		// need to create any more instructions.
-+		if (vectorMap.count(Inst))
-+			return;
-+
-+		// Terminator instructions control the control flow. They are explicitally
-+		// expressed in the clast and do not need to be copied.
-+		if (Inst->isTerminator())
-+			return;
-+
-+		if (const LoadInst *load = dyn_cast<LoadInst>(Inst)) {
-+			generateLoad(load, vectorMap, scalarMaps, vectorWidth);
-+			return;
-+		}
-+
-+		if (const BinaryOperator *binaryInst = dyn_cast<BinaryOperator>(Inst)) {
-+			Value *opZero = Inst->getOperand(0);
-+			Value *opOne = Inst->getOperand(1);
-+
-+			// This is an old instruction that can be ignored.
-+			if (!opZero && !opOne)
-+				return;
-+
-+			bool isVectorOp = vectorMap.count(opZero) || vectorMap.count(opOne);
-+
-+			if (isVectorOp && vectorDimension > 0)
-+				return;
-+
-+			Value *newOpZero, *newOpOne;
-+			newOpZero = getOperand(opZero, BBMap, &vectorMap);
-+			newOpOne = getOperand(opOne, BBMap, &vectorMap);
-+
-+
-+			std::string name;
-+			if (isVectorOp) {
-+				newOpZero = makeVectorOperand(newOpZero, vectorWidth);
-+				newOpOne = makeVectorOperand(newOpOne, vectorWidth);
-+				name =  Inst->getNameStr() + "p_vec";
-+			} else
-+				name = Inst->getNameStr() + "p_sca";
-+
-+			Value *newInst = Builder.CreateBinOp(binaryInst->getOpcode(), newOpZero,
-+			                                     newOpOne, name);
-+			if (isVectorOp)
-+				vectorMap[Inst] = newInst;
-+			else
-+				BBMap[Inst] = newInst;
-+
-+			return;
-+		}
-+
-+		if (const StoreInst *store = dyn_cast<StoreInst>(Inst)) {
-+			if (vectorMap.count(store->getValueOperand()) > 0) {
-+
-+				// We only need to generate one store if we are in vector mode.
-+				if (vectorDimension > 0)
-+					return;
-+
-+				MemoryAccess &Access = statement.getAccessFor(store);
-+
-+				assert(scatteringDomain && "No scattering domain available");
-+
-+				const Value *pointer = store->getPointerOperand();
-+				Value *vector = getOperand(store->getValueOperand(), BBMap, &vectorMap);
-+
-+				if (Access.isStrideOne(scatteringDomain)) {
-+					Type *vectorPtrType = getVectorPtrTy(pointer, vectorWidth);
-+					Value *newPointer = getOperand(pointer, BBMap, &vectorMap);
-+
-+					Value *VectorPtr = Builder.CreateBitCast(newPointer, vectorPtrType,
-+					                   "vector_ptr");
-+					StoreInst *Store = Builder.CreateStore(vector, VectorPtr);
-+
-+					if (!Aligned)
-+						Store->setAlignment(8);
-+				} else {
-+					for (unsigned i = 0; i < scalarMaps.size(); i++) {
-+						Value *scalar = Builder.CreateExtractElement(vector,
-+						                Builder.getInt32(i));
-+						Value *newPointer = getOperand(pointer, scalarMaps[i]);
-+						Builder.CreateStore(scalar, newPointer);
-+					}
-+				}
-+
-+				return;
-+			}
-+		}
-+
-+		Instruction *NewInst = Inst->clone();
-+
-+		// Copy the operands in temporary vector, as an in place update
-+		// fails if an instruction is referencing the same operand twice.
-+		std::vector<Value*> Operands(NewInst->op_begin(), NewInst->op_end());
-+
-+		// Replace old operands with the new ones.
-+		for (std::vector<Value*>::iterator UI = Operands.begin(),
-+		     UE = Operands.end(); UI != UE; ++UI) {
-+			Value *newOperand = getOperand(*UI, BBMap);
-+
-+			if (!newOperand) {
-+				assert(!isa<StoreInst>(NewInst)
-+				       && "Store instructions are always needed!");
-+				delete NewInst;
-+				return;
-+			}
-+
-+			NewInst->replaceUsesOfWith(*UI, newOperand);
-+		}
-+
-+		Builder.Insert(NewInst);
-+		BBMap[Inst] = NewInst;
-+
-+		if (!NewInst->getType()->isVoidTy())
-+			NewInst->setName("p_" + Inst->getName());
-+	}
-+
-+	int getVectorSize() {
-+		return ValueMaps.size();
-+	}
-+
-+	bool isVectorBlock() {
-+		return getVectorSize() > 1;
-+	}
-+
-+	// Insert a copy of a basic block in the newly generated code.
-+	//
-+	// @param Builder The builder used to insert the code. It also specifies
-+	//                where to insert the code.
-+	// @param BB      The basic block to copy
-+	// @param VMap    A map returning for any old value its new equivalent. This
-+	//                is used to update the operands of the statements.
-+	//                For new statements a relation old->new is inserted in this
-+	//                map.
-+	void copyBB(BasicBlock *BB, DominatorTree *DT) {
-+		Function *F = Builder.GetInsertBlock()->getParent();
-+		LLVMContext &Context = F->getContext();
-+		BasicBlock *CopyBB = BasicBlock::Create(Context,
-+		                                        "polly.stmt_" + BB->getNameStr(),
-+		                                        F);
-+		Builder.CreateBr(CopyBB);
-+		DT->addNewBlock(CopyBB, Builder.GetInsertBlock());
-+		Builder.SetInsertPoint(CopyBB);
-+
-+		// Create two maps that store the mapping from the original instructions of
-+		// the old basic block to their copies in the new basic block. Those maps
-+		// are basic block local.
-+		//
-+		// As vector code generation is supported there is one map for scalar values
-+		// and one for vector values.
-+		//
-+		// In case we just do scalar code generation, the vectorMap is not used and
-+		// the scalarMap has just one dimension, which contains the mapping.
-+		//
-+		// In case vector code generation is done, an instruction may either appear
-+		// in the vector map once (as it is calculating >vectorwidth< values at a
-+		// time. Or (if the values are calculated using scalar operations), it
-+		// appears once in every dimension of the scalarMap.
-+		VectorValueMapT scalarBlockMap(getVectorSize());
-+		ValueMapT vectorBlockMap;
-+
-+		for (BasicBlock::const_iterator II = BB->begin(), IE = BB->end();
-+		     II != IE; ++II)
-+			for (int i = 0; i < getVectorSize(); i++) {
-+				if (isVectorBlock())
-+					VMap = ValueMaps[i];
-+
-+				copyInstruction(II, scalarBlockMap[i], vectorBlockMap,
-+				                scalarBlockMap, i, getVectorSize());
-+			}
-+	}
- };
+   std::vector<std::string> parallelLoops;
  
- /// Class to generate LLVM-IR that calculates the value of a clast_expr.
--class ClastExpCodeGen {
--  IRBuilder<> &Builder;
--  const CharMapT *IVS;
--
--  Value *codegen(const clast_name *e, Type *Ty) {
--    CharMapT::const_iterator I = IVS->find(e->name);
--
--    if (I != IVS->end())
--      return Builder.CreateSExtOrBitCast(I->second, Ty);
--    else
--      llvm_unreachable("Clast name not found");
--  }
--
--  Value *codegen(const clast_term *e, Type *Ty) {
--    APInt a = APInt_from_MPZ(e->val);
--
--    Value *ConstOne = ConstantInt::get(Builder.getContext(), a);
--    ConstOne = Builder.CreateSExtOrBitCast(ConstOne, Ty);
--
--    if (e->var) {
--      Value *var = codegen(e->var, Ty);
--      return Builder.CreateMul(ConstOne, var);
--    }
--
--    return ConstOne;
--  }
--
--  Value *codegen(const clast_binary *e, Type *Ty) {
--    Value *LHS = codegen(e->LHS, Ty);
--
--    APInt RHS_AP = APInt_from_MPZ(e->RHS);
--
--    Value *RHS = ConstantInt::get(Builder.getContext(), RHS_AP);
--    RHS = Builder.CreateSExtOrBitCast(RHS, Ty);
--
--    switch (e->type) {
--    case clast_bin_mod:
--      return Builder.CreateSRem(LHS, RHS);
--    case clast_bin_fdiv:
--      {
--        // floord(n,d) ((n < 0) ? (n - d + 1) : n) / d
--        Value *One = ConstantInt::get(Builder.getInt1Ty(), 1);
--        Value *Zero = ConstantInt::get(Builder.getInt1Ty(), 0);
--        One = Builder.CreateZExtOrBitCast(One, Ty);
--        Zero = Builder.CreateZExtOrBitCast(Zero, Ty);
--        Value *Sum1 = Builder.CreateSub(LHS, RHS);
--        Value *Sum2 = Builder.CreateAdd(Sum1, One);
--        Value *isNegative = Builder.CreateICmpSLT(LHS, Zero);
--        Value *Dividend = Builder.CreateSelect(isNegative, Sum2, LHS);
--        return Builder.CreateSDiv(Dividend, RHS);
--      }
--    case clast_bin_cdiv:
--      {
--        // ceild(n,d) ((n < 0) ? n : (n + d - 1)) / d
--        Value *One = ConstantInt::get(Builder.getInt1Ty(), 1);
--        Value *Zero = ConstantInt::get(Builder.getInt1Ty(), 0);
--        One = Builder.CreateZExtOrBitCast(One, Ty);
--        Zero = Builder.CreateZExtOrBitCast(Zero, Ty);
--        Value *Sum1 = Builder.CreateAdd(LHS, RHS);
--        Value *Sum2 = Builder.CreateSub(Sum1, One);
--        Value *isNegative = Builder.CreateICmpSLT(LHS, Zero);
--        Value *Dividend = Builder.CreateSelect(isNegative, LHS, Sum2);
--        return Builder.CreateSDiv(Dividend, RHS);
--      }
--    case clast_bin_div:
--      return Builder.CreateSDiv(LHS, RHS);
--    default:
--      llvm_unreachable("Unknown clast binary expression type");
--    };
--  }
--
--  Value *codegen(const clast_reduction *r, Type *Ty) {
--    assert((   r->type == clast_red_min
--            || r->type == clast_red_max
--            || r->type == clast_red_sum)
--           && "Clast reduction type not supported");
--    Value *old = codegen(r->elts[0], Ty);
--
--    for (int i=1; i < r->n; ++i) {
--      Value *exprValue = codegen(r->elts[i], Ty);
--
--      switch (r->type) {
--      case clast_red_min:
--        {
--          Value *cmp = Builder.CreateICmpSLT(old, exprValue);
--          old = Builder.CreateSelect(cmp, old, exprValue);
--          break;
--        }
--      case clast_red_max:
--        {
--          Value *cmp = Builder.CreateICmpSGT(old, exprValue);
--          old = Builder.CreateSelect(cmp, old, exprValue);
--          break;
--        }
--      case clast_red_sum:
--        old = Builder.CreateAdd(old, exprValue);
--        break;
--      default:
--        llvm_unreachable("Clast unknown reduction type");
--      }
--    }
-+class ClastExpCodeGen
-+{
-+	IRBuilder<> &Builder;
-+	const CharMapT *IVS;
-+
-+	Value *codegen(const clast_name *e, Type *Ty) {
-+		CharMapT::const_iterator I = IVS->find(e->name);
-+
-+		if (I != IVS->end())
-+			return Builder.CreateSExtOrBitCast(I->second, Ty);
-+		else
-+			llvm_unreachable("Clast name not found");
-+	}
-+
-+	Value *codegen(const clast_term *e, Type *Ty) {
-+		APInt a = APInt_from_MPZ(e->val);
-+
-+		Value *ConstOne = ConstantInt::get(Builder.getContext(), a);
-+		ConstOne = Builder.CreateSExtOrBitCast(ConstOne, Ty);
-+
-+		if (e->var) {
-+			Value *var = codegen(e->var, Ty);
-+			return Builder.CreateMul(ConstOne, var);
-+		}
-+
-+		return ConstOne;
-+	}
-+
-+	Value *codegen(const clast_binary *e, Type *Ty) {
-+		Value *LHS = codegen(e->LHS, Ty);
-+
-+		APInt RHS_AP = APInt_from_MPZ(e->RHS);
-+
-+		Value *RHS = ConstantInt::get(Builder.getContext(), RHS_AP);
-+		RHS = Builder.CreateSExtOrBitCast(RHS, Ty);
-+
-+		switch (e->type) {
-+		case clast_bin_mod:
-+			return Builder.CreateSRem(LHS, RHS);
-+		case clast_bin_fdiv: {
-+			// floord(n,d) ((n < 0) ? (n - d + 1) : n) / d
-+			Value *One = ConstantInt::get(Builder.getInt1Ty(), 1);
-+			Value *Zero = ConstantInt::get(Builder.getInt1Ty(), 0);
-+			One = Builder.CreateZExtOrBitCast(One, Ty);
-+			Zero = Builder.CreateZExtOrBitCast(Zero, Ty);
-+			Value *Sum1 = Builder.CreateSub(LHS, RHS);
-+			Value *Sum2 = Builder.CreateAdd(Sum1, One);
-+			Value *isNegative = Builder.CreateICmpSLT(LHS, Zero);
-+			Value *Dividend = Builder.CreateSelect(isNegative, Sum2, LHS);
-+			return Builder.CreateSDiv(Dividend, RHS);
-+		}
-+		case clast_bin_cdiv: {
-+			// ceild(n,d) ((n < 0) ? n : (n + d - 1)) / d
-+			Value *One = ConstantInt::get(Builder.getInt1Ty(), 1);
-+			Value *Zero = ConstantInt::get(Builder.getInt1Ty(), 0);
-+			One = Builder.CreateZExtOrBitCast(One, Ty);
-+			Zero = Builder.CreateZExtOrBitCast(Zero, Ty);
-+			Value *Sum1 = Builder.CreateAdd(LHS, RHS);
-+			Value *Sum2 = Builder.CreateSub(Sum1, One);
-+			Value *isNegative = Builder.CreateICmpSLT(LHS, Zero);
-+			Value *Dividend = Builder.CreateSelect(isNegative, LHS, Sum2);
-+			return Builder.CreateSDiv(Dividend, RHS);
-+		}
-+		case clast_bin_div:
-+			return Builder.CreateSDiv(LHS, RHS);
-+		default:
-+			llvm_unreachable("Unknown clast binary expression type");
-+		};
-+	}
-+
-+	Value *codegen(const clast_reduction *r, Type *Ty) {
-+		assert((   r->type == clast_red_min
-+		           || r->type == clast_red_max
-+		           || r->type == clast_red_sum)
-+		       && "Clast reduction type not supported");
-+		Value *old = codegen(r->elts[0], Ty);
-+
-+		for (int i=1; i < r->n; ++i) {
-+			Value *exprValue = codegen(r->elts[i], Ty);
-+
-+			switch (r->type) {
-+			case clast_red_min: {
-+				Value *cmp = Builder.CreateICmpSLT(old, exprValue);
-+				old = Builder.CreateSelect(cmp, old, exprValue);
-+				break;
-+			}
-+			case clast_red_max: {
-+				Value *cmp = Builder.CreateICmpSGT(old, exprValue);
-+				old = Builder.CreateSelect(cmp, old, exprValue);
-+				break;
-+			}
-+			case clast_red_sum:
-+				old = Builder.CreateAdd(old, exprValue);
-+				break;
-+			default:
-+				llvm_unreachable("Clast unknown reduction type");
-+			}
-+		}
- 
--    return old;
--  }
-+		return old;
-+	}
- 
- public:
- 
--  // A generator for clast expressions.
--  //
--  // @param B The IRBuilder that defines where the code to calculate the
--  //          clast expressions should be inserted.
--  // @param IVMAP A Map that translates strings describing the induction
--  //              variables to the Values* that represent these variables
--  //              on the LLVM side.
--  ClastExpCodeGen(IRBuilder<> &B, CharMapT *IVMap) : Builder(B), IVS(IVMap) {}
--
--  // Generates code to calculate a given clast expression.
--  //
--  // @param e The expression to calculate.
--  // @return The Value that holds the result.
--  Value *codegen(const clast_expr *e, Type *Ty) {
--    switch(e->type) {
--      case clast_expr_name:
--	return codegen((const clast_name *)e, Ty);
--      case clast_expr_term:
--	return codegen((const clast_term *)e, Ty);
--      case clast_expr_bin:
--	return codegen((const clast_binary *)e, Ty);
--      case clast_expr_red:
--	return codegen((const clast_reduction *)e, Ty);
--      default:
--        llvm_unreachable("Unknown clast expression!");
--    }
--  }
--
--  // @brief Reset the CharMap.
--  //
--  // This function is called to reset the CharMap to new one, while generating
--  // OpenMP code.
--  void setIVS(CharMapT *IVSNew) {
--    IVS = IVSNew;
--  }
-+	// A generator for clast expressions.
-+	//
-+	// @param B The IRBuilder that defines where the code to calculate the
-+	//          clast expressions should be inserted.
-+	// @param IVMAP A Map that translates strings describing the induction
-+	//              variables to the Values* that represent these variables
-+	//              on the LLVM side.
-+	ClastExpCodeGen(IRBuilder<> &B, CharMapT *IVMap) : Builder(B), IVS(IVMap) {}
-+
-+	// Generates code to calculate a given clast expression.
-+	//
-+	// @param e The expression to calculate.
-+	// @return The Value that holds the result.
-+	Value *codegen(const clast_expr *e, Type *Ty) {
-+		switch(e->type) {
-+		case clast_expr_name:
-+			return codegen((const clast_name *)e, Ty);
-+		case clast_expr_term:
-+			return codegen((const clast_term *)e, Ty);
-+		case clast_expr_bin:
-+			return codegen((const clast_binary *)e, Ty);
-+		case clast_expr_red:
-+			return codegen((const clast_reduction *)e, Ty);
-+		default:
-+			llvm_unreachable("Unknown clast expression!");
-+		}
-+	}
-+
-+	// @brief Reset the CharMap.
-+	//
-+	// This function is called to reset the CharMap to new one, while generating
-+	// OpenMP code.
-+	void setIVS(CharMapT *IVSNew) {
-+		IVS = IVSNew;
-+	}
- 
- };
- 
--class ClastStmtCodeGen {
--  // The Scop we code generate.
--  Scop *S;
--  ScalarEvolution &SE;
--  DominatorTree *DT;
--  ScopDetection *SD;
--  Dependences *DP;
--  TargetData *TD;
--
--  // The Builder specifies the current location to code generate at.
--  IRBuilder<> &Builder;
--
--  // Map the Values from the old code to their counterparts in the new code.
--  ValueMapT ValueMap;
--
--  // clastVars maps from the textual representation of a clast variable to its
--  // current *Value. clast variables are scheduling variables, original
--  // induction variables or parameters. They are used either in loop bounds or
--  // to define the statement instance that is executed.
--  //
--  //   for (s = 0; s < n + 3; ++i)
--  //     for (t = s; t < m; ++j)
--  //       Stmt(i = s + 3 * m, j = t);
--  //
--  // {s,t,i,j,n,m} is the set of clast variables in this clast.
--  CharMapT *clastVars;
--
--  // Codegenerator for clast expressions.
--  ClastExpCodeGen ExpGen;
-+class ClastStmtCodeGen
-+{
-+	// The Scop we code generate.
-+	Scop *S;
-+	ScalarEvolution &SE;
-+	DominatorTree *DT;
-+	ScopDetection *SD;
-+	Dependences *DP;
-+	TargetData *TD;
-+
-+	// The Builder specifies the current location to code generate at.
-+	IRBuilder<> &Builder;
-+
-+	// Map the Values from the old code to their counterparts in the new code.
-+	ValueMapT ValueMap;
-+
-+	// clastVars maps from the textual representation of a clast variable to its
-+	// current *Value. clast variables are scheduling variables, original
-+	// induction variables or parameters. They are used either in loop bounds or
-+	// to define the statement instance that is executed.
-+	//
-+	//   for (s = 0; s < n + 3; ++i)
-+	//     for (t = s; t < m; ++j)
-+	//       Stmt(i = s + 3 * m, j = t);
-+	//
-+	// {s,t,i,j,n,m} is the set of clast variables in this clast.
-+	CharMapT *clastVars;
-+
-+	// Codegenerator for clast expressions.
-+	ClastExpCodeGen ExpGen;
-+
-+	// Do we currently generate parallel code?
-+	bool parallelCodeGeneration;
-+
 +////////////////////////////////////////////////////////////////////////////////////////////////////
-+	std::vector<std::string> parallelLoops;	//Each thread has it's own position in Grid           //
++	//Each thread has it's own position in Grid                                                   //
 +	//That position is computed in runtime for each dimension of grid                             //
 +	vector<Value* > BlockPositionInGrid;                                                          //
 +	vector<Value* > ThreadPositionInBlock;                                                        //
@@ -1406,1649 +137,273 @@
 +	//Maximal count of good nested parallel loops, which can be parallelized                      //
 +	int MaxDimensionsCount;                                                                       //
 +////////////////////////////////////////////////////////////////////////////////////////////////////
-+public:
- 
--  // Do we currently generate parallel code?
--  bool parallelCodeGeneration;
-+	const std::vector<std::string> &getParallelLoops() {
-+		return parallelLoops;
-+	}
 +
-+protected:
-+	void codegen(const clast_assignment *a) {
-+		(*clastVars)[a->LHS] = ExpGen.codegen(a->RHS,
-+		                                      TD->getIntPtrType(Builder.getContext()));
-+	}
-+
-+	void codegen(const clast_assignment *a, ScopStmt *Statement,
-+	             unsigned Dimension, int vectorDim,
-+	             std::vector<ValueMapT> *VectorVMap = 0) {
-+		Value *RHS = ExpGen.codegen(a->RHS,
-+		                            TD->getIntPtrType(Builder.getContext()));
-+
-+		assert(!a->LHS && "Statement assignments do not have left hand side");
-+		const PHINode *PN;
-+		PN = Statement->getInductionVariableForDimension(Dimension);
-+		const Value *V = PN;
-+
-+		if (VectorVMap)
-+			(*VectorVMap)[vectorDim][V] = RHS;
-+
-+		ValueMap[V] = RHS;
-+	}
-+
-+	void codegenSubstitutions(const clast_stmt *Assignment,
-+	                          ScopStmt *Statement, int vectorDim = 0,
-+	                          std::vector<ValueMapT> *VectorVMap = 0) {
-+		int Dimension = 0;
-+
-+		while (Assignment) {
-+			assert(CLAST_STMT_IS_A(Assignment, stmt_ass)
-+			       && "Substitions are expected to be assignments");
-+			codegen((const clast_assignment *)Assignment, Statement, Dimension,
-+			        vectorDim, VectorVMap);
-+			Assignment = Assignment->next;
-+			Dimension++;
-+		}
-+	}
-+
-+	void codegen(const clast_user_stmt *u, std::vector<Value*> *IVS = NULL,
-+	             const char *iterator = NULL, isl_set *scatteringDomain = 0) {
-+		ScopStmt *Statement = (ScopStmt *)u->statement->usr;
-+		BasicBlock *BB = Statement->getBasicBlock();
-+
-+		if (u->substitutions)
-+			codegenSubstitutions(u->substitutions, Statement);
-+
-+		int vectorDimensions = IVS ? IVS->size() : 1;
-+
-+		VectorValueMapT VectorValueMap(vectorDimensions);
-+
-+		if (IVS) {
-+			assert (u->substitutions && "Substitutions expected!");
-+			int i = 0;
-+			for (std::vector<Value*>::iterator II = IVS->begin(), IE = IVS->end();
-+			     II != IE; ++II) {
-+				(*clastVars)[iterator] = *II;
-+				codegenSubstitutions(u->substitutions, Statement, i, &VectorValueMap);
-+				i++;
-+			}
-+		}
-+
-+		BlockGenerator Generator(Builder, ValueMap, VectorValueMap, *Statement,
-+		                         scatteringDomain);
-+		Generator.copyBB(BB, DT);
-+	}
-+
-+	void codegen(const clast_block *b) {
-+		if (b->body)
-+			codegen(b->body);
-+	}
-+
-+	/// @brief Add a new definition of an openmp subfunction.
-+	Function* addOpenMPSubfunction(Module *M) {
-+		Function *F = Builder.GetInsertBlock()->getParent();
-+		const std::string &Name = F->getNameStr() + ".omp_subfn";
-+
-+		std::vector<Type*> Arguments(1, Builder.getInt8PtrTy());
-+		FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
-+		Function *FN = Function::Create(FT, Function::InternalLinkage, Name, M);
-+		// Do not run any polly pass on the new function.
-+		SD->markFunctionAsInvalid(FN);
-+
-+		Function::arg_iterator AI = FN->arg_begin();
-+		AI->setName("omp.userContext");
-+
-+		return FN;
-+	}
-+
-+	/// @brief Add values to the OpenMP structure.
-+	///
-+	/// Create the subfunction structure and add the values from the list.
-+	Value *addValuesToOpenMPStruct(SetVector<Value*> OMPDataVals,
-+	                               Function *SubFunction) {
-+		std::vector<Type*> structMembers;
-+
-+		// Create the structure.
-+		for (unsigned i = 0; i < OMPDataVals.size(); i++)
-+			structMembers.push_back(OMPDataVals[i]->getType());
-+
-+		StructType *structTy = StructType::get(Builder.getContext(),
-+		                                       structMembers);
-+		// Store the values into the structure.
-+		Value *structData = Builder.CreateAlloca(structTy, 0, "omp.userContext");
-+		for (unsigned i = 0; i < OMPDataVals.size(); i++) {
-+			Value *storeAddr = Builder.CreateStructGEP(structData, i);
-+			Builder.CreateStore(OMPDataVals[i], storeAddr);
-+		}
-+
-+		return structData;
-+	}
-+
-+	/// @brief Create OpenMP structure values.
-+	///
-+	/// Create a list of values that has to be stored into the subfuncition
-+	/// structure.
-+	SetVector<Value*> createOpenMPStructValues() {
-+		SetVector<Value*> OMPDataVals;
-+
-+		// Push the clast variables available in the clastVars.
-+		for (CharMapT::iterator I = clastVars->begin(), E = clastVars->end();
-+		     I != E; I++)
-+			OMPDataVals.insert(I->second);
-+
-+		// Push the base addresses of memory references.
-+		for (Scop::iterator SI = S->begin(), SE = S->end(); SI != SE; ++SI) {
-+			ScopStmt *Stmt = *SI;
-+			for (SmallVector<MemoryAccess*, 8>::iterator I = Stmt->memacc_begin(),
-+			     E = Stmt->memacc_end(); I != E; ++I) {
-+				Value *BaseAddr = const_cast<Value*>((*I)->getBaseAddr());
-+				OMPDataVals.insert((BaseAddr));
-+			}
-+		}
-+
-+		return OMPDataVals;
-+	}
-+
-+	/// @brief Extract the values from the subfunction parameter.
-+	///
-+	/// Extract the values from the subfunction parameter and update the clast
-+	/// variables to point to the new values.
-+	void extractValuesFromOpenMPStruct(CharMapT *clastVarsOMP,
-+	                                   SetVector<Value*> OMPDataVals,
-+	                                   Value *userContext) {
-+		// Extract the clast variables.
-+		unsigned i = 0;
-+		for (CharMapT::iterator I = clastVars->begin(), E = clastVars->end();
-+		     I != E; I++) {
-+			Value *loadAddr = Builder.CreateStructGEP(userContext, i);
-+			(*clastVarsOMP)[I->first] = Builder.CreateLoad(loadAddr);
-+			i++;
-+		}
-+
-+		// Extract the base addresses of memory references.
-+		for (unsigned j = i; j < OMPDataVals.size(); j++) {
-+			Value *loadAddr = Builder.CreateStructGEP(userContext, j);
-+			Value *baseAddr = OMPDataVals[j];
-+			ValueMap[baseAddr] = Builder.CreateLoad(loadAddr);
-+		}
-+
-+	}
-+
-+	/// @brief Add body to the subfunction.
-+	void addOpenMPSubfunctionBody(Function *FN, const clast_for *f,
-+	                              Value *structData,
-+	                              SetVector<Value*> OMPDataVals) {
-+		Module *M = Builder.GetInsertBlock()->getParent()->getParent();
-+		LLVMContext &Context = FN->getContext();
-+		IntegerType *intPtrTy = TD->getIntPtrType(Context);
-+
-+		// Store the previous basic block.
-+		BasicBlock *PrevBB = Builder.GetInsertBlock();
-+
-+		// Create basic blocks.
-+		BasicBlock *HeaderBB = BasicBlock::Create(Context, "omp.setup", FN);
-+		BasicBlock *ExitBB = BasicBlock::Create(Context, "omp.exit", FN);
-+		BasicBlock *checkNextBB = BasicBlock::Create(Context, "omp.checkNext", FN);
-+		BasicBlock *loadIVBoundsBB = BasicBlock::Create(Context, "omp.loadIVBounds",
-+		                             FN);
-+
-+		DT->addNewBlock(HeaderBB, PrevBB);
-+		DT->addNewBlock(ExitBB, HeaderBB);
-+		DT->addNewBlock(checkNextBB, HeaderBB);
-+		DT->addNewBlock(loadIVBoundsBB, HeaderBB);
-+
-+		// Fill up basic block HeaderBB.
-+		Builder.SetInsertPoint(HeaderBB);
-+		Value *lowerBoundPtr = Builder.CreateAlloca(intPtrTy, 0,
-+		                       "omp.lowerBoundPtr");
-+		Value *upperBoundPtr = Builder.CreateAlloca(intPtrTy, 0,
-+		                       "omp.upperBoundPtr");
-+		Value *userContext = Builder.CreateBitCast(FN->arg_begin(),
-+		                     structData->getType(),
-+		                     "omp.userContext");
-+
-+		CharMapT clastVarsOMP;
-+		extractValuesFromOpenMPStruct(&clastVarsOMP, OMPDataVals, userContext);
-+
-+		Builder.CreateBr(checkNextBB);
-+
-+		// Add code to check if another set of iterations will be executed.
-+		Builder.SetInsertPoint(checkNextBB);
-+		Function *runtimeNextFunction = M->getFunction("GOMP_loop_runtime_next");
-+		Value *ret1 = Builder.CreateCall2(runtimeNextFunction,
-+		                                  lowerBoundPtr, upperBoundPtr);
-+		Value *hasNextSchedule = Builder.CreateTrunc(ret1, Builder.getInt1Ty(),
-+		                         "omp.hasNextScheduleBlock");
-+		Builder.CreateCondBr(hasNextSchedule, loadIVBoundsBB, ExitBB);
-+
-+		// Add code to to load the iv bounds for this set of iterations.
-+		Builder.SetInsertPoint(loadIVBoundsBB);
-+		Value *lowerBound = Builder.CreateLoad(lowerBoundPtr, "omp.lowerBound");
-+		Value *upperBound = Builder.CreateLoad(upperBoundPtr, "omp.upperBound");
-+
-+		// Subtract one as the upper bound provided by openmp is a < comparison
-+		// whereas the codegenForSequential function creates a <= comparison.
-+		upperBound = Builder.CreateSub(upperBound, ConstantInt::get(intPtrTy, 1),
-+		                               "omp.upperBoundAdjusted");
-+
-+		// Use clastVarsOMP during code generation of the OpenMP subfunction.
-+		CharMapT *oldClastVars = clastVars;
-+		clastVars = &clastVarsOMP;
-+		ExpGen.setIVS(&clastVarsOMP);
-+
-+		codegenForSequential(f, lowerBound, upperBound);
-+
-+		// Restore the old clastVars.
-+		clastVars = oldClastVars;
-+		ExpGen.setIVS(oldClastVars);
-+
-+		Builder.CreateBr(checkNextBB);
-+
-+		// Add code to terminate this openmp subfunction.
-+		Builder.SetInsertPoint(ExitBB);
-+		Function *endnowaitFunction = M->getFunction("GOMP_loop_end_nowait");
-+		Builder.CreateCall(endnowaitFunction);
-+		Builder.CreateRetVoid();
-+
-+		// Restore the builder back to previous basic block.
-+		Builder.SetInsertPoint(PrevBB);
-+	}
-+
-+	/// @brief Create an OpenMP parallel for loop.
-+	///
-+	/// This loop reflects a loop as if it would have been created by an OpenMP
-+	/// statement.
-+	void codegenForOpenMP(const clast_for *f) {
-+		Module *M = Builder.GetInsertBlock()->getParent()->getParent();
-+		IntegerType *intPtrTy = TD->getIntPtrType(Builder.getContext());
-+
-+		Function *SubFunction = addOpenMPSubfunction(M);
-+		SetVector<Value*> OMPDataVals = createOpenMPStructValues();
-+		Value *structData = addValuesToOpenMPStruct(OMPDataVals, SubFunction);
-+
-+		addOpenMPSubfunctionBody(SubFunction, f, structData, OMPDataVals);
-+
-+		// Create call for GOMP_parallel_loop_runtime_start.
-+		Value *subfunctionParam = Builder.CreateBitCast(structData,
-+		                          Builder.getInt8PtrTy(),
-+		                          "omp_data");
-+
-+		Value *numberOfThreads = Builder.getInt32(0);
-+		Value *lowerBound = ExpGen.codegen(f->LB, intPtrTy);
-+		Value *upperBound = ExpGen.codegen(f->UB, intPtrTy);
-+
-+		// Add one as the upper bound provided by openmp is a < comparison
-+		// whereas the codegenForSequential function creates a <= comparison.
-+		upperBound = Builder.CreateAdd(upperBound, ConstantInt::get(intPtrTy, 1));
-+		APInt APStride = APInt_from_MPZ(f->stride);
-+		Value *stride = ConstantInt::get(intPtrTy,
-+		                                 APStride.zext(intPtrTy->getBitWidth()));
-+
-+		SmallVector<Value *, 6> Arguments;
-+		Arguments.push_back(SubFunction);
-+		Arguments.push_back(subfunctionParam);
-+		Arguments.push_back(numberOfThreads);
-+		Arguments.push_back(lowerBound);
-+		Arguments.push_back(upperBound);
-+		Arguments.push_back(stride);
-+
-+		Function *parallelStartFunction =
-+		    M->getFunction("GOMP_parallel_loop_runtime_start");
-+		Builder.CreateCall(parallelStartFunction, Arguments);
-+
-+		// Create call to the subfunction.
-+		Builder.CreateCall(SubFunction, subfunctionParam);
-+
-+		// Create call for GOMP_parallel_end.
-+		Function *FN = M->getFunction("GOMP_parallel_end");
-+		Builder.CreateCall(FN);
-+	}
-+
-+	bool isInnermostLoop(const clast_for *f) {
-+		const clast_stmt *stmt = f->body;
-+
-+		while (stmt) {
-+			if (!CLAST_STMT_IS_A(stmt, stmt_user))
-+				return false;
-+
-+			stmt = stmt->next;
-+		}
-+
-+		return true;
-+	}
-+
-+	/// @brief Get the number of loop iterations for this loop.
-+	/// @param f The clast for loop to check.
-+	int getNumberOfIterations(const clast_for *f) {
-+		isl_set *loopDomain = isl_set_copy(isl_set_from_cloog_domain(f->domain));
-+		isl_set *tmp = isl_set_copy(loopDomain);
-+
-+		// Calculate a map similar to the identity map, but with the last input
-+		// and output dimension not related.
-+		//  [i0, i1, i2, i3] -> [i0, i1, i2, o0]
-+		isl_dim *dim = isl_set_get_dim(loopDomain);
-+		dim = isl_dim_drop_outputs(dim, isl_set_n_dim(loopDomain) - 2, 1);
-+		dim = isl_dim_map_from_set(dim);
-+		isl_map *identity = isl_map_identity(dim);
-+		identity = isl_map_add_dims(identity, isl_dim_in, 1);
-+		identity = isl_map_add_dims(identity, isl_dim_out, 1);
-+
-+		isl_map *map = isl_map_from_domain_and_range(tmp, loopDomain);
-+		map = isl_map_intersect(map, identity);
-+
-+		isl_map *lexmax = isl_map_lexmax(isl_map_copy(map));
-+		isl_map *lexmin = isl_map_lexmin(isl_map_copy(map));
-+		isl_map *sub = isl_map_sum(lexmax, isl_map_neg(lexmin));
-+
-+		isl_set *elements = isl_map_range(sub);
-+
-+		if (!isl_set_is_singleton(elements))
-+			return -1;
-+
-+		isl_point *p = isl_set_sample_point(elements);
-+
-+		isl_int v;
-+		isl_int_init(v);
-+		isl_point_get_coordinate(p, isl_dim_set, isl_set_n_dim(loopDomain) - 1, &v);
-+		int numberIterations = isl_int_get_si(v);
-+		isl_int_clear(v);
-+
-+		return (numberIterations) / isl_int_get_si(f->stride) + 1;
-+	}
-+
-+	/// @brief Create vector instructions for this loop.
-+	void codegenForVector(const clast_for *f) {
-+		DEBUG(dbgs() << "Vectorizing loop '" << f->iterator << "'\n";);
-+		int vectorWidth = getNumberOfIterations(f);
-+
-+		Value *LB = ExpGen.codegen(f->LB,
-+		                           TD->getIntPtrType(Builder.getContext()));
-+
-+		APInt Stride = APInt_from_MPZ(f->stride);
-+		IntegerType *LoopIVType = dyn_cast<IntegerType>(LB->getType());
-+		Stride =  Stride.zext(LoopIVType->getBitWidth());
-+		Value *StrideValue = ConstantInt::get(LoopIVType, Stride);
-+
-+		std::vector<Value*> IVS(vectorWidth);
-+		IVS[0] = LB;
-+
-+		for (int i = 1; i < vectorWidth; i++)
-+			IVS[i] = Builder.CreateAdd(IVS[i-1], StrideValue, "p_vector_iv");
-+
-+		isl_set *scatteringDomain = isl_set_from_cloog_domain(f->domain);
-+
-+		// Add loop iv to symbols.
-+		(*clastVars)[f->iterator] = LB;
-+
-+		const clast_stmt *stmt = f->body;
-+
-+		while (stmt) {
-+			codegen((const clast_user_stmt *)stmt, &IVS, f->iterator,
-+			        scatteringDomain);
-+			stmt = stmt->next;
-+		}
-+
-+		// Loop is finished, so remove its iv from the live symbols.
-+		clastVars->erase(f->iterator);
-+	}
-+
-+///////////////////////////////////////////////////////////////////////////////////////
-+	void createCUDAGridParamsAndPosInGridBlocks() {                                  //                       //
-+
-+		Function *ParentFunction = Builder.GetInsertBlock()->getParent();
-+		Module *M = ParentFunction->getParent();
-+		LLVMContext &Context = ParentFunction->getContext();
-+
-+		vector<Value *> GridParameters;
-+		// GridParams BasicBlock - load Grid parameters by calling CUDA functions
-+		BasicBlock *GridParamsBB = BasicBlock::Create(Context, "CUDA.getGridParams", ParentFunction);
-+		// PosInGrid BasicBlock - compute thread positin in grid
-+		BasicBlock *PosInGridBB = BasicBlock::Create(Context, "CUDA.getPositionInGrid", ParentFunction);
-+
-+		BasicBlock *EntryBB = Builder.GetInsertBlock();
-+		Builder.CreateBr(GridParamsBB);
-+		DT->addNewBlock(GridParamsBB, EntryBB);
-+
-+		/////////////////////////////////////////////////////////
-+		// compute needed values separately for each dimension //
-+		/////////////////////////////////////////////////////////
-+		for(int dimension = 0; dimension < (int)CudaFunctions.size() / 4 &&
-+		    dimension < goodNestedParallelLoopsCount; dimension++) {
-+			Builder.SetInsertPoint(GridParamsBB);
-+			//////////////////////////////////////////////////////////////////////////////////////////
-+			// call CUDA functions                                                                  //
-+			// store values in vector GridParameters                                                //
-+			//////////////////////////////////////////////////////////////////////////////////////////
-+			for(int GridParameter = 0; GridParameter < 4; GridParameter ++) {                       //
-+				GridParameters.push_back(                                                           //
-+				    Builder.CreateCall( M->getFunction(CudaFunctions[dimension*4 + GridParameter]), //
-+				                        CudaInricics[CudaFunctions[dimension*4 + GridParameter]] ));//
-+			}                                                                                       //
-+			//////////////////////////////////////////////////////////////////////////////////////////
-+
-+			Builder.SetInsertPoint(PosInGridBB);
-+
-+			//////////////////////////////////////////////////////
-+			// Grid Parameters for current dimension            //
-+			//////////////////////////////////////////////////////
-+			Value * threadId = GridParameters[dimension*4 + 0]; //
-+			Value * blockId =  GridParameters[dimension*4 + 1]; //
-+			Value * blockDim = GridParameters[dimension*4 + 2]; //
-+			Value * gridDim =  GridParameters[dimension*4 + 3]; //
-+			//////////////////////////////////////////////////////
-+
-+			///////////////////////////////////////////////////////////////////////////////////
-+			// absolute position of block's first thread (position of block)                 //
-+			// blockId.x * blockDim.x - "position of block's thread 0 for dimension x"       //
-+			///////////////////////////////////////////////////////////////////////////////////
-+			Value* Position =                                                                //
-+			    Builder.CreateMul(blockId,blockDim,                                          //
-+			                      string("PositionOfBlockInGrid.") + dimensions[dimension]); //
-+			///////////////////////////////////////////////////////////////////////////////////
-+
-+			//////////////////////////////////////////////////////////////////////
-+			//GridDim.x * blockDim.x - size of grid in threads for dimension  x //
-+			//////////////////////////////////////////////////////////////////////
-+			Value * Size =                                                      //
-+			    Builder.CreateMul(gridDim,blockDim,                             //
-+			                      string("GridSize.") + dimensions[dimension]); //
-+			//////////////////////////////////////////////////////////////////////
-+
-+			/////////////////////////////////////////////
-+			// store value *                           //
-+			/////////////////////////////////////////////
-+			BlockPositionInGrid.push_back(Position);   //
-+			ThreadPositionInBlock.push_back(threadId); //
-+			GridSize.push_back(Size);                  //
-+			BlockSize.push_back(blockDim);             //
-+			/////////////////////////////////////////////
-+		}
-+		Builder.SetInsertPoint(GridParamsBB);
-+		Builder.CreateBr(PosInGridBB);
-+		DT->addNewBlock(PosInGridBB, GridParamsBB);
-+		Builder.SetInsertPoint(PosInGridBB);
-+	}
-+///////////////////////////////////////////////////////////////////////////////////////
-+
-+///////////////////////////////////////////////////////////////////////////////////////
-+	void codegenForCUDA(const clast_for *f) {                                        //
-+
-+		Function *ParentFunction = Builder.GetInsertBlock()->getParent();
-+		LLVMContext &Context = ParentFunction->getContext();
-+		//IntegerType *intPtrTy = TD->getIntPtrType(Context);
-+
-+		if(parallelLoops.size() == 1/*это первый параллельный цикл в скопе*/) {
-+			////////////////////////////////////////////////////
-+			// that is first call of that function            //
-+			// so, let's create some important blocks         //
-+			// first of all we need to load Grid parameters   //
-+			//    that performed in GridParamsBB BasicBlock   //
-+			// second, let's compute thread position in grid  //
-+			//    that performed if PosInGridBB BasicBlock    //
-+			////////////////////////////////////////////////////
-+
-+			createCUDAGridParamsAndPosInGridBlocks();
-+
-+			/////////////////////////////////////////////////////////////////////////////////
-+			// at that point GridParamsBB and PosInGridBB BasicBlocks have already created //
-+			// needed Value* stored in positionInGrid,GridSize,BlockSize for each thread   //
-+			/////////////////////////////////////////////////////////////////////////////////
-+		}
-+
-+		int dimension = goodNestedParallelLoopsCount - parallelLoops.size();
-+		const char * dimensionName = dimensions[dimension].c_str();
-+		BasicBlock *PrevBB = Builder.GetInsertBlock();
-+
-+		////////////////////////////////////////////////////////////
-+		// In CountBoundsBB BasicBlock for each dimension compute //
-+		//   CountOfIterations                                    //
-+		//   ThreadUpperBound                                     //
-+		//   ThreadLowerBound                                     //
-+		//   Stride                                               //
-+		// That Values are defferent between threads in runtime   //
-+		////////////////////////////////////////////////////////////
-+		BasicBlock * CountBoundsBB = BasicBlock::Create(Context,
-+		                             string("CUDA.CountBounds.") + dimensionName, ParentFunction);
-+		Builder.CreateBr(CountBoundsBB);
-+		DT->addNewBlock(CountBoundsBB, PrevBB);
-+		Builder.SetInsertPoint(CountBoundsBB);
-+
-+		//////////////////////////////////////////////////////////////////////////////////////
-+		//Lower and Upper Bounds of Loop                                                    //
-+		//////////////////////////////////////////////////////////////////////////////////////
-+		Value * lowerBound = ExpGen.codegen(f->LB,TD->getIntPtrType(Builder.getContext())); //
-+		Value * upperBound = ExpGen.codegen(f->UB,TD->getIntPtrType(Builder.getContext())); //
-+		//////////////////////////////////////////////////////////////////////////////////////
-+
-+		//assert(число нитей по текущему измерению меньше числа итераций)
-+		Value * One = ConstantInt::get(lowerBound->getType(), 1);
-+
-+		////////////////////////////////////////////////////////////////////////////////////////////
-+		// Compute Iteration's count per thread                                                   //
-+		// Loop's IterationsCount = upperBound - lowerBound + 1                                   //
-+		// Iteration's Count per thread is ( ((IterationsCount-1) / GridSize) + 1)                //
-+		// (IterationsCount-1) = upperBound - lowerBound                                          //
-+		////////////////////////////////////////////////////////////////////////////////////////////
-+		Value * IterationsCountMinusOne =                                                         //
-+		    Builder.CreateSub(upperBound,lowerBound, string("IterationsCount.") + dimensionName); //
-+		Value * Division =                                                                        //
-+		    Builder.CreateSDiv(IterationsCountMinusOne,GridSize[dimension]);                      //
-+		Value * IterationsPerThread =                                                             //
-+		    Builder.CreateAdd(Division,One,                                                       //
-+		                      string("IterationsPerThread.") + dimensionName);                    //
-+		////////////////////////////////////////////////////////////////////////////////////////////
-+
-+		///////////////////////////////////////////////////////////////////////////////////////
-+		// compute Thread's Upper Bound, Lower Bounds and Stride                             //
-+		// ThreadLowerBound = IterationsPerThread*BlockPosition + ThreadPositionInBlock      //
-+		// ThreadUpperBound = ThreadLowerBound + Stride*(IterationsPerThread-1)              //
-+		// Stride = BlockSize (to increase probability of coalescing transactions to memory) //
-+		///////////////////////////////////////////////////////////////////////////////////////
-+		Value * BlockLowerBound =                                                            //
-+		    Builder.CreateMul(BlockPositionInGrid[dimension],  IterationsPerThread,          //
-+		                      string("BlockLowerBound.") + dimensionName);                   //
-+		Value * ThreadLowerBound =                                                           //
-+		    Builder.CreateAdd( BlockLowerBound, ThreadPositionInBlock[dimension],            //
-+		                       string("ThreadLowerBound.") + dimensionName);                 //
-+		Value * StrideValue =                                                                //
-+		    BlockSize[dimension];                                                            //
-+		Value * IterationsPerThreadMinusOne =                                                //
-+		    Builder.CreateSub(IterationsPerThread,One,                                       //
-+		                      string("IterationsPerThreadMinusOne.") + dimensionName);       //
-+		Value * StrideMulIterPerThreadMinusOne =                                             //
-+		    Builder.CreateMul(IterationsPerThreadMinusOne, StrideValue);                     //
-+		Value * ThreadUpperBound =                                                           //
-+		    Builder.CreateAdd(ThreadLowerBound,StrideMulIterPerThreadMinusOne,               //
-+		                      string("ThreadUpperBound.") + dimensionName);                  //
-+		///////////////////////////////////////////////////////////////////////////////////////
-+
-+		//////////////////////////////////////////////////////////////////////////////////
-+		// compute LoopStride - for general case, if OriginalLoopStride not equal to 1  //
-+		//////////////////////////////////////////////////////////////////////////////////
-+		IntegerType *LoopIVType = dyn_cast<IntegerType>(upperBound->getType());         //
-+		assert(LoopIVType && "UB is not integer?");                                     //                                                                               //
-+		APInt LoopStride = polly::APInt_from_MPZ(f->stride);                            //
-+		assert(LoopStride == 1); //I hope...                                            //
-+		//////////////////////////////////////////////////////////////////////////////////
-+
-+		////////////////////////////////////////////////////////////////
-+		// Generate code for loop with computed bounds and stride     //
-+		// CountBoundsBB BasicBlock is a preheader of that loop       //
-+		///////////////////////////////////////////////////////////////////////////////////////////
-+		Builder.SetInsertPoint(CountBoundsBB);                                                   //
-+		codegenForSequential(f, ThreadLowerBound, ThreadUpperBound, StrideValue, dimensionName); //
-+		///////////////////////////////////////////////////////////////////////////////////////////
-+	}
-+///////////////////////////////////////////////////////////////////////////////////////
-+
-+////////////////////////////////////////////////////////////////////////////////////////
-+	int GoodNestedParallelLoops(const clast_stmt * stmt, int CurrentCount) {          //                                                                                                //
-+		if (!stmt ||                                            // there is no statements on body    //
-+		    !CLAST_STMT_IS_A(stmt, stmt_for) ||                 // that statement is not clast_for   //
-+		    !DP->isParallelFor( (const clast_for *)stmt) ||     // that clast_for is not parallel    //
-+		    stmt->next)                                         // that clast_for is not good nested //
-+			return CurrentCount;                                                                     //
-+		else {                                                                                       //
-+			const clast_for *for_stmt = (const clast_for *)stmt;                                     //
-+			return GoodNestedParallelLoops(for_stmt->body, ++CurrentCount);                          //
-+		}                                                                                            //
-+	}                                                                                                //
-+////////////////////////////////////////////////////////////////////////////////////////
-+
-+////////////////////////////////////////////////////////////////////////////////////////
-+	void codegenForSequential(const clast_for *f, Value *lowerBound = 0,              //
-+	                          Value *upperBound = 0, Value * ThreadStride = 0,        //
-+	                          const char * dimensionName = 0) {                       //
-+		//                                                                            //
-+		APInt Stride = APInt_from_MPZ(f->stride);                                     //
-+		//                                                                            //
-+		PHINode *IV;                                                                  //
-+		Value *IncrementedIV;                                                         //
-+		BasicBlock *AfterBB;                                                          //
-+		//                                                                            //
-+		Value *LoopLowerBound, *LoopUpperBound;                                       //
-+		//                                                                            //
-+		// The value of lowerbound and upperbound will be supplied, if this           //
-+		// function is called while generating OpenMP code. Otherwise get             //
-+		// the values.                                                                //
-+		assert(((lowerBound && upperBound) || (!lowerBound && !upperBound))           //
-+		       && "Either give both bounds or none");                                 //
-+		//                                                                            //
-+		if (lowerBound == 0 || upperBound == 0) {                                     //
-+			lowerBound = ExpGen.codegen(f->LB,                                        //
-+			                            TD->getIntPtrType(Builder.getContext()));     //
-+			upperBound = ExpGen.codegen(f->UB,                                        //
-+			                            TD->getIntPtrType(Builder.getContext()));     //
-+		} else {                                                                      //
-+			LoopLowerBound = ExpGen.codegen(f->LB,                                    //
-+			                                TD->getIntPtrType(Builder.getContext())); //
-+			LoopUpperBound = ExpGen.codegen(f->UB,                                    //
-+			                                TD->getIntPtrType(Builder.getContext())); //
-+		}                                                                             //
-+		//                                                                            //
-+		////////////////////////////////////////////////////////////////////////////  //
-+		// at that point Builder is at preheader of the loop                      //  //
-+		////////////////////////////////////////////////////////////////////////////  //
-+		// createLoop generate blocks for loop such as                            //  //
-+		//     -LoopHeader - determ id Induction Var is in bounds.                //  //
-+		//	       if it is then goto LoopBody                                    //  //
-+		//         else goto AfterLoop                                            //  //
-+		//     -LoopBody - goto general body                                      //  //
-+		//     -AfterLoop                                                         //  //
-+		////////////////////////////////////////////////////////////////////////////  //
-+		if(ThreadStride)                                                          //  //
-+			createLoopForCUDA(&Builder, LoopLowerBound, LoopUpperBound,           //  //
-+			                  lowerBound, upperBound, ThreadStride, IV, AfterBB,  //  //
-+			                  IncrementedIV, DT, dimensionName);                  //  //
-+		else                                                                      //  //
-+			createLoop(&Builder, lowerBound, upperBound, Stride, IV, AfterBB,     //  //
-+			           IncrementedIV, DT);                                        //  //
-+		////////////////////////////////////////////////////////////////////////////  //
-+		//                                                                            //
-+		// Add loop iv to symbols.                                                    //
-+		(*clastVars)[f->iterator] = IV;                                               //
-+		/////////////////////////////////////////////////////                         //
-+		// at that point Builder is at LoopBody BasicBlock //                         //
-+		// generate general body of loop                   //                         //
-+		/////////////////////////////////////////////////////                         //
-+		if (f->body)                                       //                         //
-+			codegen(f->body);                              //                         //
-+		////////////////////////////////////////////////////////////////////////      //
-+		// At that point Builder is at last block of body                     //      //
-+		//   if body is for_loop then Builder is at it's AfterLoop BasicBlock //      //
-+		//   else Builder is at statement's block                             //      //
-+		////////////////////////////////////////////////////////////////////////      //
-+		//                                                                            //
-+		// Loop is finished, so remove its iv from the live symbols.                  //
-+		clastVars->erase(f->iterator);                                                //
-+		//                                                                            //
-+		BasicBlock *HeaderBB = *pred_begin(AfterBB);                                  //
-+		BasicBlock *LastBodyBB = Builder.GetInsertBlock();                            //
-+		Builder.CreateBr(HeaderBB);                                                   //
-+		IV->addIncoming(IncrementedIV, LastBodyBB);                                   //
-+		//                                                                            //
-+		// make AfterBB BasicBlock is the last BasicBlock of Loop                     //
-+		AfterBB->moveAfter(LastBodyBB);		                                          //
-+		Builder.SetInsertPoint(AfterBB);                                              //
-+	}                                                                                 //
-+////////////////////////////////////////////////////////////////////////////////////////
-+
-+	void codegen(const clast_for *f) {
-+		if (Vector && isInnermostLoop(f) && DP->isParallelFor(f)
-+		    && (-1 != getNumberOfIterations(f))
-+		    && (getNumberOfIterations(f) <= 16)) {
-+			codegenForVector(f);
-+		} else if (OpenMP && !parallelCodeGeneration && DP->isParallelFor(f)) {
-+			parallelCodeGeneration = true;
-+			parallelLoops.push_back(f->iterator);
-+			codegenForOpenMP(f);
-+			parallelCodeGeneration = false;
-+			//////////////////////////////////////////////////////////////////////////////
-+		} else if (CUDA && (int)parallelLoops.size() < goodNestedParallelLoopsCount) {  //
-+			parallelLoops.push_back(f->iterator);                                       //
-+			codegenForCUDA(f);                                                          //
-+			//////////////////////////////////////////////////////////////////////////////
-+		} else codegenForSequential(f);
-+	}
-+
-+	Value *codegen(const clast_equation *eq) {
-+		Value *LHS = ExpGen.codegen(eq->LHS,
-+		                            TD->getIntPtrType(Builder.getContext()));
-+		Value *RHS = ExpGen.codegen(eq->RHS,
-+		                            TD->getIntPtrType(Builder.getContext()));
-+		CmpInst::Predicate P;
-+
-+		if (eq->sign == 0)
-+			P = ICmpInst::ICMP_EQ;
-+		else if (eq->sign > 0)
-+			P = ICmpInst::ICMP_SGE;
-+		else
-+			P = ICmpInst::ICMP_SLE;
-+
-+		return Builder.CreateICmp(P, LHS, RHS);
-+	}
-+
-+	void codegen(const clast_guard *g) {
-+		Function *F = Builder.GetInsertBlock()->getParent();
-+		LLVMContext &Context = F->getContext();
-+		BasicBlock *ThenBB = BasicBlock::Create(Context, "polly.then", F);
-+		BasicBlock *MergeBB = BasicBlock::Create(Context, "polly.merge", F);
-+		DT->addNewBlock(ThenBB, Builder.GetInsertBlock());
-+		DT->addNewBlock(MergeBB, Builder.GetInsertBlock());
-+
-+		Value *Predicate = codegen(&(g->eq[0]));
-+
-+		for (int i = 1; i < g->n; ++i) {
-+			Value *TmpPredicate = codegen(&(g->eq[i]));
-+			Predicate = Builder.CreateAnd(Predicate, TmpPredicate);
-+		}
-+
-+		Builder.CreateCondBr(Predicate, ThenBB, MergeBB);
-+		Builder.SetInsertPoint(ThenBB);
-+
-+		codegen(g->then);
-+
-+		Builder.CreateBr(MergeBB);
-+		Builder.SetInsertPoint(MergeBB);
-+	}
-+
-+	void codegen(const clast_stmt *stmt) {
-+		if	    (CLAST_STMT_IS_A(stmt, stmt_root))
-+			assert(false && "No second root statement expected");
-+		else if (CLAST_STMT_IS_A(stmt, stmt_ass))
-+			codegen((const clast_assignment *)stmt);
-+		else if (CLAST_STMT_IS_A(stmt, stmt_user))
-+			codegen((const clast_user_stmt *)stmt);
-+		else if (CLAST_STMT_IS_A(stmt, stmt_block))
-+			codegen((const clast_block *)stmt);
-+		else if (CLAST_STMT_IS_A(stmt, stmt_for))
-+			codegen((const clast_for *)stmt);
-+		else if (CLAST_STMT_IS_A(stmt, stmt_guard))
-+			codegen((const clast_guard *)stmt);
-+
-+		if (stmt->next)
-+			codegen(stmt->next);
-+	}
-+
-+	void addParameters(const CloogNames *names) {
-+		SCEVExpander Rewriter(SE, "polly");
-+
-+		// Create an instruction that specifies the location where the parameters
-+		// are expanded.
-+		CastInst::CreateIntegerCast(ConstantInt::getTrue(Builder.getContext()),
-+		                            Builder.getInt16Ty(), false, "insertInst",
-+		                            Builder.GetInsertBlock());
-+
-+		int i = 0;
-+		for (Scop::param_iterator PI = S->param_begin(), PE = S->param_end();
-+		     PI != PE; ++PI) {
-+			assert(i < names->nb_parameters && "Not enough parameter names");
-+
-+			const SCEV *Param = *PI;
-+			Type *Ty = Param->getType();
-+
-+			Instruction *insertLocation = --(Builder.GetInsertBlock()->end());
-+			Value *V = Rewriter.expandCodeFor(Param, Ty, insertLocation);
-+			(*clastVars)[names->parameters[i]] = V;
-+
-+			++i;
-+		}
-+	}
- 
--  std::vector<std::string> parallelLoops;
- 
  public:
-+	void codegen(const clast_root *r) {
  
--  const std::vector<std::string> &getParallelLoops() {
--    return parallelLoops;
--  }
--
--  protected:
--  void codegen(const clast_assignment *a) {
--    (*clastVars)[a->LHS] = ExpGen.codegen(a->RHS,
--      TD->getIntPtrType(Builder.getContext()));
--  }
--
--  void codegen(const clast_assignment *a, ScopStmt *Statement,
--               unsigned Dimension, int vectorDim,
--               std::vector<ValueMapT> *VectorVMap = 0) {
--    Value *RHS = ExpGen.codegen(a->RHS,
--      TD->getIntPtrType(Builder.getContext()));
--
--    assert(!a->LHS && "Statement assignments do not have left hand side");
--    const PHINode *PN;
--    PN = Statement->getInductionVariableForDimension(Dimension);
--    const Value *V = PN;
--
--    if (VectorVMap)
--      (*VectorVMap)[vectorDim][V] = RHS;
--
--    ValueMap[V] = RHS;
--  }
--
--  void codegenSubstitutions(const clast_stmt *Assignment,
--                            ScopStmt *Statement, int vectorDim = 0,
--                            std::vector<ValueMapT> *VectorVMap = 0) {
--    int Dimension = 0;
--
--    while (Assignment) {
--      assert(CLAST_STMT_IS_A(Assignment, stmt_ass)
--             && "Substitions are expected to be assignments");
--      codegen((const clast_assignment *)Assignment, Statement, Dimension,
--              vectorDim, VectorVMap);
--      Assignment = Assignment->next;
--      Dimension++;
--    }
--  }
--
--  void codegen(const clast_user_stmt *u, std::vector<Value*> *IVS = NULL,
--               const char *iterator = NULL, isl_set *scatteringDomain = 0) {
--    ScopStmt *Statement = (ScopStmt *)u->statement->usr;
--    BasicBlock *BB = Statement->getBasicBlock();
--
--    if (u->substitutions)
--      codegenSubstitutions(u->substitutions, Statement);
--
--    int vectorDimensions = IVS ? IVS->size() : 1;
--
--    VectorValueMapT VectorValueMap(vectorDimensions);
--
--    if (IVS) {
--      assert (u->substitutions && "Substitutions expected!");
--      int i = 0;
--      for (std::vector<Value*>::iterator II = IVS->begin(), IE = IVS->end();
--           II != IE; ++II) {
--        (*clastVars)[iterator] = *II;
--        codegenSubstitutions(u->substitutions, Statement, i, &VectorValueMap);
--        i++;
--      }
--    }
--
--    BlockGenerator Generator(Builder, ValueMap, VectorValueMap, *Statement,
--                             scatteringDomain);
--    Generator.copyBB(BB, DT);
--  }
--
--  void codegen(const clast_block *b) {
--    if (b->body)
--      codegen(b->body);
--  }
--
--  /// @brief Create a classical sequential loop.
--  void codegenForSequential(const clast_for *f, Value *lowerBound = 0,
--                                                Value *upperBound = 0) {
--    APInt Stride = APInt_from_MPZ(f->stride);
--    PHINode *IV;
--    Value *IncrementedIV;
--    BasicBlock *AfterBB;
--    // The value of lowerbound and upperbound will be supplied, if this
--    // function is called while generating OpenMP code. Otherwise get
--    // the values.
--    assert(((lowerBound && upperBound) || (!lowerBound && !upperBound))
--                                && "Either give both bounds or none");
--    if (lowerBound == 0 || upperBound == 0) {
--        lowerBound = ExpGen.codegen(f->LB,
--                                    TD->getIntPtrType(Builder.getContext()));
--        upperBound = ExpGen.codegen(f->UB,
--                                    TD->getIntPtrType(Builder.getContext()));
--    }
--    createLoop(&Builder, lowerBound, upperBound, Stride, IV, AfterBB,
--               IncrementedIV, DT);
--
--    // Add loop iv to symbols.
--    (*clastVars)[f->iterator] = IV;
--
--    if (f->body)
--      codegen(f->body);
--
--    // Loop is finished, so remove its iv from the live symbols.
--    clastVars->erase(f->iterator);
--
--    BasicBlock *HeaderBB = *pred_begin(AfterBB);
--    BasicBlock *LastBodyBB = Builder.GetInsertBlock();
--    Builder.CreateBr(HeaderBB);
--    IV->addIncoming(IncrementedIV, LastBodyBB);
--    Builder.SetInsertPoint(AfterBB);
--  }
--
--  /// @brief Add a new definition of an openmp subfunction.
--  Function* addOpenMPSubfunction(Module *M) {
--    Function *F = Builder.GetInsertBlock()->getParent();
--    const std::string &Name = F->getNameStr() + ".omp_subfn";
--
--    std::vector<Type*> Arguments(1, Builder.getInt8PtrTy());
--    FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
--    Function *FN = Function::Create(FT, Function::InternalLinkage, Name, M);
--    // Do not run any polly pass on the new function.
--    SD->markFunctionAsInvalid(FN);
--
--    Function::arg_iterator AI = FN->arg_begin();
--    AI->setName("omp.userContext");
--
--    return FN;
--  }
--
--  /// @brief Add values to the OpenMP structure.
--  ///
--  /// Create the subfunction structure and add the values from the list.
--  Value *addValuesToOpenMPStruct(SetVector<Value*> OMPDataVals,
--                                 Function *SubFunction) {
--    std::vector<Type*> structMembers;
--
--    // Create the structure.
--    for (unsigned i = 0; i < OMPDataVals.size(); i++)
--      structMembers.push_back(OMPDataVals[i]->getType());
--
--    StructType *structTy = StructType::get(Builder.getContext(),
--                                           structMembers);
--    // Store the values into the structure.
--    Value *structData = Builder.CreateAlloca(structTy, 0, "omp.userContext");
--    for (unsigned i = 0; i < OMPDataVals.size(); i++) {
--      Value *storeAddr = Builder.CreateStructGEP(structData, i);
--      Builder.CreateStore(OMPDataVals[i], storeAddr);
--    }
--
--    return structData;
--  }
--
--  /// @brief Create OpenMP structure values.
--  ///
--  /// Create a list of values that has to be stored into the subfuncition
--  /// structure.
--  SetVector<Value*> createOpenMPStructValues() {
--    SetVector<Value*> OMPDataVals;
--
--    // Push the clast variables available in the clastVars.
--    for (CharMapT::iterator I = clastVars->begin(), E = clastVars->end();
--         I != E; I++)
--     OMPDataVals.insert(I->second);
--
--    // Push the base addresses of memory references.
--    for (Scop::iterator SI = S->begin(), SE = S->end(); SI != SE; ++SI) {
--      ScopStmt *Stmt = *SI;
--      for (SmallVector<MemoryAccess*, 8>::iterator I = Stmt->memacc_begin(),
--           E = Stmt->memacc_end(); I != E; ++I) {
--        Value *BaseAddr = const_cast<Value*>((*I)->getBaseAddr());
--        OMPDataVals.insert((BaseAddr));
--      }
--    }
--
--    return OMPDataVals;
--  }
--
--  /// @brief Extract the values from the subfunction parameter.
--  ///
--  /// Extract the values from the subfunction parameter and update the clast
--  /// variables to point to the new values.
--  void extractValuesFromOpenMPStruct(CharMapT *clastVarsOMP,
--                                     SetVector<Value*> OMPDataVals,
--                                     Value *userContext) {
--    // Extract the clast variables.
--    unsigned i = 0;
--    for (CharMapT::iterator I = clastVars->begin(), E = clastVars->end();
--         I != E; I++) {
--      Value *loadAddr = Builder.CreateStructGEP(userContext, i);
--      (*clastVarsOMP)[I->first] = Builder.CreateLoad(loadAddr);
--      i++;
--    }
--
--    // Extract the base addresses of memory references.
--    for (unsigned j = i; j < OMPDataVals.size(); j++) {
--      Value *loadAddr = Builder.CreateStructGEP(userContext, j);
--      Value *baseAddr = OMPDataVals[j];
--      ValueMap[baseAddr] = Builder.CreateLoad(loadAddr);
--    }
--
--  }
--
--  /// @brief Add body to the subfunction.
--  void addOpenMPSubfunctionBody(Function *FN, const clast_for *f,
--                                Value *structData,
--                                SetVector<Value*> OMPDataVals) {
--    Module *M = Builder.GetInsertBlock()->getParent()->getParent();
--    LLVMContext &Context = FN->getContext();
--    IntegerType *intPtrTy = TD->getIntPtrType(Context);
--
--    // Store the previous basic block.
--    BasicBlock *PrevBB = Builder.GetInsertBlock();
--
--    // Create basic blocks.
--    BasicBlock *HeaderBB = BasicBlock::Create(Context, "omp.setup", FN);
--    BasicBlock *ExitBB = BasicBlock::Create(Context, "omp.exit", FN);
--    BasicBlock *checkNextBB = BasicBlock::Create(Context, "omp.checkNext", FN);
--    BasicBlock *loadIVBoundsBB = BasicBlock::Create(Context, "omp.loadIVBounds",
--                                                    FN);
--
--    DT->addNewBlock(HeaderBB, PrevBB);
--    DT->addNewBlock(ExitBB, HeaderBB);
--    DT->addNewBlock(checkNextBB, HeaderBB);
--    DT->addNewBlock(loadIVBoundsBB, HeaderBB);
--
--    // Fill up basic block HeaderBB.
--    Builder.SetInsertPoint(HeaderBB);
--    Value *lowerBoundPtr = Builder.CreateAlloca(intPtrTy, 0,
--                                                "omp.lowerBoundPtr");
--    Value *upperBoundPtr = Builder.CreateAlloca(intPtrTy, 0,
--                                                "omp.upperBoundPtr");
--    Value *userContext = Builder.CreateBitCast(FN->arg_begin(),
--                                               structData->getType(),
--                                               "omp.userContext");
--
--    CharMapT clastVarsOMP;
--    extractValuesFromOpenMPStruct(&clastVarsOMP, OMPDataVals, userContext);
--
--    Builder.CreateBr(checkNextBB);
--
--    // Add code to check if another set of iterations will be executed.
--    Builder.SetInsertPoint(checkNextBB);
--    Function *runtimeNextFunction = M->getFunction("GOMP_loop_runtime_next");
--    Value *ret1 = Builder.CreateCall2(runtimeNextFunction,
--                                      lowerBoundPtr, upperBoundPtr);
--    Value *hasNextSchedule = Builder.CreateTrunc(ret1, Builder.getInt1Ty(),
--                                                 "omp.hasNextScheduleBlock");
--    Builder.CreateCondBr(hasNextSchedule, loadIVBoundsBB, ExitBB);
--
--    // Add code to to load the iv bounds for this set of iterations.
--    Builder.SetInsertPoint(loadIVBoundsBB);
--    Value *lowerBound = Builder.CreateLoad(lowerBoundPtr, "omp.lowerBound");
--    Value *upperBound = Builder.CreateLoad(upperBoundPtr, "omp.upperBound");
--
--    // Subtract one as the upper bound provided by openmp is a < comparison
--    // whereas the codegenForSequential function creates a <= comparison.
--    upperBound = Builder.CreateSub(upperBound, ConstantInt::get(intPtrTy, 1),
--                                   "omp.upperBoundAdjusted");
--
--    // Use clastVarsOMP during code generation of the OpenMP subfunction.
--    CharMapT *oldClastVars = clastVars;
--    clastVars = &clastVarsOMP;
--    ExpGen.setIVS(&clastVarsOMP);
--
--    codegenForSequential(f, lowerBound, upperBound);
--
--    // Restore the old clastVars.
--    clastVars = oldClastVars;
--    ExpGen.setIVS(oldClastVars);
--
--    Builder.CreateBr(checkNextBB);
--
--    // Add code to terminate this openmp subfunction.
--    Builder.SetInsertPoint(ExitBB);
--    Function *endnowaitFunction = M->getFunction("GOMP_loop_end_nowait");
--    Builder.CreateCall(endnowaitFunction);
--    Builder.CreateRetVoid();
--
--    // Restore the builder back to previous basic block.
--    Builder.SetInsertPoint(PrevBB);
--  }
--
--  /// @brief Create an OpenMP parallel for loop.
--  ///
--  /// This loop reflects a loop as if it would have been created by an OpenMP
--  /// statement.
--  void codegenForOpenMP(const clast_for *f) {
--    Module *M = Builder.GetInsertBlock()->getParent()->getParent();
--    IntegerType *intPtrTy = TD->getIntPtrType(Builder.getContext());
--
--    Function *SubFunction = addOpenMPSubfunction(M);
--    SetVector<Value*> OMPDataVals = createOpenMPStructValues();
--    Value *structData = addValuesToOpenMPStruct(OMPDataVals, SubFunction);
--
--    addOpenMPSubfunctionBody(SubFunction, f, structData, OMPDataVals);
--
--    // Create call for GOMP_parallel_loop_runtime_start.
--    Value *subfunctionParam = Builder.CreateBitCast(structData,
--                                                    Builder.getInt8PtrTy(),
--                                                    "omp_data");
--
--    Value *numberOfThreads = Builder.getInt32(0);
--    Value *lowerBound = ExpGen.codegen(f->LB, intPtrTy);
--    Value *upperBound = ExpGen.codegen(f->UB, intPtrTy);
--
--    // Add one as the upper bound provided by openmp is a < comparison
--    // whereas the codegenForSequential function creates a <= comparison.
--    upperBound = Builder.CreateAdd(upperBound, ConstantInt::get(intPtrTy, 1));
--    APInt APStride = APInt_from_MPZ(f->stride);
--    Value *stride = ConstantInt::get(intPtrTy,
--                                     APStride.zext(intPtrTy->getBitWidth()));
--
--    SmallVector<Value *, 6> Arguments;
--    Arguments.push_back(SubFunction);
--    Arguments.push_back(subfunctionParam);
--    Arguments.push_back(numberOfThreads);
--    Arguments.push_back(lowerBound);
--    Arguments.push_back(upperBound);
--    Arguments.push_back(stride);
--
--    Function *parallelStartFunction =
--      M->getFunction("GOMP_parallel_loop_runtime_start");
--    Builder.CreateCall(parallelStartFunction, Arguments);
--
--    // Create call to the subfunction.
--    Builder.CreateCall(SubFunction, subfunctionParam);
--
--    // Create call for GOMP_parallel_end.
--    Function *FN = M->getFunction("GOMP_parallel_end");
--    Builder.CreateCall(FN);
--  }
--
--  bool isInnermostLoop(const clast_for *f) {
--    const clast_stmt *stmt = f->body;
--
--    while (stmt) {
--      if (!CLAST_STMT_IS_A(stmt, stmt_user))
--        return false;
--
--      stmt = stmt->next;
--    }
--
--    return true;
--  }
--
--  /// @brief Get the number of loop iterations for this loop.
--  /// @param f The clast for loop to check.
--  int getNumberOfIterations(const clast_for *f) {
--    isl_set *loopDomain = isl_set_copy(isl_set_from_cloog_domain(f->domain));
--    isl_set *tmp = isl_set_copy(loopDomain);
--
--    // Calculate a map similar to the identity map, but with the last input
--    // and output dimension not related.
--    //  [i0, i1, i2, i3] -> [i0, i1, i2, o0]
--    isl_dim *dim = isl_set_get_dim(loopDomain);
--    dim = isl_dim_drop_outputs(dim, isl_set_n_dim(loopDomain) - 2, 1);
--    dim = isl_dim_map_from_set(dim);
--    isl_map *identity = isl_map_identity(dim);
--    identity = isl_map_add_dims(identity, isl_dim_in, 1);
--    identity = isl_map_add_dims(identity, isl_dim_out, 1);
--
--    isl_map *map = isl_map_from_domain_and_range(tmp, loopDomain);
--    map = isl_map_intersect(map, identity);
--
--    isl_map *lexmax = isl_map_lexmax(isl_map_copy(map));
--    isl_map *lexmin = isl_map_lexmin(isl_map_copy(map));
--    isl_map *sub = isl_map_sum(lexmax, isl_map_neg(lexmin));
--
--    isl_set *elements = isl_map_range(sub);
--
--    if (!isl_set_is_singleton(elements))
--      return -1;
--
--    isl_point *p = isl_set_sample_point(elements);
--
--    isl_int v;
--    isl_int_init(v);
--    isl_point_get_coordinate(p, isl_dim_set, isl_set_n_dim(loopDomain) - 1, &v);
--    int numberIterations = isl_int_get_si(v);
--    isl_int_clear(v);
--
--    return (numberIterations) / isl_int_get_si(f->stride) + 1;
--  }
--
--  /// @brief Create vector instructions for this loop.
--  void codegenForVector(const clast_for *f) {
--    DEBUG(dbgs() << "Vectorizing loop '" << f->iterator << "'\n";);
--    int vectorWidth = getNumberOfIterations(f);
--
--    Value *LB = ExpGen.codegen(f->LB,
--      TD->getIntPtrType(Builder.getContext()));
--
--    APInt Stride = APInt_from_MPZ(f->stride);
--    IntegerType *LoopIVType = dyn_cast<IntegerType>(LB->getType());
--    Stride =  Stride.zext(LoopIVType->getBitWidth());
--    Value *StrideValue = ConstantInt::get(LoopIVType, Stride);
--
--    std::vector<Value*> IVS(vectorWidth);
--    IVS[0] = LB;
--
--    for (int i = 1; i < vectorWidth; i++)
--      IVS[i] = Builder.CreateAdd(IVS[i-1], StrideValue, "p_vector_iv");
--
--    isl_set *scatteringDomain = isl_set_from_cloog_domain(f->domain);
--
--    // Add loop iv to symbols.
--    (*clastVars)[f->iterator] = LB;
--
--    const clast_stmt *stmt = f->body;
--
--    while (stmt) {
--      codegen((const clast_user_stmt *)stmt, &IVS, f->iterator,
--              scatteringDomain);
--      stmt = stmt->next;
--    }
--
--    // Loop is finished, so remove its iv from the live symbols.
--    clastVars->erase(f->iterator);
--  }
--
--  void codegen(const clast_for *f) {
--    if (Vector && isInnermostLoop(f) && DP->isParallelFor(f)
--        && (-1 != getNumberOfIterations(f))
--        && (getNumberOfIterations(f) <= 16)) {
--      codegenForVector(f);
--    } else if (OpenMP && !parallelCodeGeneration && DP->isParallelFor(f)) {
--      parallelCodeGeneration = true;
--      parallelLoops.push_back(f->iterator);
--      codegenForOpenMP(f);
--      parallelCodeGeneration = false;
--    } else
--      codegenForSequential(f);
--  }
--
--  Value *codegen(const clast_equation *eq) {
--    Value *LHS = ExpGen.codegen(eq->LHS,
--      TD->getIntPtrType(Builder.getContext()));
--    Value *RHS = ExpGen.codegen(eq->RHS,
--      TD->getIntPtrType(Builder.getContext()));
--    CmpInst::Predicate P;
--
--    if (eq->sign == 0)
--      P = ICmpInst::ICMP_EQ;
--    else if (eq->sign > 0)
--      P = ICmpInst::ICMP_SGE;
--    else
--      P = ICmpInst::ICMP_SLE;
--
--    return Builder.CreateICmp(P, LHS, RHS);
--  }
--
--  void codegen(const clast_guard *g) {
--    Function *F = Builder.GetInsertBlock()->getParent();
--    LLVMContext &Context = F->getContext();
--    BasicBlock *ThenBB = BasicBlock::Create(Context, "polly.then", F);
--    BasicBlock *MergeBB = BasicBlock::Create(Context, "polly.merge", F);
--    DT->addNewBlock(ThenBB, Builder.GetInsertBlock());
--    DT->addNewBlock(MergeBB, Builder.GetInsertBlock());
--
--    Value *Predicate = codegen(&(g->eq[0]));
--
--    for (int i = 1; i < g->n; ++i) {
--      Value *TmpPredicate = codegen(&(g->eq[i]));
--      Predicate = Builder.CreateAnd(Predicate, TmpPredicate);
--    }
--
--    Builder.CreateCondBr(Predicate, ThenBB, MergeBB);
--    Builder.SetInsertPoint(ThenBB);
--
--    codegen(g->then);
--
--    Builder.CreateBr(MergeBB);
--    Builder.SetInsertPoint(MergeBB);
--  }
--
--  void codegen(const clast_stmt *stmt) {
--    if	    (CLAST_STMT_IS_A(stmt, stmt_root))
--      assert(false && "No second root statement expected");
--    else if (CLAST_STMT_IS_A(stmt, stmt_ass))
--      codegen((const clast_assignment *)stmt);
--    else if (CLAST_STMT_IS_A(stmt, stmt_user))
--      codegen((const clast_user_stmt *)stmt);
--    else if (CLAST_STMT_IS_A(stmt, stmt_block))
--      codegen((const clast_block *)stmt);
--    else if (CLAST_STMT_IS_A(stmt, stmt_for))
--      codegen((const clast_for *)stmt);
--    else if (CLAST_STMT_IS_A(stmt, stmt_guard))
--      codegen((const clast_guard *)stmt);
--
--    if (stmt->next)
--      codegen(stmt->next);
--  }
--
--  void addParameters(const CloogNames *names) {
--    SCEVExpander Rewriter(SE, "polly");
--
--    // Create an instruction that specifies the location where the parameters
--    // are expanded.
--    CastInst::CreateIntegerCast(ConstantInt::getTrue(Builder.getContext()),
--                                  Builder.getInt16Ty(), false, "insertInst",
--                                  Builder.GetInsertBlock());
--
--    int i = 0;
--    for (Scop::param_iterator PI = S->param_begin(), PE = S->param_end();
--         PI != PE; ++PI) {
--      assert(i < names->nb_parameters && "Not enough parameter names");
--
--      const SCEV *Param = *PI;
--      Type *Ty = Param->getType();
--
--      Instruction *insertLocation = --(Builder.GetInsertBlock()->end());
--      Value *V = Rewriter.expandCodeFor(Param, Ty, insertLocation);
--      (*clastVars)[names->parameters[i]] = V;
--
--      ++i;
--    }
--  }
--
--  public:
--  void codegen(const clast_root *r) {
--    clastVars = new CharMapT();
--    addParameters(r->names);
--    ExpGen.setIVS(clastVars);
--
--    parallelCodeGeneration = false;
--
--    const clast_stmt *stmt = (const clast_stmt*) r;
--    if (stmt->next)
--      codegen(stmt->next);
--
--    delete clastVars;
--  }
--
--  ClastStmtCodeGen(Scop *scop, ScalarEvolution &se, DominatorTree *dt,
--                   ScopDetection *sd, Dependences *dp, TargetData *td,
--                   IRBuilder<> &B) :
--    S(scop), SE(se), DT(dt), SD(sd), DP(dp), TD(td), Builder(B),
--    ExpGen(Builder, NULL) {}
-+		clastVars = new CharMapT();
-+		addParameters(r->names);
-+		ExpGen.setIVS(clastVars);
-+
-+		parallelCodeGeneration = false;
-+
-+		const clast_stmt *stmt = (const clast_stmt*) r;
-+
-+/////////////////////////////////////////////////////////////////////////////////////
-+// Count goodNestedParallelLoopsCount if needed (only for CUDA)                    //
-+/////////////////////////////////////////////////////////////////////////////////////
-+		if(CUDA) {                                                                 //
-+			goodNestedParallelLoopsCount = GoodNestedParallelLoops(stmt->next,0);  //
-+			if(goodNestedParallelLoopsCount > MaxDimensionsCount)                  //
-+				goodNestedParallelLoopsCount = MaxDimensionsCount;                 //
-+/////////////////////////////////////////////////////////////////////////////////////
-+		}
-+		if (stmt->next)
-+			codegen(stmt->next);
-+
-+		delete clastVars;
-+	}
-+
-+	ClastStmtCodeGen(polly::Scop *scop, ScalarEvolution &se, DominatorTree *dt,
-+	                 polly::ScopDetection *sd, polly::Dependences *dp, TargetData *td,
-+	                 IRBuilder<> &B, int MaxDimCount = 3) :
-+		S(scop), SE(se), DT(dt), SD(sd), DP(dp), TD(td), Builder(B),
-+		ExpGen(Builder, NULL), MaxDimensionsCount(MaxDimCount) {}
+   const std::vector<std::string> &getParallelLoops();
+@@ -977,6 +1080,190 @@
+   /// statement.
+   void codegenForOpenMP(const clast_for *f);
  
- };
++////////////////////////////////////////////////////////////////////////////////////////////////////////
++	void createCUDAGridParamsAndPosInGridBlocks() {                                                   //
++																									  //
++		Module *M = Builder.GetInsertBlock()->getParent()->getParent();                               //
++		vector<Value *> GridParameters;                                                               //
++                                                                                                      //
++		// GridParams BasicBlock - load Grid parameters by calling CUDA functions                     //
++		BasicBlock *GridParamsBB = Builder.GetInsertBlock();                                          //
++		GridParamsBB->setName("CUDA.getGridParams");                                                  //
++		                                                                                              //
++		// PosInGrid BasicBlock - compute thread positin in grid                                      //
++		BasicBlock *PosInGridBB=SplitBlock(GridParamsBB,GridParamsBB->getTerminator(),P);             //
++		PosInGridBB->setName("CUDA.getPositionInGrid");                                               //
++		                                                                                              //
++		// compute needed values separately for each dimension                                        //
++		for(int dimension = 0; dimension < goodNestedParallelLoopsCount; dimension++) {               //
++			                                                                                          //
++			Builder.SetInsertPoint(GridParamsBB->getTerminator());                                    //
++                                                                                                      //
++			// call CUDA functions                                                                    //
++			// store values in vector GridParameters                                                  //
++			for(int GridParameter = 0; GridParameter < 4; GridParameter ++) {                         //
++				GridParameters.push_back(                                                             //
++				    Builder.CreateCall( M->getFunction(CudaFunctions[dimension*4 + GridParameter]),   // 
++				                        CudaInricics[CudaFunctions[dimension*4 + GridParameter]] ));  //
++			}                                                                                         //
++                                                                                                      //
++			Builder.SetInsertPoint(PosInGridBB->getTerminator());                                     //
++                                                                                                      //
++			// Grid Parameters for current dimension                                                  //
++			Value * threadId = GridParameters[dimension*4 + 0];                                       //
++			Value * blockId =  GridParameters[dimension*4 + 1];                                       //
++			Value * blockDim = GridParameters[dimension*4 + 2];                                       //
++			Value * gridDim =  GridParameters[dimension*4 + 3];                                       //
++																									  //
++			// absolute position of block's first thread (position of block)                          //
++			// blockId.x * blockDim.x - "position of block's thread 0 for dimension x"                //
++			Value* Position =                                                                         //
++			    Builder.CreateMul(blockId,blockDim,                                                   //
++			                      string("PositionOfBlockInGrid.") + dimensions[dimension]);          //
++																									  //
++			//GridDim.x * blockDim.x - size of grid in threads for dimension  x                       //
++			Value * Size =                                                                            //
++			    Builder.CreateMul(gridDim,blockDim,                                                   //
++			                      string("GridSize.") + dimensions[dimension]);                       //
++																									  //
++			// store values                                                                           //
++			BlockPositionInGrid.push_back(Position);                                                  //
++			ThreadPositionInBlock.push_back(threadId);                                                //
++			GridSize.push_back(Size);                                                                 //
++			BlockSize.push_back(blockDim);                                                            //
++		}                                                                                             //
++		BasicBlock *LoopPreheader=SplitBlock(PosInGridBB,PosInGridBB->getTerminator(),P);             //
++		Builder.SetInsertPoint(LoopPreheader->getTerminator());                                       //
++	}                                                                                                 //
++////////////////////////////////////////////////////////////////////////////////////////////////////////
++  
++////////////////////////////////////////////////////////////////////////////////////////////////////////
++	void codegenForCUDA(const clast_for *f) {                                                         //
++                                                                                                      //
++		// at that point GridParamsBB and PosInGridBB BasicBlocks have already created                //
++		// needed Value* stored in positionInGrid,GridSize,BlockSize for each thread                  //
++                                                                                                      //
++		int dimension = goodNestedParallelLoopsCount - parallelLoops.size();                          //
++		const char * dimensionName = dimensions[dimension].c_str();                                   //
++																									  //
++		// In CountBoundsBB BasicBlock for each dimension compute                                     //
++		//   CountOfIterations                                                                        //
++		//   ThreadUpperBound                                                                         //
++		//   ThreadLowerBound                                                                         //
++		//   Stride                                                                                   //
++		// That Values are defferent between threads in runtime                                       //
++		BasicBlock * CountBoundsBB = Builder.GetInsertBlock();                                        //
++		CountBoundsBB->setName(string("CUDA.CountBounds.") + dimensionName);                          //
++                                                                                                      //
++		//Lower and Upper Bounds of Loop                                                              //
++		Value * lowerBound = ExpGen.codegen(f->LB,TD->getIntPtrType(Builder.getContext()));           //
++		Value * upperBound = ExpGen.codegen(f->UB,TD->getIntPtrType(Builder.getContext()));           //
++                                                                                                      //
++		// Compute Iteration's count per thread                                                       //
++		// Loop's IterationsCount = upperBound - lowerBound + 1                                       //
++		// Iteration's Count per thread is ( ((IterationsCount-1) / GridSize) + 1)                    //
++		// (IterationsCount-1) = upperBound - lowerBound                                              //
++		Value * One = ConstantInt::get(lowerBound->getType(), 1);                                     ///////    
++		Value * IterationsCountMinusOne =                                                                  //
++		    Builder.CreateSub(upperBound,lowerBound, string("IterationsCountMinusOne.") + dimensionName);  //
++		Value * Division =                                                                                 //
++		    Builder.CreateSDiv(IterationsCountMinusOne,GridSize[dimension]);                          ///////
++		Value * IterationsPerThread =                                                                 //
++		    Builder.CreateAdd(Division,One,                                                           //
++		                      string("IterationsPerThread.") + dimensionName);                        // 
++                                                                                                      //
++        //For current version Loop stride must be one                                                 //                      //
++		assert(dyn_cast<IntegerType>(upperBound->getType()) && "UB is not integer?");                 //                                    //                                                                               //
++		APInt LoopStride = polly::APInt_from_MPZ(f->stride);                                          //
++		assert(LoopStride == 1); //I hope...                                                          //
++																									  //
++		// compute Thread's Upper Bound, Lower Bounds and Stride                                      //
++		// ThreadLowerBound = IterationsPerThread*BlockPosition + ThreadPositionInBlock               //
++		// ThreadUpperBound = ThreadLowerBound + Stride*(IterationsPerThread-1)                       //
++		// Stride = BlockSize (to increase probability of coalescing transactions to memory)          //
++		Value * BlockLowerBound =                                                                     //
++		    Builder.CreateMul(BlockPositionInGrid[dimension],  IterationsPerThread,                   //
++		                      string("BlockLowerBound.") + dimensionName);                            //
++		Value * ThreadLowerBound =                                                                    //
++		    Builder.CreateAdd( BlockLowerBound, ThreadPositionInBlock[dimension],                     //
++		                       string("ThreadLowerBound.") + dimensionName);                          //
++		Value * StrideValue =                                                                         //
++		    BlockSize[dimension];                                                                     //
++		Value * IterationsPerThreadMinusOne =                                                         //
++		    Builder.CreateSub(IterationsPerThread,One,                                                //
++		                      string("IterationsPerThreadMinusOne.") + dimensionName);                //
++		Value * StrideMulIterPerThreadMinusOne =                                                      //
++		    Builder.CreateMul(IterationsPerThreadMinusOne, StrideValue);                              //
++		Value * ThreadUpperBound =                                                                    //
++		    Builder.CreateAdd(ThreadLowerBound,StrideMulIterPerThreadMinusOne,                        //
++		                      string("ThreadUpperBound.") + dimensionName);                           //
++                                                                                                      //
++		// Generate code for loop with computed bounds and stride                                     //
++		// CountBoundsBB BasicBlock is a preheader of that loop                                       //
++        BasicBlock *AfterBB;                                                                          //
++		Value *IV = createLoopForCUDA(&Builder, lowerBound, upperBound,                               //
++								 ThreadLowerBound, ThreadUpperBound, StrideValue, dimensionName,      //
++                                 DT, P, &AfterBB);                                                    //
++								                                                                      //
++		(*clastVars)[f->iterator] = IV;                                                               //
++        if (f->body)                                                                                  //
++            codegen(f->body);                                                                         //
++        // Loop is finished, so remove its iv from the live symbols.                                  //
++        clastVars->erase(f->iterator);                                                                //
++        AfterBB->moveAfter(Builder.GetInsertBlock());		                                          //
++        Builder.SetInsertPoint(AfterBB->begin());                                                     //
++	}                                                                                                 //
++////////////////////////////////////////////////////////////////////////////////////////////////////////     
++
++//////////////////////////////////////////////////////////////////////////////////////////////////////////////
++bool isaGoodListOfStatements(const clast_stmt * stmt,                                                       //
++							 const clast_for * &nested_for, bool & user_or_assignment)                      //
++{                                                                                                           //
++	// возвращает true, если                                                                                //
++	//     в списке нет вложенных циклов                                                                    //
++	//     в списке есть всего один вложенный цикл и нет assignment или user_stmt, не вложенных в него      //
++	// через nested_for возвращает указатель на вложенный цикл или NULL если его нет                        //
++                                                                                                            //
++	if(!stmt) return true;                                                                                  //
++	bool good = true;                                                                                       //
++                                                                                                            //
++	if(CLAST_STMT_IS_A(stmt, stmt_user) || CLAST_STMT_IS_A(stmt, stmt_ass))                                 //
++	{	if(nested_for) return false; // уже где-то есть цикл --------------- :(                             //
++	    else user_or_assignment = true; }  // Нашли user/assignment !!!!!!!!!!!                             //
++	if(CLAST_STMT_IS_A(stmt, stmt_guard))                                                                   //
++		good = isaGoodListOfStatements(((const clast_guard *)stmt)->then, nested_for, user_or_assignment);  //
++	if(CLAST_STMT_IS_A(stmt, stmt_block))                                                                   //
++		good = isaGoodListOfStatements(((const clast_block *)stmt)->body, nested_for, user_or_assignment);  //
++	if(CLAST_STMT_IS_A(stmt, stmt_for))                                                                     //
++	{	if(nested_for || user_or_assignment) return false; // уже где-то есть user/assignment или цикл  :(  //
++		else nested_for = (const clast_for *)stmt; } //нашли for !!!!!!!!                                   //
++                                                                                                            //
++	return good && isaGoodListOfStatements( stmt->next, nested_for, user_or_assignment);                    //
++}                                                                                                           //
++//////////////////////////////////////////////////////////////////////////////////////////////////////////////
++
++////////////////////////////////////////////////////////////////////////////////////////
++int GoodNestedParallelLoops(const clast_stmt * stmt)                                  //
++{                                                                                     //
++	int goodLoops = 0;                                                                //
++	while(goodLoops < 3) {                                                            //
++		const clast_for * nested_for = NULL;                                          //
++		bool user_or_assignment = false;                                              //
++		if(isaGoodListOfStatements(stmt, nested_for, user_or_assignment)) {           //
++			if(nested_for) // если есть цикл                                          //
++				if(DP->isParallelFor(nested_for)) { // и он параллельный              //
++					goodLoops++; // то увеличиваем счётчик                            //
++					stmt = nested_for->body; //и проверяем тело обнаруженного цикла   //
++				} else break; //если встретился не параллельный цикл                  //
++			else break; // если нет больше циклов                                     //
++		} else break; // если список не удовлетворяет требованиям                     //
++	}                                                                                 //
++	return goodLoops;                                                                 //
++}                                                                                     //
++////////////////////////////////////////////////////////////////////////////////////////
++
++
++
+   bool isInnermostLoop(const clast_for *f);
+ 
+   /// @brief Get the number of loop iterations for this loop.
+@@ -1111,9 +1398,11 @@
+ 
+   // Loop is finished, so remove its iv from the live symbols.
+   clastVars->erase(f->iterator);
++  AfterBB->moveAfter(Builder.GetInsertBlock());
+   Builder.SetInsertPoint(AfterBB->begin());
  }
  
--namespace {
--class CodeGeneration : public ScopPass {
--  Region *region;
--  Scop *S;
--  DominatorTree *DT;
--  ScalarEvolution *SE;
--  ScopDetection *SD;
--  TargetData *TD;
--  RegionInfo *RI;
--
--  std::vector<std::string> parallelLoops;
--
--  public:
--  static char ID;
--
--  CodeGeneration() : ScopPass(ID) {}
--
--  // Adding prototypes required if OpenMP is enabled.
--  void addOpenMPDefinitions(IRBuilder<> &Builder)
--  {
--    Module *M = Builder.GetInsertBlock()->getParent()->getParent();
--    LLVMContext &Context = Builder.getContext();
--    IntegerType *intPtrTy = TD->getIntPtrType(Context);
--
--    if (!M->getFunction("GOMP_parallel_end")) {
--      FunctionType *FT = FunctionType::get(Type::getVoidTy(Context), false);
--      Function::Create(FT, Function::ExternalLinkage, "GOMP_parallel_end", M);
--    }
--
--    if (!M->getFunction("GOMP_parallel_loop_runtime_start")) {
--      // Type of first argument.
--      std::vector<Type*> Arguments(1, Builder.getInt8PtrTy());
--      FunctionType *FnArgTy = FunctionType::get(Builder.getVoidTy(), Arguments,
--                                                false);
--      PointerType *FnPtrTy = PointerType::getUnqual(FnArgTy);
--
--      std::vector<Type*> args;
--      args.push_back(FnPtrTy);
--      args.push_back(Builder.getInt8PtrTy());
--      args.push_back(Builder.getInt32Ty());
--      args.push_back(intPtrTy);
--      args.push_back(intPtrTy);
--      args.push_back(intPtrTy);
--
--      FunctionType *type = FunctionType::get(Builder.getVoidTy(), args, false);
--      Function::Create(type, Function::ExternalLinkage,
--                       "GOMP_parallel_loop_runtime_start", M);
--    }
--
--    if (!M->getFunction("GOMP_loop_runtime_next")) {
--      PointerType *intLongPtrTy = PointerType::getUnqual(intPtrTy);
--
--      std::vector<Type*> args;
--      args.push_back(intLongPtrTy);
--      args.push_back(intLongPtrTy);
--
--      FunctionType *type = FunctionType::get(Builder.getInt8Ty(), args, false);
--      Function::Create(type, Function::ExternalLinkage,
--                       "GOMP_loop_runtime_next", M);
--    }
--
--    if (!M->getFunction("GOMP_loop_end_nowait")) {
--      FunctionType *FT = FunctionType::get(Builder.getVoidTy(),
--                                           std::vector<Type*>(), false);
--      Function::Create(FT, Function::ExternalLinkage,
--		       "GOMP_loop_end_nowait", M);
--    }
--  }
--
--  // Split the entry edge of the region and generate a new basic block on this
--  // edge. This function also updates ScopInfo and RegionInfo.
--  //
--  // @param region The region where the entry edge will be splitted.
--  BasicBlock *splitEdgeAdvanced(Region *region) {
--    BasicBlock *newBlock;
--    BasicBlock *splitBlock;
--
--    newBlock = SplitEdge(region->getEnteringBlock(), region->getEntry(), this);
--
--    if (DT->dominates(region->getEntry(), newBlock)) {
--      // Update ScopInfo.
--      for (Scop::iterator SI = S->begin(), SE = S->end(); SI != SE; ++SI)
--        if ((*SI)->getBasicBlock() == newBlock) {
--          (*SI)->setBasicBlock(newBlock);
--          break;
--        }
--
--      // Update RegionInfo.
--      splitBlock = region->getEntry();
--      region->replaceEntry(newBlock);
--      RI->setRegionFor(newBlock, region);
--    } else {
--      RI->setRegionFor(newBlock, region->getParent());
--      splitBlock = newBlock;
--    }
--
--    return splitBlock;
--  }
--
--  // Create a split block that branches either to the old code or to a new basic
--  // block where the new code can be inserted.
--  //
--  // @param builder A builder that will be set to point to a basic block, where
--  //                the new code can be generated.
--  // @return The split basic block.
--  BasicBlock *addSplitAndStartBlock(IRBuilder<> *builder) {
--    BasicBlock *splitBlock = splitEdgeAdvanced(region);
--
--    splitBlock->setName("polly.enterScop");
--
--    Function *function = splitBlock->getParent();
--    BasicBlock *startBlock = BasicBlock::Create(function->getContext(),
--                                                "polly.start", function);
--    splitBlock->getTerminator()->eraseFromParent();
--    builder->SetInsertPoint(splitBlock);
--    builder->CreateCondBr(builder->getTrue(), startBlock, region->getEntry());
--    DT->addNewBlock(startBlock, splitBlock);
--
--    // Start code generation here.
--    builder->SetInsertPoint(startBlock);
--    return splitBlock;
--  }
--
--  // Merge the control flow of the newly generated code with the existing code.
--  //
--  // @param splitBlock The basic block where the control flow was split between
--  //                   old and new version of the Scop.
--  // @param builder    An IRBuilder that points to the last instruction of the
--  //                   newly generated code.
--  void mergeControlFlow(BasicBlock *splitBlock, IRBuilder<> *builder) {
--    BasicBlock *mergeBlock;
--    Region *R = region;
--
--    if (R->getExit()->getSinglePredecessor())
--      // No splitEdge required.  A block with a single predecessor cannot have
--      // PHI nodes that would complicate life.
--      mergeBlock = R->getExit();
--    else {
--      mergeBlock = SplitEdge(R->getExitingBlock(), R->getExit(), this);
--      // SplitEdge will never split R->getExit(), as R->getExit() has more than
--      // one predecessor. Hence, mergeBlock is always a newly generated block.
--      mergeBlock->setName("polly.finalMerge");
--      R->replaceExit(mergeBlock);
--    }
--
--    builder->CreateBr(mergeBlock);
--
--    if (DT->dominates(splitBlock, mergeBlock))
--      DT->changeImmediateDominator(mergeBlock, splitBlock);
--  }
--
--  bool runOnScop(Scop &scop) {
--    S = &scop;
--    region = &S->getRegion();
--    DT = &getAnalysis<DominatorTree>();
--    Dependences *DP = &getAnalysis<Dependences>();
--    SE = &getAnalysis<ScalarEvolution>();
--    SD = &getAnalysis<ScopDetection>();
--    TD = &getAnalysis<TargetData>();
--    RI = &getAnalysis<RegionInfo>();
--
--    parallelLoops.clear();
--
--    assert(region->isSimple() && "Only simple regions are supported");
--
--    // In the CFG and we generate next to original code of the Scop the
--    // optimized version.  Both the new and the original version of the code
--    // remain in the CFG. A branch statement decides which version is executed.
--    // At the moment, we always execute the newly generated version (the old one
--    // is dead code eliminated by the cleanup passes). Later we may decide to
--    // execute the new version only under certain conditions. This will be the
--    // case if we support constructs for which we cannot prove all assumptions
--    // at compile time.
--    //
--    // Before transformation:
--    //
--    //                        bb0
--    //                         |
--    //                     orig_scop
--    //                         |
--    //                        bb1
--    //
--    // After transformation:
--    //                        bb0
--    //                         |
--    //                  polly.splitBlock
--    //                     /       \.
--    //                     |     startBlock
--    //                     |        |
--    //               orig_scop   new_scop
--    //                     \      /
--    //                      \    /
--    //                        bb1 (joinBlock)
--    IRBuilder<> builder(region->getEntry());
--
--    // The builder will be set to startBlock.
--    BasicBlock *splitBlock = addSplitAndStartBlock(&builder);
--
--    if (OpenMP)
--      addOpenMPDefinitions(builder);
--
--    ClastStmtCodeGen CodeGen(S, *SE, DT, SD, DP, TD, builder);
--    CloogInfo &C = getAnalysis<CloogInfo>();
--    CodeGen.codegen(C.getClast());
--
--    parallelLoops.insert(parallelLoops.begin(),
--                         CodeGen.getParallelLoops().begin(),
--                         CodeGen.getParallelLoops().end());
--
--    mergeControlFlow(splitBlock, &builder);
--
--    return true;
--  }
--
--  virtual void printScop(raw_ostream &OS) const {
--    for (std::vector<std::string>::const_iterator PI = parallelLoops.begin(),
--         PE = parallelLoops.end(); PI != PE; ++PI)
--      OS << "Parallel loop with iterator '" << *PI << "' generated\n";
--  }
--
--  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
--    AU.addRequired<CloogInfo>();
--    AU.addRequired<Dependences>();
--    AU.addRequired<DominatorTree>();
--    AU.addRequired<ScalarEvolution>();
--    AU.addRequired<RegionInfo>();
--    AU.addRequired<ScopDetection>();
--    AU.addRequired<ScopInfo>();
--    AU.addRequired<TargetData>();
--
--    AU.addPreserved<CloogInfo>();
--    AU.addPreserved<Dependences>();
--
--    // FIXME: We do not create LoopInfo for the newly generated loops.
--    AU.addPreserved<LoopInfo>();
--    AU.addPreserved<DominatorTree>();
--    AU.addPreserved<ScopDetection>();
--    AU.addPreserved<ScalarEvolution>();
--
--    // FIXME: We do not yet add regions for the newly generated code to the
--    //        region tree.
--    AU.addPreserved<RegionInfo>();
--    AU.addPreserved<TempScopInfo>();
--    AU.addPreserved<ScopInfo>();
--    AU.addPreservedID(IndependentBlocksID);
--  }
 +
-+namespace
-+{
-+class CodeGeneration : public ScopPass
-+{
-+	Region *region;
-+	Scop *S;
-+	DominatorTree *DT;
-+	ScalarEvolution *SE;
-+	ScopDetection *SD;
-+	TargetData *TD;
-+	RegionInfo *RI;
+ Function *ClastStmtCodeGen::addOpenMPSubfunction(Module *M) {
+   Function *F = Builder.GetInsertBlock()->getParent();
+   std::vector<Type*> Arguments(1, Builder.getInt8PtrTy());
+@@ -1417,7 +1706,14 @@
+     parallelLoops.push_back(f->iterator);
+     codegenForOpenMP(f);
+     parallelCodeGeneration = false;
+-  } else
++//////////////////////////////////////////////////////////////////////////////////////////
++   } else if (CUDA && (int)parallelLoops.size() < goodNestedParallelLoopsCount) {       //
++			parallelLoops.push_back(f->iterator);                                       //
++			codegenForCUDA(f);                                                          //
++//////////////////////////////////////////////////////////////////////////////////////////
++   } else
 +
-+	std::vector<std::string> parallelLoops;
 +
-+public:
-+	static char ID;
+     codegenForSequential(f);
+ }
+ 
+@@ -1518,6 +1814,13 @@
+   parallelCodeGeneration = false;
+ 
+   const clast_stmt *stmt = (const clast_stmt*) r;
++  
++///////////////////////////////////////////////////////////////////////////////                   
++		if(CUDA && ((goodNestedParallelLoopsCount =                          //      
++		             GoodNestedParallelLoops(stmt->next)) > 0) )             //      
++			createCUDAGridParamsAndPosInGridBlocks();                        //    
++///////////////////////////////////////////////////////////////////////////////
 +
-+	CodeGeneration() : ScopPass(ID) {}
-+
-+	/////////////////////////////////////////////////////////////////////////
-+	// Adding prototypes required if OpenMP is enabled.                    //
-+	// For each dimension defines four functions, which returns parameters //
-+	//  threadId                                                           //
-+	//	blockId                                                            //
-+	//	BlockDim                                                           //
-+	//	gridDim                                                            //
-+	// for a dimension                                                     //
-+	/////////////////////////////////////////////////////////////////////////
-+	void addCUDADefinitions(IRBuilder<> &Builder) {
-+		Module *M = Builder.GetInsertBlock()->getParent()->getParent();
+   if (stmt->next)
+     codegen(stmt->next);
+ 
+@@ -1548,6 +1851,49 @@
+ 
+   CodeGeneration() : ScopPass(ID) {}
+ 
++	// Adding prototypes required if OpenMP is enabled.                    
++	// For each dimension defines four functions, which returns parameters 
++	//  threadId                                                           
++	//	blockId                                                            
++	//	BlockDim                                                           
++	//	gridDim                                                            
++	// for a dimension                                                     
++	void addCUDADeclarations(Module *M)
++    {
++        IRBuilder<> Builder(M->getContext());
 +		LLVMContext &Context = Builder.getContext();
 +		IntegerType *intType = Type::getInt64Ty(Context); //TD->getInt32Type(Context);
 +
 +		if (!M->getFunction("kernelgen_threadIdx_x")) {
-+			/////////////////////////////////////////////////////////////////////
-+			//  define all dimensions, that can be used while code generation  //
-+			/////////////////////////////////////////////////////////////////////
-+			dimensions.push_back("x");                                         //
-+			dimensions.push_back("y");                                         //
-+			dimensions.push_back("z");                                         //
-+			/////////////////////////////////////////////////////////////////////
++	
++		    //  define all dimensions, that can be used while code generation  
++			dimensions.push_back("x");                                         
++			dimensions.push_back("y");                                         
++			dimensions.push_back("z");                                         
 +
-+			////////////////////////////////////////
-+			// define parameters of dimensions    //
-+			////////////////////////////////////////
-+			vector<string> parameters;            //
-+			parameters.push_back("threadIdx");    //
-+			parameters.push_back("blockIdx");     //
-+			parameters.push_back("blockDim");     //
-+			parameters.push_back("gridDim");      //
-+			////////////////////////////////////////
++			// define parameters of dimensions    
++			vector<string> parameters;            
++			parameters.push_back("threadIdx");    
++			parameters.push_back("blockIdx");     
++			parameters.push_back("blockDim");     
++			parameters.push_back("gridDim");      
 +
 +			string prefix1("kernelgen_");
 +			string prefix2("_");
@@ -3065,342 +420,54 @@
 +			}
 +		}
 +	}
-+
-+	void getRegionBlocks(Region *region, BasicBlock *BB, SetVector<BasicBlock*> *visited) {
-+		BasicBlock *exit = region -> getExit();
-+		visited->insert(BB);
-+		for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI)
-+			if (*SI != exit && !visited->count(*SI))
-+				getRegionBlocks(region, *SI, visited);
-+	}
-+
-+	BasicBlock* MakeNewEntryBlock(BasicBlock* oldEntry, BasicBlock* EnteringBlock) {
-+/////////////////////////////////////////////////////////////////////////////////////////////////////////
-+// Add new Block which is Entry Block of new region. Redirect links                                    //
-+/////////////////////////////////////////////////////////////////////////////////////////////////////////
-+		BasicBlock * NewEntry =                                                                        //
-+		    BasicBlock::Create(EnteringBlock->getParent()->getContext(), "RegionEntryBlock", EnteringBlock->getParent()); //
-+		TerminatorInst *TI = EnteringBlock->getTerminator();                                           //
-+		TI->replaceUsesOfWith(oldEntry, NewEntry);                                                     //
-+		return NewEntry;
-+/////////////////////////////////////////////////////////////////////////////////////////////////////////
-+	}
-+	
-+	// Adding prototypes required if OpenMP is enabled.
-+	void addOpenMPDefinitions(IRBuilder<> &Builder) {
-+		Module *M = Builder.GetInsertBlock()->getParent()->getParent();
-+		LLVMContext &Context = Builder.getContext();
-+		IntegerType *intPtrTy = TD->getIntPtrType(Context);
-+
-+		if (!M->getFunction("GOMP_parallel_end")) {
-+			FunctionType *FT = FunctionType::get(Type::getVoidTy(Context), false);
-+			Function::Create(FT, Function::ExternalLinkage, "GOMP_parallel_end", M);
-+		}
-+
-+		if (!M->getFunction("GOMP_parallel_loop_runtime_start")) {
-+			// Type of first argument.
-+			std::vector<Type*> Arguments(1, Builder.getInt8PtrTy());
-+			FunctionType *FnArgTy = FunctionType::get(Builder.getVoidTy(), Arguments,
-+			                        false);
-+			PointerType *FnPtrTy = PointerType::getUnqual(FnArgTy);
-+
-+			std::vector<Type*> args;
-+			args.push_back(FnPtrTy);
-+			args.push_back(Builder.getInt8PtrTy());
-+			args.push_back(Builder.getInt32Ty());
-+			args.push_back(intPtrTy);
-+			args.push_back(intPtrTy);
-+			args.push_back(intPtrTy);
-+
-+			FunctionType *type = FunctionType::get(Builder.getVoidTy(), args, false);
-+			Function::Create(type, Function::ExternalLinkage,
-+			                 "GOMP_parallel_loop_runtime_start", M);
-+		}
-+
-+		if (!M->getFunction("GOMP_loop_runtime_next")) {
-+			PointerType *intLongPtrTy = PointerType::getUnqual(intPtrTy);
-+
-+			std::vector<Type*> args;
-+			args.push_back(intLongPtrTy);
-+			args.push_back(intLongPtrTy);
-+
-+			FunctionType *type = FunctionType::get(Builder.getInt8Ty(), args, false);
-+			Function::Create(type, Function::ExternalLinkage,
-+			                 "GOMP_loop_runtime_next", M);
-+		}
-+
-+		if (!M->getFunction("GOMP_loop_end_nowait")) {
-+			FunctionType *FT = FunctionType::get(Builder.getVoidTy(),
-+			                                     std::vector<Type*>(), false);
-+			Function::Create(FT, Function::ExternalLinkage,
-+			                 "GOMP_loop_end_nowait", M);
-+		}
-+	}
-+
-+	// Split the entry edge of the region and generate a new basic block on this
-+	// edge. This function also updates ScopInfo and RegionInfo.
-+	//
-+	// @param region The region where the entry edge will be splitted.
-+	BasicBlock *splitEdgeAdvanced(Region *region) {
-+		BasicBlock *newBlock;
-+		BasicBlock *splitBlock;
-+
-+		newBlock = SplitEdge(region->getEnteringBlock(), region->getEntry(), this);
-+
-+		if (DT->dominates(region->getEntry(), newBlock)) {
-+			// Update ScopInfo.
-+			for (Scop::iterator SI = S->begin(), SE = S->end(); SI != SE; ++SI)
-+				if ((*SI)->getBasicBlock() == newBlock) {
-+					(*SI)->setBasicBlock(newBlock);
-+					break;
-+				}
-+
-+			// Update RegionInfo.
-+			splitBlock = region->getEntry();
-+			region->replaceEntry(newBlock);
-+			RI->setRegionFor(newBlock, region);
-+		} else {
-+			RI->setRegionFor(newBlock, region->getParent());
-+			splitBlock = newBlock;
-+		}
-+
-+		return splitBlock;
-+	}
-+
-+	// Create a split block that branches either to the old code or to a new basic
-+	// block where the new code can be inserted.
-+	//
-+	// @param builder A builder that will be set to point to a basic block, where
-+	//                the new code can be generated.
-+	// @return The split basic block.
-+	BasicBlock *addSplitAndStartBlock(IRBuilder<> *builder) {
-+		BasicBlock *splitBlock = splitEdgeAdvanced(region);
-+
-+		splitBlock->setName("polly.enterScop");
-+
-+		Function *function = splitBlock->getParent();
-+		BasicBlock *startBlock = BasicBlock::Create(function->getContext(),
-+		                         "polly.start", function);
-+		splitBlock->getTerminator()->eraseFromParent();
-+		builder->SetInsertPoint(splitBlock);
-+		builder->CreateCondBr(builder->getTrue(), startBlock, region->getEntry());
-+		DT->addNewBlock(startBlock, splitBlock);
-+
-+		// Start code generation here.
-+		builder->SetInsertPoint(startBlock);
-+		return splitBlock;
-+	}
-+
-+	// Merge the control flow of the newly generated code with the existing code.
-+	//
-+	// @param splitBlock The basic block where the control flow was split between
-+	//                   old and new version of the Scop.
-+	// @param builder    An IRBuilder that points to the last instruction of the
-+	//                   newly generated code.
-+	void mergeControlFlow(BasicBlock *splitBlock, IRBuilder<> *builder) {
-+		BasicBlock *mergeBlock;
-+		Region *R = region;
-+
-+		if (R->getExit()->getSinglePredecessor())
-+			// No splitEdge required.  A block with a single predecessor cannot have
-+			// PHI nodes that would complicate life.
-+			mergeBlock = R->getExit();
-+		else {
-+			mergeBlock = SplitEdge(R->getExitingBlock(), R->getExit(), this);
-+			// SplitEdge will never split R->getExit(), as R->getExit() has more than
-+			// one predecessor. Hence, mergeBlock is always a newly generated block.
-+			mergeBlock->setName("polly.finalMerge");
-+			R->replaceExit(mergeBlock);
-+		}
-+
-+		builder->CreateBr(mergeBlock);
-+
-+		if (DT->dominates(splitBlock, mergeBlock))
-+			DT->changeImmediateDominator(mergeBlock, splitBlock);
-+	}
-+
-+	bool runOnScop(Scop &scop) {
-+		S = &scop;
-+		region = &S->getRegion();
-+		DT = &getAnalysis<DominatorTree>();
-+		Dependences *DP = &getAnalysis<Dependences>();
-+		SE = &getAnalysis<ScalarEvolution>();
-+		SD = &getAnalysis<ScopDetection>();
-+		TD = &getAnalysis<TargetData>();
-+		RI = &getAnalysis<RegionInfo>();
-+
-+		parallelLoops.clear();
-+
-+    	assert( (!(CUDA || OpenMP) || (CUDA ^ OpenMP)) && "Either CUDA or OpenMP");
-+		assert(region->isSimple() && "Only simple regions are supported");
-+
-+		Function * region_func   = region->getEntry()->getParent();
-+		Module   * region_module = region_func->getParent();
-+		string ModuleName = region_module->getModuleIdentifier();
-+
-+        // the first block of this region's single entry edge,
-+		BasicBlock * EnteringBlock = region->getEnteringBlock();
-+		// the second block of this region's single exit edge,
-+		BasicBlock * ExitBlock = region->getExit();
-+		// the second block of this region's single entry edge,
-+		BasicBlock * oldEntry = region->getEntry();
-+		// the first block of this region's single exit edge
-+		//BasicBlock * oldExitingBlock = region->getExitingBlock();
-+
-+		SetVector<BasicBlock *> region_blocks;
-+		SetVector<BasicBlock *> tail_blocks;
-+		{
-+			////////////////////////////////////////////////////////////////////////////////////////
-+			// fill in set of region blocks                                                       //
-+			////////////////////////////////////////////////////////////////////////////////////////
-+			//int i = 0;                                                                          //
-+			int firstRegionBlockInFunc = 0;                                                       //
-+			getRegionBlocks(region,oldEntry,&region_blocks);                                      //
-+			for(Function::iterator BB_Begin = region_func->begin(), BB_End = region_func->end();  //
-+			    BB_Begin != BB_End; BB_Begin++ ) {                                                //
-+				BasicBlock * bb = const_cast<BasicBlock*>(&(*BB_Begin));                          //
-+				firstRegionBlockInFunc++;                                                         //                      //
-+				if(region_blocks.count(bb)) break;                                                //                          //
-+			}                                                                                     //
-+			////////////////////////////////////////////////////////////////////////////////////////
-+
-+			////////////////////////////////////////////////////////////////////////////
-+			// fill in "tail" - blocks of function that are not of region blocks and  //
-+			// and they'r place is after region entry                                 //
-+			////////////////////////////////////////////////////////////////////////////
-+			int i=0;                                                                  //
-+			Function::BasicBlockListType & BBList = region_func->getBasicBlockList(); //
-+			for(Function::iterator BB_Begin = BBList.begin(), BB_End = BBList.end();  //
-+			    BB_Begin != BB_End; BB_Begin++ ) {                                    //
-+				BasicBlock * bb = BB_Begin;                                           //
-+				i++;                                                                  //
-+				if(i >= firstRegionBlockInFunc && !region_blocks.count(bb)) {         //
-+					tail_blocks.insert(bb);                                           //
-+				}                                                                     //
-+			}                                                                         //
-+			////////////////////////////////////////////////////////////////////////////
-+		}
-+
-+		IRBuilder<> builder(EnteringBlock);
-+		
-+		if (CUDA)
-+			addCUDADefinitions(builder);
-+        if(OpenMP)
-+			addOpenMPDefinitions(builder);
-+			
-+		BasicBlock *newEntry = MakeNewEntryBlock(oldEntry, EnteringBlock);
-+		DT->addNewBlock(newEntry, EnteringBlock);
-+		builder.SetInsertPoint(newEntry);
-+		////////////////////////////////////////////////////////////////////////////////////////////
-+		// generate code                                                                          //
-+		////////////////////////////////////////////////////////////////////////////////////////////
-+		int MaxDimensionsCount = dimensions.size();                                               //                                                              //
-+		ClastStmtCodeGen CodeGen(S, *SE, DT, SD, DP, TD, builder, MaxDimensionsCount);            //
-+		CloogInfo &C = getAnalysis<polly::CloogInfo>();                                           //
-+		CodeGen.codegen(C.getClast());                                                            //
-+		////////////////////////////////////////////////////////////////////////////////////////////
-+
-+		parallelLoops.insert(parallelLoops.begin(),
-+		                     CodeGen.getParallelLoops().begin(),
-+		                     CodeGen.getParallelLoops().end());
-+
-+		// At that point builder is at Exiting Block of new region
-+		// BasicBlock * newExitingBlock = builder.GetInsertBlock();
-+		builder.CreateBr(ExitBlock);
-+		
-+		{
-+			////////////////////////////////////////////////////////////////////////////////////////////////////////
-+			// remove region blocks from function                                                                 //
-+			////////////////////////////////////////////////////////////////////////////////////////////////////////
-+			for(SetVector<BasicBlock *>::iterator BB_Begin = region_blocks.begin(), BB_End = region_blocks.end(); //
-+			    BB_Begin != BB_End; BB_Begin++ ) {                                                                //
-+				BasicBlock * bb = *BB_Begin;                                                                      //
-+				bb->dropAllReferences();                                                                          //
-+			}                                                                                                     //
-+			for(SetVector<BasicBlock *>::iterator BB_Begin = region_blocks.begin(), BB_End = region_blocks.end(); //
-+			    BB_Begin != BB_End; BB_Begin++ ) {                                                                //
-+				BasicBlock * bb = *BB_Begin;                                                                      //
-+				bb->eraseFromParent();                                                                            //
-+			}                                                                                                     //
-+			////////////////////////////////////////////////////////////////////////////////////////////////////////
-+
-+			////////////////////////////////////////////////////////////////////////////////////////////////////
-+			// move tail to back of the region function                                                       //
-+			////////////////////////////////////////////////////////////////////////////////////////////////////
-+			for(SetVector<BasicBlock *>::iterator BB_Begin = tail_blocks.begin(), BB_End = tail_blocks.end(); //
-+			    BB_Begin != BB_End; BB_Begin++ ) {                                                            //
-+				BasicBlock * bb = *BB_Begin;                                                                  //
-+				bb->moveAfter(&region_func->back());                                                          //
-+			}                                                                                                 //
-+			////////////////////////////////////////////////////////////////////////////////////////////////////
-+		}
-+
-+		region-> replaceEntry (newEntry);// important!!
-+		DT->DT->recalculate(*region_func); //TO DO - change DT manually, bacause recalculate all is very expensive
-+        //RI->runOnFunction(*region_func); //TO DO - change RI manually, bacause recalculate all is very expensive
-+		assert(!verifyFunction(*region_func) && "code generation failed : we made broken function");
-+		
-+		/////////////////////////////////////////////////////////////////////////////
-+		// decomment to obrain some dump information                               //
-+		/////////////////////////////////////////////////////////////////////////////
-+		// ofstream fout;                                                          //
-+		// fout.open(("../examples/for.dump"));                              //
-+		// raw_os_ostream OS(fout);                                                //
-+		// region_func -> getParent() ->print(OS, NULL);                           //
-+		// fout.close();                                                           //
-+		//                                                                         //
-+		// static int asdf = 0;                                                    //
-+		// ofstream cloog_print;                                                   //
-+		// if(asdf==0) cloog_print.open((ModuleName + ".cloog").c_str());          //
-+		// else cloog_print.open( (ModuleName + ".cloog").c_str(), ios_base::app); //
-+		// raw_os_ostream OS1(cloog_print);                                        //
-+		// C.pprint(OS1);                                                          //
-+		/////////////////////////////////////////////////////////////////////////////
-+		return true;
-+	}
-+
-+	virtual void printScop(raw_ostream &OS) const {
-+		for (std::vector<std::string>::const_iterator PI = parallelLoops.begin(),
-+		     PE = parallelLoops.end(); PI != PE; ++PI)
-+			OS << "Parallel loop with iterator '" << *PI << "' generated\n";
-+	}
-+
-+	virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-+		AU.addRequired<CloogInfo>();
-+		AU.addRequired<Dependences>();
-+		AU.addRequired<DominatorTree>();
-+		AU.addRequired<ScalarEvolution>();
-+		AU.addRequired<RegionInfo>();
-+		AU.addRequired<ScopDetection>();
-+		AU.addRequired<ScopInfo>();
-+		AU.addRequired<TargetData>();
-+
-+		/*	AU.addPreserved<CloogInfo>();
-+			AU.addPreserved<Dependences>();
-+
-+			// FIXME: We do not create LoopInfo for the newly generated loops.
-+			AU.addPreserved<LoopInfo>();
-+			AU.addPreserved<DominatorTree>();
-+			AU.addPreserved<ScopDetection>();
-+			AU.addPreserved<ScalarEvolution>();
-+
-+			// FIXME: We do not yet add regions for the newly generated code to the
-+			//        region tree.
-+			AU.addPreserved<RegionInfo>();
-+			AU.addPreserved<TempScopInfo>();
-+			AU.addPreserved<ScopInfo>();
-+			AU.addPreservedID(IndependentBlocksID);*/
-+	}
- };
- }
++  
+   // Add the declarations needed by the OpenMP function calls that we insert in
+   // OpenMP mode.
+   void addOpenMPDeclarations(Module *M)
+@@ -1696,6 +2042,7 @@
+     Module *M = region->getEntry()->getParent()->getParent();
  
-@@ -1529,6 +2029,7 @@
- static RegisterPass<CodeGeneration>
- Z("polly-codegen", "Polly - Create LLVM-IR from the polyhedral information");
+     if (OpenMP) addOpenMPDeclarations(M);
++	if (CUDA) addCUDADeclarations(M);
  
--Pass* polly::createCodeGenerationPass() {
--  return new CodeGeneration();
-+Pass* polly::createCodeGenerationPass()
-+{
-+	return new CodeGeneration();
- }
+     // In the CFG the optimized code of the SCoP is generated next to the
+     // original code. Both the new and the original version of the code remain
+@@ -1741,7 +2088,8 @@
+     parallelLoops.insert(parallelLoops.begin(),
+                          CodeGen.getParallelLoops().begin(),
+                          CodeGen.getParallelLoops().end());
+-
++    assert(!verifyFunction(*(region->getEntry()->getParent())) && 
++	                       "code generation failed : function was broken");
+     return true;
+   }
+--- a/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 21:31:42.000000000 +0400
+@@ -28,7 +28,7 @@
+ using namespace llvm;
+ 
+ namespace polly {
+-  Pass *createAffSCEVItTesterPass();
++  //Pass *createAffSCEVItTesterPass();
+   Pass *createCloogExporterPass();
+   Pass *createCloogInfoPass();
+   Pass *createCodeGenerationPass();
+@@ -76,7 +76,7 @@
+       if (std::getenv("bar") != (char*) -1)
+         return;
+ 
+-       createAffSCEVItTesterPass();
++       //createAffSCEVItTesterPass();
+        createCloogExporterPass();
+        createCloogInfoPass();
+        createCodeGenerationPass();
+@@ -88,7 +88,7 @@
+        createDOTPrinterPass();
+        createDOTViewerPass();
+        createIndependentBlocksPass();
+-       createIndVarSimplifyPass();
++       polly::createIndVarSimplifyPass();
+        createJSONExporterPass();
+        createJSONImporterPass();
+        createRegionSimplifyPass();
+ 

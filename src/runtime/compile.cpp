@@ -29,21 +29,22 @@
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Target/TargetRegistry.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/FunctionUtils.h"
+#include "llvm/Transforms/IPO.h"
 
 #include "polly/LinkAllPasses.h"
-#include "CodeGeneration.h"
 
 #include "io.h"
 #include "util.h"
@@ -104,14 +105,14 @@ static PassManager getPollyPassManager(Module* m)
 	polly.add(createInstructionCombiningPass());	// -instcombine
 	polly.add(createLoopSimplifyPass());		// -loop-simplify
 	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createIndVarSimplifyPass());		// -indvars
+	polly.add(polly::createIndVarSimplifyPass());		// -indvars
 	polly.add(createLoopDeletionPass());		// -loop-deletion
 	polly.add(createInstructionCombiningPass());	// -instcombine
-	polly.add(createCodePreperationPass());		// -polly-prepare
+	polly.add(createCodePreparationPass());		// -polly-prepare
 	polly.add(createRegionSimplifyPass());		// -polly-region-simplify
-	polly.add(createIndVarSimplifyPass());		// -indvars
+	polly.add(polly::createIndVarSimplifyPass());		// -indvars
 	polly.add(createBasicAliasAnalysisPass());	// -basicaa
-	polly.add(createScheduleOptimizerPass());	// -polly-optimize-isl
+	polly.add(createIslScheduleOptimizerPass());	// -polly-optimize-isl
 
 	return polly;
 }
@@ -136,6 +137,45 @@ Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 	}
 	return Size3(launchParameters);
 }
+
+static void runPolly(kernel_t *kernel, bool mode)
+{
+    PassManager polly = getPollyPassManager(kernel->module);
+    polly::CUDA.setValue(mode);
+	vector<Size3> sizes;
+ 	if(kernel->name != "__kernelgen_main")
+		polly.add(createSizeOfLoopsPass(&sizes));
+	polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
+	polly.add(createCFGSimplificationPass());
+	polly.run(*kernel->module);
+	if(kernel->name != "__kernelgen_main") {
+		if(sizes.size() == 0)
+				cout << "    No Scops detected in kernel" << endl;
+		else {
+			Size3 SizeOfLoops = sizes[0]; // 3-dimensional
+			// non-negative define sizes
+			// if parallelized less than 3 loops then remaining will be -1
+			// example:
+			//for (c2=0;c2<=122;c2++) {
+	    	//   for (c4=0;c4<=c2+13578;c4++) {
+			//      Stmt_polly_stmt_4_cloned(c2,c4);
+			//	}
+			// }
+			// SizeOfLoops : 123 13640 -1
+			Size3 launchParameters = convertLoopSizesToLaunchParameters(SizeOfLoops);
+			kernel->target[runmode].launchParameters = launchParameters;
+		}
+	}
+}
+static void runPollyNATIVE(kernel_t *kernel)
+{
+    return runPolly(kernel,false);
+}
+static void runPollyCUDA(kernel_t *kernel)
+{
+    return runPolly(kernel,true);
+}
+
 kernel_func_t kernelgen::runtime::compile(
     int runmode, kernel_t* kernel, Module* module, void * data, int szdatai)
 {
@@ -172,31 +212,7 @@ kernel_func_t kernelgen::runtime::compile(
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
 		// Apply the Polly codegen for native target.
-		polly::CUDA.setValue(false);
-		vector<Size3> sizes;
-		if (kernel->name != "__kernelgen_main")
-			polly.add(createSizeOfLoopsPass(&sizes));
-		polly.add(polly::createCodeGenerationPass()); // -polly-codegen
-		polly.run(*m);
-		if (kernel->name != "__kernelgen_main") {
-			if(sizes.size() == 0)
-				cout << "    No Scops detected in kernel" << endl;
-			else {
-				Size3 SizeOfLoops = sizes[0]; // 3-dimensional
-				// non-negative define sizes
-				// if parallelized less than 3 loops then remaining will be -1
-				// example:
-				//for (c2=0;c2<=122;c2++) {
-				//   for (c4=0;c4<=c2+13578;c4++) {
-				//      Stmt_polly_stmt_4_cloned(c2,c4);
-				//	}
-				// }
-				// SizeOfLoops : 123 13640 -1
-				Size3 launchParameters = convertLoopSizesToLaunchParameters(SizeOfLoops);
-				kernel->target[runmode].launchParameters = launchParameters;
-			}
-
-		}
+                runPollyNATIVE(kernel);
 
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
@@ -209,14 +225,14 @@ kernel_func_t kernelgen::runtime::compile(
 
 			Triple triple(m->getTargetTriple());
 			if (triple.getTriple().empty())
-				triple.setTriple(sys::getHostTriple());
+				triple.setTriple(sys::getDefaultTargetTriple());
 			string err;
 			const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
 			if (!target)
 				THROW("Error auto-selecting target for module '" << err << "'." << endl <<
 				      "Please use the -march option to explicitly pick a target.");
 			targets[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
-			        triple.getTriple(), "", "", Reloc::PIC_, CodeModel::Default));
+			        triple.getTriple(), "", "", TargetOptions(),Reloc::PIC_, CodeModel::Default));
 			if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
 				THROW("Could not allocate target machine");
 
@@ -296,30 +312,7 @@ kernel_func_t kernelgen::runtime::compile(
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 		// Apply the Polly codegen for native target.
-		polly::CUDA.setValue(true);
-		vector<Size3> sizes;
-		if (kernel->name != "__kernelgen_main")
-			polly.add(createSizeOfLoopsPass(&sizes));
-		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
-		polly.run(*m);
-		if (kernel->name != "__kernelgen_main") {
-			if(sizes.size() == 0)
-				cout << "    No Scops detected in kernel" << endl;
-			else {
-				Size3 SizeOfLoops = sizes[0]; // 3-dimensional
-				// non-negative define sizes
-				// if parallelized less than 3 loops then remaining will be -1
-				// example:
-				//for (c2=0;c2<=122;c2++) {
-				//   for (c4=0;c4<=c2+13578;c4++) {
-				//      Stmt_polly_stmt_4_cloned(c2,c4);
-				//	}
-				// }
-				// SizeOfLoops : 123 13640 -1
-				Size3 launchParameters = convertLoopSizesToLaunchParameters(SizeOfLoops);
-				kernel->target[runmode].launchParameters = launchParameters;
-			}
-		}
+		 runPollyCUDA(kernel);
 
 		// Initially, fill intrinsics tables.
 		if (kernelgen_intrinsics_set.empty()) {
@@ -457,7 +450,7 @@ kernel_func_t kernelgen::runtime::compile(
 		// Optimize module.
 		{
 			PassManager manager;
-			manager.add(createLowerSetJmpPass());
+			//manager.add(createLowerSetJmpPass());
 			PassManagerBuilder builder;
 			builder.Inliner = createFunctionInliningPass();
 			builder.OptLevel = 3;
@@ -478,7 +471,7 @@ kernel_func_t kernelgen::runtime::compile(
 			const Target* target = NULL;
 			Triple triple(m->getTargetTriple());
 			if (triple.getTriple().empty())
-				triple.setTriple(sys::getHostTriple());
+				triple.setTriple(sys::getDefaultTargetTriple());
 			for (TargetRegistry::iterator it = TargetRegistry::begin(),
 			     ie = TargetRegistry::end(); it != ie; ++it) {
 				if (!strcmp(it->getName(), "c")) {
@@ -491,7 +484,7 @@ kernel_func_t kernelgen::runtime::compile(
 				THROW("LLVM is built without C Backend support");
 
 			targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
-			        triple.getTriple(), "", "", Reloc::PIC_, CodeModel::Default));
+			        triple.getTriple(), "", "", TargetOptions(), Reloc::PIC_, CodeModel::Default));
 			if (!targets[KERNELGEN_RUNMODE_CUDA].get())
 				THROW("Could not allocate target machine");
 

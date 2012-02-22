@@ -40,7 +40,6 @@ CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../libasfermi/tests/dyloader $(LLVMI
 OBJECTS = \
 	entry compile launch finish timing io elf execute bind nvopencc \
 	memory hostcall wrappers \
-	BlockGenerator ClastExpCodegen ClastStmtCodeGen CodeGeneration \
         ConstantSubstitution SizeOfLoops
 
 OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
@@ -146,26 +145,6 @@ NUM_SYMBOLS ?= 1
 	$(CXX32) $(CXXFLAGS) -c $< -o $@
 64/wrappers.o: wrappers.cpp
 	$(CXX64) $(CXXFLAGS) -c $< -o $@
-
-32/BlockGenerator.o: BlockGenerator.cpp
-	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
-64/BlockGenerator.o: BlockGenerator.cpp
-	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
-
-32/ClastExpCodegen.o: ClastExpCodegen.cpp
-	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
-64/ClastExpCodegen.o: ClastExpCodegen.cpp
-	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
-
-32/ClastStmtCodeGen.o: ClastStmtCodeGen.cpp
-	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
-64/ClastStmtCodeGen.o: ClastStmtCodeGen.cpp
-	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
-
-32/CodeGeneration.o: CodeGeneration.cpp
-	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
-64/CodeGeneration.o: CodeGeneration.cpp
-	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
 
 32/ConstantSubstitution.o: ConstantSubstitution.cpp
 	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@

@@ -42,13 +42,14 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
-#include "llvm/Support/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Analysis/Verifier.h"
 
 using namespace kernelgen;
 using namespace llvm;
@@ -145,7 +146,7 @@ int link(list<string> args, list<string> kgen_args,
 					cout << "Linking " << name << endl;
 		
 				string err;
-				if (Linker::LinkModules(&composite, m.get(), &err))
+				if (Linker::LinkModules(&composite, m.get(),Linker::PreserveSource, &err))
 					THROW("Error linking module " << name << " : " << err);
 			}
 		}
@@ -329,7 +330,7 @@ int link(list<string> args, list<string> kgen_args,
 	{
 		PassManager manager;
 		manager.add(new TargetData(&composite));
-		manager.add(createLowerSetJmpPass());
+		//manager.add(createLowerSetJmpPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = 3;
@@ -378,7 +379,7 @@ int link(list<string> args, list<string> kgen_args,
 						StoreInst* nameInit = dyn_cast<StoreInst>(*i);
 						if (nameInit)
 						{
-							ConstantArray* nameArray = dyn_cast<ConstantArray>(
+							ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
 								nameInit->getValueOperand());
 							if (nameArray && nameArray->isCString())
 								name = nameArray->getAsCString();
@@ -639,7 +640,7 @@ int link(list<string> args, list<string> kgen_args,
 		// Adding -rdynamic to use executable global symbols
 		// to resolve dependencies of subsequently loaded kernel objects.
 		args.push_back("-rdynamic");
-		args.push_back("/opt/kernelgen/lib/libLLVM-3.0svn.so");
+		args.push_back("/opt/kernelgen/lib/libLLVM-3.1svn.so");
 		args.push_back("/opt/kernelgen/lib/LLVMPolly.so");
 		args.push_back("/opt/kernelgen/lib/libdyloader.so");
 		args.push_back("/opt/kernelgen/lib/libasfermi.so");

@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
 							StoreInst* nameInit = dyn_cast<StoreInst>(*i);
 							if (nameInit)
 							{
-								ConstantArray* nameArray = dyn_cast<ConstantArray>(
+								ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
 									nameInit->getValueOperand());
 								if (nameArray && nameArray->isCString())
 									name = nameArray->getAsCString();
