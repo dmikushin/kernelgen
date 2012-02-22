@@ -441,8 +441,9 @@
 +	                       "code generation failed : function was broken");
      return true;
    }
---- a/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 20:51:28.000000000 +0400
-+++ b/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 21:31:42.000000000 +0400
+
+--- a/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 21:54:11.770053209 +0300
++++ b/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 21:54:57.489006488 +0300
 @@ -28,7 +28,7 @@
  using namespace llvm;
  
@@ -470,4 +471,3 @@
         createJSONExporterPass();
         createJSONImporterPass();
         createRegionSimplifyPass();
- 
