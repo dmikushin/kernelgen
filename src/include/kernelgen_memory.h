@@ -42,6 +42,11 @@ typedef struct
 {
 	int is_available;
 	int size;
+	
+	// Align structure to 16, or there will be
+	// problems with 128-bit loads/stores in
+	// optimized Fermi ISA (nvopencc issue?).
+	size_t padding;
 }
 kerelgen_memory_chunk_t;
 

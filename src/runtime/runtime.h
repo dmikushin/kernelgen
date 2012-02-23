@@ -81,8 +81,9 @@ extern int verbose;
 #define KERNELGEN_VERBOSE_DISABLE	0
 #define KERNELGEN_VERBOSE_SUMMARY	1 << 0
 #define KERNELGEN_VERBOSE_SOURCES	1 << 1
-#define KERNELGEN_VERBOSE_DATAIO	1 << 2
-#define KERNELGEN_VERBOSE_HOSTCALL	1 << 3
+#define KERNELGEN_VERBOSE_ISA		1 << 2
+#define KERNELGEN_VERBOSE_DATAIO	1 << 3
+#define KERNELGEN_VERBOSE_HOSTCALL	1 << 4
 
 // The prototype of kernel function.
 // Thanks to arguments aggregation, all

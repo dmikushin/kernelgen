@@ -36,7 +36,7 @@ using namespace std;
 
 #define PTX_LOG_SIZE 1024
 
-bool debug = true;
+bool debug = false;
 
 kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream stream)
 {
@@ -141,6 +141,16 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
                         cout << endl;
                 }
                 execute(ptxas, ptxas_args, "", NULL, NULL);
+	}
+
+	// Dump Fermi assembly from CUBIN.
+	if (verbose & KERNELGEN_VERBOSE_ISA)
+	{
+		string cuobjdump = "cuobjdump";
+		std::list<string> cuobjdump_args;
+		cuobjdump_args.push_back("-sass");
+		cuobjdump_args.push_back(tmp3.getFilename());
+		execute(cuobjdump, cuobjdump_args, "", NULL, NULL);
 	}
 
 	// Load CUBIN into string.
