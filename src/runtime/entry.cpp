@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 
 		// Check requested verbosity level.
 		char* cverbose = getenv("kernelgen_verbose");
-		if (cverbose) verbose = (bool)atoi(cverbose);
+		if (cverbose) verbose = atoi(cverbose);
 		
 		if (verbose)
 		{
