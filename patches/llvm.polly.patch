@@ -1,5 +1,5 @@
 --- a/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-22 02:51:59.000000000 +0400
-+++ b/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-22 16:15:43.000000000 +0400
++++ b/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-23 16:57:54.123210803 +0400
 @@ -39,6 +39,7 @@
  #include "llvm/Support/IRBuilder.h"
  #include "llvm/Target/TargetData.h"
@@ -141,7 +141,7 @@
  public:
  
    const std::vector<std::string> &getParallelLoops();
-@@ -977,6 +1080,190 @@
+@@ -977,6 +1080,202 @@
    /// statement.
    void codegenForOpenMP(const clast_for *f);
  
@@ -220,45 +220,57 @@
 +		BasicBlock * CountBoundsBB = Builder.GetInsertBlock();                                        //
 +		CountBoundsBB->setName(string("CUDA.CountBounds.") + dimensionName);                          //
 +                                                                                                      //
-+		//Lower and Upper Bounds of Loop                                                              //
-+		Value * lowerBound = ExpGen.codegen(f->LB,TD->getIntPtrType(Builder.getContext()));           //
-+		Value * upperBound = ExpGen.codegen(f->UB,TD->getIntPtrType(Builder.getContext()));           //
-+                                                                                                      //
-+		// Compute Iteration's count per thread                                                       //
-+		// Loop's IterationsCount = upperBound - lowerBound + 1                                       //
-+		// Iteration's Count per thread is ( ((IterationsCount-1) / GridSize) + 1)                    //
-+		// (IterationsCount-1) = upperBound - lowerBound                                              //
-+		Value * One = ConstantInt::get(lowerBound->getType(), 1);                                     ///////    
-+		Value * IterationsCountMinusOne =                                                                  //
-+		    Builder.CreateSub(upperBound,lowerBound, string("IterationsCountMinusOne.") + dimensionName);  //
-+		Value * Division =                                                                                 //
-+		    Builder.CreateSDiv(IterationsCountMinusOne,GridSize[dimension]);                          ///////
-+		Value * IterationsPerThread =                                                                 //
-+		    Builder.CreateAdd(Division,One,                                                           //
-+		                      string("IterationsPerThread.") + dimensionName);                        // 
-+                                                                                                      //
-+        //For current version Loop stride must be one                                                 //                      //
-+		assert(dyn_cast<IntegerType>(upperBound->getType()) && "UB is not integer?");                 //                                    //                                                                               //
-+		APInt LoopStride = polly::APInt_from_MPZ(f->stride);                                          //
-+		assert(LoopStride == 1); //I hope...                                                          //
++		IntegerType * IntType = TD->getIntPtrType(Builder.getContext());			        	      //													 //
 +																									  //
++		//Lower and Upper Bounds of Loop                                                              //
++		Value * lowerBound = ExpGen.codegen(f->LB,IntType);                                           //
++		Value * upperBound = ExpGen.codegen(f->UB,IntType);                                           //
++                                                                                                      //
++		// stride of loop                                                                             //
++		assert(polly::APInt_from_MPZ(f->stride) != 0 && "what we must do in those situation?");       //
++		Value *LoopStride = ConstantInt::get(IntType,                                                 //
++								polly::APInt_from_MPZ(f->stride).zext(IntType->getBitWidth()));		  //																					  //
++		                                                                                              //
++		// number of loop's interations                                                               //
++		// ((UpperBound - LowerBound)/stride + 1)                                                     //
++		// number of iterations minus one = (UpperBound - LowerBound)/stride                          //
++		Value * UpperMinusLower =                                                                     //
++		   Builder.CreateSub(upperBound,lowerBound,                                                   //
++		                      string("UB.minus.LB.") + dimensionName);                                //
++		Value * NumOfIterationsMinusOne =                                                             //
++           Builder.CreateSDiv(UpperMinusLower,LoopStride,                                             //
++		                      string("NumOfIterationsMinusOne.") + dimensionName);                    //
++																		                              //
++		// Compute number of Iterations per thread                                                    //
++		// ((NumberOfIterations - 1) / GridSize) + 1)                                                 //
++		// ( NumOfIterationsMinusOne / GridSize + 1 )                                                 //
++		Value * One = ConstantInt::get(lowerBound->getType(), 1);                                     //    
++		Value * IterationsPerThreadMinusOne =                                                         //                        //
++		    Builder.CreateSDiv(NumOfIterationsMinusOne,GridSize[dimension],                           //
++			                   string("IterationsPerThreadMinusOne.") + dimensionName);               //             ///////
++		Value * IterationsPerThread =                                                                 //
++		    Builder.CreateAdd(IterationsPerThreadMinusOne,One,                                        //
++		                       string("IterationsPerThread.") + dimensionName);                       // 
++                                                                                                      //
 +		// compute Thread's Upper Bound, Lower Bounds and Stride                                      //
-+		// ThreadLowerBound = IterationsPerThread*BlockPosition + ThreadPositionInBlock               //
-+		// ThreadUpperBound = ThreadLowerBound + Stride*(IterationsPerThread-1)                       //
++		// ThreadLowerBound = LoopStride*(IterationsPerThread*BlockPosition + ThreadPositionInBlock)  //
++		// ThreadUpperBound = ThreadLowerBound + ThreadStride*(IterationsPerThread-1)                 //
 +		// Stride = BlockSize (to increase probability of coalescing transactions to memory)          //
 +		Value * BlockLowerBound =                                                                     //
-+		    Builder.CreateMul(BlockPositionInGrid[dimension],  IterationsPerThread,                   //
++		    Builder.CreateMul(BlockPositionInGrid[dimension], IterationsPerThread,                    //
 +		                      string("BlockLowerBound.") + dimensionName);                            //
-+		Value * ThreadLowerBound =                                                                    //
++		Value * BlockLBAddThreadPosInBlock =                                                          //
 +		    Builder.CreateAdd( BlockLowerBound, ThreadPositionInBlock[dimension],                     //
++		                       string("BlockLB.Add.ThreadPosInBlock.") + dimensionName);              //
++		Value * ThreadLowerBound =                                                                    //
++		    Builder.CreateMul( BlockLBAddThreadPosInBlock, LoopStride,                                //
 +		                       string("ThreadLowerBound.") + dimensionName);                          //
-+		Value * StrideValue =                                                                         //
-+		    BlockSize[dimension];                                                                     //
-+		Value * IterationsPerThreadMinusOne =                                                         //
-+		    Builder.CreateSub(IterationsPerThread,One,                                                //
-+		                      string("IterationsPerThreadMinusOne.") + dimensionName);                //
++		Value * ThreadStride =                                                                        //
++		    Builder.CreateMul(LoopStride, BlockSize[dimension],                                       //
++                                string("ThreadStride.") + dimensionName);                             //                                        //
 +		Value * StrideMulIterPerThreadMinusOne =                                                      //
-+		    Builder.CreateMul(IterationsPerThreadMinusOne, StrideValue);                              //
++		    Builder.CreateMul(IterationsPerThreadMinusOne, ThreadStride,                              //
++			                   string("ThreadStride.Mul.IterPerThreadMinusOne.") + dimensionName);    //                   //
 +		Value * ThreadUpperBound =                                                                    //
 +		    Builder.CreateAdd(ThreadLowerBound,StrideMulIterPerThreadMinusOne,                        //
 +		                      string("ThreadUpperBound.") + dimensionName);                           //
@@ -267,7 +279,7 @@
 +		// CountBoundsBB BasicBlock is a preheader of that loop                                       //
 +        BasicBlock *AfterBB;                                                                          //
 +		Value *IV = createLoopForCUDA(&Builder, lowerBound, upperBound,                               //
-+								 ThreadLowerBound, ThreadUpperBound, StrideValue, dimensionName,      //
++								 ThreadLowerBound, ThreadUpperBound, ThreadStride, dimensionName,     //
 +                                 DT, P, &AfterBB);                                                    //
 +								                                                                      //
 +		(*clastVars)[f->iterator] = IV;                                                               //
@@ -332,7 +344,7 @@
    bool isInnermostLoop(const clast_for *f);
  
    /// @brief Get the number of loop iterations for this loop.
-@@ -1111,9 +1398,11 @@
+@@ -1111,9 +1410,11 @@
  
    // Loop is finished, so remove its iv from the live symbols.
    clastVars->erase(f->iterator);
@@ -344,7 +356,7 @@
  Function *ClastStmtCodeGen::addOpenMPSubfunction(Module *M) {
    Function *F = Builder.GetInsertBlock()->getParent();
    std::vector<Type*> Arguments(1, Builder.getInt8PtrTy());
-@@ -1417,7 +1706,14 @@
+@@ -1417,7 +1718,14 @@
      parallelLoops.push_back(f->iterator);
      codegenForOpenMP(f);
      parallelCodeGeneration = false;
@@ -360,7 +372,7 @@
      codegenForSequential(f);
  }
  
-@@ -1518,6 +1814,13 @@
+@@ -1518,6 +1826,13 @@
    parallelCodeGeneration = false;
  
    const clast_stmt *stmt = (const clast_stmt*) r;
@@ -374,7 +386,7 @@
    if (stmt->next)
      codegen(stmt->next);
  
-@@ -1548,6 +1851,49 @@
+@@ -1548,6 +1863,49 @@
  
    CodeGeneration() : ScopPass(ID) {}
  
@@ -424,7 +436,7 @@
    // Add the declarations needed by the OpenMP function calls that we insert in
    // OpenMP mode.
    void addOpenMPDeclarations(Module *M)
-@@ -1696,6 +2042,7 @@
+@@ -1696,6 +2054,7 @@
      Module *M = region->getEntry()->getParent()->getParent();
  
      if (OpenMP) addOpenMPDeclarations(M);
@@ -432,7 +444,7 @@
  
      // In the CFG the optimized code of the SCoP is generated next to the
      // original code. Both the new and the original version of the code remain
-@@ -1741,7 +2088,8 @@
+@@ -1741,7 +2100,8 @@
      parallelLoops.insert(parallelLoops.begin(),
                           CodeGen.getParallelLoops().begin(),
                           CodeGen.getParallelLoops().end());
@@ -442,8 +454,8 @@
      return true;
    }
 
---- a/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 21:54:11.770053209 +0300
-+++ b/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 21:54:57.489006488 +0300
+--- a/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 21:31:42.000000000 +0400
 @@ -28,7 +28,7 @@
  using namespace llvm;
  
@@ -471,3 +483,4 @@
         createJSONExporterPass();
         createJSONImporterPass();
         createRegionSimplifyPass();
+ 
