@@ -119,22 +119,23 @@ static void runPolly(kernel_t *kernel, bool mode)
 	polly.add(createCFGSimplificationPass());
 	polly.run(*kernel->module);
 	if(kernel->name != "__kernelgen_main") {
+		Size3 SizeOfLoops;
 		if(sizes.size() == 0)
-				cout << "    No Scops detected in kernel" << endl;
+			cout << "    No Scops detected in kernel" << endl;
 		else {
-			Size3 SizeOfLoops = sizes[0]; // 3-dimensional
+			SizeOfLoops = sizes[0]; // 3-dimensional
 			// non-negative define sizes
 			// if parallelized less than 3 loops then remaining will be -1
 			// example:
 			//for (c2=0;c2<=122;c2++) {
-	    	//   for (c4=0;c4<=c2+13578;c4++) {
+			//   for (c4=0;c4<=c2+13578;c4++) {
 			//      Stmt_polly_stmt_4_cloned(c2,c4);
 			//	}
 			// }
 			// SizeOfLoops : 123 13640 -1
-			Size3 launchParameters = convertLoopSizesToLaunchParameters(SizeOfLoops);
-			kernel->target[runmode].launchParameters = launchParameters;
 		}
+		Size3 launchParameters = convertLoopSizesToLaunchParameters(SizeOfLoops);
+		kernel->target[runmode].launchParameters = launchParameters;
 	}
 }
 static void runPollyNATIVE(kernel_t *kernel)

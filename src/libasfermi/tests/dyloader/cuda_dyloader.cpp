@@ -177,7 +177,7 @@ struct CUDYfunction_t
 		if (regcount == -1)
 			throw CUDA_ERROR_INVALID_SOURCE;
 	
-		cout << "regcount = " << regcount << endl;
+		cout << "regcount = " << regcount << ", size = " << szbinary << endl;
 	}
 
 	CUDYfunction_t(CUDYloader_t* loader,
