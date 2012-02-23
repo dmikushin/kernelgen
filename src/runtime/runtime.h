@@ -60,14 +60,14 @@ struct kernelgen_callback_data_t
 struct Size3 {
 public:
 	int64_t x,y,z;
-	Size3():x(1),y(1),z(1) {}
+	Size3():x(-1),y(-1),z(-1) {}
 	Size3(int64_t ar[3]) {
 		x = (int) ar[0];
 		y = (int) ar[1];
 		z = (int) ar[2];
 	}
 	void reset() {
-		x=y=z=1;
+		x=y=z=-1;
 	}
 };
 namespace kernelgen {

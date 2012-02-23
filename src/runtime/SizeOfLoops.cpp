@@ -248,6 +248,8 @@ public:
 		ScopPass::getAnalysisUsage(AU);
 		AU.addRequired<CloogInfo>();
 		AU.addRequired<Dependences>();
+		AU.addPreserved<CloogInfo>();
+		AU.addPreserved<Dependences>();
 	}
 };
 bool isaGoodListOfStatements(const clast_stmt * stmt, const clast_for * &nested_for, bool & user_or_assignment)
@@ -318,7 +320,8 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 
 	CloogInfo &C = getAnalysis<CloogInfo>();
 	const clast_root *root = C.getClast();
-
+		
+	//if there are some not substituted parameters then we can not compute size of loops 
 	assert(scop.getNumParams() == 0 &&
 	       "FIXME: "
 	       "After Constant Substitution number of scop's global parameters must be zero");
@@ -336,10 +339,11 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 	if(goodLoopsCount != 0)
 		sizeOfLoops->push_back(
 		    retrieveSize3FromCloogLoopAST(root, goodLoopsCount));
+	else
+		sizeOfLoops->push_back(Size3());
     
 	printSizeOfLoops( (*sizeOfLoops)[0], goodLoopsCount);
-	printCloogAST(C);
-
+    printCloogAST(C);
 	return true;
 }
 
