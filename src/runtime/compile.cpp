@@ -45,6 +45,7 @@
 #include "llvm/Transforms/IPO.h"
 
 #include "polly/LinkAllPasses.h"
+#include "polly/RegisterPasses.h"
 
 #include "io.h"
 #include "util.h"
@@ -80,40 +81,9 @@ auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
 static PassManager getPollyPassManager(Module* m)
 {
 	PassManager polly;
-	PassRegistry &Registry = *PassRegistry::getPassRegistry();
-	initializeCore(Registry);
-	initializeScalarOpts(Registry);
-	initializeIPO(Registry);
-	initializeAnalysis(Registry);
-	initializeIPA(Registry);
-	initializeTransformUtils(Registry);
-	initializeInstCombine(Registry);
-	initializeInstrumentation(Registry);
-	initializeTarget(Registry);
-
 	polly.add(new TargetData(m));
-	polly.add(createBasicAliasAnalysisPass());	// -basicaa
-	polly.add(createPromoteMemoryToRegisterPass());	// -mem2reg
-	polly.add(createCFGSimplificationPass());	// -simplifycfg
-	polly.add(createInstructionCombiningPass());	// -instcombine
-	polly.add(createTailCallEliminationPass());	// -tailcallelim
-	polly.add(createLoopSimplifyPass());		// -loop-simplify
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createLoopRotatePass());		// -loop-rotate
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(createLoopUnswitchPass());		// -loop-unswitch
-	polly.add(createInstructionCombiningPass());	// -instcombine
-	polly.add(createLoopSimplifyPass());		// -loop-simplify
-	polly.add(createLCSSAPass());			// -lcssa
-	polly.add(polly::createIndVarSimplifyPass());		// -indvars
-	polly.add(createLoopDeletionPass());		// -loop-deletion
-	polly.add(createInstructionCombiningPass());	// -instcombine
-	polly.add(createCodePreparationPass());		// -polly-prepare
-	polly.add(createRegionSimplifyPass());		// -polly-region-simplify
-	polly.add(polly::createIndVarSimplifyPass());		// -indvars
-	polly.add(createBasicAliasAnalysisPass());	// -basicaa
-	polly.add(createIslScheduleOptimizerPass());	// -polly-optimize-isl
-
+	registerPollyPreoptPasses(polly);
+	polly.add(polly::createIslScheduleOptimizerPass());
 	return polly;
 }
 
