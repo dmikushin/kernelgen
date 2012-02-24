@@ -108,10 +108,10 @@ Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 	return Size3(launchParameters);
 }
 
-static void runPolly(kernel_t *kernel, bool mode)
+static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 {
-    PassManager polly = getPollyPassManager(kernel->module);
-    polly::CUDA.setValue(mode);
+     PassManager polly = getPollyPassManager(kernel->module);
+     polly::CUDA.setValue(mode);
 	vector<Size3> sizes;
  	if(kernel->name != "__kernelgen_main")
 		polly.add(createSizeOfLoopsPass(&sizes));
@@ -123,7 +123,6 @@ static void runPolly(kernel_t *kernel, bool mode)
 		if(sizes.size() == 0)
 			cout << "    No Scops detected in kernel" << endl;
 		else {
-			SizeOfLoops = sizes[0]; // 3-dimensional
 			// non-negative define sizes
 			// if parallelized less than 3 loops then remaining will be -1
 			// example:
@@ -133,20 +132,55 @@ static void runPolly(kernel_t *kernel, bool mode)
 			//	}
 			// }
 			// SizeOfLoops : 123 13640 -1
+			SizeOfLoops  = sizes[0]; // 3-dimensional
+			if(sizeOfLoops) *sizeOfLoops=SizeOfLoops;
 		}
-		Size3 launchParameters = convertLoopSizesToLaunchParameters(SizeOfLoops);
-		kernel->target[runmode].launchParameters = launchParameters;
-	}
+}
+			
 }
 static void runPollyNATIVE(kernel_t *kernel)
+ {
+    return runPolly(kernel,NULL,false);
+ }
+static void runPollyCUDA(kernel_t *kernel,Size3 *sizeOfLoops)
+ {
+    return runPolly(kernel,sizeOfLoops,true);
+ }
+void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
-    return runPolly(kernel,false);
-}
-static void runPollyCUDA(kernel_t *kernel)
-{
-    return runPolly(kernel,true);
-}
+	Module * m = kernel-> module;
+	vector<string> dimensions, parameters;
+	
+	dimensions.push_back("x");                                         
+    dimensions.push_back("y");                                         
+	dimensions.push_back("z");                                         
 
+    parameters.push_back("gridDim"); 
+	parameters.push_back("blockDim");  
+		
+	string prefix1("kernelgen_");
+	string prefix2("_");
+	string prefix3(".");     
+	
+	unsigned int * gridParams[2];
+	gridParams[0] = (unsigned int *)&gridDim;
+	gridParams[1] = (unsigned int *)&blockDim;
+
+	for(int parameter =0; parameter < parameters.size(); parameter++)
+		for(int dimension=0; dimension < dimensions.size(); dimension++){
+			const char *functionName = (new string(prefix1 + parameters[parameter] + prefix2 + dimensions[dimension]))->c_str();
+			Function * function = m->getFunction(functionName);
+			if(function && function -> getNumUses() > 0){
+				assert(function -> getNumUses() == 1);
+				CallInst *functionCall;
+                assert(functionCall = dyn_cast<CallInst>(*(function -> use_begin())));
+				functionCall -> replaceAllUsesWith(
+								    ConstantInt::get(cast<IntegerType>(function->getReturnType()), 
+			                                         (uint64_t)gridParams[parameter][dimension]));
+				functionCall -> eraseFromParent();
+			}
+		}
+}
 kernel_func_t kernelgen::runtime::compile(
     int runmode, kernel_t* kernel, Module* module, void * data, int szdatai)
 {
@@ -283,8 +317,33 @@ kernel_func_t kernelgen::runtime::compile(
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 		// Apply the Polly codegen for native target.
-		 runPollyCUDA(kernel);
-
+		 Size3 sizeOfLoops;
+		 runPollyCUDA(kernel,&sizeOfLoops);
+         if(sizeOfLoops.x == -1 )
+		 {
+			 /////////////
+			 ///////////// maybe not start kernel at all ?
+			 /////////////
+		 }
+		 
+		 //   x   y     z       x     y  z
+		 //  123 13640 -1  ->  13640 123 1
+		 Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
+		 dim3 blockDim, gridDim, iterationsPerThread;
+		 
+		 // compute grid parameters from specified blockDim and desired iterationsPerThread
+		 blockDim.x = blockDim.y = blockDim.z = 1;
+		 iterationsPerThread.x = iterationsPerThread.y = iterationsPerThread.z=1;
+		 gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
+		 gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
+		 gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
+		 
+		 kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
+    	 kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
+		 
+		 // substitute grid parameters to reduce amount of instructions and used registers
+		 substituteGridParams(kernel,gridDim,blockDim);
+	
 		// Initially, fill intrinsics tables.
 		if (kernelgen_intrinsics_set.empty()) {
 			kernelgen_intrinsics_set.insert(

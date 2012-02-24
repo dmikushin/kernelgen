@@ -158,17 +158,13 @@ int kernelgen_launch(kernel_t* kernel,
 			{
 				// Launch GPU loop kernel, if it is compiled.
 				{
-					struct { unsigned int x, y, z; } gridDim, blockDim;
-					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
-					Size3 launchParameters = kernel->target[runmode].launchParameters;
-					gridDim.x = ((int)launchParameters.x - 1) / blockDim.x + 1;
-					gridDim.y = ((int)launchParameters.y - 1) / blockDim.y + 1;
-					gridDim.z = ((int)launchParameters.z - 1) / blockDim.z + 1;
+
 					size_t szshmem = 0;
 					int err = cudyLaunch(
 						(CUDYfunction)kernel_func,
-						gridDim.x, gridDim.y, gridDim.z,
-						blockDim.x, blockDim.y, blockDim.z, szshmem,
+						kernel->target[runmode].gridDim.x, kernel->target[runmode].gridDim.y, kernel->target[runmode].gridDim.z,
+						kernel->target[runmode].blockDim.x, kernel->target[runmode].blockDim.y, kernel->target[runmode].blockDim.z,
+                        szshmem,
 						&data, kernel->target[runmode].monitor_kernel_stream);
 					if (err)
 						THROW("Error in cudyLaunch " << err);

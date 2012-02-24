@@ -70,6 +70,9 @@ public:
 		x=y=z=-1;
 	}
 };
+
+struct dim3 { unsigned int x, y, z; };
+
 namespace kernelgen {
 
 // Kernels runmode (target).
@@ -141,7 +144,7 @@ struct kernel_t
 		kernelgen_callback_t* callback;
 		
 		// Kernel launch parameters
-		Size3 launchParameters;
+		dim3 gridDim, blockDim;
 		
 		// Streams for work and monitor kernels.
 		void* monitor_kernel_stream;
