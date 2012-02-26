@@ -194,6 +194,7 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 		string nvopencc = "nvopencc";
 		std::list<string> nvopencc_args;
 		nvopencc_args.push_back("-D__CUDA_DEVICE_FUNC__");
+		nvopencc_args.push_back("-U_FORTIFY_SOURCE");
 		nvopencc_args.push_back("-I/opt/kernelgen/include");
 		nvopencc_args.push_back("-include");
 		nvopencc_args.push_back("kernelgen_runtime.h");
