@@ -51,10 +51,10 @@
 +                Set_BE_ST_emitted(sym);
 +        }
 +
-+	// Emit only global symbols.
++	 // Emit only global symbols.
 +        Process_Bss_Data (CURRENT_SYMTAB);
 +
-+        // Unark all non-global symbols as emitted.
++        // Unmark all non-global symbols as emitted.
 +        FOREACH_SYMBOL (CURRENT_SYMTAB, sym, i)
 +        {
 +            if ((ST_sclass(sym) != SCLASS_UGLOBAL) &&

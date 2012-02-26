@@ -232,12 +232,14 @@ kernel_func_t kernelgen::runtime::compile(
 			if (triple.getTriple().empty())
 				triple.setTriple(sys::getDefaultTargetTriple());
 			string err;
+			TargetOptions options;
+			options.JITEmitDebugInfoToDisk = true;
 			const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
 			if (!target)
 				THROW("Error auto-selecting target for module '" << err << "'." << endl <<
 				      "Please use the -march option to explicitly pick a target.");
 			targets[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
-			        triple.getTriple(), "", "", TargetOptions(),Reloc::PIC_, CodeModel::Default));
+			        triple.getTriple(), "", "", options, Reloc::PIC_, CodeModel::Default));
 			if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
 				THROW("Could not allocate target machine");
 

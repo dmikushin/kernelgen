@@ -47,7 +47,7 @@ using namespace std;
 using namespace util::elf;
 
 // GPU monitoring kernel source.
-string cuda_monitor_kernel_source =
+string kernelgen_monitor_source =
 	"__attribute__((global)) __attribute__((used)) __attribute__((launch_bounds(1, 1)))\n"
 	"void kernelgen_monitor(int* callback)\n"
 	"{\n"
@@ -258,6 +258,20 @@ int main(int argc, char* argv[])
 				kernelgen::runtime::cuda_context.reset(
 					kernelgen::bind::cuda::context::init(4096));
 
+				// Create streams where monitoring and target kernels
+				// will be executed.
+				int err = cuStreamCreate(
+					&kernel->target[runmode].monitor_kernel_stream, 0);
+				if (err) THROW("Error in cuStreamCreate " << err);
+				err = cuStreamCreate(
+					&kernel->target[runmode].kernel_stream, 0);
+				if (err) THROW("Error in cuStreamCreate " << err);
+				
+				// Compile GPU monitoring kernel.
+				kernel->target[runmode].monitor_kernel_func =
+					kernelgen::runtime::nvopencc(kernelgen_monitor_source,
+					"kernelgen_monitor", 0);
+
 				// Initialize callback structure.
 				// Initial lock state is "locked". It will be dropped
 				// by GPU side monitor that must be started *before*
@@ -270,25 +284,11 @@ int main(int argc, char* argv[])
 				callback.szdata = sizeof(main_args_t);
 				callback.szdatai = sizeof(int);
 				kernelgen_callback_t* callback_dev = NULL;
-				int err = cuMemAlloc((void**)&callback_dev, sizeof(kernelgen_callback_t));
+				err = cuMemAlloc((void**)&callback_dev, sizeof(kernelgen_callback_t));
 				if (err) THROW("Error in cuMemAlloc " << err);
 				err = cuMemcpyHtoD(callback_dev, &callback, sizeof(kernelgen_callback_t));
 				if (err) THROW("Error in cuMemcpyHtoD " << err);
 				kernel->target[runmode].callback = callback_dev;
-
-				// Create streams where monitoring and target kernels
-				// will be executed.
-				err = cuStreamCreate(
-					&kernel->target[runmode].monitor_kernel_stream, 0);
-				if (err) THROW("Error in cuStreamCreate " << err);
-				err = cuStreamCreate(
-					&kernel->target[runmode].kernel_stream, 0);
-				if (err) THROW("Error in cuStreamCreate " << err);
-				
-				// Compile GPU monitoring kernel.
-				kernel->target[runmode].monitor_kernel_func =
-					kernelgen::runtime::nvopencc(cuda_monitor_kernel_source,
-					"kernelgen_monitor", 0);
 				
 				// Setup device dynamic memory heap.
 				kernelgen_memory_t* memory = init_memory_pool(16 * 1024 * 1024);

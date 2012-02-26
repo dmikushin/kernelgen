@@ -55,6 +55,7 @@ typedef CUresult (*cuMemsetD8_t)(void*, unsigned char, size_t);
 typedef CUresult (*cuMemsetD32_t)(void*, unsigned int, size_t);
 typedef CUresult (*cuMemsetD32Async_t)(void*, unsigned int, size_t, void*);
 typedef CUresult (*cuMemHostRegister_t)(void*, size_t, unsigned int);
+typedef CUresult (*cuMemHostGetDevicePointer_t)(void**, void*, unsigned int);
 typedef CUresult (*cuMemHostUnregister_t)(void*);
 typedef CUresult (*cuModuleLoad_t)(void**, const char*);
 typedef CUresult (*cuModuleLoadDataEx_t)(void**, const char*, unsigned int, int* options, void**);
@@ -70,8 +71,8 @@ extern cuInit_t cuInit;
 extern cuDeviceGet_t cuDeviceGet;
 extern cuCtxCreate_t cuCtxCreate;
 extern cuCtxSynchronize_t cuCtxSynchronize;
-extern cuMemAlloc_t cuMemAlloc;
-extern cuMemFree_t cuMemFree;
+extern cuMemAlloc_t cuMemAlloc_;
+extern cuMemFree_t cuMemFree_;
 extern cuMemAlloc_t cuMemAllocHost;
 extern cuMemFree_t cuMemFreeHost;
 extern cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
@@ -81,6 +82,7 @@ extern cuMemsetD8_t cuMemsetD8;
 extern cuMemsetD32_t cuMemsetD32;
 extern cuMemsetD32Async_t cuMemsetD32Async;
 extern cuMemHostRegister_t cuMemHostRegister;
+extern cuMemHostGetDevicePointer_t cuMemHostGetDevicePointer;
 extern cuMemHostUnregister_t cuMemHostUnregister;
 extern cuModuleLoad_t cuModuleLoad;
 extern cuModuleLoad_t cuModuleLoadData;
@@ -91,6 +93,9 @@ extern cuModuleGetGlobal_t cuModuleGetGlobal;
 extern cuLaunchKernel_t cuLaunchKernel;
 extern cuStreamCreate_t cuStreamCreate;
 extern cuStreamSynchronize_t cuStreamSynchronize;
+
+CUresult cuMemAlloc(void** ptr, size_t size);
+CUresult cuMemFree(void* ptr);
 
 struct context {
 

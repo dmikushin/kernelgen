@@ -193,8 +193,7 @@ extern "C" void kernelgen_finish();
 // Launch function defined by the specified entry
 // point on host.
 extern "C" void kernelgen_hostcall(kernelgen::kernel_t* kernel,
-	unsigned long long szdata, unsigned long long szdatai,
-	kernelgen_callback_data_t* data);
+	llvm::FunctionType* FTy, llvm::StructType* StructTy, void* params);
 
 #endif // KERNELGEN_RUNTIME_H
 

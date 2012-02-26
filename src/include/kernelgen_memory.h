@@ -43,17 +43,17 @@ typedef struct
 	int is_available;
 	int size;
 	
-	// Align structure to 16, or there will be
+	// Align structure to 4096, or there will be
 	// problems with 128-bit loads/stores in
 	// optimized Fermi ISA (nvopencc issue?).
-	size_t padding;
+	char padding[4096 - 8];
 }
 kerelgen_memory_chunk_t;
 
 __device__ void* kernelgen_malloc(size_t size)
 {
 	// Align size.
-	if (size % 16) size += 16 - size % 16;
+	if (size % 4096) size += 4096 - size % 4096;
 
 	kernelgen_memory_t* km = __kernelgen_memory;
 

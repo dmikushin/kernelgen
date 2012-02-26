@@ -26,7 +26,15 @@
 
 #include "cuda_dyloader.h"
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <elf.h>
 #include <fstream>
+#include <gelf.h>
+#include <link.h>
+#include <sstream>
+#include <vector>
 
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
@@ -34,9 +42,139 @@ using namespace kernelgen::runtime;
 using namespace util::io;
 using namespace std;
 
-#define PTX_LOG_SIZE 1024
+bool debug = true;
 
-bool debug = false;
+// Align cubin global data to the specified boundary.
+static void align(const char* cubin, size_t align, list<string>* names)
+{
+	vector<char> container;
+	char* image = NULL;
+	try
+	{	
+		stringstream stream(stringstream::in | stringstream::out |
+			stringstream::binary);
+		ifstream f(cubin, ios::in | ios::binary);
+		stream << f.rdbuf();
+		f.close();
+		string str = stream.str();
+		container.resize(str.size() + 1);
+		image = (char*)&container[0];
+		memcpy(image, str.c_str(), str.size() + 1);
+	}
+	catch (...)
+	{
+		fprintf(stderr, "Error reading data from %s\n", cubin);
+		throw;
+	}
+
+	Elf* e = NULL;
+	try
+	{
+		if (strncmp(image, ELFMAG, 4))
+		{
+			fprintf(stderr, "Cannot read ELF image from %s\n", cubin);
+			throw;
+		}
+	
+		ElfW(Ehdr)* elf_header = (ElfW(Ehdr)*)image;
+		size_t size = (size_t)elf_header->e_phoff +
+			elf_header->e_phentsize *  elf_header->e_phnum;
+		e = elf_memory(image, size);
+		size_t shstrndx;
+		if (elf_getshdrstrndx(e, &shstrndx))
+		{
+			fprintf(stderr, "elf_getshdrstrndx() failed for %s: %s\n",
+				cubin, elf_errmsg(-1));
+			throw;
+		}
+
+		GElf_Shdr shdr;
+		Elf_Data* symbols = NULL;
+		Elf_Scn* scn = NULL;
+		for (scn = elf_nextscn(e, scn); scn != NULL;
+			scn = elf_nextscn(e, scn))
+		{
+			if (!gelf_getshdr(scn, &shdr))
+			{
+				fprintf(stderr, "gelf_getshdr() failed for %s: %s\n",
+					cubin, elf_errmsg(-1));
+				throw;
+			}
+
+			if (shdr.sh_type == SHT_SYMTAB)
+			{
+				symbols = elf_getdata(scn, NULL);
+				if (!symbols)
+				{
+					fprintf(stderr, "elf_getdata() failed for %s: %s\n",
+						cubin, elf_errmsg(-1));
+					throw;
+				}
+				break;
+			}
+		}
+	
+		if (!symbols)
+		{
+			fprintf(stderr, "Cannot find symbols table in %s\n", cubin);
+			throw;
+		}
+
+		int nsymbols = 0;
+		if (shdr.sh_entsize)
+			nsymbols = shdr.sh_size / shdr.sh_entsize;	
+
+		// Update offsets & sizes for global objects.
+		size_t offset = 0;
+		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
+		{
+			GElf_Sym symbol;
+			gelf_getsym(symbols, isymbol, &symbol);
+
+			if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
+				(GELF_ST_BIND(symbol.st_info) == STB_GLOBAL))
+			{
+				char* name = elf_strptr(
+					e, shdr.sh_link, symbol.st_name);
+				names->push_back(name);
+				char* value = (char*)symbol.st_value;
+				size_t size = (size_t)symbol.st_size;
+
+				printf("%s\t%p\t%04zu\t->", name, value, size);
+			
+				symbol.st_value = offset;
+				if (symbol.st_size % align)
+					symbol.st_size += 4096 - symbol.st_size % 4096;
+				offset += symbol.st_size;
+
+				gelf_update_sym(symbols, isymbol, &symbol);
+
+				value = (char*)symbol.st_value;
+				size = (size_t)symbol.st_size;
+			
+				printf("\t%p\t%04zu\n", value, size);
+			}
+		}
+	}
+	catch (...)
+	{
+		elf_end(e);
+		throw;
+	}
+	elf_end(e);
+
+	try
+	{	
+		ofstream f(cubin, ios::out | ios::binary);
+		f.write(image, container.size() - 1);
+		f.close();
+	}
+	catch (...)
+	{
+		fprintf(stderr, "Error writing data to %s\n", cubin);
+		throw;
+	}
+}
 
 kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream stream)
 {
@@ -143,6 +281,11 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
                 execute(ptxas, ptxas_args, "", NULL, NULL);
 	}
 
+	// Align cubin global data to the virtual memory page boundary.
+	std::list<string> names;
+	if (name == "__kernelgen_main")
+		align(tmp3.getFilename().c_str(), 4096, &names);
+
 	// Dump Fermi assembly from CUBIN.
 	if (verbose & KERNELGEN_VERBOSE_ISA)
 	{
@@ -178,6 +321,15 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 		err = cuModuleGetFunction(&kernel_func, module, name.c_str());
 		if (err)
 			THROW("Error in cuModuleGetFunction " << err);
+		
+		// Check data objects are aligned
+		for (list<string>::iterator i = names.begin(), e = names.end(); i != e; i++)
+		{
+			const char* name = i->c_str();
+			void* ptr; size_t size = 0;
+			err = cuModuleGetGlobal(&ptr, &size, module, name);
+			printf("%s\t%p\t%04zu\n", name, ptr, size);
+		}
 	}
 	else
 	{

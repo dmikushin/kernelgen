@@ -39,6 +39,8 @@ using namespace std;
 // Setup the device global memory pool initial configuration.
 kernelgen_memory_t* kernelgen::runtime::init_memory_pool(size_t szpool)
 {
+	szpool += 4096;
+
 	// First, fill config on host.
 	kernelgen_memory_t config_host;
 
@@ -51,6 +53,7 @@ kernelgen_memory_t* kernelgen::runtime::init_memory_pool(size_t szpool)
 	config_host.szused = 0;
 	config_host.szpool = szpool;
 	config_host.count = 0;
+	config_host.pool += 4096 - (size_t)config_host.pool % 4096;
 
 	// Copy the resulting config to the special
 	// device variable.

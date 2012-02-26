@@ -73,9 +73,9 @@ int kernelgen_launch(kernel_t* kernel,
 			{
 				void* monitor_stream =
 					kernel->target[runmode].monitor_kernel_stream;
-				char* content = NULL;
-				int err = cuMemAllocHost((void**)&content, szdatai);
-				if (err) THROW("Error in cuMemAllocHost " << err);
+				char* content = (char*)malloc(szdatai);
+				int err = cuMemHostRegister(content, szdatai, 0);
+				if (err) THROW("Error in cuMemHostRegister " << err);
 				err = cuMemcpyDtoHAsync(content, &data->args, szdatai, monitor_stream);
 				if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
 				err = cuStreamSynchronize(monitor_stream);
@@ -178,9 +178,12 @@ int kernelgen_launch(kernel_t* kernel,
 			}
 
 			// Create host-pinned callback structure buffer.
-			struct kernelgen_callback_t* callback = NULL;
-			int err = cuMemAllocHost((void**)&callback, sizeof(struct kernelgen_callback_t));
-			if (err) THROW("Error in cuMemAllocHost " << err);
+			struct kernelgen_callback_t* callback = 
+				(struct kernelgen_callback_t*)malloc(sizeof(
+					struct kernelgen_callback_t));
+			int err = cuMemHostRegister(callback,
+				sizeof(struct kernelgen_callback_t), 0);
+			if (err) THROW("Error in cuMemHostRegister " << err);
 
 			// Launch monitor GPU kernel.
 			{
@@ -252,24 +255,28 @@ int kernelgen_launch(kernel_t* kernel,
 						// If kernel cannot be launched on device, launch it as
 						// a host call.
 						LLVMContext& context = kernel->module->getContext();
-						kernelgen_callback_data_t data;
-						data.FunctionTy = TypeBuilder<void(types::i<32>*),
-							true>::get(context);
-						data.StructTy = StructType::get(
+						FunctionType* FunctionTy = 
+							TypeBuilder<void(types::i<32>*), true>::get(context);
+						StructType* StructTy = StructType::get(
 							Type::getInt8PtrTy(context),
 							Type::getInt8PtrTy(context),
 							Type::getInt8PtrTy(context), NULL);
+						kernelgen_callback_data_t data;
 						data.args = callback->data;
-						kernelgen_hostcall(callback->kernel, callback->szdata,
-							callback->szdatai, &data);
+						kernelgen_hostcall(callback->kernel, FunctionTy, StructTy,
+							&data);
+
+						//err = cuMemFreeHost(data);
+						//if (err) THROW("Error in cuMemFreeHost " << err);
 						break;
 					}
 					case KERNELGEN_STATE_HOSTCALL :
 					{
 						// Copy arguments to the host memory.
-						kernelgen_callback_data_t* data = NULL;
-						int err = cuMemAllocHost((void**)&data, callback->szdata);
-						if (err) THROW("Error in cuMemAllocHost " << err);
+						kernelgen_callback_data_t* data = 
+							(kernelgen_callback_data_t*)malloc(callback->szdata);
+						int err = cuMemHostRegister(data, callback->szdata, 0);
+						if (err) THROW("Error in cuMemHostRegister " << err);
 						err = cuMemcpyDtoHAsync(data, callback->data, callback->szdata,
 							kernel->target[runmode].monitor_kernel_stream);
 						if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
@@ -277,11 +284,11 @@ int kernelgen_launch(kernel_t* kernel,
 							kernel->target[runmode].monitor_kernel_stream);
 						if (err) THROW("Error in cuStreamSynchronize " << err);
 
-						kernelgen_hostcall(callback->kernel, callback->szdata,
-							callback->szdatai, data);
+						kernelgen_hostcall(callback->kernel, data->FunctionTy,
+							data->StructTy, data);
 
 						//err = cuMemFreeHost(data);
-						if (err) THROW("Error in cuMemFreeHost " << err);
+						//if (err) THROW("Error in cuMemFreeHost " << err);
 						break;
 					}
 					default :

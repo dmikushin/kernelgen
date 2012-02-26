@@ -109,15 +109,34 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	err = cuStreamSynchronize(
 		active_kernel->target[runmode].monitor_kernel_stream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
+
+	if (verbose & KERNELGEN_VERBOSE_DATAIO)
+		cout << "Mapped memory " << base - align << "(" << base << " - " <<
+		align << ") + " << size << endl;
 }
 
 typedef void (*func_t)();
 
-static void ffiInvoke(
-	kernel_t* kernel, func_t func, FunctionType* FTy,
-	StructType* StructTy, void* params,
-	const TargetData* TD)
+void kernelgen_hostcall(
+	kernel_t* kernel, FunctionType* FTy,
+	StructType* StructTy, void* params)
 {
+	// Compile native kernel, if there is source code.
+	kernel_func_t* func =
+		&kernel->target[KERNELGEN_RUNMODE_NATIVE].binary;
+	*func = compile(KERNELGEN_RUNMODE_NATIVE, kernel);
+
+	Dl_info info;
+	if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
+	{
+		if (dladdr((void*)*func, &info))
+			cout << "Host function call " << info.dli_sname << endl;
+		else
+			cout << "Host kernel call " << *func << endl;
+	}
+
+	TargetData* TD = new TargetData(kernel->module);
+
 	if (szpage == -1)
 		szpage = sysconf(_SC_PAGESIZE);
 
@@ -259,17 +278,17 @@ static void ffiInvoke(
 		THROW("Error in sigaction " << errno);
         
         if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
-        	cout << "Starting hostcall to " << (void*)func << endl;
+        	cout << "Starting hostcall to " << (void*)*func << endl;
 
 	// Synchronize pending mmapped data transfers.
 	int err = cuStreamSynchronize(
 		kernel->target[runmode].monitor_kernel_stream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
-	ffi_call(&cif, func, ret, values.data());
+	ffi_call(&cif, (func_t)*func, ret, values.data());
 
         if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
-        	cout << "Finishing hostcall to " << (void*)func << endl;
+        	cout << "Finishing hostcall to " << (void*)*func << endl;
 	
 	// Unregister SIGSEGV signal handler and resore the
 	// original handler.
@@ -320,29 +339,5 @@ static void ffiInvoke(
         
         if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
         	cout << "Finished hostcall handler" << endl;
-}
-
-void kernelgen_hostcall(kernel_t* kernel,
-	unsigned long long szdata, unsigned long long szdatai,
-	kernelgen_callback_data_t* data)
-{
-	// Compile native kernel, if there is source code.
-	kernel_func_t kernel_func = compile(KERNELGEN_RUNMODE_NATIVE, kernel);
-
-	Dl_info info;
-	if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
-	{
-		if (dladdr((void*)kernel->target[
-			KERNELGEN_RUNMODE_NATIVE].binary, &info))
-			cout << "Host function call " << info.dli_sname << endl;
-		else
-			cout << "Host kernel call " << (void*)kernel->target[
-			KERNELGEN_RUNMODE_NATIVE].binary << endl;
-	}
-
-	// Perform hostcall using FFI.
-	TargetData* TD = new TargetData(kernel->module);					
-	ffiInvoke(kernel, (func_t)kernel_func, data->FunctionTy,
-		data->StructTy, (void*)data, TD);
 }
 

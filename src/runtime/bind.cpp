@@ -34,8 +34,8 @@ cuInit_t cuInit;
 cuDeviceGet_t cuDeviceGet;
 cuCtxCreate_t cuCtxCreate;
 cuCtxSynchronize_t cuCtxSynchronize;
-cuMemAlloc_t cuMemAlloc;
-cuMemFree_t cuMemFree;
+cuMemAlloc_t cuMemAlloc_;
+cuMemFree_t cuMemFree_;
 cuMemAlloc_t cuMemAllocHost;
 cuMemFree_t cuMemFreeHost;
 cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
@@ -45,6 +45,7 @@ cuMemsetD8_t cuMemsetD8;
 cuMemsetD32_t cuMemsetD32;
 cuMemsetD32Async_t cuMemsetD32Async;
 cuMemHostRegister_t cuMemHostRegister;
+cuMemHostGetDevicePointer_t cuMemHostGetDevicePointer;
 cuMemHostUnregister_t cuMemHostUnregister;
 cuModuleLoad_t cuModuleLoad;
 cuModuleLoad_t cuModuleLoadData;
@@ -55,6 +56,26 @@ cuModuleGetGlobal_t cuModuleGetGlobal;
 cuLaunchKernel_t cuLaunchKernel;
 cuStreamCreate_t cuStreamCreate;
 cuStreamSynchronize_t cuStreamSynchronize;
+
+CUresult cuMemAlloc(void** ptr, size_t size)
+{
+	// Create a possibly unaligned base buffer and
+	// a strictly aligned return buffer on top of it.
+	void* base = NULL;
+	int err = cuMemAlloc_(&base, size + 4096);
+	if (err) return err;
+	*ptr = (char*)base + 4096 - (size_t)base % 4096;
+	return CUDA_SUCCESS;
+}
+
+CUresult cuMemFree(void* ptr)
+{
+	// Unpack carrier for the specified aligned buffer.
+	void* base = NULL;
+	int err = cuMemGetAddressRange(&base, NULL, ptr);
+	if (err) return err;
+	err = cuMemFree_(base);
+}
 
 context* context::init(int capacity)
 {
@@ -89,10 +110,10 @@ handle(handle)
 		cuCtxSynchronize = (cuCtxSynchronize_t)dlsym(handle, "cuCtxSynchronize");
 		if (!cuCtxSynchronize)
 			THROW("Cannot dlsym cuCtxSynchronize " << dlerror());
-		cuMemAlloc = (cuMemAlloc_t)dlsym(handle, "cuMemAlloc_v2");
+		cuMemAlloc_ = (cuMemAlloc_t)dlsym(handle, "cuMemAlloc_v2");
 		if (!cuMemAlloc)
 			THROW("Cannot dlsym cuMemAlloc " << dlerror());
-		cuMemFree = (cuMemFree_t)dlsym(handle, "cuMemFree_v2");
+		cuMemFree_ = (cuMemFree_t)dlsym(handle, "cuMemFree_v2");
 		if (!cuMemFree)
 			THROW("Cannot dlsym cuMemFree " << dlerror());
 		cuMemAllocHost = (cuMemAlloc_t)dlsym(handle, "cuMemAllocHost_v2");
@@ -128,6 +149,9 @@ handle(handle)
 		cuMemHostRegister = (cuMemHostRegister_t)dlsym(handle, "cuMemHostRegister");
 		if (!cuMemHostRegister)
 			THROW("Cannot dlsym cuMemHostRegister " << dlerror());
+		cuMemHostGetDevicePointer = (cuMemHostGetDevicePointer_t)dlsym(handle, "cuMemHostGetDevicePointer");
+		if (!cuMemHostGetDevicePointer)
+			THROW("Cannot dlsym cuMemHostGetDevicePointer " << dlerror());
 		cuMemHostUnregister = (cuMemHostUnregister_t)dlsym(handle, "cuMemHostUnregister");
 		if (!cuMemHostUnregister)
 			THROW("Cannot dlsym cuMemHostUnregister " << dlerror());
