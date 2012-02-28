@@ -24,18 +24,14 @@ LEVEL = ../../..
 include ../../makefile.in
 
 ifeq ($(ARCH), 64)
-all: 32/pollycuda 64/pollycuda
+all: 64/pollycuda
 else
 all: 32/pollycuda
 endif
 
-32/pollycuda: 32/for.o
-	$(CCOMP32) $< -o $@
 64/pollycuda: 64/for.o
 	$(CCOMP64) $< -o $@
 
-32/for.o: for.c
-	$(CCOMP32) -g -c $< -o $@
 64/for.o: for.c
 	$(CCOMP64) -g -c $< -o $@
 

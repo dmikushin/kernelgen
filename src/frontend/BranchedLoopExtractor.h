@@ -9,5 +9,5 @@ void initializeBranchedLoopExtractorPass(PassRegistry&);
 Pass *createBranchedLoopExtractorPass();
 Pass *createSingleBranchedLoopExtractorPass();
 Pass *createBranchedLoopExtractorPass(std::vector<CallInst *> & LFC);
-						
+
 }

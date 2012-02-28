@@ -36,7 +36,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SetVector.h"
@@ -50,6 +50,8 @@ using namespace llvm;
 using namespace std;
 using namespace util::elf;
 using namespace util::io;
+
+Pass* createFixUsingOfMallocPass();
 
 static Function* transformToVoid(Function* &oldFunction)
 {
@@ -223,6 +225,8 @@ int compile(list<string> args, list<string> kgen_args,
 		std::vector<CallInst*> LoopFuctionCalls;
 		PassManager manager;
 		manager.add(createInstructionCombiningPass());
+		manager.add(createFixUsingOfMallocPass());
+		manager.add(createInstructionCombiningPass());
 		manager.add(createBranchedLoopExtractorPass(LoopFuctionCalls));
 		manager.run(*m.get());
 	}
@@ -243,7 +247,7 @@ int compile(list<string> args, list<string> kgen_args,
 		builder.populateModulePassManager(manager);
 		manager.run(*m.get());
 	}
-	
+	 
 	//m.get()->dump();
 
 	//

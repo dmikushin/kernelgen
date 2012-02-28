@@ -1,12 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
+typedef int ElemType;
 int main(int argc, char ** argv)
 {
    int a = atoi(argv[1]);
    int b = atoi(argv[2]);
    int c = atoi(argv[3]);
    //char * matrix = (char*)malloc(a*b*sizeof(char));
-   char * matrix = (char*)malloc((a)*(b + a + c)*sizeof(char));
+   ElemType * matrix = (ElemType*)malloc((a)*(b + a + c)*sizeof(ElemType));
    //int matrix[a*b*sizeof(int)];
    int i,j;
    for(i = 0; i < a; i++)

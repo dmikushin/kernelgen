@@ -28,7 +28,7 @@ EXECLIB = -L../runtime/32 -L../runtime/64 -lkernelgen -lelf -lmhash -ldl \
 
 CXX = g++ -g -I../include $(LLVMINC) $(LLVMDEF)
 
-OBJECTS = kernelgen.o compile.o link.o BranchedLoopExtractor.o BranchedCodeExtractor.o
+OBJECTS = kernelgen.o compile.o link.o BranchedLoopExtractor.o BranchedCodeExtractor.o FixUsingOfMalloc.o
 
 all: kernelgen
 
@@ -48,6 +48,9 @@ BranchedLoopExtractor.o: BranchedLoopExtractor.cpp
 	$(CXX) $(EXECINC) -fno-rtti -c $< -o $@
 
 BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
+	$(CXX) $(EXECINC) -c $< -o $@
+
+FixUsingOfMalloc.o: FixUsingOfMalloc.cpp
 	$(CXX) $(EXECINC) -c $< -o $@
 
 clean:
