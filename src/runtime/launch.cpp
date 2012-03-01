@@ -120,6 +120,7 @@ int kernelgen_launch(kernel_t* kernel,
 	
 			// Compile kernel for the specified target.
 			kernel_func = compile(runmode, kernel,NULL, args, szdatai);
+			if (!kernel_func) return -1;
 			binaries[strhash] = kernel_func;
 		}
 		else
@@ -252,22 +253,37 @@ int kernelgen_launch(kernel_t* kernel,
 							callback->szdatai, callback->data) != -1)
 							break;
 
-						// If kernel cannot be launched on device, launch it as
+						// If kernel is not supported on device, launch it as
 						// a host call.
-						LLVMContext& context = kernel->module->getContext();
-						FunctionType* FunctionTy = 
-							TypeBuilder<void(types::i<32>*), true>::get(context);
-						StructType* StructTy = StructType::get(
-							Type::getInt8PtrTy(context),
-							Type::getInt8PtrTy(context),
-							Type::getInt8PtrTy(context), NULL);
-						kernelgen_callback_data_t data;
-						data.args = callback->data;
-						kernelgen_hostcall(callback->kernel, FunctionTy, StructTy,
-							&data);
+						if (!callback->kernel->target[runmode].supported)
+						{
+							LLVMContext& context = kernel->module->getContext();
+							FunctionType* FunctionTy = 
+								TypeBuilder<void(types::i<32>*), true>::get(context);
+							StructType* StructTy = StructType::get(
+								Type::getInt8PtrTy(context),
+								Type::getInt8PtrTy(context),
+								Type::getInt8PtrTy(context), NULL);
+							kernelgen_callback_data_t data;
+							data.args = callback->data;
+							kernelgen_hostcall(callback->kernel, FunctionTy, StructTy,
+								&data);
+							break;
+						}
+						
+						// Otherwise, kernel is supported, but not parallelizable.
+						// In this case indicate __kernelgen_main must run single-threaded
+						// fallback branch where kernel's code is embedded directly into
+						// __kernelgen_main.
+						int state = KERNELGEN_STATE_FALLBACK;
+						err = cuMemcpyHtoDAsync(
+							&kernel->target[runmode].callback->state, &state, sizeof(int),
+							kernel->target[runmode].monitor_kernel_stream);
+						if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
+						err = cuStreamSynchronize(
+							kernel->target[runmode].monitor_kernel_stream);
+						if (err) THROW("Error in cuStreamSynchronize " << err);
 
-						//err = cuMemFreeHost(data);
-						//if (err) THROW("Error in cuMemFreeHost " << err);
 						break;
 					}
 					case KERNELGEN_STATE_HOSTCALL :
@@ -298,8 +314,7 @@ int kernelgen_launch(kernel_t* kernel,
 				if (callback->state == KERNELGEN_STATE_INACTIVE) break;
 
 				// Launch monitor GPU kernel.
-				{
-				
+				{				
 					struct { unsigned int x, y, z; } gridDim, blockDim;
 					gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
 					blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;

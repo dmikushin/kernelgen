@@ -48,6 +48,10 @@
 // Main kernel requested
 #define KERNELGEN_STATE_HOSTCALL	3
 
+// Loop kernel not launched, main kernel should use
+// the fallback branch.
+#define KERNELGEN_STATE_FALLBACK	-1
+
 #ifdef __cplusplus
 namespace kernelgen
 {
