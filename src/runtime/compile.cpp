@@ -219,6 +219,17 @@ kernel_func_t kernelgen::runtime::compile(
 		// Apply the Polly codegen for native target.
                 runPollyNATIVE(kernel);
 
+		// Optimize module.
+		{
+			PassManager manager;
+			PassManagerBuilder builder;
+			builder.Inliner = createFunctionInliningPass();
+			builder.OptLevel = 3;
+			builder.DisableSimplifyLibCalls = true;
+			builder.populateModulePassManager(manager);
+			manager.run(*m);
+		}
+
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 		// Create target machine for NATIVE target and get its target data.
@@ -233,7 +244,6 @@ kernel_func_t kernelgen::runtime::compile(
 				triple.setTriple(sys::getDefaultTargetTriple());
 			string err;
 			TargetOptions options;
-			options.JITEmitDebugInfoToDisk = true;
 			const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
 			if (!target)
 				THROW("Error auto-selecting target for module '" << err << "'." << endl <<
@@ -341,7 +351,7 @@ kernel_func_t kernelgen::runtime::compile(
 		 gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
 		 
 		 kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
-    	 kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
+	    	 kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
 		 
 		 // substitute grid parameters to reduce amount of instructions and used registers
 		 substituteGridParams(kernel,gridDim,blockDim);
@@ -482,7 +492,6 @@ kernel_func_t kernelgen::runtime::compile(
 		// Optimize module.
 		{
 			PassManager manager;
-			//manager.add(createLowerSetJmpPass());
 			PassManagerBuilder builder;
 			builder.Inliner = createFunctionInliningPass();
 			builder.OptLevel = 3;
