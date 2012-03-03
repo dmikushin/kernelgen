@@ -337,9 +337,9 @@ kernel_func_t kernelgen::runtime::compile(
 		gridDim.x = gridDim.y = gridDim.z = 1;
 
 		// Apply the Polly codegen for native target.
+		Size3 sizeOfLoops;
 		if (kernelgen::polly)
 		{
-			Size3 sizeOfLoops;
 			runPollyCUDA(kernel,&sizeOfLoops);
 		 
 			//   x   y     z       x     y  z

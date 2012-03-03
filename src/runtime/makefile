@@ -37,126 +37,63 @@ LLVMINC = \
 CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include
 CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
 
-OBJECTS = \
-	entry compile launch finish timing io elf execute bind nvopencc \
+OBJECTS := \
+	entry compile launch finish timer io elf execute bind nvopencc \
 	memory hostcall wrappers \
         ConstantSubstitution SizeOfLoops
 
-OBJECTS32 := $(addsuffix .o, $(addprefix 32/, $(OBJECTS)))
-OBJECTS64 := $(addsuffix .o, $(addprefix 64/, $(OBJECTS)))
+OBJECTS := $(addsuffix .o, $(OBJECTS))
 
-ifeq ($(ARCH), 32)
-CC32 = $(CC)
-CXX32 = $(CXX)
-all: 32/libkernelgen.a
-else
-CC32 = $(CC) -m32
-CXX32 = $(CXX) -m32
-CC64 = $(CC)
-CXX64 = $(CXX)
-all: 32/libkernelgen.a 64/libkernelgen.a
-endif
+all: libkernelgen.a
 
-32/libkernelgen.a: $(OBJECTS32)
-	$(AR) rcs $@ $(OBJECTS32)
-64/libkernelgen.a: $(OBJECTS64)
-	$(AR) rcs $@ $(OBJECTS64)
+libkernelgen.a: $(OBJECTS)
+	$(AR) rcs $@ $(OBJECTS)
 
-32/entry.o: entry.cpp bind.h
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/entry.o: entry.cpp bind.h
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+entry.o: entry.cpp bind.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/compile.o: compile.cpp runtime.h
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/compile.o: compile.cpp runtime.h
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+compile.o: compile.cpp runtime.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/launch.o: launch.cpp runtime.h
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/launch.o: launch.cpp runtime.h
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+launch.o: launch.cpp runtime.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/finish.o: finish.cpp runtime.h
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/finish.o: finish.cpp runtime.h
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+finish.o: finish.cpp runtime.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/timing.o: timing.c util.h
-	$(CC32) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
-64/timing.o: timing.c util.h
-	$(CC64) $(CFLAGS) -D_GNU_SOURCE -c $< -o $@
+timer.o: timer.cxx timer.h
+	$(CXX) $(CXXFLAGS) -D_GNU_SOURCE -c $< -o $@
 
-32/io.o: io.cpp io.h
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/io.o: io.cpp io.h
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+io.o: io.cpp io.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/elf.o: elf.cpp elf.h
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/elf.o: elf.cpp elf.h
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+elf.o: elf.cpp elf.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/elf_read_test: elf_read_test.cpp elf.h util.h
-	$(CXX32) $(CXXFLAGS) $< -o $@ -L32 -lkernelgen -lelf
-64/elf_read_test: elf_read_test.cpp elf.h util.h
-	$(CXX64) $(CXXFLAGS) $< -o $@ -L64 -lkernelgen -lelf
+execute.o: execute.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/elf_write_test: elf_write_test.c elf.h util.h
-	$(CC32) $(CFLAGS) $(INCFFI) $< -o $@ -L32 -lkernelgen
-64/elf_write_test: elf_write_test.c elf.h util.h
-	$(CC64) $(CFLAGS) $(INCFFI) $< -o $@ -L64 -lkernelgen
+bind.o: bind.cpp bind.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-NUM_SYMBOLS ?= 1
+nvopencc.o: nvopencc.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/test: elf_read_test.cpp elf_write_test
-	32/elf_write_test 32/foo.o $(NUM_SYMBOLS) sym hello
-	32/elf_read_test /proc/self/exe sym
-64/test: elf_read_test.cpp elf_write_test
-	64/elf_write_test 64/foo.o $(NUM_SYMBOLS) sym hello
-	64/elf_read_test /proc/self/exe sym
+memory.o: memory.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/execute.o: execute.cpp
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/execute.o: execute.cpp
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+hostcall.o: hostcall.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/bind.o: bind.cpp bind.h
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/bind.o: bind.cpp bind.h
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+wrappers.o: wrappers.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-32/nvopencc.o: nvopencc.cpp
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/nvopencc.o: nvopencc.cpp
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
+ConstantSubstitution.o: ConstantSubstitution.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o $@
 
-32/memory.o: memory.cpp
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/memory.o: memory.cpp
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
-
-32/hostcall.o: hostcall.cpp
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/hostcall.o: hostcall.cpp
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
-
-32/wrappers.o: wrappers.cpp
-	$(CXX32) $(CXXFLAGS) -c $< -o $@
-64/wrappers.o: wrappers.cpp
-	$(CXX64) $(CXXFLAGS) -c $< -o $@
-
-32/ConstantSubstitution.o: ConstantSubstitution.cpp
-	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
-64/ConstantSubstitution.o: ConstantSubstitution.cpp
-	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o $@
-
-32/SizeOfLoops.o: SizeOfLoops.cpp
-	$(CXX32) $(CXXFLAGS) -fno-rtti -c $< -o $@
-64/SizeOfLoops.o: SizeOfLoops.cpp
-	$(CXX64) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+SizeOfLoops.o: SizeOfLoops.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
 clean:
-	rm -rf 32/*.o 64/*.o 32/*.a 64/*.a \
-	32/elf_write_test 32/elf_read_test 64/elf_write_test 64/elf_read_test
+	rm -rf *.o libkernelgen.a
 

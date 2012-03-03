@@ -344,10 +344,7 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 		if (verbose) ptxas_args.push_back("-v");
 		ptxas_args.push_back("-arch=sm_20");
 		ptxas_args.push_back("-m64");
-		//if (name == "__kernelgen_main")
-		//	ptxas_args.push_back("/tmp/GfZVCR"); //tmp2.getFilename());
-		//else
-			ptxas_args.push_back(tmp2.getFilename());
+		ptxas_args.push_back(tmp2.getFilename());
 		ptxas_args.push_back("-o");
 		ptxas_args.push_back(tmp3.getFilename());
 		if (debug)

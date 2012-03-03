@@ -39,34 +39,33 @@
 int execute(std::string command, std::list<std::string> args,
 	std::string in = "", std::string* out = NULL, std::string* err = NULL);
 
+namespace kernelgen { namespace runtime {
+
+class timer
+{
+	timespec time_start, time_stop;
+	bool started;
+
+public :
+
+	static timespec get_resolution();
+
+	timer(bool start = true);
+
+	timespec start();
+	timespec stop();
+
+	double get_elapsed(timespec* start = NULL);
+};
+
+} }
+
+#endif
+
+#ifdef __cplusplus
 extern "C"
 {
 #endif
-
-#pragma pack(push, 1)
-
-// The built-in timer value type.
-typedef struct
-{
-	int64_t seconds;
-	int64_t nanoseconds;
-}
-util_time_t;
-
-#pragma pack(pop)
-
-void util_get_timer_resolution(util_time_t* val);
-
-// Get the built-in timer value.
-void util_get_time(util_time_t* val);
-
-// Get the built-in timer measured values difference.
-double util_get_time_diff(
-	util_time_t* val1, util_time_t* val2);
-
-// Print the built-in timer measured values difference.
-void util_print_time_diff(
-	util_time_t* val1, util_time_t* val2);
 
 // Load the specified ELF image symbol raw data.
 int util_elf_read(const int fd, const char* symname,

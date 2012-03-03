@@ -36,11 +36,7 @@ my($CUDA_PREFIX) = $ARGV[4];
 `mkdir -p $PREFIX/bin`;
 `mkdir -p $PREFIX/include`;
 `mkdir -p $PREFIX/$LIB32`;
-
-if ($ARCH eq "64")
-{
-	`mkdir -p $PREFIX/$LIB64`;
-}
+`mkdir -p $PREFIX/$LIB64`;
 
 #
 # Copy binaries to install path.
@@ -67,23 +63,11 @@ foreach $include (@includes)
 #
 # Copy libraries to install path.
 #
-my(@libraries32) = (
-	"runtime/32/libkernelgen.a",
+my(@libraries) = (
+	"runtime/libkernelgen.a",
 	"libasfermi/libasfermi.so",
 	"libasfermi/tests/dyloader/libdyloader.so");
-foreach $library (@libraries32)
+foreach $library (@libraries)
 {
-	`cp $library $PREFIX\/$LIB32\/`;
+	`cp $library $PREFIX\/$LIB64\/`;
 }
-if ($ARCH eq "64")
-{
-	my(@libraries64) = (
-		"runtime/64/libkernelgen.a",
-		"libasfermi/libasfermi.so",
-		"libasfermi/tests/dyloader/libdyloader.so");
-	foreach $library (@libraries64)
-	{
-		`cp $library $PREFIX\/$LIB64\/`;
-	}
-}
-

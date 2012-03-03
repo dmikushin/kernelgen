@@ -153,6 +153,15 @@ struct kernel_t
 		// Streams for work and monitor kernels.
 		void* monitor_kernel_stream;
 		void* kernel_stream;
+
+		// Kernel execution statistics: min/max/avg time and
+		// the number of launches.
+		struct
+		{
+			double min, max, avg;
+			unsigned long long nlaunches;
+		}
+		stats;
 	}
 	target[KERNELGEN_RUNMODE_COUNT];
 };

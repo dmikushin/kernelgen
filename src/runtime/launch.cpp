@@ -147,7 +147,11 @@ int kernelgen_launch(kernel_t* kernel,
 		{
 			kernel_func_t native_kernel_func =
 				(kernel_func_t)kernel_func;
-			native_kernel_func(data);
+			timer t;
+			{
+				native_kernel_func(data);
+			}
+			cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA :
@@ -158,6 +162,7 @@ int kernelgen_launch(kernel_t* kernel,
 			if (kernel->name != "__kernelgen_main")
 			{
 				// Launch GPU loop kernel, if it is compiled.
+				timer t;
 				{
 
 					size_t szshmem = 0;
@@ -176,6 +181,8 @@ int kernelgen_launch(kernel_t* kernel,
 				int err = cuStreamSynchronize(
 					kernel->target[runmode].monitor_kernel_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
+
+				cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
 				break;
 			}
 
@@ -258,6 +265,7 @@ int kernelgen_launch(kernel_t* kernel,
 						// a host call.
 						if (!callback->kernel->target[runmode].supported)
 						{
+							timer t;
 							LLVMContext& context = kernel->module->getContext();
 							FunctionType* FunctionTy = 
 								TypeBuilder<void(types::i<32>*), true>::get(context);
@@ -269,6 +277,8 @@ int kernelgen_launch(kernel_t* kernel,
 							data.args = callback->data;
 							kernelgen_hostcall(callback->kernel, FunctionTy, StructTy,
 								&data);
+							cout << callback->kernel->name << " time = " <<
+                                                        	t.get_elapsed() << " sec" << endl;
 							break;
 						}
 						
@@ -301,11 +311,17 @@ int kernelgen_launch(kernel_t* kernel,
 							kernel->target[runmode].monitor_kernel_stream);
 						if (err) THROW("Error in cuStreamSynchronize " << err);
 
-						kernelgen_hostcall(callback->kernel, data->FunctionTy,
-							data->StructTy, data);
+						timer t;
+						{
+							kernelgen_hostcall(callback->kernel, data->FunctionTy,
+								data->StructTy, data);
+						}
+						cout << callback->kernel->name << " time = " <<
+							t.get_elapsed() << " sec" << endl;
 
-						//err = cuMemFreeHost(data);
-						//if (err) THROW("Error in cuMemFreeHost " << err);
+						//err = cuMemHostUnregister(data);
+						//if (err) THROW("Error in cuMemHostUnregister " << err);
+						//free(data);
 						break;
 					}
 					default :

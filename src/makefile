@@ -33,20 +33,17 @@ ifeq ($(HAVE_CUDA), 1)
 CUDA_PREFIX = /opt/cuda
 endif
 
-.PHONY: frontend libasfermi
+.PHONY: frontend libruntime libasfermi
 
-all: frontend libasfermi runtime/32/libruntime.a runtime/64/libruntime.a
+all: frontend libasfermi libruntime
 
-frontend: runtime/32/libruntime.a runtime/64/libruntime.a libasfermi
+frontend: libruntime libasfermi
 	cd frontend && $(MAKE)
 
 libasfermi:
 	cd libasfermi && $(MAKE)
 
-runtime/32/libruntime.a:
-	cd runtime && $(MAKE)
-
-runtime/64/libruntime.a:
+libruntime:
 	cd runtime && $(MAKE)
 
 clean:
@@ -54,6 +51,6 @@ clean:
 	cd runtime && $(MAKE) clean
 	cd libasfermi && $(MAKE) clean
 
-install: frontend runtime include/kernelgen_runtime.h
+install: frontend libruntime libasfermi
 	perl install $(ARCH) $(PREFIX) $(LIB32) $(LIB64) $(CUDA_PREFIX)
 
