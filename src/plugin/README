@@ -1,0 +1,8 @@
+Here's a simple stub to create a global variable with a random content in gcc plugin and attach it to existing object file. Will be used to embed LLVM IR with binaries:
+
+marcusmae@T61p:~/Programming/kernelgen/src/plugin$ make test
+g++ -g -I/usr/lib/gcc/x86_64-linux-gnu/4.6.1/plugin/include -fPIC -shared plugin.cpp -o plugin.so
+g++ -g -fplugin=./plugin.so test.cpp -o test && ./test
+starting plugin
+hello!
+
