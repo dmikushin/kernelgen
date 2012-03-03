@@ -42,7 +42,7 @@ using namespace kernelgen::runtime;
 using namespace util::io;
 using namespace std;
 
-bool debug = true;
+bool debug = false;
 
 // Align cubin global data to the specified boundary.
 static void align(const char* cubin, size_t align, list<string>* names)
@@ -149,8 +149,6 @@ static void align(const char* cubin, size_t align, list<string>* names)
 				char* value = (char*)symbol.st_value;
 				size_t size = (size_t)symbol.st_size;
 
-				printf("%s\t%p\t%04zu\t->", name, value, size);
-			
 				if (symbol.st_shndx == iglobal)
 				{
 					symbol.st_value = oglobal;
@@ -176,8 +174,6 @@ static void align(const char* cubin, size_t align, list<string>* names)
 
 				value = (char*)symbol.st_value;
 				size = (size_t)symbol.st_size;
-			
-				printf("\t%p\t%04zu\n", value, size);
 			}
 		}
 		elf_end(e);

@@ -161,11 +161,12 @@ int kernelgen_launch(kernel_t* kernel,
 				{
 
 					size_t szshmem = 0;
+					dim3 blockDim = kernel->target[runmode].blockDim;
+					dim3 gridDim = kernel->target[runmode].gridDim;
 					int err = cudyLaunch(
 						(CUDYfunction)kernel_func,
-						kernel->target[runmode].gridDim.x, kernel->target[runmode].gridDim.y, kernel->target[runmode].gridDim.z,
-						kernel->target[runmode].blockDim.x, kernel->target[runmode].blockDim.y, kernel->target[runmode].blockDim.z,
-                        szshmem,
+						gridDim.x, gridDim.y, gridDim.z,
+						blockDim.x, blockDim.y, blockDim.z, szshmem,
 						&data, kernel->target[runmode].monitor_kernel_stream);
 					if (err)
 						THROW("Error in cudyLaunch " << err);
@@ -336,8 +337,9 @@ int kernelgen_launch(kernel_t* kernel,
 				kernel->target[runmode].kernel_stream);
 			if (err) THROW("Error in cuStreamSynchronize " << err);
 			
-			err = cuMemFreeHost(callback);
-			if (err) THROW("Error in cuMemFreeHost " << err);
+                        err = cuMemHostUnregister(callback);
+                        if (err) THROW("Error in cuMemHostUnregister " << err);
+			free(callback);
 			
 			break;
 		}

@@ -182,6 +182,8 @@ int compile(list<string> args, list<string> kgen_args,
 		}
 		emit_ir_args.push_back("-fplugin=/opt/kernelgen/lib/dragonegg.so");
 		emit_ir_args.push_back("-fplugin-arg-dragonegg-emit-ir");
+		emit_ir_args.push_back("-fplugin-arg-dragonegg-llvm-ir-optimize=0");
+		emit_ir_args.push_back("-D_KERNELGEN");
 		emit_ir_args.push_back("-S");
 		emit_ir_args.push_back(input);
 		emit_ir_args.push_back("-o");

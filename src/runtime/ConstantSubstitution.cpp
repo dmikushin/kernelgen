@@ -6,6 +6,10 @@
 #include <set>
 #include <map>
 #include <iostream>
+
+#include "runtime.h"
+
+using namespace kernelgen;
 using namespace llvm;
 
 std::map<LoadInst *, int> LoadInstOffsets;
@@ -108,8 +112,9 @@ void ConstantSubstitution(Function * func, void * args)
 	//compute offsets of args
 	//each arg is LoadInst from some offset in structure of args
 	computeLoadInstOffsets(sourceArg,targetData);
-	
-	std::cout << "    Integer args substituted: " << std::endl;
+
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)	
+		std::cout << "    Integer args substituted: " << std::endl;
 	for(MapIterator arg = LoadInstOffsets.begin(), argEnd = LoadInstOffsets.end();
 	    arg != argEnd; arg++) {
 		LoadInst * load = arg->first;
@@ -125,7 +130,9 @@ void ConstantSubstitution(Function * func, void * args)
 			ConstantInt * constant = ConstantInt::get(cast<IntegerType>(type), value);
 			load->replaceAllUsesWith(constant);
 			load->eraseFromParent();
-			std::cout << "        offset = " << arg->second << ", value = " << constant->getValue().toString(10,true) << std::endl;
+			if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				std::cout << "        offset = " << arg->second << ", value = " <<
+					constant->getValue().toString(10,true) << std::endl;
 		}
 	}
 	return;

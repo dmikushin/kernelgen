@@ -204,7 +204,8 @@ kernel_func_t kernelgen::runtime::compile(
 		if (szdatai != 0)
 		{
 			Function* f = m->getFunction(kernel->name);
-			ConstantSubstitution(f, data);
+			if (kernel->name != "__kernelgen_main")
+				ConstantSubstitution(f, data);
 		}
 	}
 
@@ -217,7 +218,10 @@ kernel_func_t kernelgen::runtime::compile(
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
 		// Apply the Polly codegen for native target.
-                runPollyNATIVE(kernel);
+		if (kernelgen::polly)
+		{
+                	runPollyNATIVE(kernel);
+		}
 
 		// Optimize module.
 		{
@@ -328,27 +332,35 @@ kernel_func_t kernelgen::runtime::compile(
 		return kernel_func;
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
-		// Apply the Polly codegen for native target.
-		Size3 sizeOfLoops;
-		runPollyCUDA(kernel,&sizeOfLoops);
-		 
-		//   x   y     z       x     y  z
-		//  123 13640 -1  ->  13640 123 1
-		Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
-		dim3 blockDim, gridDim, iterationsPerThread;
-		 
-		// compute grid parameters from specified blockDim and desired iterationsPerThread
+		dim3 blockDim, gridDim;		
 		blockDim.x = blockDim.y = blockDim.z = 1;
-		iterationsPerThread.x = iterationsPerThread.y = iterationsPerThread.z=1;
-		gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
-		gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
-		gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
+		gridDim.x = gridDim.y = gridDim.z = 1;
+
+		// Apply the Polly codegen for native target.
+		if (kernelgen::polly)
+		{
+			Size3 sizeOfLoops;
+			runPollyCUDA(kernel,&sizeOfLoops);
 		 
-		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
-	    	kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
+			//   x   y     z       x     y  z
+			//  123 13640 -1  ->  13640 123 1
+			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
+			dim3 iterationsPerThread;
 		 
-		// substitute grid parameters to reduce amount of instructions and used registers
-		substituteGridParams(kernel,gridDim,blockDim);
+			// Compute grid parameters from specified blockDim and desired
+			//iterationsPerThread.
+			iterationsPerThread.x = iterationsPerThread.y = iterationsPerThread.z = 1;
+			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
+			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
+			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
+		 
+			// Substitute grid parameters to reduce amount of instructions
+			// and used registers.
+			substituteGridParams(kernel,gridDim,blockDim);
+		}
+
+                kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
+                kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
 	
 		// Initially, fill intrinsics tables.
 		if (kernelgen_intrinsics_set.empty()) {
@@ -487,7 +499,7 @@ kernel_func_t kernelgen::runtime::compile(
 			// above to generate full host kernel in case hostcalls are around
 			// (.supported flag), rather than running kernel on device and invoke
 			// hostcalls on each individual iteration, which will be terribly slow.
-			if (sizeOfLoops.x == -1) return NULL;
+			//if (sizeOfLoops.x == -1) return NULL;
 		}
 
 		// Optimize module.

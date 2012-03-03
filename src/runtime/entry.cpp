@@ -69,6 +69,9 @@ int kernelgen::runmode = -1;
 // Verbose output.
 int kernelgen::verbose = 0;
 
+// Polly analysis (enabled by default).
+int kernelgen::polly = 1;
+
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
 // for futher references.
@@ -104,6 +107,10 @@ int main(int argc, char* argv[])
 			}
 			cout << endl;
 		}
+
+		// Check if the polly switch value is supplied.
+		char* cpolly = getenv("kernelgen_polly");
+		if (cpolly) polly = atoi(cpolly);
 
 		// Build kernels index.
 		if (verbose) cout << "Building kernels index ..." << endl;
@@ -291,7 +298,10 @@ int main(int argc, char* argv[])
 				kernel->target[runmode].callback = callback_dev;
 				
 				// Setup device dynamic memory heap.
-				kernelgen_memory_t* memory = init_memory_pool(16 * 1024 * 1024);
+				int szheap = 16 * 1024 * 1024;
+		                char* cszheap = getenv("kernelgen_szheap");
+				if (cszheap) szheap = atoi(cszheap);
+				kernelgen_memory_t* memory = init_memory_pool(szheap);
 	
 				char** argv_dev = NULL;
 				{

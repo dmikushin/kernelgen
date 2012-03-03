@@ -68,5 +68,4 @@
 "signbit", "__signbit", "__signbitf", "__signbitd", "__signbitl",
 "__finite", "__finitef",
 "fma", "fmaf",
-"abort"
-
+"abort",

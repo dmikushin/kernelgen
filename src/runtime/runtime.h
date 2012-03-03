@@ -81,12 +81,16 @@ extern int runmode;
 // Verbose output.
 extern int verbose;
 
+// Polly analysis (enabled by default).
+extern int polly;
+
 #define KERNELGEN_VERBOSE_DISABLE	0
 #define KERNELGEN_VERBOSE_SUMMARY	1 << 0
 #define KERNELGEN_VERBOSE_SOURCES	1 << 1
 #define KERNELGEN_VERBOSE_ISA		1 << 2
 #define KERNELGEN_VERBOSE_DATAIO	1 << 3
 #define KERNELGEN_VERBOSE_HOSTCALL	1 << 4
+#define KERNELGEN_VERBOSE_POLLYGEN	1 << 5
 
 // The prototype of kernel function.
 // Thanks to arguments aggregation, all
