@@ -181,6 +181,15 @@ void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 			}
 		}
 }
+
+// Loop unrolling with runtime part enabled
+// (currently not used, final unrollment gives better
+// result by some reason).
+static void addRuntimeLoopUnrollPass(const PassManagerBuilder &Builder, PassManagerBase &PM)
+{
+	PM.add(createLoopUnrollPass(128, -1, 1));
+}
+
 kernel_func_t kernelgen::runtime::compile(
     int runmode, kernel_t* kernel, Module* module, void * data, int szdatai)
 {
@@ -353,10 +362,10 @@ kernel_func_t kernelgen::runtime::compile(
 			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
 			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
 			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
-		 
+		
 			// Substitute grid parameters to reduce amount of instructions
 			// and used registers.
-			substituteGridParams(kernel,gridDim,blockDim);
+			substituteGridParams(kernel, gridDim, blockDim);
 		}
 
                 kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
@@ -509,7 +518,25 @@ kernel_func_t kernelgen::runtime::compile(
 			builder.Inliner = createFunctionInliningPass();
 			builder.OptLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
+			builder.Vectorize = false;
+                        if (sizeOfLoops.x == -1)
+                        {
+				// Single-threaded kernels performance could be
+				// significantly improved by unrolling.
+                                manager.add(createLoopUnrollPass(512, -1, 1));
+                        }
+			/*if (sizeOfLoops.x == -1)
+			{
+				// Use runtime unrolling (disabpled by default).
+				builder.DisableUnrollLoops = true;
+				builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+					addRuntimeLoopUnrollPass);
+			}*/
 			builder.populateModulePassManager(manager);
+			/*if (sizeOfLoops.x == -1)
+			{
+				manager.add(createLoopUnrollPass(2048, -1, 1));
+			}*/
 			manager.run(*m);
 		}
 

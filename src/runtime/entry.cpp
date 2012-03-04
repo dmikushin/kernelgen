@@ -282,7 +282,7 @@ int main(int argc, char* argv[])
 			{
 				// Initialize dynamic kernels loader.
 				kernelgen::runtime::cuda_context.reset(
-					kernelgen::bind::cuda::context::init(4096));
+					kernelgen::bind::cuda::context::init(8192));
 
 				// Create streams where monitoring and target kernels
 				// will be executed.

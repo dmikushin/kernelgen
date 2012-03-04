@@ -307,6 +307,9 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 		if (name == "__kernelgen_main")
 			nvopencc_args.push_back("-CG:auto_as_static=0");
 
+		// Disable load/store vectorization (very buggy).
+		//nvopencc_args.push_back("-CG:vector_loadstore=0");
+
 		nvopencc_args.push_back(tmp1.getFilename());
 		nvopencc_args.push_back("-o");
 		nvopencc_args.push_back(tmp2.getFilename());
