@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
 				THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
 					diag.getLineContents() << ": " << diag.getMessage());
 			m->setModuleIdentifier(kernel->name + "_module");
-			
+		
 			for (Module::iterator fi = m->begin(), fe = m->end(); fi != fe; fi++)
 				for (Function::iterator bi = fi->begin(), be = fi->end(); bi != be; bi++)
 					for (BasicBlock::iterator ii = bi->begin(), ie = bi->end(); ii != ie; ii++)
@@ -212,15 +212,34 @@ int main(int argc, char* argv[])
 							Type::getInt8PtrTy(context)));
 
 						// Delete occasional users, like lifetime.start/end.
+						// Note name and stack space may be used by another
+						// kernelgen_launch call for the same function. If so,
+						// we postpone deletion util the last launch call
+						// argument will be replaced.
+						bool used_in_another_call = false;
 						for (Value::use_iterator i = namePtr->use_begin(),
 							ie = namePtr->use_end(); i != ie; i++)
 						{
+							CallInst* call = dyn_cast<CallInst>(*i);
+							if (call)
+							{
+								Function* callee = call->getCalledFunction();
+								if (callee->getName() == "kernelgen_launch")
+								{
+									used_in_another_call = true;
+									break;
+								}
+							}
+						
 							Instruction* inst = dyn_cast<Instruction>(*i);
 							if (inst) inst->eraseFromParent();
 						}
-						
-						namePtr->eraseFromParent();
-						nameAlloc->eraseFromParent();
+
+						if (!used_in_another_call)
+						{
+							namePtr->eraseFromParent();
+							nameAlloc->eraseFromParent();
+						}
 					}
 
 			kernel->source = "";
