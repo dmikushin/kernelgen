@@ -483,4 +483,37 @@
         createJSONExporterPass();
         createJSONImporterPass();
         createRegionSimplifyPass();
- 
+
+--- a/llvm/tools/polly/include/polly/ScopInfo.h	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/include/polly/ScopInfo.h	2012-02-22 21:31:42.000000000 +0400
+@@ -95,7 +95,7 @@
+ private:
+   isl_map *AccessRelation;
+   enum AccessType Type;
+-
++  unsigned elemTypeSize;
+   const Value* BaseAddr;
+   std::string BaseName;
+   isl_basic_map *createBasicAccessMap(ScopStmt *Statement);
+@@ -131,7 +131,9 @@
+   const Value *getBaseAddr() const {
+     return BaseAddr;
+   }
+-
++  unsigned getElemTypeSize() const {
++	  return elemTypeSize;
++  }
+   const std::string &getBaseName() const {
+     return BaseName;
+   }
+
+--- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	2012-02-22 21:31:42.000000000 +0400
+@@ -334,6 +334,7 @@
+   isl_int v;
+   isl_int_init(v);
+   isl_int_set_si(v, Access.getElemSizeInBytes());
++  elemTypeSize = Access.getElemSizeInBytes();
+   Affine = isl_pw_aff_scale_down(Affine, v);
+   isl_int_clear(v);
+

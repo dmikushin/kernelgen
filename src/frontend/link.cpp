@@ -646,6 +646,7 @@ int link(list<string> args, list<string> kgen_args,
 		args.push_back("/opt/kernelgen/lib/libasfermi.so");
 		args.push_back("-lelf");
 		args.push_back("-lrt");
+		args.push_back("-lgmp");
 		args.push_back("-lmhash");
 		args.push_back("-ldl");
 		args.push_back("-lffi");

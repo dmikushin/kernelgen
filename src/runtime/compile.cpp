@@ -30,7 +30,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
@@ -43,6 +43,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/FunctionUtils.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Support/Debug.h"
 
 #include "polly/LinkAllPasses.h"
 #include "polly/RegisterPasses.h"
@@ -64,8 +66,9 @@ using namespace polly;
 using namespace std;
 namespace polly
 {
-extern cl::opt<bool> CUDA;
+	extern cl::opt<bool> CUDA;
 };
+extern cl::opt<bool>  IgnoreAliasing;
 // Arrays and sets of KernelGen and CUDA intrinsics.
 static string cuda_intrinsics[] = {
 #include "cuda_intrinsics.h"
@@ -88,8 +91,8 @@ static PassManager getPollyPassManager(Module* m)
 }
 
 void ConstantSubstitution( Function * func, void * args);
-
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL);
+Pass* createRuntimeAliasAnalysisPass();
 Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 {
 	int64_t sizes[3];
@@ -110,18 +113,36 @@ Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 
 static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 {
-     PassManager polly = getPollyPassManager(kernel->module);
-     polly::CUDA.setValue(mode);
-	vector<Size3> sizes;
- 	if(kernel->name != "__kernelgen_main")
-		polly.add(createSizeOfLoopsPass(&sizes));
-	polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
-	polly.add(createCFGSimplificationPass());
+	PassManager polly = getPollyPassManager(kernel->module);
 	polly.run(*kernel->module);
+
+	IgnoreAliasing.setValue(true);
+	polly::CUDA.setValue(mode);
+
+	vector<Size3> sizes;
+	{
+
+		PassManager polly;
+		polly.add(new TargetData(kernel->module));
+		if(kernel->name != "__kernelgen_main") {
+			llvm::EnableStatistics();
+			polly.add(createRuntimeAliasAnalysisPass());
+			polly.add(createSizeOfLoopsPass(&sizes));
+		}
+		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
+		polly.add(createCFGSimplificationPass());
+		polly.run(*kernel->module);
+		if(kernel->name != "__kernelgen_main") {
+			raw_os_ostream OS(cout);
+			llvm::PrintStatistics(OS);
+			OS.flush();
+		}
+	}
+
 	if(kernel->name != "__kernelgen_main") {
 		Size3 SizeOfLoops;
 		if(sizes.size() == 0)
-			cout << "    No Scops detected in kernel" << endl;
+			cout << "    FAIL: No Valid Scops detected in kernel!!!" << endl << endl;
 		else {
 			// non-negative define sizes
 			// if parallelized less than 3 loops then remaining will be -1
@@ -135,48 +156,49 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 			SizeOfLoops  = sizes[0]; // 3-dimensional
 			if(sizeOfLoops) *sizeOfLoops=SizeOfLoops;
 		}
-}
-			
+
+	}
+
 }
 static void runPollyNATIVE(kernel_t *kernel)
- {
-    return runPolly(kernel,NULL,false);
- }
+{
+	return runPolly(kernel,NULL,false);
+}
 static void runPollyCUDA(kernel_t *kernel,Size3 *sizeOfLoops)
- {
-    return runPolly(kernel,sizeOfLoops,true);
- }
+{
+	return runPolly(kernel,sizeOfLoops,true);
+}
 void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
 	Module * m = kernel-> module;
 	vector<string> dimensions, parameters;
-	
-	dimensions.push_back("x");                                         
-    dimensions.push_back("y");                                         
-	dimensions.push_back("z");                                         
 
-    parameters.push_back("gridDim"); 
-	parameters.push_back("blockDim");  
-		
+	dimensions.push_back("x");
+	dimensions.push_back("y");
+	dimensions.push_back("z");
+
+	parameters.push_back("gridDim");
+	parameters.push_back("blockDim");
+
 	string prefix1("kernelgen_");
 	string prefix2("_");
-	string prefix3(".");     
-	
+	string prefix3(".");
+
 	unsigned int * gridParams[2];
 	gridParams[0] = (unsigned int *)&gridDim;
 	gridParams[1] = (unsigned int *)&blockDim;
 
 	for(int parameter =0; parameter < parameters.size(); parameter++)
-		for(int dimension=0; dimension < dimensions.size(); dimension++){
+		for(int dimension=0; dimension < dimensions.size(); dimension++) {
 			const char *functionName = (new string(prefix1 + parameters[parameter] + prefix2 + dimensions[dimension]))->c_str();
 			Function * function = m->getFunction(functionName);
-			if(function && function -> getNumUses() > 0){
+			if(function && function -> getNumUses() > 0) {
 				assert(function -> getNumUses() == 1);
 				CallInst *functionCall;
-                assert(functionCall = dyn_cast<CallInst>(*(function -> use_begin())));
+				assert(functionCall = dyn_cast<CallInst>(*(function -> use_begin())));
 				functionCall -> replaceAllUsesWith(
-								    ConstantInt::get(cast<IntegerType>(function->getReturnType()), 
-			                                         (uint64_t)gridParams[parameter][dimension]));
+				    ConstantInt::get(cast<IntegerType>(function->getReturnType()),
+				                     (uint64_t)gridParams[parameter][dimension]));
 				functionCall -> eraseFromParent();
 			}
 		}
@@ -210,8 +232,9 @@ kernel_func_t kernelgen::runtime::compile(
 		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
 
-		if (szdatai != 0)
-		{
+
+
+		if (szdatai != 0) {
 			Function* f = m->getFunction(kernel->name);
 			if (kernel->name != "__kernelgen_main")
 				ConstantSubstitution(f, data);
@@ -227,9 +250,8 @@ kernel_func_t kernelgen::runtime::compile(
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
 		// Apply the Polly codegen for native target.
-		if (kernelgen::polly)
-		{
-                	runPollyNATIVE(kernel);
+		if (kernelgen::polly) {
+			runPollyNATIVE(kernel);
 		}
 
 		// Optimize module.
@@ -341,36 +363,35 @@ kernel_func_t kernelgen::runtime::compile(
 		return kernel_func;
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
-		dim3 blockDim, gridDim;		
+		dim3 blockDim, gridDim;
 		blockDim.x = blockDim.y = blockDim.z = 1;
 		gridDim.x = gridDim.y = gridDim.z = 1;
 
 		// Apply the Polly codegen for native target.
 		Size3 sizeOfLoops;
-		if (kernelgen::polly)
-		{
+		if (kernelgen::polly) {
 			runPollyCUDA(kernel,&sizeOfLoops);
-		 
+
 			//   x   y     z       x     y  z
 			//  123 13640 -1  ->  13640 123 1
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
 			dim3 iterationsPerThread;
-		 
+
 			// Compute grid parameters from specified blockDim and desired
 			//iterationsPerThread.
 			iterationsPerThread.x = iterationsPerThread.y = iterationsPerThread.z = 1;
 			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
 			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
 			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
-		
+
 			// Substitute grid parameters to reduce amount of instructions
 			// and used registers.
 			substituteGridParams(kernel, gridDim, blockDim);
 		}
 
-                kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
-                kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
-	
+		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
+		kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
+
 		// Initially, fill intrinsics tables.
 		if (kernelgen_intrinsics_set.empty()) {
 			kernelgen_intrinsics_set.insert(
@@ -519,12 +540,11 @@ kernel_func_t kernelgen::runtime::compile(
 			builder.OptLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
 			builder.Vectorize = false;
-                        if (sizeOfLoops.x == -1)
-                        {
+			if (sizeOfLoops.x == -1) {
 				// Single-threaded kernels performance could be
 				// significantly improved by unrolling.
-                                manager.add(createLoopUnrollPass(512, -1, 1));
-                        }
+				manager.add(createLoopUnrollPass(512, -1, 1));
+			}
 			/*if (sizeOfLoops.x == -1)
 			{
 				// Use runtime unrolling (disabpled by default).
@@ -594,7 +614,7 @@ kernel_func_t kernelgen::runtime::compile(
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) cout << bin_string;
 
 		return nvopencc(bin_string, kernel->name,
-			kernel->target[runmode].monitor_kernel_stream);
+		                kernel->target[runmode].monitor_kernel_stream);
 
 		break;
 	}

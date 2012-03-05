@@ -134,6 +134,23 @@ void ConstantSubstitution(Function * func, void * args)
 				std::cout << "        offset = " << arg->second << ", value = " <<
 					constant->getValue().toString(10,true) << std::endl;
 		}
+		if(type->isPointerTy()) {
+			assert(targetData->getTypeStoreSize(type) <= 8);
+			uint64_t ptrValue = 0;
+			int offset = arg->second;
+			memcpy(&ptrValue, ((char *)args) + offset, targetData->getTypeStoreSize(type));
+			
+			load -> replaceAllUsesWith(
+			    ConstantExpr::getIntToPtr(
+			    ConstantInt::get( targetData->getIntPtrType(func->getParent()->getContext()),(uint64_t)ptrValue,false),
+			       type));
+			
+			load->eraseFromParent();
+			
+			if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				std::cout << "        offset = " << arg->second << ", ptrValue = " <<
+					ptrValue << std::endl;
+		}
 	}
 	return;
 }

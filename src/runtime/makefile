@@ -40,7 +40,7 @@ CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../libasfermi/tests/dyloader $(LLVMI
 OBJECTS := \
 	entry compile launch finish timer io elf execute bind nvopencc \
 	memory hostcall wrappers \
-        ConstantSubstitution SizeOfLoops
+        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis
 
 OBJECTS := $(addsuffix .o, $(OBJECTS))
 
@@ -93,6 +93,9 @@ ConstantSubstitution.o: ConstantSubstitution.cpp
 
 SizeOfLoops.o: SizeOfLoops.cpp
 	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+
+RuntimeAliasAnalysis.o : RuntimeAliasAnalysis.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@  
 
 clean:
 	rm -rf *.o libkernelgen.a

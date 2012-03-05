@@ -266,12 +266,12 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 			// Let all integer inputs to go first (to simplify
 			// generated kernels identification).
 			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
-				if (definedInCaller(*O) && (*O)->getType()->isIntegerTy())
+				if (definedInCaller(*O) && ((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy()))
 					if(!setOfIntegerInputs.count(*O))
 							setOfIntegerInputs.insert(*O);
 					
 			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
-				if (definedInCaller(*O) && !(*O)->getType()->isIntegerTy())
+				if (definedInCaller(*O) && !((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy()))
 					if(!setOfNonIntegerInputs.count(*O))
 							setOfNonIntegerInputs.insert(*O);
 							
@@ -543,7 +543,7 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 
 		// Calculate the total size of integer inputs.
 		Type* type = (*i)->getType();
-		if (type->isIntegerTy()) numints++;
+		if (type->isIntegerTy() || type->isPointerTy()) numints++;
 	}
 
 	// Create allocas for the outputs
