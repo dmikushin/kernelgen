@@ -45,6 +45,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 
 #include "polly/LinkAllPasses.h"
 #include "polly/RegisterPasses.h"
@@ -58,6 +59,7 @@
 #include <fstream>
 #include <list>
 #include <set>
+#include <stdio.h>
 
 using namespace kernelgen;
 using namespace util::io;
@@ -121,7 +123,7 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 
 	vector<Size3> sizes;
 	{
-
+			
 		PassManager polly;
 		polly.add(new TargetData(kernel->module));
 		if(kernel->name != "__kernelgen_main") {
@@ -135,7 +137,7 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		if(kernel->name != "__kernelgen_main") {
 			raw_os_ostream OS(cout);
 			llvm::PrintStatistics(OS);
-			OS.flush();
+			//OS.flush();
 		}
 	}
 

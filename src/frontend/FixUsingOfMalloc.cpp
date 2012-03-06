@@ -35,17 +35,31 @@ Pass* createFixUsingOfMallocPass()
 
 void FixUsingOfMallocPass::FixUsesOfMalloc(Module *m)
 {
+	vector<Instruction *> pointers;
+	
+	for(Module::iterator function = m->begin(), function_end = m->end();
+	    function != function_end; function++)
+		for(Function::iterator block = function->begin(),block_end = function->end();
+		    block!=block_end; block++)
+			for(BasicBlock::iterator instruction = block->begin(), instruction_end = block->end();
+			    instruction!=instruction_end; instruction++)
+	                  if(instruction->getType()->isPointerTy())
+						  pointers.push_back(instruction);
+						  
 	TargetData * targetData = new TargetData(m);
 	Function * mallocFunction = m->getFunction("malloc");
-	if(mallocFunction && mallocFunction -> getNumUses() > 0) {
+	//if(mallocFunction && mallocFunction -> getNumUses() > 0) {
 		// <Handle malloc calls>
-		for(Value::use_iterator user = mallocFunction -> use_begin(), user_end = mallocFunction -> use_end();
+		//for(Value::use_iterator user = mallocFunction -> use_begin(), user_end = mallocFunction -> use_end();
+		  //  user != user_end; user++) {
+for(vector<Instruction *>::iterator user = pointers.begin(), user_end = pointers.end();
 		    user != user_end; user++) {
-
-			CallInst *mallocCall; // some malloc call
-			assert(mallocCall = dyn_cast<CallInst>(*user));
+				
+			Instruction *mallocCall = *user;
+			//CallInst *mallocCall; // some malloc call
+			//assert(mallocCall = dyn_cast<CallInst>(*user));
 			map<Type *, Instruction *> createdBitCasts; // created bit casts to necessary types
-
+            createdBitCasts.clear();
 			// <find geps that use ptr, returned by some malloc call>
 			for(Value::use_iterator userOfMallocCall = mallocCall -> use_begin(), userOfMallocCall_end = mallocCall -> use_end();
 			    userOfMallocCall != userOfMallocCall_end; userOfMallocCall++) {
@@ -114,6 +128,7 @@ void FixUsingOfMallocPass::FixUsesOfMalloc(Module *m)
 					if(!realIndex && !isConstant) continue;   //!!!!!!!!!!!!!!!!!!!!!!
 
 					map<Type *, GetElementPtrInst *> createdGEPs;
+					createdGEPs.clear();
 
 					// <find BitCasts, which are users of GEP>
 					for(Value::use_iterator userOfGep = GEPInst -> use_begin(), userOfGep_end = GEPInst -> use_end();
@@ -177,7 +192,7 @@ void FixUsingOfMallocPass::FixUsesOfMalloc(Module *m)
 					}// </ find BitCasts, which are users of GEP>
 				}
 			} // </ find geps that use ptr, returned by some malloc call>
-		} // </ Handle malloc calls>
+		//} // </ Handle malloc calls>
 	}
 	cout << "asdf";
 }
