@@ -517,3 +517,15 @@
    Affine = isl_pw_aff_scale_down(Affine, v);
    isl_int_clear(v);
 
+--- a/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	2012-02-22 21:31:42.000000000 +0400
+@@ -74,7 +74,7 @@
+              cl::value_desc("The function name to detect scops in"),
+              cl::ValueRequired, cl::init(""));
+ 
+-static cl::opt<bool>
++cl::opt<bool>
+ IgnoreAliasing("polly-ignore-aliasing",
+                cl::desc("Ignore possible aliasing of the array bases"),
+                cl::Hidden, cl::init(false));
+
