@@ -102,6 +102,14 @@ __device__ void* kernelgen_malloc(size_t size)
 	return NULL;
 }
 
+__device__ int kernelgen_posix_memalign(void** ptr, size_t alignment, size_t size)
+{
+	// TODO: Do actual alignment somehow, currently
+	// memory is always aligned to 4096 bytes.
+	*ptr = kernelgen_malloc(size);
+	return NULL;
+}
+
 __device__ void kernelgen_free(void* p)
 {
 	kernelgen_memory_t* km = __kernelgen_memory;

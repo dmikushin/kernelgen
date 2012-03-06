@@ -443,7 +443,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 					// Check if function is malloc or free.
 					// In case it is, replace it with kernelgen_* variant.
-					if ((name == "malloc") || (name == "free")) {
+					if ((name == "malloc") || (name == "posix_memalign") || (name == "free")) {
 						string rename = "kernelgen_";
 						rename += callee->getName();
 						Function* replacement = m->getFunction(rename);
