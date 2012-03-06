@@ -177,7 +177,7 @@ int link(list<string> args, list<string> kgen_args,
 	// 3) Convert global variables into main entry locals and
 	// arguments of loops functions.
 	//
-	{
+	/*{
 		// Form the type of structure to hold global variables.
 		// Constant globals are excluded from structure.
 		std::vector<Type*> paramTy;
@@ -186,7 +186,7 @@ int link(list<string> args, list<string> kgen_args,
 		{
 			GlobalVariable* gvar = i;
 			if (i->isConstant()) continue;
-			paramTy.push_back(i->getInitializer()->getType());
+			paramTy.push_back(i->getType());
 		}
 		Type* structTy = StructType::get(context, paramTy, true);
 
@@ -212,16 +212,27 @@ int link(list<string> args, list<string> kgen_args,
 			GetElementPtrInst *GEP = GetElementPtrInst::Create(
 				structArg, Idx, "", first);
 
-			// Store initial value to that address.
-			StoreInst *SI = new StoreInst(gvar->getInitializer(), GEP, false, first);
+			if (gvar->hasInitializer())
+			{
+				// Store initial value to that address.
+				StoreInst *SI = new StoreInst(gvar->getInitializer(), GEP, false, first);
+			}
 
-			gvar->replaceAllUsesWith(GEP);
+			// TODO: Replace all uses with GEP & LoadInst.
+			// gvar->replaceAllUsesWith(GEP);
+			for (Value::use_iterator i = gvar->use_begin(),
+				ie = gvar->use_end(); i != ie; i++)
+			{
+				LoadInst* LI = new LoadInst(GEP, "", *i);
+				i->replaceAllUsesWith(LI);
+			}
+
 			remove.push_back(gvar);
 			
 			ii++;
 		}
 		
-		// Erase replaced globals.	
+		// Erase replaced globals.
 		for (vector<GlobalVariable*>::iterator i = remove.begin(), ie = remove.end();
 			i != ie; i++)
 		{
@@ -235,7 +246,7 @@ int link(list<string> args, list<string> kgen_args,
 		// as an argument.
 
 		// Replace uses of globals with uses of local globals struct.
-	}
+	}*/
 
 	//
 	// 4) Rename main entry and insert another one
@@ -363,30 +374,19 @@ int link(list<string> args, list<string> kgen_args,
 					if (!callee && !callee->isDeclaration()) continue;
 					if (callee->getName() != "kernelgen_launch") continue;
 				
-					// Get the called function name.
-					string name = "";
-					GetElementPtrInst* namePtr = 
-						dyn_cast<GetElementPtrInst>(call->getArgOperand(0));
-					if (!namePtr)
-						THROW("Cannot load GEP from kernelgen_launch argument");
-					AllocaInst* nameAlloc =
-						dyn_cast<AllocaInst>(namePtr->getPointerOperand());
-					if (!nameAlloc)
-						THROW("Cannot load AllocInst from kernelgen_launch argument");
-					for (Value::use_iterator i = nameAlloc->use_begin(),
-						ie = nameAlloc->use_end(); i != ie; i++)
-					{
-						StoreInst* nameInit = dyn_cast<StoreInst>(*i);
-						if (nameInit)
-						{
-							ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
-								nameInit->getValueOperand());
-							if (nameArray && nameArray->isCString())
-								name = nameArray->getAsCString();
-						}
-					}
-					if (name == "")
-						THROW("Cannot get the name of kernel invoked by kernelgen_launch");
+					// Get the called function name from the metadata node.
+					MDNode* nameMD = call->getMetadata("kernelgen_launch");
+					if (!nameMD)
+						THROW("Cannot find kernelgen_launch metadata");
+					if (nameMD->getNumOperands() != 1)
+						THROW("Unexpected kernelgen_launch metadata number of operands");
+					ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
+						nameMD->getOperand(0));
+					if (!nameArray)
+						THROW("Invalid kernelgen_launch metadata operand");
+					if (!nameArray->isCString())
+						THROW("Invalid kernelgen_launch metadata operand");
+					string name = nameArray->getAsCString();
 					if (verbose)
 						cout << "Launcher invokes kernel " << name << endl;
 

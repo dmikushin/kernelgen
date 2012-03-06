@@ -114,13 +114,12 @@ int main(int argc, char* argv[])
 
 		// Build kernels index.
 		if (verbose) cout << "Building kernels index ..." << endl;
-		celf e("/proc/self/exe", "");
-		//celf e("/home/marcusmae/Programming/kernelgen/trunk/tests/behavior/sincos/64/sincos", "");
+		//celf e("/proc/self/exe", "");
+		celf e("/home/marcusmae/Programming/kernelgen/tests/perf/polybench-3.1/atax_base", "");
 		cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
 		vector<csymbol*> symbols = e.getSymtab()->find(regex);
-		int ii = 0;
 		for (vector<csymbol*>::iterator i = symbols.begin(),
-			ie = symbols.end(); i != ie; i++, ii++)
+			ie = symbols.end(); i != ie; i++)
 		{
 			csymbol* symbol = *i;
 			const char* data = symbol->getData();
@@ -130,10 +129,10 @@ int main(int argc, char* argv[])
 			kernel->source = data;
 
 			// Initially, all targets are supported.
-			for (int i = 0; i < KERNELGEN_RUNMODE_COUNT; i++)
+			for (int ii = 0; ii < KERNELGEN_RUNMODE_COUNT; ii++)
 			{
-				kernel->target[i].supported = true;
-				kernel->target[i].binary = NULL;
+				kernel->target[ii].supported = true;
+				kernel->target[ii].binary = NULL;
 			}
 			
 			kernels[name] = kernel;
@@ -144,7 +143,6 @@ int main(int argc, char* argv[])
 		// Check internal table contains main entry.
 		kernel_t* kernel = kernels["__kernelgen_main"];
 		if (!kernel) return __regular_main(argc, argv);
-
         
 		// Walk through kernel index and replace
 		// all names with kernel structure addresses
@@ -178,68 +176,31 @@ int main(int argc, char* argv[])
 						Function* callee = call->getCalledFunction();
 						if (!callee && !callee->isDeclaration()) continue;
 						if (callee->getName() != "kernelgen_launch") continue;
-						
-						// Get the called function name.
-						string name = "";
-						GetElementPtrInst* namePtr = 
-							dyn_cast<GetElementPtrInst>(call->getArgOperand(0));
-						if (!namePtr)
-							THROW("Cannot load GEP from kernelgen_launch argument");
-						AllocaInst* nameAlloc =
-							dyn_cast<AllocaInst>(namePtr->getPointerOperand());
-						if (!nameAlloc)
-							THROW("Cannot load AllocInst from kernelgen_launch argument");
-						for (Value::use_iterator i = nameAlloc->use_begin(),
-							ie = nameAlloc->use_end(); i != ie; i++)
-						{
-							StoreInst* nameInit = dyn_cast<StoreInst>(*i);
-							if (nameInit)
-							{
-								ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
-									nameInit->getValueOperand());
-								if (nameArray && nameArray->isCString())
-									name = nameArray->getAsCString();
-								nameInit->eraseFromParent();
-								break;
-							}
-						}
-						if (name == "")
-							THROW("Cannot get the name of kernel invoked by kernelgen_launch");
 
-						kernel_t* kernel = kernels["__kernelgen_" + name];
+						// Get the called function name from the metadata node.
+						MDNode* nameMD = call->getMetadata("kernelgen_launch");
+						if (!nameMD)
+							THROW("Cannot find kernelgen_launch metadata");
+						if (nameMD->getNumOperands() != 1)
+							THROW("Unexpected kernelgen_launch metadata number of operands");
+						ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
+							nameMD->getOperand(0));
+						if (!nameArray)
+							THROW("Invalid kernelgen_launch metadata operand");
+						if (!nameArray->isCString())
+							THROW("Invalid kernelgen_launch metadata operand");
+						string name = "__kernelgen_" + (string)nameArray->getAsCString();
+						if (verbose)
+							cout << "Launcher invokes kernel " << name << endl;
+						
+						// Permanently assign launcher first argument with the address
+						// of the called kernel function structure (for fast access).
+						kernel_t* kernel = kernels[name];
+						if (!kernel)
+							THROW("Cannot get the name of kernel invoked by kernelgen_launch");
 						call->setArgOperand(0, ConstantExpr::getIntToPtr(
 							ConstantInt::get(Type::getInt64Ty(context), (uint64_t)kernel),
 							Type::getInt8PtrTy(context)));
-
-						// Delete occasional users, like lifetime.start/end.
-						// Note name and stack space may be used by another
-						// kernelgen_launch call for the same function. If so,
-						// we postpone deletion util the last launch call
-						// argument will be replaced.
-						bool used_in_another_call = false;
-						for (Value::use_iterator i = namePtr->use_begin(),
-							ie = namePtr->use_end(); i != ie; i++)
-						{
-							CallInst* call = dyn_cast<CallInst>(*i);
-							if (call)
-							{
-								Function* callee = call->getCalledFunction();
-								if (callee->getName() == "kernelgen_launch")
-								{
-									used_in_another_call = true;
-									break;
-								}
-							}
-						
-							Instruction* inst = dyn_cast<Instruction>(*i);
-							if (inst) inst->eraseFromParent();
-						}
-
-						if (!used_in_another_call)
-						{
-							namePtr->eraseFromParent();
-							nameAlloc->eraseFromParent();
-						}
 					}
 
 			kernel->source = "";

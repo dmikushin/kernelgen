@@ -251,7 +251,7 @@ int compile(list<string> args, list<string> kgen_args,
 		manager.run(*m.get());
 	}
 	 
-	//m.get()->dump();
+	if (verbose & KERNELGEN_VERBOSE_SOURCES) m.get()->dump();
 
 	//
 	// 6) Embed the resulting module into object file.

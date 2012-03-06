@@ -52,7 +52,7 @@ extern "C" int __regular_main(int argc, char* argv[])
 	// Enable or disable verbose output.
 	//
 	char* cverbose = getenv("kernelgen_verbose");
-	if (cverbose) verbose = (bool)atoi(cverbose);
+	if (cverbose) verbose = atoi(cverbose);
 
 	//
 	// Switch to bypass the kernelgen pipe and use regular compiler only.

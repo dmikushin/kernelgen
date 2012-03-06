@@ -587,21 +587,16 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 		                              callAndBranchBlock);
 	}
 
-	// Create a constant array holding original called
-	// function name.
-	Constant* name = ConstantDataArray::getString(
-	                     context, KernelFunc->getName(), true);
+	// Create a metadata node holding a constant array
+	// with original called function name.
+	Value* name[] = { ConstantDataArray::getString(
+		context, KernelFunc->getName(), true) };
+	MDNode* nameMD = MDNode::get(context, name);
 
-	// Create and initialize the memory buffer for name.
-	ArrayType* nameTy = cast<ArrayType>(name->getType());
-	AllocaInst* nameAlloc = new AllocaInst(nameTy, "", callAndBranchBlock);
-	StoreInst* nameInit = new StoreInst(name, nameAlloc, false, callAndBranchBlock);
-	Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
-	GetElementPtrInst* namePtr = GetElementPtrInst::Create(
-	                                 nameAlloc, Idx, "", callAndBranchBlock);
-
-	// Add pointer to the original function string name.
-	params.push_back(namePtr);
+	// Add pointer to the original function string name
+	// (to be set later on).
+	params.push_back(
+		Constant::getNullValue(Type::getInt8PtrTy(context)));
 
 	// Store the size of the aggregated arguments struct
 	// to the new call arguments list.
@@ -610,30 +605,35 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	// Store the total size of all integer fields in
 	// aggregated arguments struct.
 	Constant* size =
-	    Constant::getNullValue(Type::getInt64Ty(context));;
+	    Constant::getNullValue(Type::getInt64Ty(context));
 	if (numints)
-		/*size = ConstantExpr::getAdd(size, ConstantExpr::getAdd(
-			ConstantExpr::getOffsetOf(StructArgTy, numints),
-			ConstantExpr::getSizeOf(ArgTypes[numints - 1])));*/
+	{
 		size = ConstantExpr::getSub(
-		           ConstantExpr::getAdd(ConstantExpr::getOffsetOf(StructArgTy, (numints-1) + 2), //смещение последнего целочисленного параметра
-		                                ConstantExpr::getSizeOf(ArgTypes[(numints - 1) + 2])),         //размер последнего целочисленного параметра
-		           ConstantExpr::getOffsetOf(StructArgTy,  2));                                  //смещение первого параметра
+			// The offset of the last integer argument.
+			ConstantExpr::getAdd(ConstantExpr::getOffsetOf(StructArgTy, (numints - 1) + 2),
+			// The size of the last integer argument.
+			ConstantExpr::getSizeOf(ArgTypes[(numints - 1) + 2])),
+			// The offset of the first argument.
+			ConstantExpr::getOffsetOf(StructArgTy, 2));
+	}
 	params.push_back(size);
 
 	// Store the pointer to the aggregated arguments struct
 	// to the new call args list.
 	Instruction* IntPtrToStruct = CastInst::CreatePointerCast(
-	                                  Struct, PointerType::getInt32PtrTy(context), "", callAndBranchBlock);
+		Struct, PointerType::getInt32PtrTy(context), "", callAndBranchBlock);
 	params.push_back(IntPtrToStruct);
 
 	// Emit the call to the function
 	CallInst* call = CallInst::Create(
-	                     LaunchFunc, params, NumExitBlocks > 1 ? "targetBlock" : "");
+		LaunchFunc, params, NumExitBlocks > 1 ? "targetBlock" : "");
 	callAndBranchBlock->getInstList().push_back(call);
+	
+	// Attach metadata node with the called function name.
+	call->setMetadata("kernelgen_launch", nameMD);
 
 	Value* Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
-	                           call, ConstantInt::get(Type::getInt32Ty(context), -1));
+		call, ConstantInt::get(Type::getInt32Ty(context), -1));
 	BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
 
 	return call;
