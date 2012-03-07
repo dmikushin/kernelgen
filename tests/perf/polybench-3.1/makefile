@@ -1,32 +1,24 @@
-.PHONY: atax
+TARGETS = mini small standard large extralarge
 
-all: atax
+.PHONY: $(TARGETS)
 
-FATAX = -I./utilities -I./linear-algebra/kernels/atax
+all: $(TARGETS)
 
-atax: atax_base atax_time atax_ref
-
-atax_base: polybench.o atax_base.o
-	kernelgen $^ -o $@
-
-atax_time: polybench.o atax_time.o
-	kernelgen $^ -o $@
-
-atax_ref: polybench.o atax_ref.o
-	kernelgen $^ -o $@
-
-atax_base.o: linear-algebra/kernels/atax/atax.c
-	kernelgen $(FATAX) -c $< -o $@
-
-atax_time.o: linear-algebra/kernels/atax/atax.c
-	kernelgen -DPOLYBENCH_TIME $(FATAX) -c $< -o $@
-
-atax_ref.o: linear-algebra/kernels/atax/atax.c
-	kernelgen -O0 -DPOLYBENCH_DUMP_ARRAYS $(FATAX) -c $< -o $@
-
-polybench.o: utilities/polybench.c
-	kernelgen -c $< -o $@
+mini:
+	cd bin/mini && $(MAKE)
+small:
+	cd bin/small && $(MAKE)
+standard:
+	cd bin/standard && $(MAKE)
+large:
+	cd bin/large && $(MAKE)
+extralarge:
+	cd bin/extralarge && $(MAKE)
 
 clean:
-	rm -rf *.o atax_base atax_time atax_ref
+	cd bin/min && $(MAKE) clean
+	cd bin/small && $(MAKE) clean
+	cd bin/standard && $(MAKE) clean
+	cd bin/large && $(MAKE) clean
+	cd bin/extralarge && $(MAKE) clean
 
