@@ -1,3 +1,3 @@
-SIZE = STANDARD_DATASET
+SIZE = STANDARD_DATASET_
 
 include ../../makefile.in

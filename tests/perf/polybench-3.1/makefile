@@ -16,7 +16,7 @@ extralarge:
 	cd bin/extralarge && $(MAKE)
 
 clean:
-	cd bin/min && $(MAKE) clean
+	cd bin/mini && $(MAKE) clean
 	cd bin/small && $(MAKE) clean
 	cd bin/standard && $(MAKE) clean
 	cd bin/large && $(MAKE) clean

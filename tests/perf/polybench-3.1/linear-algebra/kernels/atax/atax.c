@@ -5,7 +5,6 @@
  * Contact: Louis-Noel Pouchet <pouchet@cse.ohio-state.edu>
  * Web address: http://polybench.sourceforge.net
  */
-#include <malloc.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>

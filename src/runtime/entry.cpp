@@ -114,8 +114,8 @@ int main(int argc, char* argv[])
 
 		// Build kernels index.
 		if (verbose) cout << "Building kernels index ..." << endl;
-		//celf e("/proc/self/exe", "");
-		celf e("/home/marcusmae/Programming/kernelgen/tests/perf/polybench-3.1/atax_base", "");
+		celf e("/proc/self/exe", "");
+		//celf e("/home/marcusmae/Programming/kernelgen/tests/perf/polybench-3.1/atax_base", "");
 		cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
 		vector<csymbol*> symbols = e.getSymtab()->find(regex);
 		for (vector<csymbol*>::iterator i = symbols.begin(),
