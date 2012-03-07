@@ -49,6 +49,7 @@ Patch5:		dragonegg.opencl.patch
 Patch6:		dragonegg.ptx.patch
 Patch7: 	nvopencc.patch
 Patch8:		llvm.polly.patch
+Patch8:		llvm.SCEV.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -99,6 +100,7 @@ tar -xf $RPM_SOURCE_DIR/kernelgen-r679.tar.gz
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
+%patch9 -p1
 %endif
 
 
