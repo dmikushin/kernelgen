@@ -243,7 +243,7 @@ kernel_func_t kernelgen::runtime::compile(
 		}
 	}
 
-	//if (verbose) m->dump();
+	if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 	PassManager polly = getPollyPassManager(m);
 

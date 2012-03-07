@@ -23,6 +23,11 @@
 # The number of parallel compilation jobs
 %define njobs 24
 
+# Don't strip anything from binaries in case of debug
+%if %debug
+%define __os_install_post %{nil}
+%endif
+
 AutoReq: 0
 
 Name:           kernelgen
@@ -30,9 +35,9 @@ Version:        0.2
 Release:        %{release}
 Summary:        Compiler with automatic generation of GPU kernels from the regular source code 
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
-Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6-r178876.tar.gz
+Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r657.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r679.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -70,8 +75,8 @@ tar -xf $RPM_SOURCE_DIR/llvm-r151057.tar.gz
 cd $RPM_BUILD_DIR/llvm/tools
 tar -xf $RPM_SOURCE_DIR/polly-r151057.tar.gz
 cd $RPM_BUILD_DIR
-rm -rf $RPM_BUILD_DIR/gcc-4.6
-tar -xf $RPM_SOURCE_DIR/gcc-4.6-r178876.tar.gz
+rm -rf $RPM_BUILD_DIR/gcc-4.6.3
+tar -xjf $RPM_SOURCE_DIR/gcc-4.6.3.tar.bz2
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r151057.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
@@ -81,7 +86,7 @@ rm -rf $RPM_BUILD_DIR/nvopencc
 tar -xf $RPM_SOURCE_DIR/nvopencc-r12003483.tar.gz
 %endif
 rm -rf $RPM_BUILD_DIR/kernelgen
-tar -xf $RPM_SOURCE_DIR/kernelgen-r657.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r679.tar.gz
 
 
 %if %fullrepack
@@ -122,7 +127,7 @@ make -j%{njobs} CXXFLAGS=-O0
 ../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,cbe,ptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
 make -j%{njobs}
 %endif
-cd $RPM_BUILD_DIR/gcc-4.6
+cd $RPM_BUILD_DIR/gcc-4.6.3
 mkdir build
 cd build/
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
@@ -156,7 +161,7 @@ cd $RPM_BUILD_DIR/cloog
 make install
 cd $RPM_BUILD_DIR/llvm/build
 make install
-cd $RPM_BUILD_DIR/gcc-4.6/build
+cd $RPM_BUILD_DIR/gcc-4.6.3/build
 LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make install
 cd $RPM_BUILD_DIR/dragonegg
 GCC=$RPM_BUILD_ROOT/opt/kernelgen/bin/kernelgen-gcc LLVM_CONFIG=$RPM_BUILD_ROOT/opt/kernelgen/bin/llvm-config make clean
@@ -185,7 +190,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/bin/llvm-rtdyld
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/bin/llvm-stub
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/bin/macho-dump
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/bin/llvm-tblgen
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/bin/x86_64-unknown-linux-gnu-gcc-4.6.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/bin/x86_64-unknown-linux-gnu-gcc-4.6.3
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/bin/x86_64-unknown-linux-gnu-kernelgen-gcc
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/bin/x86_64-unknown-linux-gnu-kernelgen-gfortran
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/docs/llvm/html.tar.gz
@@ -850,175 +855,175 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/include/scoplib/statement.h
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/include/scoplib/vector.h
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/BugpointPasses.so
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/LLVMHello.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtbegin.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtbeginS.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtbeginT.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtend.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtendS.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtfastmath.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtprec32.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtprec64.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/crtprec80.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/libgcc.a
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/libgcc_eh.a
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/libgcov.a
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/libgfortranbegin.a
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/32/libgfortranbegin.la
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtbegin.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtbeginS.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtbeginT.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtend.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtendS.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtfastmath.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtprec32.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtprec64.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/crtprec80.o
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/fixinc_list
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/gsyslimits.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/include/README
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/include/limits.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/macro_list
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/mkheaders.conf
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/libgcc.a
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/libgcc_eh.a
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/libgcov.a
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/libgfortranbegin.a
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/libgfortranbegin.la
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/ada/gcc-interface/ada-tree.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/alias.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/all-tree.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/ansidecl.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/auto-host.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/b-header-vars
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/basic-block.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/bitmap.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/builtins.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/bversion.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/c-common.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/c-family/c-common.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/c-objc.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/c-pragma.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/c-pretty-print.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/cfghooks.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/cfgloop.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/cgraph.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/cif-code.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/dbxelf.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/elfos.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/glibc-stdint.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/gnu-user.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/i386/att.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/i386/biarch64.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/i386/i386-protos.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/i386/i386.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/i386/linux64.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/i386/unix.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/i386/x86-64.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/linux-android.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/linux.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/config/vxworks-dummy.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/configargs.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/coretypes.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/cp/cp-tree.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/cppdefault.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/cpplib.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/debug.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/defaults.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/diagnostic-core.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/diagnostic.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/diagnostic.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/double-int.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/emit-rtl.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/except.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/filenames.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/fixed-value.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/flag-types.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/flags.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/function.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/gcc-plugin.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/genrtl.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/ggc.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/gimple.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/gimple.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/gsstruct.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/gtype-desc.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/hard-reg-set.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/hashtab.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/highlev-plugin-common.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/hwint.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/incpath.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/input.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/insn-constants.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/insn-flags.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/insn-modes.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/insn-notes.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/intl.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/ipa-prop.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/ipa-ref-inline.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/ipa-ref.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/ipa-reference.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/ipa-utils.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/java/java-tree.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/langhooks.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/libiberty.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/line-map.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/machmode.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/md5.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/mode-classes.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/objc/objc-tree.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/obstack.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/omp-builtins.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/options.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/opts.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/output.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/params.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/params.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/plugin-api.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/plugin-version.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/plugin.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/plugin.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/pointer-set.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/predict.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/predict.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/prefix.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/pretty-print.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/real.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/reg-notes.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/rtl.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/rtl.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/safe-ctype.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/sbitmap.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/splay-tree.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/statistics.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/symtab.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/sync-builtins.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/system.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/target.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/target.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/timevar.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/timevar.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tm-preds.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tm.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tm_p.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/toplev.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-check.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-dump.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-flow-inline.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-flow.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-inline.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-iterator.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-pass.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-ssa-alias.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-ssa-operands.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree-ssa-sccvn.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/tree.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/treestruct.def
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/vec.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/vecir.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/vecprim.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/plugin/include/version.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtbegin.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtbeginS.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtbeginT.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtend.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtendS.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtfastmath.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtprec32.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtprec64.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/crtprec80.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/libgcc.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/libgcc_eh.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/libgcov.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/libgfortranbegin.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/32/libgfortranbegin.la
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtbegin.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtbeginS.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtbeginT.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtend.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtendS.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtfastmath.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtprec32.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtprec64.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/crtprec80.o
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/fixinc_list
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/gsyslimits.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/include/README
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/include/limits.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/macro_list
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/mkheaders.conf
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/libgcc.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/libgcc_eh.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/libgcov.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/libgfortranbegin.a
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/libgfortranbegin.la
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/ada/gcc-interface/ada-tree.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/alias.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/all-tree.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/ansidecl.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/auto-host.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/b-header-vars
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/basic-block.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/bitmap.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/builtins.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/bversion.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/c-common.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/c-family/c-common.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/c-objc.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/c-pragma.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/c-pretty-print.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/cfghooks.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/cfgloop.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/cgraph.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/cif-code.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/dbxelf.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/elfos.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/glibc-stdint.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/gnu-user.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/i386/att.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/i386/biarch64.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/i386/i386-protos.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/i386/i386.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/i386/linux64.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/i386/unix.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/i386/x86-64.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/linux-android.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/linux.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/config/vxworks-dummy.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/configargs.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/coretypes.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/cp/cp-tree.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/cppdefault.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/cpplib.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/debug.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/defaults.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/diagnostic-core.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/diagnostic.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/diagnostic.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/double-int.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/emit-rtl.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/except.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/filenames.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/fixed-value.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/flag-types.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/flags.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/function.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/gcc-plugin.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/genrtl.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/ggc.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/gimple.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/gimple.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/gsstruct.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/gtype-desc.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/hard-reg-set.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/hashtab.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/highlev-plugin-common.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/hwint.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/incpath.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/input.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/insn-constants.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/insn-flags.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/insn-modes.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/insn-notes.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/intl.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/ipa-prop.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/ipa-ref-inline.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/ipa-ref.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/ipa-reference.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/ipa-utils.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/java/java-tree.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/langhooks.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/libiberty.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/line-map.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/machmode.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/md5.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/mode-classes.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/objc/objc-tree.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/obstack.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/omp-builtins.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/options.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/opts.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/output.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/params.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/params.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/plugin-api.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/plugin-version.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/plugin.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/plugin.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/pointer-set.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/predict.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/predict.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/prefix.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/pretty-print.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/real.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/reg-notes.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/rtl.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/rtl.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/safe-ctype.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/sbitmap.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/splay-tree.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/statistics.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/symtab.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/sync-builtins.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/system.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/target.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/target.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/timevar.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/timevar.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tm-preds.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tm.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tm_p.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/toplev.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-check.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-dump.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-flow-inline.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-flow.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-inline.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-iterator.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-pass.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-ssa-alias.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-ssa-operands.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree-ssa-sccvn.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/tree.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/treestruct.def
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/vec.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/vecir.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/vecprim.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/version.h
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libCompilerDriver.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libEnhancedDisassembly.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libEnhancedDisassembly.so
@@ -1149,16 +1154,16 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib64/libssp.so.0
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib64/libssp.so.0.0.0
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib64/libssp_nonshared.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib64/libssp_nonshared.la
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/fixinc.sh
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/fixincl
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/mkheaders
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/install-tools/mkinstalldirs
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.la
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto-wrapper
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/lto1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/fixinc.sh
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/fixincl
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/mkheaders
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/install-tools/mkinstalldirs
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/liblto_plugin.la
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/lto-wrapper
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/lto1
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/X11/Xw32defs.h
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/openssl/bn.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/X11/Xw32defs.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/openssl/bn.h
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXCodeGen.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXDesc.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMPTXInfo.a
@@ -1255,69 +1260,66 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/include/kernelgen_runtime.h
 /opt/kernelgen/%{lib64}/dragonegg.so
 /opt/kernelgen/%{lib64}/libkernelgen.a
-/opt/kernelgen/%{lib32}/libkernelgen.a
-/opt/kernelgen/%{lib32}/libasfermi.so
-/opt/kernelgen/%{lib32}/libdyloader.so
 /opt/kernelgen/%{lib64}/libasfermi.so
 /opt/kernelgen/%{lib64}/libdyloader.so
-/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/cc1
-/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/collect2
-/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/f951
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/cc1
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/collect2
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/f951
 /opt/kernelgen/lib/LLVMPolly.so
-/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so
-/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so.0
-/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.2/liblto_plugin.so.0.0.0
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.f90
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib.kernelgen.mod
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/finclude/omp_lib_kinds.kernelgen.mod
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/README
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/limits.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/linux/a.out.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include-fixed/syslimits.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/abmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ammintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/avxintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/bmiintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/bmmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/cpuid.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/cross-stdarg.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/emmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/float.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/fma4intrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ia32intrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/immintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/iso646.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/lwpintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mf-runtime.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mm3dnow.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mm_malloc.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/mmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/nmmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/omp.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/pmmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/popcntintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/quadmath.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/quadmath_weak.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/smmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/ssp.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/stdio.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/string.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/ssp/unistd.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdarg.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdbool.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stddef.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdfix.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdint-gcc.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/stdint.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/tbmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/tmmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/unwind.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/varargs.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/wmmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/x86intrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/xmmintrin.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.2/include/xopintrin.h
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/liblto_plugin.so
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/liblto_plugin.so.0
+/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/liblto_plugin.so.0.0.0
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/finclude/omp_lib.f90
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/finclude/omp_lib.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/finclude/omp_lib.kernelgen.mod
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/finclude/omp_lib_kinds.kernelgen.mod
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/README
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/limits.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/linux/a.out.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/syslimits.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/abmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/ammintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/avxintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/bmiintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/bmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/cpuid.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/cross-stdarg.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/emmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/float.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/fma4intrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/ia32intrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/immintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/iso646.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/lwpintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/mf-runtime.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/mm3dnow.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/mm_malloc.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/mmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/nmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/omp.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/pmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/popcntintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/quadmath.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/quadmath_weak.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/smmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/ssp/ssp.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/ssp/stdio.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/ssp/string.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/ssp/unistd.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/stdarg.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/stdbool.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/stddef.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/stdfix.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/stdint-gcc.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/stdint.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/tbmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/tmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/unwind.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/varargs.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/wmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/x86intrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/xmmintrin.h
+/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/xopintrin.h
 /opt/kernelgen/lib/libLLVM-3.1svn.so
 /opt/kernelgen/lib/libcloog-isl.so
 /opt/kernelgen/lib/libcloog-isl.so.3
