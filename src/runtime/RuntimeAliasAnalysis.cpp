@@ -74,7 +74,11 @@ class RuntimeAliasAnalysis : public ScopPass
 			AU.setPreservesAll();
 		}
 };
-
+	void printCloogAST(CloogInfo &C, raw_os_ostream  & OS) {
+		OS << "<------------------- Cloog AST of Scop ------------------->\n";
+		C.pprint(OS);
+		OS << "<--------------------------------------------------------->\n";
+	}
 int RuntimeAliasAnalysis::getAccessFunction(__isl_take isl_set *Set, __isl_take isl_aff *Aff, void *User)
 {
 	assert((  *((isl_aff **)User) == NULL) && "Result is already set."
@@ -91,14 +95,18 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 {
 	S = &scop;
 	TD = &getAnalysis<TargetData>();
-	
+	C = &getAnalysis<CloogInfo>();
+
 	raw_os_ostream OS(cout);
 	if(print_flag)
-	OS << "\n<------------------------------ One Another Scop ----------------------------->\n\n";
-
-    assert(scop.getNumParams() == 0 &&
-	       "FIXME: "
-	       "After Constant Substitution number of scop's global parameters must be zero");
+    {
+		OS << "\n<------------------------------ One Another Scop ----------------------------->\n";
+        printCloogAST(*C,OS);
+		OS << "\n";
+	}
+	//assert(scop.getNumParams() == 0 &&
+	//       "FIXME: "
+	//       "After Constant Substitution number of scop's global parameters must be zero");
 	//<foreach statement in scop>
 	for(Scop::iterator stmt_iterator = S->begin(), stmt_iterator_end = S->end();
 	    stmt_iterator != stmt_iterator_end; stmt_iterator++) {
@@ -118,6 +126,14 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 				MemoryAccess* memoryAccess=*access_iterator;
 				const Value * baseAddressValue = memoryAccess -> getBaseAddr();
 
+				if(isa<AllocaInst>(*baseAddressValue))
+					// we hope that it is mem2reg allocatinon in stack, created in polly::CodePreparation
+				{
+					memoryAccess -> print(OS);
+                    OS.indent(16) << "WARNING: Found access to memory, allocated by AllocaInst!\n";
+					OS.indent(16) << "         It must be reg2mem, created by polly:CodePreparation!\n\n";
+					continue;
+				}
 				assert(isa<ConstantExpr>(*baseAddressValue)&&
 				       "that must be substituted constant expression");
 				const ConstantExpr * expr = cast<ConstantExpr>(baseAddressValue);
@@ -216,12 +232,11 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 		// </ test if there are read-write conflicts>
 		//<test if there are write-write conflicts>
 		for(unsigned i = 0; i < writingMemoryRanges.size(); i++)
-			for(unsigned j = i+1; j < writingMemoryRanges.size(); j++)
-				{
-					PRINT_TESTING_PAIR(writingMemoryRanges[i], writingMemoryRanges[j], OS, localFlag)
-					flag = flag && !localFlag;
-					if(localFlag) WriteWrite++; //,   "Number of write-write conflicts"
-				}
+			for(unsigned j = i+1; j < writingMemoryRanges.size(); j++) {
+				PRINT_TESTING_PAIR(writingMemoryRanges[i], writingMemoryRanges[j], OS, localFlag)
+				flag = flag && !localFlag;
+				if(localFlag) WriteWrite++; //,   "Number of write-write conflicts"
+			}
 		//</ test if there are write-write conflicts>
 	}
 	if(!flag ) getAnalysis<ScopInfo>().releaseMemory(); // delete scop
