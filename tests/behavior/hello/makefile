@@ -19,6 +19,9 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
+.SUFFIXES:
+.SUFFIXES: .c.o .f90.o
+
 all: hello_c hello_f
 
 hello_c: main.c.o

@@ -8,7 +8,7 @@ LLVM_LIB = -L$(LLVM_ROOT)/build/Debug+Asserts/lib -lLLVM-3.1svn
 
 all: libkernelgen-ct.so
 
-OBJECTS := compile BranchedLoopExtractor BranchedCodeExtractor FixUsingOfMalloc
+OBJECTS := kernelgen-ct BranchedLoopExtractor BranchedCodeExtractor FixUsingOfMalloc
 OBJECTS := $(addsuffix .o, $(OBJECTS))
 
 libkernelgen-ct.so: $(OBJECTS)

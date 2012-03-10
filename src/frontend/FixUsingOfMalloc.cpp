@@ -194,5 +194,4 @@ for(vector<Instruction *>::iterator user = pointers.begin(), user_end = pointers
 			} // </ find geps that use ptr, returned by some malloc call>
 		//} // </ Handle malloc calls>
 	}
-	cout << "asdf";
 }

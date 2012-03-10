@@ -1,6 +1,6 @@
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-4.6.3/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,123 @@
 +/* main.c: defines main() for cc1, cc1plus, etc.
 +   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
 +
@@ -45,11 +45,6 @@
 +   It will be then used as libkernelgen-ct.so plugin input.  */
 +string dragonegg_result = "";
 +
-+/* In glibc these variables should track the address of .data section start
-+   and the .bss section end (.bss always stricly follows .data).  */
-+extern unsigned long __data_start;
-+extern unsigned long __bss_end;
-+
 +int
 +main (int argc, char **argv)
 +{
@@ -86,7 +81,7 @@
 +    compiler_argv[0] = argv[0];
 +    int i = 0; for ( ; i < argc; i++)
 +      compiler_argv[i] = argv[i];
-+    compiler_argv[i++] = "-fplugin=dragonegg.so";
++    compiler_argv[i++] = "-fplugin=" PLUGIN_PREFIX "dragonegg.so";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
@@ -121,7 +116,7 @@
 +    compiler_argv[0] = argv[0];
 +    int i = 0; for ( ; i < argc; i++)
 +      compiler_argv[i] = argv[i];
-+    compiler_argv[i++] = "-fplugin=libkernelgen-ct.so";
++    compiler_argv[i++] = "-fplugin=" PLUGIN_PREFIX "libkernelgen-ct.so";
 +    compiler_argv[i++] = "-D_KERNELGEN";
 +
 +    rcompiler = toplev_main(compiler_argc, compiler_argv);
@@ -180,6 +175,15 @@
  
  # -------------------------------
  # Standard autoconf-set variables
+@@ -196,7 +196,7 @@
+ 
+ AWK = gawk
+ CC =  /home/marcusmae/rpmbuild/BUILD/gcc-4.6.3/build/./prev-gcc/xgcc -B/home/marcusmae/rpmbuild/BUILD/gcc-4.6.3/build/./prev-gcc/ -B/home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/bin/ -B/home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/bin/ -B/home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/lib/ -isystem /home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/include -isystem /home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/sys-include   
+-CXX = g++
++CXX = g++ -DPLUGIN_PREFIX=\"/opt/kernelgen/\"
+ BISON = bison
+ BISONFLAGS =
+ FLEX = flex
 @@ -215,7 +215,7 @@
  ifneq ($(ENABLE_BUILD_WITH_CXX),yes)
  COMPILER = $(CC)

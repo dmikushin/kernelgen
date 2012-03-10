@@ -18,7 +18,7 @@
 %define debug 1
 
 # Rebuild everything or only kernelgen
-%define fullrepack 0
+%define fullrepack 1
 
 # The number of parallel compilation jobs
 %define njobs 24
@@ -259,7 +259,7 @@ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/dragonegg:$RPM_BUILD_DIR/kernelg
 # Install KernelGen.
 #
 cd $RPM_BUILD_DIR/kernelgen
-ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
+ROOT=$RPM_BUILD_ROOT LIB32=lib LIB64=lib make install
 
 
 #
@@ -291,10 +291,10 @@ ROOT=$RPM_BUILD_ROOT LIB32=%{lib32} LIB64=%{lib64} make install
 /opt/kernelgen/include/kernelgen_interop.h
 /opt/kernelgen/include/kernelgen_memory.h
 /opt/kernelgen/include/kernelgen_runtime.h
-/opt/kernelgen/%{lib64}/libkernelgen-ct.so
-/opt/kernelgen/%{lib64}/libkernelgen.a
-/opt/kernelgen/%{lib64}/libasfermi.so
-/opt/kernelgen/%{lib64}/libdyloader.so
+/opt/kernelgen/lib/libkernelgen-ct.so
+/opt/kernelgen/lib/libkernelgen.a
+/opt/kernelgen/lib/libasfermi.so
+/opt/kernelgen/lib/libdyloader.so
 #
 # DragonEgg files.
 #

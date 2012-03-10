@@ -60,10 +60,8 @@ extern string dragonegg_result;
 // attach it to the assembly as extra string global variables.
 extern "C" void callback (void*, void*)
 {
-	cout << dragonegg_result << endl;
-
 	//
-	// 2) Append "always inline" attribute to all existing functions.
+	// 1) Append "always inline" attribute to all existing functions.
 	//
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
@@ -81,7 +79,7 @@ extern "C" void callback (void*, void*)
 	}
 	
 	//
-	// 3) Inline calls and extract loops into new functions.
+	// 2) Inline calls and extract loops into new functions.
 	//
 	{
 		std::vector<CallInst*> LoopFuctionCalls;
@@ -94,7 +92,7 @@ extern "C" void callback (void*, void*)
 	}
 
 	//
-	// 4) Apply optimization passes to the resulting common
+	// 3) Apply optimization passes to the resulting common
 	// module.
 	//
 	{
@@ -109,7 +107,7 @@ extern "C" void callback (void*, void*)
 	}
 	 
 	//
-	// 5) Embed the resulting module into object file.
+	// 4) Embed the resulting module into object file.
 	//
 	{
 		// The name of the symbol to hold LLVM IR source.
