@@ -1,57 +1,219 @@
---- a/gcc-4.6.3/libgomp/Makefile.am	2011-07-10 16:12:28.487269021 +0400
-+++ b/gcc-4.6.3/libgomp/Makefile.am	2011-07-10 16:22:30.200213171 +0400
-@@ -39,7 +39,7 @@
- nodist_noinst_HEADERS = libgomp_f.h
- nodist_libsubinclude_HEADERS = omp.h
- if USE_FORTRAN
--nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod
-+nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.kernelgen.mod omp_lib_kinds.kernelgen.mod
- endif
+--- /dev/null	2012-03-08 13:55:00.716834004 +0300
++++ b/gcc-4.6.3/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
+@@ -0,0 +1,128 @@
++/* main.c: defines main() for cc1, cc1plus, etc.
++   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify it under
++the terms of the GNU General Public License as published by the Free
++Software Foundation; either version 3, or (at your option) any later
++version.
++
++GCC is distributed in the hope that it will be useful, but WITHOUT ANY
++WARRANTY; without even the implied warranty of MERCHANTABILITY or
++FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++for more details.
++
++You should have received a copy of the GNU General Public License
++along with GCC; see the file COPYING3.  If not see
++<http://www.gnu.org/licenses/>.  */
++
++extern "C"
++{
++  #include "config.h"
++  #include "system.h"
++  #include "coretypes.h"
++  #include "tm.h"
++  #include "diagnostic-core.h"
++  #include "toplev.h"
++  #include <papi.h>
++}
++
++#include <string>
++#include <vector>
++
++using namespace std;
++
++/* We define main() to call toplev_main(), which is defined in toplev.c.
++   We do this in a separate file in order to allow the language front-end
++   to define a different main(), if it so desires.  */
++int main (int argc, char **argv);
++
++/* We define an intermediate buffer to store the dragonegg.so plugin result.
++   It will be then used as libkernelgen-ct.so plugin input.  */
++string dragonegg_result = "";
++
++/* In glibc these variables should track the address of .data section start
++   and the .bss section end (.bss always stricly follows .data).  */
++extern unsigned long __data_start;
++extern unsigned long __bss_end;
++
++int
++main (int argc, char **argv)
++{
++  // It seems GCC does not care about cleaning up its
++  // state completely after processing. Well, it's reasonable,
++  // if the tool is not really designed to support multiple
++  // compilation passes in a single launch.
++  // In out approach we perform two compilation passes, thus
++  // GCC state must be reset before the second pass.
++  // To archive that, we will completely backup .bss and .data
++  // initial state and rewrite them after finishing the first pass.
++  PAPI_library_init(PAPI_VER_CURRENT);
++  const PAPI_exe_info_t* info = PAPI_get_executable_info();
++  void* data_start = (void*)info->address_info.data_start;
++  void* bss_end = (void*)info->address_info.bss_end;
++  size_t data_bss_size = (ptrdiff_t)bss_end - (ptrdiff_t)data_start;
++  vector<char> data_bss_backup_vector;
++  data_bss_backup_vector.resize(data_bss_size);
++  char* data_bss_backup = (char*)&data_bss_backup_vector[0];
++  memcpy(data_bss_backup, data_start, data_bss_size);
++
++  // Run compiler with dragonegg plugin enabled.
++  // DragonEgg trashes the regular gcc output, so we
++  // will need to invoke gcc once again to get the regular
++  // assembly output.
++  // TODO: and kernelgen-rt plugin??
++  int rcompiler = 0;
++  {
++    // Create new argc & argv.
++    int compiler_argc = argc + 5; // + 5 more arguments
++    vector<const char*> compiler_argv_vector;
++    compiler_argv_vector.resize(compiler_argc);
++    char** compiler_argv = (char**)&compiler_argv_vector[0];
++    compiler_argv[0] = argv[0];
++    int i = 0; for ( ; i < argc; i++)
++      compiler_argv[i] = argv[i];
++    compiler_argv[i++] = "-fplugin=dragonegg.so";
++    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
++    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
++    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
++    compiler_argv[i++] = "-D_KERNELGEN";
++
++    rcompiler = toplev_main(compiler_argc, compiler_argv);
++  }
++
++  // Check the DragonEgg result.
++  // If no result or error status, then exit now.
++  if (!dragonegg_result.size() || rcompiler) return rcompiler;
++
++  // Backup the DragonEgg result.
++  string dragonegg_result_backup = dragonegg_result;
++
++  // Restore .data and .bss after the first pass.
++  memcpy(data_start, data_bss_backup, data_bss_size);
++
++  // Restore the DragonEgg result.
++  dragonegg_result = dragonegg_result_backup;
++
++  // Run compiler with kernelgen-ct.
++  // This time compiler should generate a regular assembly
++  // file, where plugin also inserts a symbol containing
++  // DragonEgg output.
++  {
++    // Create new argc & argv.
++    int compiler_argc = argc + 2; // + 2 more arguments
++    vector<const char*> compiler_argv_vector;
++    compiler_argv_vector.resize(compiler_argc);
++    char** compiler_argv = (char**)&compiler_argv_vector[0];
++    compiler_argv[0] = argv[0];
++    int i = 0; for ( ; i < argc; i++)
++      compiler_argv[i] = argv[i];
++    compiler_argv[i++] = "-fplugin=libkernelgen-ct.so";
++    compiler_argv[i++] = "-D_KERNELGEN";
++
++    rcompiler = toplev_main(compiler_argc, compiler_argv);
++  }
++
++  return rcompiler;
++}
+--- a/gcc-4.6.3/gcc/main.c	2011-01-03 23:52:00.000000000 +0300
++++ /dev/null	2012-03-08 13:55:00.716834004 +0300
+@@ -1,37 +0,0 @@
+-/* main.c: defines main() for cc1, cc1plus, etc.
+-   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
+-
+-This file is part of GCC.
+-
+-GCC is free software; you can redistribute it and/or modify it under
+-the terms of the GNU General Public License as published by the Free
+-Software Foundation; either version 3, or (at your option) any later
+-version.
+-
+-GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+-WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+-for more details.
+-
+-You should have received a copy of the GNU General Public License
+-along with GCC; see the file COPYING3.  If not see
+-<http://www.gnu.org/licenses/>.  */
+-
+-#include "config.h"
+-#include "system.h"
+-#include "coretypes.h"
+-#include "tm.h"
+-#include "diagnostic-core.h"
+-#include "toplev.h"
+-
+-int main (int argc, char **argv);
+-
+-/* We define main() to call toplev_main(), which is defined in toplev.c.
+-   We do this in a separate file in order to allow the language front-end
+-   to define a different main(), if it so desires.  */
+-
+-int
+-main (int argc, char **argv)
+-{
+-  return toplev_main (argc, argv);
+-}
+--- a/gcc-4.6.3/build/gcc/Makefile	2012-03-07 21:10:00.000000000 +0300
++++ b/gcc-4.6.3/build/gcc/Makefile	2012-03-08 15:07:23.112550353 +0300
+@@ -50,7 +50,7 @@
+ # This must come before the language makefile fragments to allow them to
+ # add suffixes and rules of their own.
+ .SUFFIXES:
+-.SUFFIXES: .c .o .po .pox .gmo
++.SUFFIXES: .c .cpp .o .po .pox .gmo
  
- LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
-@@ -47,9 +47,9 @@
- LINK = $(LIBTOOL) --tag CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link \
- 	$(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LTLDFLAGS) -o $@
+ # -------------------------------
+ # Standard autoconf-set variables
+@@ -215,7 +215,7 @@
+ ifneq ($(ENABLE_BUILD_WITH_CXX),yes)
+ COMPILER = $(CC)
+ COMPILER_FLAGS = $(CFLAGS)
+-LINKER = $(CC)
++LINKER = $(CXX)
+ LINKER_FLAGS = $(CFLAGS)
+ else
+ COMPILER = $(CXX)
+@@ -1037,7 +1037,7 @@
+ LIBS =  $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER) \
+ 	$(HOST_LIBS)
+ BACKENDLIBS = $(CLOOGLIBS) $(PPLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
+-	$(ZLIB)
++	$(ZLIB) -lpapi
+ # Any system libraries needed just for GNAT.
+ SYSLIBS = 
  
--omp_lib_kinds.mod: omp_lib.mod
-+omp_lib_kinds.kernelgen.mod: omp_lib.kernelgen.mod
- 	:
--omp_lib.mod: omp_lib.f90
-+omp_lib.kernelgen.mod: omp_lib.f90
- 	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
- fortran.lo: libgomp_f.h
- fortran.o: libgomp_f.h
---- a/gcc-4.6.3/libgomp/Makefile.in	2011-09-15 19:34:40.862156116 +0400
-+++ b/gcc-4.6.3/libgomp/Makefile.in	2011-09-15 19:35:52.772256553 +0400
-@@ -319,7 +319,7 @@
+@@ -1070,6 +1070,9 @@
+ 	   $(CPPINC) $(GMPINC) $(DECNUMINC) \
+ 	   $(PPLINC) $(CLOOGINC)
  
- nodist_noinst_HEADERS = libgomp_f.h
- nodist_libsubinclude_HEADERS = omp.h
--@USE_FORTRAN_TRUE@nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod
-+@USE_FORTRAN_TRUE@nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.kernelgen.mod omp_lib_kinds.kernelgen.mod
- LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
- LINK = $(LIBTOOL) --tag CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link \
- 	$(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LTLDFLAGS) -o $@
-@@ -1079,9 +1079,9 @@
- @LIBGOMP_BUILD_VERSIONED_SHLIB_SUN_TRUE@@LIBGOMP_BUILD_VERSIONED_SHLIB_TRUE@	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
- @LIBGOMP_BUILD_VERSIONED_SHLIB_SUN_TRUE@@LIBGOMP_BUILD_VERSIONED_SHLIB_TRUE@	 > $@ || (rm -f $@ ; exit 1)
++.cpp.o:
++	$(CXX) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
++
+ .c.o:
+ 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
  
--omp_lib_kinds.mod: omp_lib.mod
-+omp_lib_kinds.kernelgen.mod: omp_lib.kernelgen.mod
- 	:
--omp_lib.mod: omp_lib.f90
-+omp_lib.kernelgen.mod: omp_lib.f90
- 	$(FC) $(FCFLAGS) -fsyntax-only omp_lib.f90
- fortran.lo: libgomp_f.h
- fortran.o: libgomp_f.h
---- a/gcc-4.6.3/gcc/fortran/module.c	2011-09-15 19:47:07.933199558 +0400
-+++ b/gcc-4.6.3/gcc/fortran/module.c	2011-09-15 19:47:37.723241147 +0400
-@@ -76,7 +76,7 @@
- #include "constructor.h"
- #include "cpp.h"
+@@ -2858,7 +2861,7 @@
+ plugin.o : plugin.c $(PLUGIN_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+    $(DIAGNOSTIC_CORE_H) $(TREE_H) $(TREE_PASS_H) intl.h $(PLUGIN_VERSION_H) $(GGC_H)
  
--#define MODULE_EXTENSION ".mod"
-+#define MODULE_EXTENSION ".kernelgen.mod"
+-main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(DIAGNOSTIC_CORE_H)
++main.o : main.cpp $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(DIAGNOSTIC_CORE_H)
  
- /* Don't put any single quote (') in MOD_VERSION, 
-    if yout want it to be recognized.  */
+ host-default.o : host-default.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+    hosthooks.h $(HOSTHOOKS_DEF_H)

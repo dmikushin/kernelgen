@@ -1,7 +1,7 @@
 /*
  * KernelGen - the LLVM-based compiler with GPU kernels generation over C backend.
  *
- * Copyright (c) 2011 Dmitry Mikushin
+ * Copyright (c) 2012 Dmitry Mikushin
  *
  * This software is provided 'as-is', without any express or implied warranty.
  * In no event will the authors be held liable for any damages arising 
@@ -19,15 +19,6 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "kernelgen.h"
-#include "runtime/elf.h"
-#include "runtime/runtime.h"
-#include "runtime/util.h"
-
-#include <cstdarg>
-#include <cstdlib>
-#include <iostream>
-
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
 #include "llvm/LLVMContext.h"
@@ -44,169 +35,39 @@
 
 #include "BranchedLoopExtractor.h"
 
-using namespace kernelgen;
-using namespace kernelgen::runtime;
+#include <gmp.h>
+#include <iostream>
+ 
+extern "C"
+{
+	#include "gcc-plugin.h"
+	#include "cp/cp-tree.h"
+	#include "langhooks.h"
+	#include "tree-flow.h"
+}
+
 using namespace llvm;
 using namespace std;
-using namespace util::elf;
-using namespace util::io;
+
+int plugin_is_GPL_compatible;
 
 Pass* createFixUsingOfMallocPass();
 
-static Function* transformToVoid(Function* &oldFunction)
+extern string dragonegg_result;
+
+// The parent gcc instance already compiled the source code.
+// Here we need to compile the same source code to LLVM IR and
+// attach it to the assembly as extra string global variables.
+extern "C" void callback (void*, void*)
 {
-	LLVMContext & context = getGlobalContext();
-	Type* oldReturnType = oldFunction->getReturnType();
-	if (oldReturnType == Type::getVoidTy(context))
-		return oldFunction;
-
-	FunctionType* oldFunctionType = oldFunction->getFunctionType();
-	std::vector<Type*> argTypes;
-	int numParams = oldFunctionType->getNumParams();
-	for(int i = 0; i< numParams; i++)
-		argTypes.push_back(oldFunctionType->getParamType(i));
-
-	FunctionType* newFunctionType = FunctionType::get(Type::getVoidTy(context), argTypes, false);
-	Function* newFunction = Function::Create(
-		newFunctionType, GlobalValue::InternalLinkage, "", oldFunction->getParent());
-	newFunction->takeName(oldFunction);
-	vector<BasicBlock*> Blocks;
-	Function::BasicBlockListType& newBBList = newFunction->getBasicBlockList();
-	for (Function::iterator BB = oldFunction->begin(),
-		BB_End = oldFunction->end(); BB != BB_End; BB++)
-		Blocks.push_back(BB);
-	for (int i = 0; i < Blocks.size(); i++)
-	{
-		Blocks[i]->removeFromParent();
-		newBBList.push_back(Blocks[i]);
-		ReturnInst * TI ;
-		if (TI = dyn_cast<ReturnInst>(Blocks[i]->getTerminator()))
-		{
-			TI->eraseFromParent();
-			ReturnInst::Create(context,Blocks[i]);
-		}
-	}
-	for (Function::arg_iterator AI = oldFunction->arg_begin(),
-		NewAI = newFunction->arg_begin(), AI_End = oldFunction->arg_end();
-		AI != AI_End; AI++,NewAI++)
-	{
-		NewAI->setName(AI->getName());
-		AI->replaceAllUsesWith(NewAI);
-	}
-
-	return newFunction;
-}
-
-int compile(list<string> args, list<string> kgen_args,
-	string merge, list<string> merge_args,
-	string input, string output, int arch,
-	string host_compiler, string fileprefix)
-{
-	//
-	// The LLVM compiler to emit IR.
-	//
-	const char* llvm_compiler = "kernelgen-gfortran";
+	cout << dragonegg_result << endl;
 
 	//
-	// Interpret kernelgen compile options.
-	//
-	for (list<string>::iterator iarg = kgen_args.begin(),
-		iearg = kgen_args.end(); iarg != iearg; iarg++)
-	{
-		const char* arg = (*iarg).c_str();		
-		if (!strncmp(arg, "-Wk,--llvm-compiler=", 20))
-			llvm_compiler = arg + 20;
-	}
-
-	//
-	// Generate temporary output file.
-	// Check if output file is specified in the command line.
-	// Replace or add output to the temporary file.
-	//
-	cfiledesc tmp_output = cfiledesc::mktemp(fileprefix);
-	bool output_specified = false;
-	for (list<string>::iterator iarg = args.begin(),
-		iearg = args.end(); iarg != iearg; iarg++)
-	{
-		const char* arg = (*iarg).c_str();
-		if (!strcmp(arg, "-o"))
-		{
-			iarg++;
-			*iarg = tmp_output.getFilename();
-			output_specified = true;
-			break;
-		}
-	}
-	if (!output_specified)
-	{
-		args.push_back("-o");
-		args.push_back(tmp_output.getFilename());
-	}
-
-	//
-	// 1) Compile source code using regular host compiler.
-	//
-	{
-		if (verbose)
-		{
-			cout << host_compiler;
-			for (list<string>::iterator iarg = args.begin(),
-				iearg = args.end(); iarg != iearg; iarg++)
-				cout << " " << *iarg;
-			cout << endl;
-		}
-		int status = execute(host_compiler, args, "", NULL, NULL);
-		if (status) return status;
-	}
-
-	//
-	// 2) Emit LLVM IR.
-	//
-	string out = "";
-	{
-		list<string> emit_ir_args;
-		for (list<string>::iterator iarg = args.begin(),
-			iearg = args.end(); iarg != iearg; iarg++)
-		{
-			const char* arg = (*iarg).c_str();
-			if (!strcmp(arg, "-c") || !strcmp(arg, "-o"))
-			{
-				iarg++;
-				continue;
-			}
-			if (!strcmp(arg, "-g"))
-			{
-				continue;
-			}
-			emit_ir_args.push_back(*iarg);
-		}
-		emit_ir_args.push_back("-fplugin=/opt/kernelgen/lib/dragonegg.so");
-		emit_ir_args.push_back("-fplugin-arg-dragonegg-emit-ir");
-		emit_ir_args.push_back("-fplugin-arg-dragonegg-llvm-ir-optimize=0");
-		//emit_ir_args.push_back("-fplugin-arg-dragonegg-llvm-option=-vectorize");
-		emit_ir_args.push_back("-D_KERNELGEN");
-		emit_ir_args.push_back("-S");
-		emit_ir_args.push_back(input);
-		emit_ir_args.push_back("-o");
-		emit_ir_args.push_back("-");
-		if (verbose)
-		{
-			cout << llvm_compiler;
-			for (list<string>::iterator iarg = emit_ir_args.begin(),
-				iearg = emit_ir_args.end(); iarg != iearg; iarg++)
-				cout << " " << *iarg;
-			cout << endl;
-		}
-		int status = execute(llvm_compiler, emit_ir_args, "", &out, NULL);
-		if (status) return status;
-	}
-
-	//
-	// 3) Append "always inline" attribute to all existing functions.
+	// 2) Append "always inline" attribute to all existing functions.
 	//
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
-	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(out);
+	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(dragonegg_result);
 	auto_ptr<Module> m;
 	m.reset(ParseIR(buffer1, diag, context));
 	for (Module::iterator f = m.get()->begin(), fe = m.get()->end(); f != fe; f++)
@@ -219,10 +80,8 @@ int compile(list<string> args, list<string> kgen_args,
 		func->setAttributes(attr_new);
 	}
 	
-	//m.get()->dump();
-
 	//
-	// 4) Inline calls and extract loops into new functions.
+	// 3) Inline calls and extract loops into new functions.
 	//
 	{
 		std::vector<CallInst*> LoopFuctionCalls;
@@ -234,10 +93,8 @@ int compile(list<string> args, list<string> kgen_args,
 		manager.run(*m.get());
 	}
 
-	//m.get()->dump();
-
 	//
-	// 5) Apply optimization passes to the resulting common
+	// 4) Apply optimization passes to the resulting common
 	// module.
 	//
 	{
@@ -251,21 +108,47 @@ int compile(list<string> args, list<string> kgen_args,
 		manager.run(*m.get());
 	}
 	 
-	if (verbose & KERNELGEN_VERBOSE_SOURCES) m.get()->dump();
-
 	//
-	// 6) Embed the resulting module into object file.
+	// 5) Embed the resulting module into object file.
 	//
 	{
-		string ir_string;
-		raw_string_ostream ir(ir_string);
-		ir << (*m.get());
-		celf e(tmp_output.getFilename(), output);
-		e.getSection(".data")->addSymbol(
-			"__kernelgen_" + string(input),
-			ir_string.c_str(), ir_string.size() + 1);
-	}
+		// The name of the symbol to hold LLVM IR source.
+		string string_name = "__kernelgen_";
+		string_name += main_input_filename;
+		
+		// The LLVM IR source data.
+		string string_data;
+		raw_string_ostream stream_data(string_data);
+		stream_data << (*m.get());
+	
+		// Create the constant string with the specified content.
+		tree index_type = build_index_type(size_int(string_data.length()));
+		tree const_char_type = build_qualified_type(
+			unsigned_char_type_node, TYPE_QUAL_CONST);
+		tree string_type = build_array_type(const_char_type, index_type);
+		string_type = build_variant_type_copy(string_type);
+		TYPE_STRING_FLAG(string_type) = 1;
+		tree string_val = build_string(string_data.length(), string_data.data());
+		TREE_TYPE(string_val) = string_type;
 
+		// Create a global string variable and assign it with a
+		// previously created constant value.
+		tree var = create_tmp_var_raw(string_type, NULL);
+		DECL_NAME (var) = get_identifier (string_name.c_str());
+		TREE_PUBLIC (var) = 0;
+		TREE_STATIC (var) = 1;
+		TREE_READONLY (var) = 1;
+		DECL_INITIAL (var) = string_val;
+		varpool_finalize_decl (var);
+	}
+}
+ 
+extern "C" int plugin_init (
+	plugin_name_args* info, plugin_gcc_version* ver)
+{
+	// Register callback.
+	register_callback (info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
+	
 	return 0;
 }
 

@@ -1,58 +1,31 @@
-##
-## KGen - the LLVM-based compiler with GPU kernels generation over C backend.
-##
-## Copyright (c) 2011 Dmitry Mikushin
-##
-## This software is provided 'as-is', without any express or implied warranty.
-## In no event will the authors be held liable for any damages arising 
-## from the use of this software.
-## Permission is granted to anyone to use this software for any purpose, 
-## including commercial applications, and to alter it and redistribute it freely,
-## subject to the following restrictions:
-##
-## 1. The origin of this software must not be misrepresented;
-## you must not claim that you wrote the original software.
-## If you use this software in a product, an acknowledgment
-## in the product documentation would be appreciated but is not required.
-## 2. Altered source versions must be plainly marked as such,
-## and must not be misrepresented as being the original software.
-## 3. This notice may not be removed or altered from any source distribution.
-##
+GCC_ROOT ?= ${HOME}/rpmbuild/BUILD/gcc-4.6.3
+PLUGIN_INC = -I$(GCC_ROOT)/gcc/ -I$(GCC_ROOT)/build/gcc/ -I$(GCC_ROOT)/include/ -I$(GCC_ROOT)/libcpp/include/
 
-LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
-LLVMINC = -I${HOME}/rpmbuild/BUILD/llvm/build/include
-LLVMLIB = -L/opt/kernelgen/lib -lLLVM-3.1svn /opt/kernelgen/lib/LLVMPolly.so -lisl -lcloog-isl -lffi -lrt -lgmp
-EXECINC = -I.. -I../libasfermi/tests/dyloader
-EXECLIB = -L../runtime -lkernelgen -lelf -lmhash -ldl \
-	-L../libasfermi/tests/dyloader -ldyloader -L../libasfermi 
+LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm
+LLVM_DEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
+LLVM_INC = -I$(LLVM_ROOT)/build/include $(LLVM_DEF)
+LLVM_LIB = -L$(LLVM_ROOT)/build/Debug+Asserts/lib -lLLVM-3.1svn
 
-CXX = g++ -g -I../include $(LLVMINC) $(LLVMDEF)
+all: libkernelgen-ct.so
 
-OBJECTS = kernelgen.o compile.o link.o BranchedLoopExtractor.o BranchedCodeExtractor.o FixUsingOfMalloc.o
+OBJECTS := compile BranchedLoopExtractor BranchedCodeExtractor FixUsingOfMalloc
+OBJECTS := $(addsuffix .o, $(OBJECTS))
 
-all: kernelgen
+libkernelgen-ct.so: $(OBJECTS)
+	g++ -g -fPIC $(PLUGIN_INC) $(LLVM_INC) -shared $^ -o $@ $(LLVM_LIB)
 
-kernelgen: $(OBJECTS) ../runtime/libkernelgen.a
-	$(CXX) $(OBJECTS) -o $@ $(EXECLIB) $(LLVMLIB)
-
-kernelgen.o: kernelgen.cpp
-	$(CXX) $(EXECINC) -c $< -o $@
-
-compile.o: compile.cpp
-	$(CXX) $(EXECINC) -c $< -o $@
-
-link.o: link.cpp
-	$(CXX) $(EXECINC) -c $< -o $@
+kernelgen-ct.o: compile.cpp
+	g++ -g -fPIC $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@
 
 BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
-	$(CXX) $(EXECINC) -fno-rtti -c $< -o $@
+	g++ -g -fPIC $(LLVM_INC) -fno-rtti -c $< -o $@
 
 BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
-	$(CXX) $(EXECINC) -c $< -o $@
+	g++ -g -fPIC $(LLVM_INC) -c $< -o $@
 
 FixUsingOfMalloc.o: FixUsingOfMalloc.cpp
-	$(CXX) $(EXECINC) -c $< -o $@
+	g++ -g -fPIC $(LLVM_INC) -c $< -o $@
 
 clean:
-	rm -rf *.o kernelgen
+	rm -rf libkernelgen-ct.so *.o
 

@@ -39,16 +39,6 @@ my($CUDA_PREFIX) = $ARGV[4];
 `mkdir -p $PREFIX/$LIB64`;
 
 #
-# Copy binaries to install path.
-#
-my(@binaries) = (
-	"frontend/kernelgen");
-foreach $binary (@binaries)
-{
-	`cp $binary $PREFIX\/bin\/`;
-}
-
-#
 # Copy includes to install path.
 #
 my(@includes) = (
@@ -64,6 +54,7 @@ foreach $include (@includes)
 # Copy libraries to install path.
 #
 my(@libraries) = (
+	"frontend/libkernelgen-ct.so",
 	"runtime/libkernelgen.a",
 	"libasfermi/libasfermi.so",
 	"libasfermi/tests/dyloader/libdyloader.so");

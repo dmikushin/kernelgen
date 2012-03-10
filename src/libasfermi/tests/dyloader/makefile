@@ -9,7 +9,7 @@ libdyloader.so: cuda_dyloader.o ../../libasfermi.so
 	g++ -shared $< -o $@ -L../.. -lasfermi -lcuda -lelf -L../../../runtime -lkernelgen
 
 cuda_dyloader.o: cuda_dyloader.cpp cuda_dyloader.h loader.h
-	g++ -std=c99 -I. -I../.. -I../../.. -fPIC -g -c $< -o $@
+	g++ -I. -I../.. -I../../.. -fPIC -g -c $< -o $@
 
 clean:
 	rm -rf *.o libdyloader.so test1 test2 test3 test4 test5
