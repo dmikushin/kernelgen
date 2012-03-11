@@ -196,16 +196,19 @@ make src
 #
 # Build modified GCC.
 # Note GCC depends on DragonEgg and plugins from KernelGen,
-# thus they both must be built prior to GCC.
+# thus they both must be built and installed prior to GCC.
 #
 %if %fullrepack
 cd $RPM_BUILD_DIR
 patch -p1 <$RPM_SOURCE_DIR/gcc.patch
 cd $RPM_BUILD_DIR/gcc-4.6.3/build/gcc
+mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/lib
+cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
+cp $RPM_BUILD_DIR/kernelgen/src/frontend/libkernelgen-ct.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
 %if %debug
-LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/dragonegg:$RPM_BUILD_DIR/kernelgen/src/frontend LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/dragonegg:$RPM_BUILD_DIR/kernelgen/src/frontend LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make -j%{njobs}
+KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make -j%{njobs}
 %endif
 %endif
 
@@ -219,7 +222,6 @@ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/dragonegg:$RPM_BUILD_DIR/kernelg
 #
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/bin
-mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/lib
 mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/%{lib64}/
 #
 # Reinstall CLooG.
@@ -246,10 +248,9 @@ cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/lib/inline $RPM_BUILD
 cd $RPM_BUILD_DIR/llvm/build
 make install
 #
-# Install DragonEgg.
+# Install DragonEgg
 #
-cd $RPM_BUILD_DIR/dragonegg
-cp dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
+cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
 #
 # Install GCC.
 #
