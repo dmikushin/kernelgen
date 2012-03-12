@@ -9,10 +9,10 @@ serial_cpu.o: serial.c
 	gcc -g $(FLAGS) -c $< -o $@
 
 serial_gpu: serial_gpu.o
-	kernelgen $< -o $@
+	kernelgen-gcc $< -o $@
 
 serial_gpu.o: serial.c
-	kernelgen -g $(FLAGS) -c $< -o $@
+	kernelgen-gcc -g $(FLAGS) -c $< -o $@
 
 clean:
 	rm -rf serial_cpu serial_gpu *.o

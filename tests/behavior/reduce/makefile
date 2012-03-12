@@ -19,20 +19,16 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-LEVEL = ../../..
-
-include ../../makefile.in
-
 all: reduce
 
 reduce: reduce.o main.o
-	$(FCOMP64) $^ -o $@
+	kernelgen-gfortran $^ -o $@
 
 main.o: main.c
-	$(CCOMP64) -g -std=c99 -c $< -o $@
+	kernelgen-gcc -g -std=c99 -c $< -o $@
 
 reduce.o: reduce.f90
-	$(FCOMP64) -g -c $< -o $@
+	kernelgen-gfortran -g -c $< -o $@
 
 clean:
 	rm -rf *.o reduce

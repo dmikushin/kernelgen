@@ -19,29 +19,13 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-LEVEL = ../../..
+all: pollycuda
 
-include ../../makefile.in
+pollycuda: for.o
+	kernelgen-gcc $< -o $@
 
-ifeq ($(ARCH), 64)
-all: 64/pollycuda
-else
-all: 32/pollycuda
-endif
-
-64/pollycuda: 64/for.o
-	$(CCOMP64) $< -o $@
-
-64/for.o: for.c
-	$(CCOMP64) -g -c $< -o $@
+for.o: for.c
+	kernelgen-gcc $< -g -c $< -o $@
 
 clean:
-	rm -rf 32/*.o 32/*.mod 32/pollycuda 64/*.o 64/*.mod 64/pollycuda \
-	*.bc* *.o *.mod *_kernelgen.* *.host.*
-
-polly:
-	kernelgen_runmode=1 kernelgen_verbose=1 kernelgen_dump_polly=1 64/pollycuda
-
-pollygen:
-	kernelgen_runmode=1 kernelgen_verbose=1 kernelgen_dump_pollygen=1 64/pollycuda
-
+	rm -rf *.o pollycuda

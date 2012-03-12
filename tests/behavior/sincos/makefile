@@ -19,31 +19,16 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-LEVEL = ../../..
+all: sincos
 
-include ../../makefile.in
+sincos: sincos.o main.o
+	kernelgen-gfortran $^ -o $@
 
-ifeq ($(ARCH), 64)
-all: 32/sincos 64/sincos
-else
-all: 32/sincos
-endif
+main.o: main.c
+	kernelgen-gcc -g -std=c99 -c $< -o $@
 
-32/sincos: 32/sincos.o 32/main.o
-	$(FCOMP32) 32/main.o 32/sincos.o -o $@
-64/sincos: 64/sincos.o 64/main.o
-	$(FCOMP64) 64/main.o 64/sincos.o -o $@
-
-32/main.o: main.c
-	$(CCOMP32) -g -std=c99 -I/opt/kgen/include -c $< -o $@
-64/main.o: main.c
-	$(CCOMP64) -g -std=c99 -I/opt/kgen/include64 -c $< -o $@
-
-32/sincos.o: sincos.f90
-	$(FCOMP32) -g -c $< -o $@
-64/sincos.o: sincos.f90
-	$(FCOMP64) -g -c $< -o $@
+sincos.o: sincos.f90
+	kernelgen-gfortran -g -c $< -o $@
 
 clean:
-	rm -rf 32/*.o 32/*.mod 32/sincos 64/*.o 64/*.mod 64/sincos \
-	*.bc* *.o *.mod *_kernelgen.* *.host.*
+	rm -rf *.o sincos
