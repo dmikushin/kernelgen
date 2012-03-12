@@ -1,6 +1,6 @@
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-4.6.3/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,247 @@
 +/* main.c: defines main() for cc1, cc1plus, etc.
 +   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
 +
@@ -27,9 +27,12 @@
 +  #include "coretypes.h"
 +  #include "tm.h"
 +  #include "diagnostic-core.h"
++  #include "params.h"
 +  #include "toplev.h"
-+  #include <papi.h>
 +  #include <stdlib.h>
++  #include <fcntl.h>
++  #include <gelf.h>	
++  #include <libelf.h>
 +}
 +
 +#include <string>
@@ -49,29 +52,128 @@
 +int
 +main (int argc, char **argv)
 +{
-+  // It seems GCC does not care about cleaning up its
-+  // state completely after processing. Well, it's reasonable,
-+  // if the tool is not really designed to support multiple
-+  // compilation passes in a single launch.
-+  // In out approach we perform two compilation passes, thus
-+  // GCC state must be reset before the second pass.
-+  // To archive that, we will completely backup .bss and .data
-+  // initial state and rewrite them after finishing the first pass.
-+  PAPI_library_init(PAPI_VER_CURRENT);
-+  const PAPI_exe_info_t* info = PAPI_get_executable_info();
-+  void* data_start = (void*)info->address_info.data_start;
-+  void* bss_end = (void*)info->address_info.bss_end;
-+  size_t data_bss_size = (ptrdiff_t)bss_end - (ptrdiff_t)data_start;
-+  vector<char> data_bss_backup_vector;
-+  data_bss_backup_vector.resize(data_bss_size);
-+  char* data_bss_backup = (char*)&data_bss_backup_vector[0];
-+  memcpy(data_bss_backup, data_start, data_bss_size);
-+
 +  // Check if environment defines KERNELGEN_PLUGINS_PATH.
 +  // If it does not, then use the default setting.
 +  string kernelgen_plugins_path = "/opt/kernelgen/lib/";
 +  const char* plugins_path = getenv("KERNELGEN_PLUGINS_PATH");
 +  if (plugins_path) kernelgen_plugins_path = plugins_path;
++
++  // It seems GCC does not care about cleaning up its
++  // state completely after processing. Well, it's reasonable,
++  // since the tool is not really designed to support multiple
++  // compilation passes in a single launch.
++  // In out approach we perform two compilation passes, thus
++  // GCC state must be reset before the second pass.
++  // To archive that, we will backup .data and .bss symbols
++  // initla state and rewrite them after finishing the first pass.
++  const char* filename = "/proc/self/exe";
++  int fd = open(filename, O_RDONLY);
++  if (fd < 0)
++  {
++    fprintf(stderr, "Cannot open %s\n", filename);
++    return 1;
++  }
++  if (elf_version(EV_CURRENT) == EV_NONE)
++  {
++    fprintf(stderr, "ELF library initialization failed: %s\n",
++      elf_errmsg(-1));
++    return 1;
++  }
++  Elf* e = elf_begin(fd, ELF_C_READ, NULL);
++  if (!e)
++  {
++    fprintf(stderr, "elf_begin() failed: %s\n", elf_errmsg(-1));
++    return 1;
++  }
++  size_t shstrndx;
++  if (elf_getshdrstrndx(e, &shstrndx))
++  {
++    fprintf(stderr, "elf_getshdrstrndx() failed: %s\n",
++      elf_errmsg(-1));
++    return 1;
++  }
++  Elf_Data* symbols = NULL;
++  int nsymbols = 0, idata = -1, ibss = -1;
++  Elf_Scn* scn = elf_nextscn(e, NULL);
++  for (int i = 1; scn != NULL; scn = elf_nextscn(e, scn), i++)
++  {
++    GElf_Shdr shdr;
++    if (!gelf_getshdr(scn, &shdr))
++    {
++      fprintf(stderr, "gelf_getshdr() failed for %s\n",
++        elf_errmsg(-1));
++      return 1;
++    }
++
++    if (shdr.sh_type == SHT_SYMTAB)
++    {
++      symbols = elf_getdata(scn, NULL);
++      if (!symbols)
++      {
++        fprintf(stderr, "elf_getdata() failed for %s\n",
++          elf_errmsg(-1));
++        return 1;
++      }
++      if (shdr.sh_entsize)
++        nsymbols = shdr.sh_size / shdr.sh_entsize;
++    }
++
++    char* name = NULL;
++    if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
++    {
++      fprintf(stderr, "Cannot read the section %d name\n", i);
++    }
++
++    if (!strcmp(name, ".data")) idata = i;
++    if (!strcmp(name, ".bss")) ibss = i;
++  }
++  if (!symbols)
++  {
++    fprintf(stderr, "Cannot find symbols table\n");
++    return 1;
++  }
++
++  // For each symbol:
++  // If symbol is object, account its size.
++  // Also track the total number of objects.
++  size_t obj_total_size = 0, nobj = 0;
++  for (int isymbol = 0; isymbol < nsymbols; isymbol++)
++  {
++    GElf_Sym symbol;
++    gelf_getsym(symbols, isymbol, &symbol);
++    if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
++      ((symbol.st_shndx == idata) || (symbol.st_shndx == ibss)))
++    {
++      obj_total_size += symbol.st_size;
++      nobj++;
++    }
++  }
++
++  // Allocate a vector to store objects initial values
++  vector<char> obj_data_vector;
++  obj_data_vector.resize(obj_total_size);
++  char* obj_data = (char*)&obj_data_vector[0];
++
++  // Allocate a vector to store objects sizes.
++  vector<size_t> obj_size_vector;
++  obj_size_vector.resize(nobj);
++  size_t* obj_size = (size_t*)&obj_size_vector[0];
++
++  // For each symbol:
++  // If symbol is object, record its size and initial content.
++  char* obj_data_ptr = obj_data;
++  for (int isymbol = 0, iobj = 0; isymbol < nsymbols; isymbol++)
++  {
++    GElf_Sym symbol;
++    gelf_getsym(symbols, isymbol, &symbol);
++    if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
++      ((symbol.st_shndx == idata) || (symbol.st_shndx == ibss)))
++    {
++      memcpy(obj_data_ptr, (const void*)symbol.st_value, symbol.st_size);
++      obj_data_ptr += symbol.st_size;
++      obj_size[iobj++] = symbol.st_size;
++    }
++  }
 +
 +  // Run compiler with dragonegg plugin enabled.
 +  // DragonEgg trashes the regular gcc output, so we
@@ -105,8 +207,21 @@
 +  // Backup the DragonEgg result.
 +  string dragonegg_result_backup = dragonegg_result;
 +
-+  // Restore .data and .bss after the first pass.
-+  memcpy(data_start, data_bss_backup, data_bss_size);
++  // For each symbol:
++  // If symbol is object, restore its initial value.
++  obj_data_ptr = obj_data;
++  for (int isymbol = 0; isymbol < nsymbols; isymbol++)
++  {
++    GElf_Sym symbol;
++    gelf_getsym(symbols, isymbol, &symbol);
++    if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
++      ((symbol.st_shndx == idata) || (symbol.st_shndx == ibss)))
++    {
++      memcpy((void*)symbol.st_value, obj_data_ptr, symbol.st_size);
++      obj_data_ptr += symbol.st_size;
++    }
++  }
++  elf_end(e);
 +
 +  // Restore the DragonEgg result.
 +  dragonegg_result = dragonegg_result_backup;
@@ -207,7 +322,7 @@
  	$(HOST_LIBS)
  BACKENDLIBS = $(CLOOGLIBS) $(PPLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
 -	$(ZLIB)
-+	$(ZLIB) -lpapi
++	$(ZLIB) -lelf
  # Any system libraries needed just for GNAT.
  SYSLIBS = 
  
