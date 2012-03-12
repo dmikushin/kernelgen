@@ -19,13 +19,16 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-all: pollycuda
+all: match
 
-pollycuda: for.o
-	kernelgen-gcc $< -o $@
+match: match.o main.o
+	kernelgen-gfortran $^ -o $@
 
-for.o: for.c
-	kernelgen-gcc -g -c $< -o $@
+main.o: main.c
+	kernelgen-gcc -g -std=c99 -c $< -o $@
+
+match.o: match.f90
+	kernelgen-gfortran -g -c $< -o $@
 
 clean:
-	rm -rf *.o pollycuda
+	rm -rf *.o match
