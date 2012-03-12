@@ -132,7 +132,10 @@ extern "C" void callback (void*, void*)
 		// Create a global string variable and assign it with a
 		// previously created constant value.
 		tree var = create_tmp_var_raw(string_type, NULL);
-		DECL_NAME (var) = get_identifier (string_name.c_str());
+		char* tmpname = tmpnam(NULL) + strlen(P_tmpdir);
+		if (*tmpname == '/') tmpname++;
+		DECL_NAME (var) = get_identifier (tmpname);
+		DECL_SECTION_NAME (var) = build_string (11, ".kernelgen");
 		TREE_PUBLIC (var) = 0;
 		TREE_STATIC (var) = 1;
 		TREE_READONLY (var) = 1;

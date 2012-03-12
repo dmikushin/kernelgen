@@ -25,7 +25,7 @@ include ../makefile.in
 # Red Hat notation, could be different, for example, for Debian
 #
 LIB32 ?= lib
-LIB64 ?= lib64
+LIB64 ?= lib
 
 PREFIX = $(ROOT)/opt/kernelgen
 CUDA_PREFIX = undefined
