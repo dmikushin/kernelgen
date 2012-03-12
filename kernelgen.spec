@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target fedora
+%define target debian
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -259,6 +259,19 @@ ROOT=$RPM_BUILD_ROOT LIB32=lib LIB64=lib make install
 #
 cd $RPM_BUILD_DIR/gcc-4.6.3/build
 KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/dragonegg:$RPM_BUILD_DIR/kernelgen/src/frontend:$RPM_BUILD_DIR/llvm/build/Debug+Asserts/lib LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make install
+#
+# Clean some unnecessary files.
+#
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/cpp.info
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/cppinternals.info
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/dir
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/gcc.info
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/gccinstall.info
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/gccint.info
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/gfortran.info
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/libgomp.info
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/libquadmath.info
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/openssl/bn.h
 
 
 #
@@ -1334,42 +1347,42 @@ KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LD_LIBRARY_PATH=$LD_LI
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/vecir.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/vecprim.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/plugin/include/version.h
-/opt/kernelgen/lib/libgcc_s.so
-/opt/kernelgen/lib/libgcc_s.so.1
-/opt/kernelgen/lib/libgfortran.a
-/opt/kernelgen/lib/libgfortran.la
-/opt/kernelgen/lib/libgfortran.so
-/opt/kernelgen/lib/libgfortran.so.3
-/opt/kernelgen/lib/libgfortran.so.3.0.0
-/opt/kernelgen/lib/libgfortran.spec
-/opt/kernelgen/lib/libgomp.a
-/opt/kernelgen/lib/libgomp.la
-/opt/kernelgen/lib/libgomp.so
-/opt/kernelgen/lib/libgomp.so.1
-/opt/kernelgen/lib/libgomp.so.1.0.0
-/opt/kernelgen/lib/libgomp.spec
-/opt/kernelgen/lib/libmudflap.a
-/opt/kernelgen/lib/libmudflap.la
-/opt/kernelgen/lib/libmudflap.so
-/opt/kernelgen/lib/libmudflap.so.0
-/opt/kernelgen/lib/libmudflap.so.0.0.0
-/opt/kernelgen/lib/libmudflapth.a
-/opt/kernelgen/lib/libmudflapth.la
-/opt/kernelgen/lib/libmudflapth.so
-/opt/kernelgen/lib/libmudflapth.so.0
-/opt/kernelgen/lib/libmudflapth.so.0.0.0
-/opt/kernelgen/lib/libquadmath.a
-/opt/kernelgen/lib/libquadmath.la
-/opt/kernelgen/lib/libquadmath.so
-/opt/kernelgen/lib/libquadmath.so.0
-/opt/kernelgen/lib/libquadmath.so.0.0.0
-/opt/kernelgen/lib/libssp.a
-/opt/kernelgen/lib/libssp.la
-/opt/kernelgen/lib/libssp.so
-/opt/kernelgen/lib/libssp.so.0
-/opt/kernelgen/lib/libssp.so.0.0.0
-/opt/kernelgen/lib/libssp_nonshared.a
-/opt/kernelgen/lib/libssp_nonshared.la
+/opt/kernelgen/%{lib32}/libgcc_s.so
+/opt/kernelgen/%{lib32}/libgcc_s.so.1
+/opt/kernelgen/%{lib32}/libgfortran.a
+/opt/kernelgen/%{lib32}/libgfortran.la
+/opt/kernelgen/%{lib32}/libgfortran.so
+/opt/kernelgen/%{lib32}/libgfortran.so.3
+/opt/kernelgen/%{lib32}/libgfortran.so.3.0.0
+/opt/kernelgen/%{lib32}/libgfortran.spec
+/opt/kernelgen/%{lib32}/libgomp.a
+/opt/kernelgen/%{lib32}/libgomp.la
+/opt/kernelgen/%{lib32}/libgomp.so
+/opt/kernelgen/%{lib32}/libgomp.so.1
+/opt/kernelgen/%{lib32}/libgomp.so.1.0.0
+/opt/kernelgen/%{lib32}/libgomp.spec
+/opt/kernelgen/%{lib32}/libmudflap.a
+/opt/kernelgen/%{lib32}/libmudflap.la
+/opt/kernelgen/%{lib32}/libmudflap.so
+/opt/kernelgen/%{lib32}/libmudflap.so.0
+/opt/kernelgen/%{lib32}/libmudflap.so.0.0.0
+/opt/kernelgen/%{lib32}/libmudflapth.a
+/opt/kernelgen/%{lib32}/libmudflapth.la
+/opt/kernelgen/%{lib32}/libmudflapth.so
+/opt/kernelgen/%{lib32}/libmudflapth.so.0
+/opt/kernelgen/%{lib32}/libmudflapth.so.0.0.0
+/opt/kernelgen/%{lib32}/libquadmath.a
+/opt/kernelgen/%{lib32}/libquadmath.la
+/opt/kernelgen/%{lib32}/libquadmath.so
+/opt/kernelgen/%{lib32}/libquadmath.so.0
+/opt/kernelgen/%{lib32}/libquadmath.so.0.0.0
+/opt/kernelgen/%{lib32}/libssp.a
+/opt/kernelgen/%{lib32}/libssp.la
+/opt/kernelgen/%{lib32}/libssp.so
+/opt/kernelgen/%{lib32}/libssp.so.0
+/opt/kernelgen/%{lib32}/libssp.so.0.0.0
+/opt/kernelgen/%{lib32}/libssp_nonshared.a
+/opt/kernelgen/%{lib32}/libssp_nonshared.la
 /opt/kernelgen/lib64/libgcc_s.so
 /opt/kernelgen/lib64/libgcc_s.so.1
 /opt/kernelgen/lib64/libgfortran.a
@@ -1384,7 +1397,7 @@ KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LD_LIBRARY_PATH=$LD_LI
 /opt/kernelgen/lib64/libgomp.so.1
 /opt/kernelgen/lib64/libgomp.so.1.0.0
 /opt/kernelgen/lib64/libgomp.spec
-/opt/kernelgen/lib64/libiberty.a
+/opt/kernelgen/%{lib64}/libiberty.a
 /opt/kernelgen/lib64/libmudflap.a
 /opt/kernelgen/lib64/libmudflap.la
 /opt/kernelgen/lib64/libmudflap.so
@@ -1420,15 +1433,6 @@ KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LD_LIBRARY_PATH=$LD_LI
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/liblto_plugin.so.0.0.0
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/lto-wrapper
 /opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.3/lto1
-/opt/kernelgen/share/info/cpp.info
-/opt/kernelgen/share/info/cppinternals.info
-/opt/kernelgen/share/info/dir
-/opt/kernelgen/share/info/gcc.info
-/opt/kernelgen/share/info/gccinstall.info
-/opt/kernelgen/share/info/gccint.info
-/opt/kernelgen/share/info/gfortran.info
-/opt/kernelgen/share/info/libgomp.info
-/opt/kernelgen/share/info/libquadmath.info
 /opt/kernelgen/share/locale/be/LC_MESSAGES/cpplib.mo
 /opt/kernelgen/share/locale/be/LC_MESSAGES/gcc.mo
 /opt/kernelgen/share/locale/ca/LC_MESSAGES/cpplib.mo
