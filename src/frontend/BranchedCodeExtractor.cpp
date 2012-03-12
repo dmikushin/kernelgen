@@ -707,11 +707,11 @@ void BranchedCodeExtractor::createLoadsAndSwitch(
 		BranchInst::Create(ExitBlocks[0], TheSwitch);
 		TheSwitch->eraseFromParent();
 		break;
-	case 2:
+	/*case 2:
 		BranchInst::Create(ExitBlocks[1], ExitBlocks[0],
 		                   callLoopFuncInst, TheSwitch);
 		TheSwitch->eraseFromParent();
-		break;
+		break;*/
 	default:
 		// Otherwise, add case fo every ExitBlock
 		for(int ExitBlock = 0; ExitBlock < NumExitBlocks; ExitBlock++)
@@ -847,14 +847,13 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	// Find inputs to, outputs from the code region.
 	findInputsOutputs(inputs, outputs);
 
-	assert((NumExitBlocks != 0) &&
-	       "there must be at least one exit block from code region"
-	       "for current version");
-
-	assert((NumExitBlocks == 1 ||  outputs.size()==0) &&
-	       "there can be only one exit block from code region"
-	       "or can not by any outputs"
-	       "for current version");
+        if (NumExitBlocks != 1) {
+          outs().changeColor(raw_ostream::YELLOW);
+          outs() << "KernelGen dropped loop: There must be only one exit block "
+            "from the code region for the current version\n";
+          outs().resetColor();
+          return NULL;
+        }
 
 	ClonedCodeInfo CodeInfo;
 	ValueToValueMapTy VMap;

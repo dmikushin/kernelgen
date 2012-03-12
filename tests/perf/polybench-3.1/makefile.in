@@ -1,4 +1,4 @@
-COMP = kernelgen -include=malloc.h
+COMP = kernelgen-gcc -include malloc.h
 
 BASE = ../..
 
@@ -9,7 +9,7 @@ TARGETS = 2mm 3mm atax bicg
 all: $(TARGETS)
 
 polybench.o: $(BASE)/utilities/polybench.c
-	kernelgen -c $< -o $@
+	$(COMP) -c $< -o $@
 
 TARGETS_CLEAN = $(addsuffix _*, $(TARGETS))
 
@@ -17,16 +17,16 @@ clean:
 	rm -rf *.o $(TARGETS_CLEAN)
 
 %_base: polybench.o %_base.o
-	kernelgen $^ -o $@
+	$(COMP) $^ -o $@
 
 %_time: polybench.o %_time.o
-	kernelgen $^ -o $@
+	$(COMP) $^ -o $@
 
 %_ref: polybench.o %_ref.o
-	kernelgen $^ -o $@
+	$(COMP) $^ -o $@
 
 %_papi: polybench.o %_papi.o
-	kernelgen $^ -o $@ -lpapi
+	$(COMP) $^ -o $@ -lpapi
 
 #
 # 2MM
@@ -38,16 +38,16 @@ F2MM = -D$(SIZE) -I$(BASE)/utilities -I$(B2MM)
 2mm: 2mm_base 2mm_time 2mm_ref 2mm_papi
 
 2mm_base.o: $(B2MM)/2mm.c
-	kernelgen $(F2MM) -c $^ -o $@
+	$(COMP) $(F2MM) -c $^ -o $@
 
 2mm_time.o: $(B2MM)/2mm.c
-	kernelgen -DPOLYBENCH_TIME $(F2MM) -c $< -o $@
+	$(COMP) -DPOLYBENCH_TIME $(F2MM) -c $< -o $@
 
 2mm_ref.o: $(B2MM)/2mm.c
-	kernelgen -O0 -DPOLYBENCH_DUMP_ARRAYS $(F2MM) -c $< -o $@
+	$(COMP) -O0 -DPOLYBENCH_DUMP_ARRAYS $(F2MM) -c $< -o $@
 
 2mm_papi.o: $(B2MM)/2mm.c
-	kernelgen -O3 -DPOLYBENCH_PAPI $(F2MM) -c $< -o $@
+	$(COMP) -O3 -DPOLYBENCH_PAPI $(F2MM) -c $< -o $@
 
 #
 # 3MM
@@ -59,16 +59,16 @@ F3MM = -D$(SIZE) -I$(BASE)/utilities -I$(B3MM)
 3mm: 3mm_base 3mm_time 3mm_ref 3mm_papi
 
 3mm_base.o: $(B3MM)/3mm.c
-	kernelgen $(F3MM) -c $^ -o $@
+	$(COMP) $(F3MM) -c $^ -o $@
 
 3mm_time.o: $(B3MM)/3mm.c
-	kernelgen -DPOLYBENCH_TIME $(F3MM) -c $< -o $@
+	$(COMP) -DPOLYBENCH_TIME $(F3MM) -c $< -o $@
 
 3mm_ref.o: $(B3MM)/3mm.c
-	kernelgen -O0 -DPOLYBENCH_DUMP_ARRAYS $(F3MM) -c $< -o $@
+	$(COMP) -O0 -DPOLYBENCH_DUMP_ARRAYS $(F3MM) -c $< -o $@
 
 3mm_papi.o: $(B3MM)/3mm.c
-	kernelgen -O3 -DPOLYBENCH_PAPI $(F3MM) -c $< -o $@ -lpapi
+	$(COMP) -O3 -DPOLYBENCH_PAPI $(F3MM) -c $< -o $@ -lpapi
 
 #
 # ATAX
@@ -80,16 +80,16 @@ FATAX = -D$(SIZE) -I$(BASE)/utilities -I$(BATAX)
 atax: atax_base atax_time atax_ref atax_papi
 
 atax_base.o: $(BATAX)/atax.c
-	kernelgen $(FATAX) -c $< -o $@
+	$(COMP) $(FATAX) -c $< -o $@
 
 atax_time.o: $(BATAX)/atax.c
-	kernelgen -DPOLYBENCH_TIME $(FATAX) -c $< -o $@
+	$(COMP) -DPOLYBENCH_TIME $(FATAX) -c $< -o $@
 
 atax_ref.o: $(BATAX)/atax.c
-	kernelgen -O0 -DPOLYBENCH_DUMP_ARRAYS $(FATAX) -c $< -o $@
+	$(COMP) -O0 -DPOLYBENCH_DUMP_ARRAYS $(FATAX) -c $< -o $@
 
 atax_papi.o: $(BATAX)/atax.c
-	kernelgen -O3 -DPOLYBENCH_PAPI $(FATAX) -c $< -o $@ -lpapi
+	$(COMP) -O3 -DPOLYBENCH_PAPI $(FATAX) -c $< -o $@ -lpapi
 
 #
 # BICG
@@ -101,14 +101,14 @@ FBICG = -D$(SIZE) -I$(BASE)/utilities -I$(BBICG)
 bicg: bicg_base bicg_time bicg_ref bicg_papi
 
 bicg_base.o: $(BBICG)/bicg.c
-	kernelgen $(FBICG) -c $< -o $@
+	$(COMP) $(FBICG) -c $< -o $@
 
 bicg_time.o: $(BBICG)/bicg.c
-	kernelgen -DPOLYBENCH_TIME $(FBICG) -c $< -o $@
+	$(COMP) -DPOLYBENCH_TIME $(FBICG) -c $< -o $@
 
 bicg_ref.o: $(BBICG)/bicg.c
-	kernelgen -O0 -DPOLYBENCH_DUMP_ARRAYS $(FBICG) -c $< -o $@
+	$(COMP) -O0 -DPOLYBENCH_DUMP_ARRAYS $(FBICG) -c $< -o $@
 
 bicg_papi.o: $(BBICG)/bicg.c
-	kernelgen -O3 -DPOLYBENCH_PAPI $(FBICG) -c $< -o $@ -lpapi
+	$(COMP) -O3 -DPOLYBENCH_PAPI $(FBICG) -c $< -o $@ -lpapi
 

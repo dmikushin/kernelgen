@@ -288,8 +288,173 @@
 -{
 -  return toplev_main (argc, argv);
 -}
---- a/gcc-4.6.3/build/gcc/Makefile	2012-03-07 21:10:00.000000000 +0300
-+++ b/gcc-4.6.3/build/gcc/Makefile	2012-03-08 15:07:23.112550353 +0300
+--- a/gcc-4.6.3/gcc/collect2.c	2011-01-06 21:50:00.000000000 +0300
++++ b/gcc-4.6.3/gcc/collect2.c	2012-03-12 20:54:07.031433472 +0300
+@@ -206,7 +206,8 @@
+ static char **lto_o_files;		/* Output files for LTO.  */
+ const char *ldout;			/* File for ld stdout.  */
+ const char *lderrout;			/* File for ld stderr.  */
+-static const char *output_file;		/* Output file for ld.  */
++static const char *output_file;		/* Output file for ld. */
++static char tmp_output_file[L_tmpnam + 8];
+ static const char *nm_file_name;	/* pathname of nm */
+ #ifdef LDD_SUFFIX
+ static const char *ldd_file_name;	/* pathname of ldd (or equivalent) */
+@@ -412,8 +413,8 @@
+       maybe_unlink (lderrout);
+     }
+ 
+-  if (status != 0 && output_file != 0 && output_file[0])
+-    maybe_unlink (output_file);
++  if (status != 0 && tmp_output_file != 0 && tmp_output_file[0])
++    maybe_unlink (tmp_output_file);
+ 
+   if (response_file)
+     maybe_unlink (response_file);
+@@ -1245,6 +1246,8 @@
+ #else
+   output_file = DEFAULT_A_OUT_NAME;
+ #endif
++  sprintf(tmp_output_file, "%s/XXXXXX", P_tmpdir);
++  mkstemp(tmp_output_file);
+ 
+   obstack_begin (&temporary_obstack, 0);
+   temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
+@@ -1529,8 +1532,10 @@
+ #endif
+ 
+ 	    case 'o':
+-	      if (arg[2] == '\0')
+-		output_file = *ld1++ = *ld2++ = *++argv;
++	      if (arg[2] == '\0') {
++		output_file = *++argv;
++                *ld1++ = *ld2++ = tmp_output_file;
++              }
+ 	      else
+ 		output_file = &arg[2];
+ 	      break;
+@@ -1786,10 +1791,10 @@
+      destructor tables to a .s file and reload.  */
+ 
+   if (ld1_filter != SCAN_NOTHING)
+-    scan_prog_file (output_file, PASS_FIRST, ld1_filter);
++    scan_prog_file (tmp_output_file, PASS_FIRST, ld1_filter);
+ 
+ #ifdef SCAN_LIBRARIES
+-  scan_libraries (output_file);
++  scan_libraries (tmp_output_file);
+ #endif
+ 
+   if (debug)
+@@ -1837,7 +1842,7 @@
+ 						  real_strip_argv);
+ 
+ 	  strip_argv[0] = strip_file_name;
+-	  strip_argv[1] = output_file;
++	  strip_argv[1] = tmp_output_file;
+ 	  strip_argv[2] = (char *) 0;
+ 	  fork_execute ("strip", real_strip_argv);
+ 	}
+@@ -1856,7 +1861,7 @@
+   sort_ids (&constructors);
+   sort_ids (&destructors);
+ 
+-  maybe_unlink(output_file);
++  maybe_unlink(tmp_output_file);
+   outf = fopen (c_file, "w");
+   if (outf == (FILE *) 0)
+     fatal_perror ("fopen %s", c_file);
+@@ -1906,8 +1911,8 @@
+ 
+   if (debug)
+     {
+-      fprintf (stderr, "\n========== output_file = %s, c_file = %s\n",
+-	       output_file, c_file);
++      fprintf (stderr, "\n========== tmp_output_file = %s, c_file = %s\n",
++	       tmp_output_file, c_file);
+       write_c_file (stderr, "stderr");
+       fprintf (stderr, "========== end of c_file\n\n");
+ #ifdef COLLECT_EXPORT_LIST
+@@ -1939,7 +1944,7 @@
+ 
+   /* Let scan_prog_file do any final mods (OSF/rose needs this for
+      constructors/destructors in shared libraries.  */
+-  scan_prog_file (output_file, PASS_SECOND, SCAN_ALL);
++  scan_prog_file (tmp_output_file, PASS_SECOND, SCAN_ALL);
+ #endif
+ 
+   maybe_unlink (c_file);
+@@ -2313,10 +2318,10 @@
+   char *prefix, *r;
+   int frames = (frame_tables.number > 0);
+ 
+-  /* Figure out name of output_file, stripping off .so version.  */
+-  p = strrchr (output_file, '/');
++  /* Figure out name of tmp_output_file, stripping off .so version.  */
++  p = strrchr (tmp_output_file, '/');
+   if (p == 0)
+-    p = output_file;
++    p = tmp_output_file;
+   else
+     p++;
+   q = p;
+@@ -2348,7 +2353,7 @@
+       *r = '_';
+   if (debug)
+     notice ("\nwrite_c_file - output name is %s, prefix is %s\n",
+-	    output_file, prefix);
++	    tmp_output_file, prefix);
+ 
+   initname = concat ("_GLOBAL__FI_", prefix, NULL);
+   fininame = concat ("_GLOBAL__FD_", prefix, NULL);
+@@ -3255,7 +3260,7 @@
+ }
+ 
+ static void
+-do_dsymutil (const char *output_file) {
++do_dsymutil (const char *tmp_output_file) {
+   const char *dsymutil = DSYMUTIL + 1;
+   struct pex_obj *pex;
+   char **real_argv = XCNEWVEC (char *, 3);
+@@ -3263,7 +3268,7 @@
+ 				    real_argv);
+ 
+   argv[0] = dsymutil;
+-  argv[1] = output_file;
++  argv[1] = tmp_output_file;
+   argv[2] = (char *) 0;
+ 
+   pex = collect_execute (dsymutil, real_argv, NULL, NULL, PEX_LAST | PEX_SEARCH);
+@@ -3275,10 +3280,25 @@
+   if (!(temp_file && flag_idsym) && !flag_dsym)
+     return;
+       
+-  do_dsymutil (output_file);
++  do_dsymutil (tmp_output_file);
+ }
+ #else
++typedef void (*kernelgen_link_t)(const char* input, const char* output);
+ static void
+ process_args (int *argcp ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) { }
+-static void post_ld_pass (bool temp_file ATTRIBUTE_UNUSED) { }
++static void post_ld_pass (bool temp_file ATTRIBUTE_UNUSED) {
++  // Check if environment defines KERNELGEN_PLUGINS_PATH.
++  // If it does not, then use the default setting.
++  char* kernelgen_plugins_path = "/opt/kernelgen/lib/";
++  char* plugins_path = getenv("KERNELGEN_PLUGINS_PATH");
++  if (plugins_path) kernelgen_plugins_path = plugins_path;
++
++  // Load the link-time plugin and execute its link command.
++  const char* filename = "libkernelgen-lt.so";
++  char filepath[strlen(kernelgen_plugins_path) + strlen(filename)];
++  sprintf(filepath, "%s%s", kernelgen_plugins_path, filename);
++  void* handle = dlopen(filepath, RTLD_NOW);
++  kernelgen_link_t kernelgen_link = (kernelgen_link_t)dlsym(handle, "kernelgen_link");
++  kernelgen_link(tmp_output_file, output_file);
++}
+ #endif
+--- a/gcc-4.6.3/build/gcc/Makefile	2012-03-12 23:24:20.298118079 +0300
++++ b/gcc-4.6.3/build/gcc/Makefile	2012-03-12 23:26:13.545700651 +0300
 @@ -50,7 +50,7 @@
  # This must come before the language makefile fragments to allow them to
  # add suffixes and rules of their own.
@@ -336,6 +501,15 @@
  .c.o:
  	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
  
+@@ -2083,7 +2086,7 @@
+ sparseset.o: sparseset.c $(SYSTEM_H) sparseset.h $(CONFIG_H)
+ 
+ COLLECT2_OBJS = collect2.o collect2-aix.o tlink.o intl.o version.o
+-COLLECT2_LIBS = 
++COLLECT2_LIBS = -ldl
+ collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
+ # Don't try modifying collect2 (aka ld) in place--it might be linking this.
+ 	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) -o T$@ \
 @@ -2858,7 +2861,7 @@
  plugin.o : plugin.c $(PLUGIN_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
     $(DIAGNOSTIC_CORE_H) $(TREE_H) $(TREE_PASS_H) intl.h $(PLUGIN_VERSION_H) $(GGC_H)
