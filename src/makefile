@@ -19,8 +19,6 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-include ../makefile.in
-
 #
 # Red Hat notation, could be different, for example, for Debian
 #
@@ -52,5 +50,5 @@ clean:
 	cd libasfermi && $(MAKE) clean
 
 install: frontend libruntime libasfermi
-	perl install $(ARCH) $(PREFIX) $(LIB32) $(LIB64) $(CUDA_PREFIX)
+	perl install $(PREFIX) $(LIB32) $(LIB64)
 

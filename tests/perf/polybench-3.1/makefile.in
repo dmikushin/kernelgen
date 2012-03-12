@@ -9,7 +9,7 @@ TARGETS = 2mm 3mm atax bicg
 all: $(TARGETS)
 
 polybench.o: $(BASE)/utilities/polybench.c
-	$(COMP) -c $< -o $@
+	$(COMP) -DPOLYBENCH_TIME -DPOLYBENCH_PAPI -c $< -o $@
 
 TARGETS_CLEAN = $(addsuffix _*, $(TARGETS))
 
@@ -17,13 +17,13 @@ clean:
 	rm -rf *.o $(TARGETS_CLEAN)
 
 %_base: polybench.o %_base.o
-	$(COMP) $^ -o $@
+	$(COMP) $^ -o $@ -lpapi
 
 %_time: polybench.o %_time.o
-	$(COMP) $^ -o $@
+	$(COMP) $^ -o $@ -lpapi
 
 %_ref: polybench.o %_ref.o
-	$(COMP) $^ -o $@
+	$(COMP) $^ -o $@ -lpapi
 
 %_papi: polybench.o %_papi.o
 	$(COMP) $^ -o $@ -lpapi

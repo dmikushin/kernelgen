@@ -21,17 +21,15 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-if (scalar(@ARGV) != 5)
+if (scalar(@ARGV) != 3)
 {
-	print "Usage: install ARCH PREFIX LIB32 LIB64 CUDA_PREFIX\n";
+	print "Usage: install PREFIX LIB32 LIB64\n";
 	exit;
 }
 
-my($ARCH) = $ARGV[0];
-my($PREFIX) = $ARGV[1];
-my($LIB32) = $ARGV[2];
-my($LIB64) = $ARGV[3];
-my($CUDA_PREFIX) = $ARGV[4];
+my($PREFIX) = $ARGV[0];
+my($LIB32) = $ARGV[1];
+my($LIB64) = $ARGV[2];
 
 `mkdir -p $PREFIX/bin`;
 `mkdir -p $PREFIX/include`;

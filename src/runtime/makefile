@@ -19,8 +19,6 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-include ../../makefile.in
-
 OPT ?= 0
 
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS

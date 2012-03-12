@@ -410,12 +410,14 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 
 	// Aggregate args types into struct type
 	PointerType *StructPtrType;
+	Value* structArg = NULL;
 	if (inputs.size() + outputs.size() > 0)
+	{
 		StructPtrType = PointerType::getUnqual(
-		                    StructType::get(context, paramTy, false /* isPacked */));
-
-	Value* structArg = CastInst::CreatePointerCast(AI, StructPtrType, "",
-	                   FuncRoot->getTerminator());
+			StructType::get(context, paramTy, false /* isPacked */));
+		structArg = CastInst::CreatePointerCast(AI, StructPtrType, "",
+			FuncRoot->getTerminator());
+	}
 
 	// Rewrite all users of the inputs in the cloned region to use the
 	// arguments (or appropriate addressing into struct) instead.
