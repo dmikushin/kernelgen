@@ -55,6 +55,7 @@ foreach $include (@includes)
 #
 my(@libraries) = (
 	"frontend/libkernelgen-ct.so",
+	"frontend/libkernelgen-lt.so",
 	"runtime/libkernelgen.a",
 	"libasfermi/libasfermi.so",
 	"libasfermi/tests/dyloader/libdyloader.so");

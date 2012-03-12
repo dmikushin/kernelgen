@@ -19,10 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "kernelgen.h"
-#include "runtime/elf.h"
 #include "runtime/runtime.h"
-#include "runtime/util.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -51,18 +48,14 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/Verifier.h"
 
-using namespace kernelgen;
 using namespace llvm;
 using namespace std;
-using namespace util::elf;
-using namespace util::io;
 
-int link(list<string> args, list<string> kgen_args,
-	string merge, list<string> merge_args,
-	string input, string output, int arch,
-	string host_compiler, string fileprefix)
+extern "C" void kernelgen_link(const char* input, const char* output)
 {
-	//
+	rename(input, output);
+
+	/*//
 	// 1) Check if there is "-c" option around. In this
 	// case there is just compilation, not linking, but
 	// in a way we do not know how to handle.
@@ -171,7 +164,7 @@ int link(list<string> args, list<string> kgen_args,
 		// a library. In this case every public symbol
 		// must be treated as main entry.
 		THROW("Cannot find object containing main entry");
-	}
+	}*/
 	
 	//
 	// 3) Convert global variables into main entry locals and
@@ -248,7 +241,7 @@ int link(list<string> args, list<string> kgen_args,
 		// Replace uses of globals with uses of local globals struct.
 	}*/
 
-	//
+	/*//
 	// 4) Rename main entry and insert another one
 	// into composite module.
 	//
@@ -663,6 +656,6 @@ int link(list<string> args, list<string> kgen_args,
 		if (status) return status;
 	}
 	
-	return 0;
+	return 0;*/
 }
 
