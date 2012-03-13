@@ -49,6 +49,6 @@ clean:
 	cd runtime && $(MAKE) clean
 	cd libasfermi && $(MAKE) clean
 
-install: frontend libruntime libasfermi
+install: frontend libruntime
 	perl install $(PREFIX) $(LIB32) $(LIB64)
 

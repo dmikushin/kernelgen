@@ -37,6 +37,16 @@ my($LIB64) = $ARGV[2];
 `mkdir -p $PREFIX/$LIB64`;
 
 #
+# Copy binaries to install path.
+#
+my(@binaries) = (
+	"frontend/kernelgen-simple");
+foreach $binary (@binaries)
+{
+	`cp $binary $PREFIX\/bin\/`;
+}
+
+#
 # Copy includes to install path.
 #
 my(@includes) = (
