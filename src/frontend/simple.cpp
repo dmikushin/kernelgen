@@ -75,7 +75,7 @@ int compile(list<string> args, list<string> kgen_args,
 	//
 	// The LLVM compiler to emit IR.
 	//
-	const char* llvm_compiler = "kernelgen-gfortran";
+	const char* llvm_compiler = "KERNELGEN_FALLBACK=1 kernelgen-gfortran";
 
 	//
 	// Interpret kernelgen compile options.

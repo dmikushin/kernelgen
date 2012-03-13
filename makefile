@@ -1,19 +1,15 @@
-.PHONY: src tests
+.PHONY: src
 
-all: src tests
-
-src:
-	cd src && $(MAKE)
+all: src
 
 install:
 	cd src && $(MAKE) install
 
-tests: src
-	cd tests && $(MAKE) && $(MAKE) tests
+src:
+	cd src && $(MAKE)
 
 clean:
 	cd src && $(MAKE) clean
-	cd tests && $(MAKE) clean
 
 deb:
 	rm -rf ~/rpmbuild/BUILDROOT/kernelgen

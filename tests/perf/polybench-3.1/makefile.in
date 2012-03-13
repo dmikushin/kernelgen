@@ -1,4 +1,4 @@
-COMP = kernelgen-gcc -include malloc.h
+COMP = kernelgen-simple -include malloc.h
 
 BASE = ../..
 

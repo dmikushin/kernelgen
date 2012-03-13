@@ -52,5 +52,5 @@ FixPointers.o: FixPointers.cpp
 	g++ -g -fPIC $(LLVM_INC) -c $< -o $@
 
 clean:
-	rm -rf libkernelgen-ct.so libkernelgen-lt.so *.o
+	rm -rf kernelgen-simple libkernelgen-ct.so libkernelgen-lt.so *.o
 
