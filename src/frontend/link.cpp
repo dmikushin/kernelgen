@@ -53,6 +53,9 @@ using namespace std;
 
 extern "C" void kernelgen_link(const char* input, const char* output)
 {
+	printf("input=%s\n", input);
+	printf("output=%s\n", output);
+
 	rename(input, output);
 
 	/*//

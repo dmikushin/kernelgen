@@ -10,7 +10,7 @@ KERNELGEN_INC = -I.. -I../include -I../libasfermi/tests/dyloader
 
 all: libkernelgen-ct.so libkernelgen-lt.so
 
-OBJECTS_CT := kernelgen-ct BranchedLoopExtractor BranchedCodeExtractor FixUsingOfMalloc
+OBJECTS_CT := kernelgen-ct BranchedLoopExtractor BranchedCodeExtractor FixPointers
 OBJECTS_CT := $(addsuffix .o, $(OBJECTS_CT))
 
 OBJECTS_LT := kernelgen-lt
@@ -34,7 +34,7 @@ BranchedLoopExtractor.o: BranchedLoopExtractor.cpp
 BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
 	g++ -g -fPIC $(LLVM_INC) -c $< -o $@
 
-FixUsingOfMalloc.o: FixUsingOfMalloc.cpp
+FixPointers.o: FixPointers.cpp
 	g++ -g -fPIC $(LLVM_INC) -c $< -o $@
 
 clean:
