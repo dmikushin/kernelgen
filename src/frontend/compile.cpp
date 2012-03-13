@@ -51,7 +51,8 @@ using namespace std;
 
 int plugin_is_GPL_compatible;
 
-Pass* createFixUsingOfMallocPass();
+Pass* createFixPointersPass();
+Pass* createMoveUpCastsPass();
 
 extern string dragonegg_result;
 
@@ -84,8 +85,9 @@ extern "C" void callback (void*, void*)
 	{
 		std::vector<CallInst*> LoopFuctionCalls;
 		PassManager manager;
+                manager.add(createFixPointersPass());
 		manager.add(createInstructionCombiningPass());
-		manager.add(createFixUsingOfMallocPass());
+                manager.add(createMoveUpCastsPass());
 		manager.add(createInstructionCombiningPass());
 		manager.add(createBranchedLoopExtractorPass(LoopFuctionCalls));
 		manager.run(*m.get());
