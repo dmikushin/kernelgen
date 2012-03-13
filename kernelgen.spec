@@ -37,7 +37,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r704.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r705.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -141,7 +141,7 @@ cd build/
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xf $RPM_SOURCE_DIR/kernelgen-r704.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r705.tar.gz
 cd $RPM_BUILD_DIR/kernelgen
 ./configure
 cd $RPM_BUILD_DIR

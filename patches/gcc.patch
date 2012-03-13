@@ -418,15 +418,15 @@
 +  // In case of fallback, the process is similar to the
 +  // regular gcc's collect: no any extra activities, just
 +  // generate directly to the output file and done.
++  sprintf(tmp_output_file_cont, "%s/XXXXXX", P_tmpdir);
++  mkstemp(tmp_output_file_cont);
++  tmp_output_file = tmp_output_file_cont;
 +  const char* cfallback = getenv("KERNELGEN_FALLBACK");
-+  tmp_output_file = output_file;
 +  if (cfallback) {
 +    int fallback = atoi(cfallback);
 +    if (fallback) {
-+      sprintf(tmp_output_file_cont, "%s/XXXXXX", P_tmpdir);
-+      mkstemp(tmp_output_file_cont);
++      tmp_output_file = output_file;
 +    }
-+    tmp_output_file = tmp_output_file_cont;
 +  }
  
    obstack_begin (&temporary_obstack, 0);
