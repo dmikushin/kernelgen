@@ -43,16 +43,16 @@ namespace {
   struct BranchedLoopExtractor  : public LoopPass {
     static char ID; // Pass identification, replacement for typeid
     unsigned NumLoops;
-    std::vector<CallInst *> * LoopFuctionCalls; 
+    std::vector<CallInst *> * LoopFunctionCalls; 
    explicit BranchedLoopExtractor(unsigned numLoops = ~0) 
       : LoopPass(ID), NumLoops(numLoops)
 	  {
-          LoopFuctionCalls = NULL;
+          LoopFunctionCalls = NULL;
 		  initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
       }
       
 	  explicit BranchedLoopExtractor(std::vector<CallInst *> & LFC, unsigned numLoops = ~0) 
-      : LoopPass(ID), NumLoops(numLoops), LoopFuctionCalls(&LFC)
+      : LoopPass(ID), NumLoops(numLoops), LoopFunctionCalls(&LFC)
 	  {
         initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
       }
@@ -152,8 +152,8 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM) {
       // After extraction, the loop is replaced by a function call, so
       // we shouldn't try to run any more loop passes on it.
 	  
-	  if(LoopFuctionCalls)
-	      LoopFuctionCalls->push_back(Call);
+	  if(LoopFunctionCalls)
+	      LoopFunctionCalls->push_back(Call);
       LPM.deleteLoopFromQueue(L);
     }
     ++NumBranchedExtracted;

@@ -51,7 +51,7 @@ void FixPointers::FixPointersInModule(Module *m)
 			int64_t constantIndex = 0;
 			bool isConstant = false;
 			int64_t indexCoefficient = 0;
-			BinaryOperator * instIndex;
+			BinaryOperator * instIndex = NULL;
 			// <handle non constant indexes >
 			if( isa<BinaryOperator>(*GEPIndex) ) {
 				instIndex = dyn_cast<BinaryOperator>(GEPIndex);
