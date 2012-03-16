@@ -61,6 +61,8 @@ extern string dragonegg_result;
 // attach it to the assembly as extra string global variables.
 extern "C" void callback (void*, void*)
 {
+	//cout << dragonegg_result << endl;
+
 	//
 	// 1) Append "always inline" attribute to all existing functions.
 	//

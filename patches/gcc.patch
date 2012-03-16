@@ -1,6 +1,6 @@
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-4.6.3/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
-@@ -0,0 +1,263 @@
+@@ -0,0 +1,281 @@
 +/* main.c: defines main() for cc1, cc1plus, etc.
 +   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
 +
@@ -201,17 +201,34 @@
 +    // Create new argc & argv.
 +    int compiler_argc = argc + 5; // + 5 more arguments
 +    vector<const char*> compiler_argv_vector;
-+    compiler_argv_vector.resize(compiler_argc);
++    compiler_argv_vector.resize(compiler_argc + 1); // + 1 for terminator
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
 +    compiler_argv[0] = argv[0];
-+    int i = 0; for ( ; i < argc; i++)
-+      compiler_argv[i] = argv[i];
++    int i = 0; for (int ii = 0; ii < argc; ii++)
++    {
++      // For DragonEgg do not allow any kind of -O option.
++      if (!strcmp(argv[ii], "-O" ) ||
++          !strcmp(argv[ii], "-O0") ||
++          !strcmp(argv[ii], "-O1") ||
++          !strcmp(argv[ii], "-O2") ||
++          !strcmp(argv[ii], "-O3") ||
++          !strcmp(argv[ii], "-Os") ||
++          !strcmp(argv[ii], "-Ofast"))
++      {
++        compiler_argc--;
++        continue;
++      }
++
++      compiler_argv[i] = argv[ii];
++      i++;
++    }
 +    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "dragonegg.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
 +    compiler_argv[i++] = "-D_KERNELGEN";
++    compiler_argv[i] = NULL;
 +
 +    rcompiler = toplev_main(compiler_argc, compiler_argv);
 +  }
@@ -250,7 +267,7 @@
 +    // Create new argc & argv.
 +    int compiler_argc = argc + 2; // + 2 more arguments
 +    vector<const char*> compiler_argv_vector;
-+    compiler_argv_vector.resize(compiler_argc);
++    compiler_argv_vector.resize(compiler_argc + 1); // + 1 for terminator
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
 +    compiler_argv[0] = argv[0];
 +    int i = 0; for ( ; i < argc; i++)
@@ -258,6 +275,7 @@
 +    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "libkernelgen-ct.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-D_KERNELGEN";
++    compiler_argv[i] = NULL;
 +
 +    rcompiler = toplev_main(compiler_argc, compiler_argv);
 +  }
