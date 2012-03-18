@@ -13,15 +13,21 @@ KERNELGEN_LIB = -L../runtime -lkernelgen -lelf -lmhash -ldl \
 	-L${HOME}/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
 	-L${HOME}/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl -lffi -lrt -lgmp
 
+BUGPOINT_ROOT ?= $(LLVM_ROOT)/tools/bugpoint
+
 all: libkernelgen-ct.so libkernelgen-lt.so kernelgen-simple
 
-OBJECTS_CT := kernelgen-ct BranchedLoopExtractor BranchedCodeExtractor FixPointers
+BUGPOINT := BugDriver CrashDebugger ExtractFunction Miscompilation ToolRunner \
+	bugpoint ExecutionDriver FindBugs OptimizerDriver
+BUGPOINT := $(addsuffix .bugpoint, $(BUGPOINT))
+
+OBJECTS_CT := kernelgen-ct BranchedLoopExtractor BranchedCodeExtractor FixPointers $(BUGPOINT)
 OBJECTS_CT := $(addsuffix .o, $(OBJECTS_CT))
 
 OBJECTS_LT := kernelgen-lt
 OBJECTS_LT := $(addsuffix .o, $(OBJECTS_LT))
 
-OBJECTS_KS := simple BranchedLoopExtractor BranchedCodeExtractor FixPointers
+OBJECTS_KS := simple BranchedLoopExtractor BranchedCodeExtractor FixPointers $(BUGPOINT)
 OBJECTS_KS := $(addsuffix .o, $(OBJECTS_KS))
 
 libkernelgen-ct.so: $(OBJECTS_CT)
@@ -40,7 +46,7 @@ kernelgen-lt.o: link.cpp
 	g++ -g -fPIC $(KERNELGEN_INC) $(LLVM_INC) -fPIC -c $< -o $@
 
 simple.o: simple.cpp
-	g++ -g $(KERNELGEN_INC) $(LLVM_INC) -c $< -o $@
+	g++ -g -I$(BUGPOINT_ROOT) $(KERNELGEN_INC) $(LLVM_INC) -c $< -o $@
 
 BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
 	g++ -g -fPIC $(LLVM_INC) -fno-rtti -c $< -o $@
@@ -50,6 +56,9 @@ BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
 
 FixPointers.o: FixPointers.cpp
 	g++ -g -fPIC $(LLVM_INC) -c $< -o $@
+
+%.bugpoint.o: $(BUGPOINT_ROOT)/%.cpp
+	g++ -Dmain=bugpoint -g -fPIC $(LLVM_INC) -c $< -o $@
 
 clean:
 	rm -rf kernelgen-simple libkernelgen-ct.so libkernelgen-lt.so *.o

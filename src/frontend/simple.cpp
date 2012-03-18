@@ -39,146 +39,317 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/IRReader.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/PrettyStackTrace.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
+#include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/Verifier.h"
 
+#include "llvm/Constants.h"
+#include "llvm/LLVMContext.h"
+#include "llvm/Instructions.h"
+#include "llvm/Module.h"
+#include "llvm/PassManager.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/IRReader.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/TypeBuilder.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/FunctionUtils.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
+
+#include "BugDriver.h"
+
 #include "BranchedLoopExtractor.h"
 
 using namespace kernelgen;
 using namespace kernelgen::runtime;
 using namespace llvm;
+using namespace llvm::sys;
+using namespace llvm::sys::fs;
 using namespace std;
 using namespace util::elf;
 using namespace util::io;
 
-static bool a_ends_with_b(const string& a, const string& b)
+// The regular compiler frontend.
+const char* compiler = "kernelgen-gfortran";
+
+// The linker program.
+const char* linker = "ld";
+
+// Tracker to catch and inspect the crashing LLVM passes.
+class PassTracker
 {
-	if (b.size() > a.size()) return false;
-	return std::equal(a.begin() + a.size() - b.size(), a.end(), b.begin());
+	list<Pass*> passes;
+
+	Module* module;
+	
+	string input;
+
+	// Run the same passes in the bugpoint.
+	static void handler(void* instance)
+	{
+		PassTracker* tracker = (PassTracker*)instance;
+	
+		// Initialize the bug driver
+		bool FindBugs = false;
+		int TimeoutValue = 300;
+		int MemoryLimit = -1;
+		bool UseValgrind = false;
+		BugDriver D("kernelgen-simple", FindBugs, TimeoutValue, MemoryLimit,
+			UseValgrind, getGlobalContext());
+		D.setNewProgram(tracker->module);
+
+		// Add currently tracked passes.
+		for (list<Pass*>::iterator i = tracker->passes.begin(),
+			e = tracker->passes.end(); i != e; i++)
+		{
+			const void *ID = (*i)->getPassID();
+			const PassInfo *PI = PassRegistry::getPassRegistry()->getPassInfo(ID);
+			if (PI) 
+			{ D.addPass(PI->getPassArgument()); cout << PI->getPassArgument() << endl; }
+			else { D.addPass((*i)->getPassName()); cout << (*i)->getPassName() << endl; }
+		}
+
+		// Reduce the test case.
+		D.debugOptimizerCrash(tracker->input);
+	}
+
+public:
+	PassTracker() : input("foo"), module(NULL)
+	{
+		sys::AddSignalHandler(PassTracker::handler, this);
+	}
+
+	void reset()
+	{
+		passes.clear();
+		if (module)
+		{
+			delete module;
+			module = NULL;
+		}
+	}
+
+	void add(Pass *P)
+	{
+		passes.push_back(P);
+	}
+	
+	void run(Module* M)
+	{
+		module = CloneModule(M);
+	}
+}
+*tracker;
+
+
+class TrackedPassManager : public PassManager
+{
+	PassTracker* tracker;
+
+public:
+	TrackedPassManager(PassTracker* tracker) :
+		PassManager(), tracker(tracker) { }
+
+	virtual void add(Pass *P)
+	{
+		tracker->add(P);
+		PassManager::add(P);
+	}
+	
+	virtual bool run(Module &M)
+	{
+		tracker->run(&M);
+		return PassManager::run(M);
+	}
+	
+	~TrackedPassManager()
+	{
+		tracker->reset();
+	}
+};
+
+
+static bool a_ends_with_b(const char* a, const char* b)
+{
+	if (strlen(b) > strlen(a)) return false;
+	return equal(a + strlen(a) - strlen(b), a + strlen(a), b);
 }
 
 Pass* createFixPointersPass();
 
-int compile(list<string> args, list<string> kgen_args,
-	string merge, list<string> merge_args,
-	string input, string output, int arch,
-	string host_compiler, string fileprefix)
+static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
+{
+	PM.add(createInstructionCombiningPass());
+	PM.add(createFixPointersPass());
+	PM.add(createInstructionCombiningPass());
+	PM.add(createBranchedLoopExtractorPass());
+}
+
+static int compile(int argc, char** argv, const char* input, const char* output)
 {
 	//
-	// The LLVM compiler to emit IR.
+	// 1) Compile source code using the regular compiler.
+	// Place output to the temporary file.
 	//
-	const char* llvm_compiler = "KERNELGEN_FALLBACK=1 kernelgen-gfortran";
-
-	//
-	// Interpret kernelgen compile options.
-	//
-	for (list<string>::iterator iarg = kgen_args.begin(),
-		iearg = kgen_args.end(); iarg != iearg; iarg++)
+	int fd;
+	string tmp_mask = "%%%%%%%%";
+	SmallString<128> gcc_output_vector;
+	if (unique_file(tmp_mask, fd, gcc_output_vector))
 	{
-		const char* arg = (*iarg).c_str();		
-		if (!strncmp(arg, "-Wk,--llvm-compiler=", 20))
-			llvm_compiler = arg + 20;
+		cout << "Cannot generate gcc output file name" << endl;
+		return 1;
 	}
-
-	//
-	// Generate temporary output file.
-	// Check if output file is specified in the command line.
-	// Replace or add output to the temporary file.
-	//
-	cfiledesc tmp_output = cfiledesc::mktemp(fileprefix);
-	bool output_specified = false;
-	for (list<string>::iterator iarg = args.begin(),
-		iearg = args.end(); iarg != iearg; iarg++)
+	string gcc_output = (StringRef)gcc_output_vector;
+	close(fd);
+	string err;
+	tool_output_file object(gcc_output.c_str(), err, raw_fd_ostream::F_Binary);
+	if (!err.empty())
 	{
-		const char* arg = (*iarg).c_str();
-		if (!strcmp(arg, "-o"))
+		cerr << "Cannot open output file" << gcc_output << endl;
+		return 1;
+	}
+	{
+		// Replace or add temporary output to the command line.
+		vector<const char*> args;
+		args.reserve(argc);
+		for (int i = 0; argv[i]; i++)
 		{
-			iarg++;
-			*iarg = tmp_output.getFilename();
-			output_specified = true;
-			break;
+			if (!strcmp(argv[i], "-o"))
+			{
+				i++;
+				continue;
+			}
+			args.push_back(argv[i]);
 		}
-	}
-	if (!output_specified)
-	{
 		args.push_back("-o");
-		args.push_back(tmp_output.getFilename());
+		args.push_back(gcc_output.c_str());
+		args.push_back(NULL);
+		args[0] = compiler;
+		if (verbose)
+		{
+			cout << args[0];
+			for (int i = 1; args[i]; i++)
+				cout << " " << args[i];
+			cout << endl;
+		}
+		const char** envp = const_cast<const char **>(environ);
+		vector<const char*> env;
+		for (int i = 0; envp[i]; i++)
+			env.push_back(envp[i]);
+		env.push_back("KERNELGEN_FALLBACK=1");
+		env.push_back(NULL);
+		int status = Program::ExecuteAndWait(
+			Program::FindProgramByName(compiler), &args[0],
+			&env[0], NULL, 0, 0, &err);
+		if (status)
+		{
+			cerr << err << endl;
+			return status;
+		}
 	}
 
 	//
-	// 1) Compile source code using regular host compiler.
+	// 2) Emit LLVM IR with DragonEgg.
 	//
+	LLVMContext &context = getGlobalContext();
+	auto_ptr<Module> m;
 	{
-		if (verbose)
+		SmallString<128> llvm_output_vector;
+		if (unique_file(tmp_mask, fd, llvm_output_vector))
 		{
-			cout << host_compiler;
-			for (list<string>::iterator iarg = args.begin(),
-				iearg = args.end(); iarg != iearg; iarg++)
-				cout << " " << *iarg;
-			cout << endl;
+			cout << "Cannot generate gcc output file name" << endl;
+			return 1;
 		}
-		int status = execute(host_compiler, args, "", NULL, NULL);
-		if (status) return status;
-	}
+		string llvm_output = (StringRef)llvm_output_vector;
+		close(fd);
+		tool_output_file llvm_object(llvm_output.c_str(), err, raw_fd_ostream::F_Binary);
+		if (!err.empty())
+		{
+			cerr << "Cannot open output file" << llvm_output.c_str() << endl;
+			return 1;
+		}
 
-	//
-	// 2) Emit LLVM IR.
-	//
-	string out = "";
-	{
-		list<string> emit_ir_args;
-		for (list<string>::iterator iarg = args.begin(),
-			iearg = args.end(); iarg != iearg; iarg++)
+		vector<const char*> args;
+		args.reserve(argc);
+		for (int i = 0; argv[i]; i++)
 		{
-			const char* arg = (*iarg).c_str();
-			if (!strcmp(arg, "-c") || !strcmp(arg, "-o"))
-			{
-				iarg++;
+			if (!strcmp(argv[i], "-g")) continue;
+			if (!strcmp(argv[i], "-c")) continue;
+			if (!strcmp(argv[i], "-o")) {
+				i++; // skip next
 				continue;
 			}
-			if (!strcmp(arg, "-g"))
-			{
-				continue;
-			}
-			emit_ir_args.push_back(*iarg);
+			args.push_back(argv[i]);
 		}
-		emit_ir_args.push_back("-fplugin=/opt/kernelgen/lib/dragonegg.so");
-		emit_ir_args.push_back("-fplugin-arg-dragonegg-emit-ir");
-		emit_ir_args.push_back("-fplugin-arg-dragonegg-llvm-ir-optimize=0");
-		//emit_ir_args.push_back("-fplugin-arg-dragonegg-llvm-option=-vectorize");
-		emit_ir_args.push_back("-D_KERNELGEN");
-		emit_ir_args.push_back("-S");
-		emit_ir_args.push_back(input);
-		emit_ir_args.push_back("-o");
-		emit_ir_args.push_back("-");
+		args.push_back("-fplugin=/opt/kernelgen/lib/dragonegg.so");
+		args.push_back("-fplugin-arg-dragonegg-emit-ir");
+		args.push_back("-fplugin-arg-dragonegg-llvm-ir-optimize=0");
+		args.push_back("-D_KERNELGEN");
+		args.push_back("-S");
+		args.push_back("-o"); 
+		args.push_back(llvm_output.c_str());
+		args.push_back(NULL);
+		args[0] = compiler;
 		if (verbose)
 		{
-			cout << llvm_compiler;
-			for (list<string>::iterator iarg = emit_ir_args.begin(),
-				iearg = emit_ir_args.end(); iarg != iearg; iarg++)
-				cout << " " << *iarg;
+			cout << args[0];
+			for (int i = 1; args[i]; i++)
+				cout << " " << args[i];
 			cout << endl;
 		}
-		int status = execute(llvm_compiler, emit_ir_args, "", &out, NULL);
-		if (status) return status;
+		const char** envp = const_cast<const char **>(environ);
+		vector<const char*> env;
+		for (int i = 0; envp[i]; i++)
+			env.push_back(envp[i]);
+		env.push_back("KERNELGEN_FALLBACK=1");
+		env.push_back(NULL);
+		int status = Program::ExecuteAndWait(
+			Program::FindProgramByName(compiler), &args[0],
+			&env[0], NULL, 0, 0, &err);
+		if (status)
+		{
+			cerr << err << endl;
+			return status;
+		}
+
+		SMDiagnostic diag;
+		m.reset(getLazyIRFileModule(llvm_output.c_str(), diag, context));
 	}
 
 	//
 	// 3) Append "always inline" attribute to all existing functions.
 	//
-	LLVMContext &context = getGlobalContext();
-	SMDiagnostic diag;
-	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(out);
-	auto_ptr<Module> m;
-	m.reset(ParseIR(buffer1, diag, context));
 	for (Module::iterator f = m.get()->begin(), fe = m.get()->end(); f != fe; f++)
 	{
 		Function* func = f;
@@ -189,59 +360,133 @@ int compile(list<string> args, list<string> kgen_args,
 		func->setAttributes(attr_new);
 	}
 	
-	//m.get()->dump();
-
 	//
 	// 4) Inline calls and extract loops into new functions.
+	// Apply optimization passes to the resulting common module.
 	//
 	{
-		std::vector<CallInst*> LoopFuctionCalls;
-		PassManager manager;
-		manager.add(createInstructionCombiningPass());
-		manager.add(createFixPointersPass());
-		manager.add(createInstructionCombiningPass());
-		manager.add(createBranchedLoopExtractorPass(LoopFuctionCalls));
-		manager.run(*m.get());
-	}
-
-	//m.get()->dump();
-
-	//
-	// 5) Apply optimization passes to the resulting common
-	// module.
-	//
-	{
-		PassManager manager;
-		//manager.add(createLowerSetJmpPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
+		builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
+			addKernelgenPasses);
+		TrackedPassManager manager(tracker);
 		builder.populateModulePassManager(manager);
 		manager.run(*m.get());
 	}
-	 
-	if (verbose & KERNELGEN_VERBOSE_SOURCES) m.get()->dump();
 
 	//
-	// 6) Embed the resulting module into object file.
+	// 5) Embed the resulting module into object file.
 	//
 	{
+		SmallString<128> llvm_output_vector;
+		if (unique_file(tmp_mask, fd, llvm_output_vector))
+		{
+			cout << "Cannot generate gcc output file name" << endl;
+			return 1;
+		}
+		string llvm_output = (StringRef)llvm_output_vector;
+		close(fd);
+		tool_output_file llvm_object(llvm_output.c_str(), err, raw_fd_ostream::F_Binary);
+		if (!err.empty())
+		{
+			cerr << "Cannot open output file" << llvm_output.c_str() << endl;
+			return 1;
+		}
+
+		// Put the resulting module into LLVM output file
+		// as object binary. Method: create another module
+		// with a global variable incorporating the contents
+		// of entire module and emit it for X86_64 target.
 		string ir_string;
 		raw_string_ostream ir(ir_string);
 		ir << (*m.get());
-		celf e(tmp_output.getFilename(), output);
-		e.getSection(".data")->addSymbol(
-			"__kernelgen_" + string(input),
-			ir_string.c_str(), ir_string.size() + 1);
+		Module obj_m("kernelgen", context);
+		Constant* name = ConstantDataArray::getString(context, ir_string, true);
+		GlobalVariable* GV1 = new GlobalVariable(obj_m, name->getType(),
+			true, GlobalValue::LinkerPrivateLinkage, name,
+			"__kernelgen_" + string(input), 0, false);
+
+		InitializeAllTargets();
+		InitializeAllTargetMCs();
+		InitializeAllAsmPrinters();
+		InitializeAllAsmParsers();
+
+		Triple triple(m->getTargetTriple());
+		if (triple.getTriple().empty())
+			triple.setTriple(sys::getDefaultTargetTriple());
+		string err;
+		TargetOptions options;
+		const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
+		if (!target)
+		{
+			cerr << "Error auto-selecting target for module '" << err << endl;
+			return 1;
+		}
+		auto_ptr<TargetMachine> machine;
+		machine.reset(target->createTargetMachine(
+		        triple.getTriple(), "", "", options, Reloc::PIC_, CodeModel::Default));
+		if (!machine.get())
+		{
+			cerr <<  "Could not allocate target machine" << endl;
+			return 1;
+		}
+
+		const TargetData* tdata = machine.get()->getTargetData();
+		PassManager manager;
+		manager.add(new TargetData(*tdata));
+
+		tool_output_file object(llvm_output.c_str(), err, raw_fd_ostream::F_Binary);
+		if (!err.empty())
+		{
+			cerr << "Cannot open output file" << llvm_output.c_str() << endl;
+			return 1;
+		}
+
+		formatted_raw_ostream fos(object.os());
+		if (machine.get()->addPassesToEmitFile(manager, fos,
+	        TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
+		{
+			cerr << "Target does not support generation of this file type" << endl;
+			return 1;
+		}
+
+		manager.run(obj_m);
+		fos.flush();
+
+		vector<const char*> args;
+		args.push_back(linker);
+		args.push_back("--unresolved-symbols=ignore-all");
+		args.push_back("-r");
+		args.push_back("-o");
+		args.push_back(output);
+		args.push_back(gcc_output.c_str());
+		args.push_back(llvm_output.c_str());
+		args.push_back(NULL);
+		if (verbose)
+		{
+			cout << args[0];
+			for (int i = 1; args[i]; i++)
+				cout << " " << args[i];
+			cout << endl;
+		}
+		int status = Program::ExecuteAndWait(
+			Program::FindProgramByName(linker), &args[0],
+			NULL, NULL, 0, 0, &err);
+		if (status)
+		{
+			cerr << err << endl;
+			return status;
+		}
 	}
 
 	return 0;
 }
 
-int link(list<string> args, list<string> kgen_args,
+int link(list<string>& args, list<string>& kgen_args,
 	string merge, list<string> merge_args,
-	string input, string output, int arch,
+	const char* input, const char* output, int arch,
 	string host_compiler, string fileprefix)
 {
 	//
@@ -356,79 +601,9 @@ int link(list<string> args, list<string> kgen_args,
 	}
 	
 	//
-	// 3) Convert global variables into main entry locals and
+	// 3) TODO: Convert global variables into main entry locals and
 	// arguments of loops functions.
 	//
-	/*{
-		// Form the type of structure to hold global variables.
-		// Constant globals are excluded from structure.
-		std::vector<Type*> paramTy;
-		for (Module::global_iterator i = composite.global_begin(),
-			ie = composite.global_end(); i != ie; i++)
-		{
-			GlobalVariable* gvar = i;
-			if (i->isConstant()) continue;
-			paramTy.push_back(i->getType());
-		}
-		Type* structTy = StructType::get(context, paramTy, true);
-
-		// Allocate globals structure in the beginning of main.
-		Instruction* first = composite.getFunction("main")->begin()->begin();
-		AllocaInst* structArg = new AllocaInst(structTy, 0, "", first);
-
-		// Fill globals structure with initial values of globals.
-		int ii = 0;
-		vector<GlobalVariable*> remove;
-		for (Module::global_iterator i = composite.global_begin(),
-			ie = composite.global_end(); i != ie; i++)
-		{
-			GlobalVariable* gvar = i;
-			if (gvar->isConstant()) continue;
-
-			// Generate index.
-			Value *Idx[2];
-			Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-			Idx[1] = ConstantInt::get(Type::getInt32Ty(context), ii);
-
-			// Get address of "globals[i]" in struct.
-			GetElementPtrInst *GEP = GetElementPtrInst::Create(
-				structArg, Idx, "", first);
-
-			if (gvar->hasInitializer())
-			{
-				// Store initial value to that address.
-				StoreInst *SI = new StoreInst(gvar->getInitializer(), GEP, false, first);
-			}
-
-			// TODO: Replace all uses with GEP & LoadInst.
-			// gvar->replaceAllUsesWith(GEP);
-			for (Value::use_iterator i = gvar->use_begin(),
-				ie = gvar->use_end(); i != ie; i++)
-			{
-				LoadInst* LI = new LoadInst(GEP, "", *i);
-				i->replaceAllUsesWith(LI);
-			}
-
-			remove.push_back(gvar);
-			
-			ii++;
-		}
-		
-		// Erase replaced globals.
-		for (vector<GlobalVariable*>::iterator i = remove.begin(), ie = remove.end();
-			i != ie; i++)
-		{
-			GlobalVariable* gvar = *i;
-			gvar->eraseFromParent();
-		}
-
-		//composite.dump();
-
-		// For each loop function add globals structure
-		// as an argument.
-
-		// Replace uses of globals with uses of local globals struct.
-	}*/
 
 	//
 	// 4) Rename main entry and insert another one
@@ -521,9 +696,8 @@ int link(list<string> args, list<string> kgen_args,
 	// module.
 	//
 	{
-		PassManager manager;
+		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(&composite));
-		//manager.add(createLowerSetJmpPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = 3;
@@ -586,7 +760,7 @@ int link(list<string> args, list<string> kgen_args,
 					main->Dematerialize(func);
 				}
 
-		PassManager manager;
+		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(main.get()));
 		
 		// Delete functions called through launcher.
@@ -612,7 +786,7 @@ int link(list<string> args, list<string> kgen_args,
 		std::auto_ptr<Module> loops;
 		loops.reset(CloneModule(&composite));
 		{
-			PassManager manager;
+			TrackedPassManager manager(tracker);
 			manager.add(new TargetData(loops.get()));
 
 			std::vector<GlobalValue*> plain_functions;
@@ -643,7 +817,7 @@ int link(list<string> args, list<string> kgen_args,
 					remove_functions.push_back(f2);
 			}
 			
-			PassManager manager;
+			TrackedPassManager manager(tracker);
 			manager.add(new TargetData(loop.get()));
 
 			// Delete all loops functions, except entire one.
@@ -677,7 +851,7 @@ int link(list<string> args, list<string> kgen_args,
 	// 8) Delete all plain functions, except main out of "main" module.
 	//
 	{
-		PassManager manager;
+		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(main.get()));
 
 		std::vector<GlobalValue*> plain_functions;
@@ -793,10 +967,7 @@ int link(list<string> args, list<string> kgen_args,
 			merge_args_ext.push_back(tmp_object.getFilename() + "_");
 			merge_args_ext.push_back(tmp_object.getFilename());
 			merge_args_ext.push_back("--whole-archive");
-			if (arch == 32)
-				merge_args_ext.push_back("/opt/kernelgen/lib/libkernelgen.a");
-			else
-				merge_args_ext.push_back("/opt/kernelgen/lib64/libkernelgen.a");
+			merge_args_ext.push_back("/opt/kernelgen/lib/libkernelgen.a");
 			if (verbose)
 			{
 				cout << merge;
@@ -848,101 +1019,49 @@ int link(list<string> args, list<string> kgen_args,
 	return 0;
 }
 
-// Main entry is in runtime's entry.cpp
 extern "C" int __regular_main(int argc, char* argv[])
 {
+	llvm::PrettyStackTraceProgram X(argc, argv);
+
 	cout << "kernelgen: note \"simple\" is a development frontend not intended for regular use!" << endl;
 
-	//
 	// Behave like compiler if no arguments.
-	//
 	if (argc == 1)
 	{
 		cout << "kernelgen: no input files" << endl;
 		return 0;
 	}
 
-	//
 	// Enable or disable verbose output.
-	//
 	char* cverbose = getenv("kernelgen_verbose");
 	if (cverbose) verbose = atoi(cverbose);
 
-	//
-	// Switch to bypass the kernelgen pipe and use regular compiler only.
-	//
-	int bypass = 0;
-	
-	//
-	// Target architecture.
-	//
-	int arch = 64;
-
-	//
-	// The regular compiler used for host-side source code.
-	// Will be selected, depending on extension.
-	//
-	const char* host_compiler = "gcc";
-
-	//
 	// Supported source code files extensions.
-	//
-	map<string, string> source_ext;
-	source_ext[".c"]   = "gcc";
-	source_ext[".cpp"] = "g++";
-	source_ext[".f"]   = "gfortran";
-	source_ext[".f90"] = "gfortran";
-	source_ext[".F"]   = "gfortran";
-	source_ext[".F90"] = "gfortran";
+	vector<const char*> ext;
+	ext.push_back(".c");
+	ext.push_back(".cpp");
+	ext.push_back(".f");
+	ext.push_back(".f90");
+	ext.push_back(".F");
+	ext.push_back(".F90");
 
-	//
-	// Split kgen args from other args in the command line.
-	//
-	list<string> args, kgen_args;
-	for (int i = 1; i < argc; i++)
-	{
-		char* arg = argv[i];
-		if (!strncmp(arg, "-Wk,", 4))
-			kgen_args.push_back(arg);
-		else
-			args.push_back(arg);
-
-		// In case of 32-bit compilation on 64-bit,
-		// invoke object mergering command with 32-bit flag.		
-		if (!strcmp(arg, "-m32"))
-			arch = 32;
-	}
-
-	//
-	// Interpret kgen args.
-	//
-	for (list<string>::iterator it = kgen_args.begin(); it != kgen_args.end(); it++)
-	{
-		const char* arg = (*it).c_str();
-		
-		if (!strcmp(arg, "-Wk,--bypass"))
-			bypass = 1;
-		if (!strncmp(arg, "-Wk,--host-compiler=", 20))
-			host_compiler = arg + 20;
-	}
-
-	//
 	// Find source code input.
-	// FIXME There could be multiple source files supplied,
-	// currently this case is unhandled.
-	//
-	string input = "";
-	for (list<string>::iterator it1 = args.begin(); (it1 != args.end()) && !input.size(); it1++)
+	// Note simple frontend does not support multiple inputs.
+	const char* input = NULL;
+	for (int i = 0; argv[i]; i++)
 	{
-		const char* arg = (*it1).c_str();
-		for (map<string, string>::iterator it2 = source_ext.begin(); it2 != source_ext.end(); it2++)
+		for (int j = 0; j != ext.size(); j++)
 		{
-			if (a_ends_with_b(*it1, (*it2).first))
+			if (!a_ends_with_b(argv[i], ext[j])) continue;
+			
+			if (input)
 			{
-				input = *it1;
-				host_compiler = (*it2).second.c_str();
-				break;
+				fprintf(stderr, "Multiple input files are not supported\n");
+				fprintf(stderr, "in the kernelgen-simple frontend\n");
+				return 1;
 			}
+			
+			input = argv[i];
 		}
 	}
 
@@ -955,92 +1074,71 @@ extern "C" int __regular_main(int argc, char* argv[])
 	// "-c") or fully linked, but in both cases output is sent to
 	// explicitly defined file after "-o" option.
 	//
-	string output = "";
-	for (list<string>::iterator it = args.begin(); it != args.end(); it++)
+	vector<char> output_vector;
+	char* output = NULL;
+	for (int i = 0; argv[i]; i++)
 	{
-		const char* arg = (*it).c_str();
-		if (!strcmp(arg, "-o"))
+		if (!strcmp(argv[i], "-o"))
 		{
-			it++;
-			output = *it;
+			i++;
+			output = argv[i];
 			break;
 		}
 	}
-	for (list<string>::iterator it = args.begin(); (it != args.end()) && !output.size(); it++)
+	if (!output)
 	{
-		const char* arg = (*it).c_str();
-		if (!strcmp(arg, "-c"))
-		{
-			// Trim path.
-			it++;
-			arg = (*it).c_str();
-			output = *it;
-			for (int i = output.size(); i >= 0; i--)
-			{
-				if (output[i] == '/')
-				{
-					output = arg + i + 1;
-					break;
-				}
-			}
+		output_vector.reserve(strlen(input + 1));
+		output = &output_vector[0];
+		strcpy(output, input);
 
-			// Replace source extension with object extension.
-			for (int i = output.size(); i >= 0; i--)
+		// Replace source extension with object extension.
+		for (int i = strlen(output); i >= 0; i--)
+		{
+			if (output[i] == '.')
 			{
-				if (output[i] == '.')
-				{
-					output[i + 1] = 'o';
-					output[i + 2] = '\0';
-					break;
-				}
+				output[i + 1] = 'o';
+				output[i + 2] = '\0';
+				break;
+			}
+		}
+
+		// Trim path.
+		for (int i = strlen(output); i >= 0; i--)
+		{
+			if (output[i] == '/')
+			{
+				output = output + i + 1;
+				break;
 			}
 		}
 	}
 
-	//
-	// Only execute the regular host compiler, if required.
-	//
-	if (bypass)
-		return execute(host_compiler, args, "", NULL, NULL);
-
-	//
 	// Linker used to merge multiple objects into single one.
-	//
 	string merge = "ld";
 	list<string> merge_args;
 
-	//
-	// Temporary files location prefix.
-	//
-	string fileprefix = "/tmp/";
-
-	//
-	// Interpret kernelgen compile options.
-	//
-	for (list<string>::iterator iarg = kgen_args.begin(),
-		iearg = kgen_args.end(); iarg != iearg; iarg++)
-	{
-		const char* arg = (*iarg).c_str();		
-		if (!strcmp(arg, "-Wk,--keep"))
-			fileprefix = "";
-	}
-
-	if (arch == 32)
-		merge_args.push_back("-melf_i386");
 	merge_args.push_back("--unresolved-symbols=ignore-all");
 	merge_args.push_back("-r");
 	merge_args.push_back("-o");
 
-	//
-	// Do only regular compilation for file extensions
-	// we do not know. Also should cover the case of linking.
-	//
-	if (input.size())
-		return compile(args, kgen_args,
-			merge, merge_args, input, output,
-			arch, host_compiler, fileprefix);
+	tracker = new PassTracker(); 
+
+	// Execute either compiler or linker.
+	int result;
+	if (input)
+		result = compile(argc, argv, input, output);
 	else
-		return link(args, kgen_args,
+	{
+		list<string> args_list;
+		list<string> kgen_args;
+		int arch = 64;
+		for (int i = 1; argv[i]; i++)
+			args_list.push_back(argv[i]);
+		string prefix = "/tmp/";
+		result = link(args_list, kgen_args,
 			merge, merge_args, input, output,
-			arch, host_compiler, fileprefix);
+			arch, compiler, prefix);
+	}
+	delete tracker;
+	return result;
 }

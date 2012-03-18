@@ -32,7 +32,7 @@ Pass* createFixPointersPass()
 void FixPointers::FixPointersInModule(Module *m)
 {
 	vector<GetElementPtrInst *> GEPs;
-	TargetData * targetData = new TargetData(m);
+	TargetData targetData(m);
 	for(Module::iterator function = m->begin(), function_end = m->end();
 	    function != function_end; function++)
 		for(Function::iterator block = function->begin(),block_end = function->end();
@@ -46,7 +46,7 @@ void FixPointers::FixPointersInModule(Module *m)
 		GetElementPtrInst* GEPInst = *GEPs_iterator;
 		if(GEPInst->getNumIndices() == 1 &&
 		   isa<Instruction>(GEPInst->getOperand(0)) &&
-		   targetData->getTypeStoreSize(GEPInst -> getType() ->getElementType())==1 ) {
+		   targetData.getTypeStoreSize(GEPInst -> getType() ->getElementType())==1 ) {
 			Value * GEPIndex = *GEPInst->idx_begin(); // Index argument of GEP
 			int64_t constantIndex = 0;
 			bool isConstant = false;
@@ -86,7 +86,7 @@ void FixPointers::FixPointersInModule(Module *m)
 					BitCastInst * castInst = cast<BitCastInst>(*userOfGep);
 					if(castInst -> getDestTy() -> isPointerTy()) {
 						PointerType * newPointerType = cast<PointerType>(castInst -> getDestTy());
-						int typeStoreSize = targetData->getTypeStoreSize(newPointerType -> getElementType());
+						int typeStoreSize = targetData.getTypeStoreSize(newPointerType -> getElementType());
 						//create newBitCast : (newPointerType)ptr, if there is no such
 						Instruction* newBitCast = new BitCastInst(GEPInst->getOperand(0),newPointerType,"newBitCast");
 						newBitCast -> insertAfter(cast<Instruction>(GEPInst->getOperand(0)));

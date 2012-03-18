@@ -1,6 +1,7 @@
 .PHONY: ../../libasfermi.so
 
-all: libdyloader.so test1 test2 test3 test4 test5
+#all: libdyloader.so test1 test2 test3 test4 test5
+all: libdyloader.so
 
 ../../libasfermi.so:
 	cd ../.. && $(MAKE) libasfermi.so

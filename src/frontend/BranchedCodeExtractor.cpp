@@ -859,10 +859,11 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 
 	ClonedCodeInfo CodeInfo;
 	ValueToValueMapTy VMap;
-	SetVector<BasicBlock*>* clonedCode = CloneCodeRegion(
-	        BlocksToExtract, RF_IgnoreMissingEntries, VMap, ".cloned", &CodeInfo);
+	auto_ptr<SetVector<BasicBlock*> > clonedCode;
+	clonedCode.reset(CloneCodeRegion(BlocksToExtract,
+		RF_IgnoreMissingEntries, VMap, ".cloned", &CodeInfo));
 
-	ClonedLoopBlocks.insert(clonedCode->begin(),clonedCode->end());
+	ClonedLoopBlocks.insert(clonedCode.get()->begin(),clonedCode.get()->end());
 	OriginalLoopBlocks.insert(BlocksToExtract.begin(), BlocksToExtract.end());
 
 	LLVMContext& context = header->getContext();
