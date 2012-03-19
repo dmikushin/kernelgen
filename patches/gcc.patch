@@ -1,6 +1,6 @@
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-4.6.3/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
-@@ -0,0 +1,281 @@
+@@ -0,0 +1,303 @@
 +/* main.c: defines main() for cc1, cc1plus, etc.
 +   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
 +
@@ -49,9 +49,126 @@
 +   It will be then used as libkernelgen-ct.so plugin input.  */
 +string dragonegg_result = "";
 +
++/* It seems GCC does not care about cleaning up its
++   state completely after processing. Well, it's reasonable,
++   since the tool is not really designed to support multiple
++   compilation passes in a single launch.
++   In out approach we perform two compilation passes, thus
++   GCC state must be reset before the second pass.
++   To archive that, we will backup .data and .bss symbols
++   initla state and rewrite them after finishing the first pass.  */
++vector<char> obj_data_vector;
++static char* obj_data;
++int load_self_elf(Elf** e, Elf_Data** symbols,
++  int* nsymbols, int* idata, int* ibss)
++{
++  const char* filename = "/proc/self/exe";
++  int fd = open(filename, O_RDONLY);
++  if (fd < 0)
++  {
++    fprintf(stderr, "Cannot open %s\n", filename);
++    return 1;
++  }
++  if (elf_version(EV_CURRENT) == EV_NONE)
++  {
++    fprintf(stderr, "ELF library initialization failed: %s\n",
++      elf_errmsg(-1));
++    return 1;
++  }
++  *e = elf_begin(fd, ELF_C_READ, NULL);
++  if (!*e)
++  {
++    fprintf(stderr, "elf_begin() failed: %s\n", elf_errmsg(-1));
++    return 1;
++  }
++  size_t shstrndx;
++  if (elf_getshdrstrndx(*e, &shstrndx))
++  {
++    fprintf(stderr, "elf_getshdrstrndx() failed: %s\n",
++      elf_errmsg(-1));
++    return 1;
++  }
++  Elf_Scn* scn = elf_nextscn(*e, NULL);
++  for (int i = 1; scn != NULL; scn = elf_nextscn(*e, scn), i++)
++  {
++    GElf_Shdr shdr;
++    if (!gelf_getshdr(scn, &shdr))
++    {
++      fprintf(stderr, "gelf_getshdr() failed for %s\n",
++        elf_errmsg(-1));
++      return 1;
++    }
++
++    if (shdr.sh_type == SHT_SYMTAB)
++    {
++      *symbols = elf_getdata(scn, NULL);
++      if (!symbols)
++      {
++        fprintf(stderr, "elf_getdata() failed for %s\n",
++          elf_errmsg(-1));
++        return 1;
++      }
++      if (shdr.sh_entsize)
++        *nsymbols = shdr.sh_size / shdr.sh_entsize;
++    }
++
++    char* name = NULL;
++    if ((name = elf_strptr(*e, shstrndx, shdr.sh_name)) == NULL)
++    {
++      fprintf(stderr, "Cannot read the section %d name\n", i);
++    }
++
++    if (!strcmp(name, ".data")) *idata = i;
++    if (!strcmp(name, ".bss")) *ibss = i;
++  }
++  if (!*symbols)
++  {
++    fprintf(stderr, "Cannot find symbols table\n");
++    return 1;
++  }
++  
++  return 0;
++}
++
++/* We need to provide a fallback anchor for plugins to activate in case of
++   kernelgen-related failure. This way we can recover from minor issues and
++   compile huge projects  */
++static int gargc;
++static char** gargv;
++extern "C" void fallback(void*)
++{
++  Elf* e;
++  Elf_Data* symbols = NULL;
++  int nsymbols = 0, idata = -1, ibss = -1;
++  if (load_self_elf(&e, &symbols, &nsymbols, &idata, &ibss))
++    return;
++
++  // For each symbol:
++  // If symbol is object, restore its initial value.
++  char* obj_data_ptr = obj_data;
++  for (int isymbol = 0; isymbol < nsymbols; isymbol++)
++  {
++    GElf_Sym symbol;
++    gelf_getsym(symbols, isymbol, &symbol);
++    if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
++      ((symbol.st_shndx == idata) || (symbol.st_shndx == ibss)))
++    {
++      memcpy((void*)symbol.st_value, obj_data_ptr, symbol.st_size);
++      obj_data_ptr += symbol.st_size;
++    }
++  }
++  elf_end(e);
++
++  toplev_main(gargc, gargv);
++  exit(0);
++}
++
 +int
 +main (int argc, char **argv)
 +{
++  gargc = argc;
++  gargv = argv;
++
 +  // Check what mode is used: kernelgen or fallback.
 +  // In case of kernelgen we will first create a temporary
 +  // output file, generate it, and then stage through
@@ -74,80 +191,11 @@
 +  const char* plugins_path = getenv("KERNELGEN_PLUGINS_PATH");
 +  if (plugins_path) kernelgen_plugins_path = plugins_path;
 +
-+  // It seems GCC does not care about cleaning up its
-+  // state completely after processing. Well, it's reasonable,
-+  // since the tool is not really designed to support multiple
-+  // compilation passes in a single launch.
-+  // In out approach we perform two compilation passes, thus
-+  // GCC state must be reset before the second pass.
-+  // To archive that, we will backup .data and .bss symbols
-+  // initla state and rewrite them after finishing the first pass.
-+  const char* filename = "/proc/self/exe";
-+  int fd = open(filename, O_RDONLY);
-+  if (fd < 0)
-+  {
-+    fprintf(stderr, "Cannot open %s\n", filename);
-+    return 1;
-+  }
-+  if (elf_version(EV_CURRENT) == EV_NONE)
-+  {
-+    fprintf(stderr, "ELF library initialization failed: %s\n",
-+      elf_errmsg(-1));
-+    return 1;
-+  }
-+  Elf* e = elf_begin(fd, ELF_C_READ, NULL);
-+  if (!e)
-+  {
-+    fprintf(stderr, "elf_begin() failed: %s\n", elf_errmsg(-1));
-+    return 1;
-+  }
-+  size_t shstrndx;
-+  if (elf_getshdrstrndx(e, &shstrndx))
-+  {
-+    fprintf(stderr, "elf_getshdrstrndx() failed: %s\n",
-+      elf_errmsg(-1));
-+    return 1;
-+  }
++  Elf* e;
 +  Elf_Data* symbols = NULL;
 +  int nsymbols = 0, idata = -1, ibss = -1;
-+  Elf_Scn* scn = elf_nextscn(e, NULL);
-+  for (int i = 1; scn != NULL; scn = elf_nextscn(e, scn), i++)
-+  {
-+    GElf_Shdr shdr;
-+    if (!gelf_getshdr(scn, &shdr))
-+    {
-+      fprintf(stderr, "gelf_getshdr() failed for %s\n",
-+        elf_errmsg(-1));
-+      return 1;
-+    }
-+
-+    if (shdr.sh_type == SHT_SYMTAB)
-+    {
-+      symbols = elf_getdata(scn, NULL);
-+      if (!symbols)
-+      {
-+        fprintf(stderr, "elf_getdata() failed for %s\n",
-+          elf_errmsg(-1));
-+        return 1;
-+      }
-+      if (shdr.sh_entsize)
-+        nsymbols = shdr.sh_size / shdr.sh_entsize;
-+    }
-+
-+    char* name = NULL;
-+    if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
-+    {
-+      fprintf(stderr, "Cannot read the section %d name\n", i);
-+    }
-+
-+    if (!strcmp(name, ".data")) idata = i;
-+    if (!strcmp(name, ".bss")) ibss = i;
-+  }
-+  if (!symbols)
-+  {
-+    fprintf(stderr, "Cannot find symbols table\n");
++  if (load_self_elf(&e, &symbols, &nsymbols, &idata, &ibss))
 +    return 1;
-+  }
 +
 +  // For each symbol:
 +  // If symbol is object, account its size.
@@ -166,19 +214,13 @@
 +  }
 +
 +  // Allocate a vector to store objects initial values
-+  vector<char> obj_data_vector;
 +  obj_data_vector.resize(obj_total_size);
-+  char* obj_data = (char*)&obj_data_vector[0];
-+
-+  // Allocate a vector to store objects sizes.
-+  vector<size_t> obj_size_vector;
-+  obj_size_vector.resize(nobj);
-+  size_t* obj_size = (size_t*)&obj_size_vector[0];
++  obj_data = (char*)&obj_data_vector[0];
 +
 +  // For each symbol:
 +  // If symbol is object, record its size and initial content.
 +  char* obj_data_ptr = obj_data;
-+  for (int isymbol = 0, iobj = 0; isymbol < nsymbols; isymbol++)
++  for (int isymbol = 0; isymbol < nsymbols; isymbol++)
 +  {
 +    GElf_Sym symbol;
 +    gelf_getsym(symbols, isymbol, &symbol);
@@ -187,7 +229,6 @@
 +    {
 +      memcpy(obj_data_ptr, (const void*)symbol.st_value, symbol.st_size);
 +      obj_data_ptr += symbol.st_size;
-+      obj_size[iobj++] = symbol.st_size;
 +    }
 +  }
 +
@@ -195,40 +236,22 @@
 +  // DragonEgg trashes the regular gcc output, so we
 +  // will need to invoke gcc once again to get the regular
 +  // assembly output.
-+  // TODO: and kernelgen-rt plugin??
 +  int rcompiler = 0;
 +  {
 +    // Create new argc & argv.
 +    int compiler_argc = argc + 5; // + 5 more arguments
 +    vector<const char*> compiler_argv_vector;
-+    compiler_argv_vector.resize(compiler_argc + 1); // + 1 for terminator
++    compiler_argv_vector.resize(compiler_argc);
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
 +    compiler_argv[0] = argv[0];
-+    int i = 0; for (int ii = 0; ii < argc; ii++)
-+    {
-+      // For DragonEgg do not allow any kind of -O option.
-+      if (!strcmp(argv[ii], "-O" ) ||
-+          !strcmp(argv[ii], "-O0") ||
-+          !strcmp(argv[ii], "-O1") ||
-+          !strcmp(argv[ii], "-O2") ||
-+          !strcmp(argv[ii], "-O3") ||
-+          !strcmp(argv[ii], "-Os") ||
-+          !strcmp(argv[ii], "-Ofast"))
-+      {
-+        compiler_argc--;
-+        continue;
-+      }
-+
-+      compiler_argv[i] = argv[ii];
-+      i++;
-+    }
++    int i = 0; for ( ; i < argc; i++)
++      compiler_argv[i] = argv[i];
 +    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "dragonegg.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
 +    compiler_argv[i++] = "-D_KERNELGEN";
-+    compiler_argv[i] = NULL;
 +
 +    rcompiler = toplev_main(compiler_argc, compiler_argv);
 +  }
@@ -267,7 +290,7 @@
 +    // Create new argc & argv.
 +    int compiler_argc = argc + 2; // + 2 more arguments
 +    vector<const char*> compiler_argv_vector;
-+    compiler_argv_vector.resize(compiler_argc + 1); // + 1 for terminator
++    compiler_argv_vector.resize(compiler_argc);
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
 +    compiler_argv[0] = argv[0];
 +    int i = 0; for ( ; i < argc; i++)
@@ -275,7 +298,6 @@
 +    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "libkernelgen-ct.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-D_KERNELGEN";
-+    compiler_argv[i] = NULL;
 +
 +    rcompiler = toplev_main(compiler_argc, compiler_argv);
 +  }

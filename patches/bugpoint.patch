@@ -1,0 +1,29 @@
+--- a/llvm/tools/bugpoint/OptimizerDriver.cpp	2012-03-20 00:02:55.667825250 +0400
++++ b/llvm/tools/bugpoint/OptimizerDriver.cpp	2012-03-20 00:09:42.249841380 +0400
+@@ -85,8 +85,11 @@
+   if (NoFlyer || PassesToRun.empty()) return;
+   outs() << "\n*** You can reproduce the problem with: ";
+   if (UseValgrind) outs() << "valgrind ";
+-  outs() << "opt " << Filename << " ";
+-  outs() << getPassesString(PassesToRun) << "\n";
++  outs() << "opt " << Filename;
++  for (unsigned i = 0, e = PluginLoader::getNumPlugins(); i != e; ++i) {
++    outs() << " -load " << PluginLoader::getPlugin(i);
++  }
++  outs() << " " << getPassesString(PassesToRun) << "\n";
+ }
+ 
+ cl::opt<bool> SilencePasses("silence-passes",
+@@ -145,10 +148,9 @@
+     return 1;
+   }
+ 
+-  sys::Path tool = PrependMainExecutablePath("opt", getToolName(),
+-                                             (void*)"opt");
++  sys::Path tool = sys::Program::FindProgramByName("opt");
+   if (tool.empty()) {
+-    errs() << "Cannot find `opt' in executable directory!\n";
++    errs() << "Cannot find `opt' in PATH!\n";
+     return 1;
+   }
+ 

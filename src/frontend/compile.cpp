@@ -82,12 +82,17 @@ static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBas
 	PM.add(createBranchedLoopExtractorPass());
 }
 
+// A fallback function to be called in case kernelgen-enabled
+// compilation process fails by some reason. This function
+// must be defined by the the gcc fronend.
+extern "C" void fallback(void*);
+
 // The parent gcc instance already compiled the source code.
 // Here we need to compile the same source code to LLVM IR and
 // attach it to the assembly as extra string global variables.
 extern "C" void callback (void*, void*)
 {
-	//cout << dragonegg_result << endl;
+	PassTracker* tracker = new PassTracker(main_input_filename, &fallback, NULL);
 
 	//
 	// 1) Append "always inline" attribute to all existing functions.
@@ -159,11 +164,16 @@ extern "C" void callback (void*, void*)
 		DECL_INITIAL (var) = string_val;
 		varpool_finalize_decl (var);
 	}
+
+	delete tracker;
 }
  
 extern "C" int plugin_init (
 	plugin_name_args* info, plugin_gcc_version* ver)
 {
+	PluginLoader loader;
+	loader.operator =("libkernelgen-opt.so");
+
 	// Register callback.
 	register_callback (info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
 	
