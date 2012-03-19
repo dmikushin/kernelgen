@@ -79,9 +79,10 @@ class PassTracker
 				}
 			}
 
-			auto_ptr<Module> module_to_break;
-			module_to_break.reset(CloneModule(tracker->module));
-			D.setNewProgram(module_to_break.get());
+			// We don't delete module here, since it could get
+			// trashed by buggy passes and deletion may fail.
+			Module* module_to_break = CloneModule(tracker->module);
+			D.setNewProgram(module_to_break);
 
 			// Reduce the test case.
 			D.debugOptimizerCrash(tracker->input);
