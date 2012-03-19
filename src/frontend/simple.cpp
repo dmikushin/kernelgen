@@ -44,6 +44,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
@@ -108,9 +109,17 @@ class PassTracker
 			const void *ID = (*i)->getPassID();
 			const PassInfo *PI = PassRegistry::getPassRegistry()->getPassInfo(ID);
 			if (PI) 
-			{ D.addPass(PI->getPassArgument()); cout << PI->getPassArgument() << endl; }
-			else { D.addPass((*i)->getPassName()); cout << (*i)->getPassName() << endl; }
+				D.addPass(PI->getPassArgument());
+			else
+			{
+				cerr << "Cannot get pass info by ID for this pass: " << (*i)->getPassName();
+				return;
+			}
 		}
+
+		auto_ptr<Module> module_to_break;
+		module_to_break.reset(CloneModule(tracker->module));
+		D.setNewProgram(module_to_break.get());
 
 		// Reduce the test case.
 		D.debugOptimizerCrash(tracker->input);
@@ -1467,7 +1476,10 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	tracker = new PassTracker(); 
+	tracker = new PassTracker();
+
+	PluginLoader loader;
+	loader.operator =("libkernelgen-opt.so");
 
 	// Execute either compiler or linker.
 	int result;

@@ -48,13 +48,13 @@ namespace {
       : LoopPass(ID), NumLoops(numLoops)
 	  {
           LoopFunctionCalls = NULL;
-		  initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
+		  //initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
       }
       
 	  explicit BranchedLoopExtractor(std::vector<CallInst *> & LFC, unsigned numLoops = ~0) 
       : LoopPass(ID), NumLoops(numLoops), LoopFunctionCalls(&LFC)
 	  {
-        initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
+        //initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
       }
 	  
     virtual bool runOnLoop(Loop *L, LPPassManager &LPM);
@@ -102,6 +102,15 @@ void llvm::initializeBranchedLoopExtractorPass(PassRegistry &Registry) {
 	} 
 }
 
+struct staticInit
+{
+	staticInit()
+	{
+		llvm::initializeBranchedLoopExtractorPass(*PassRegistry::getPassRegistry());
+	}
+};
+
+static staticInit in;
 
 // createBranchedLoopExtractorPass - This pass extracts all natural loops from the
 // program into a function if it can.
