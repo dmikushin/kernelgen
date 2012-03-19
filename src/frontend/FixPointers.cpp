@@ -24,7 +24,7 @@ class FixPointers : public ModulePass
 };
 char FixPointers::ID = 0;
 static RegisterPass<FixPointers>
-Z("fix-using-of-malloc", "Remove extra bit casts of malloc's calls");
+Z("fix-pointers", "Remove extra bit casts of malloc's calls");
 Pass* createFixPointersPass()
 {
 	return new FixPointers();

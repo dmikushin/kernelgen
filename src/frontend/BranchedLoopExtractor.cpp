@@ -69,17 +69,18 @@ namespace {
 char BranchedLoopExtractor::ID = 0;
 Pass *llvm::createBranchedLoopExtractorPass() { return new BranchedLoopExtractor(); }
 Pass *llvm::createBranchedLoopExtractorPass(std::vector<CallInst *> & LFC) { return new BranchedLoopExtractor(LFC); }
-/*INITIALIZE_PASS_BEGIN(BranchedLoopExtractor, "loop-extract-with-branch",
+
+INITIALIZE_PASS_BEGIN(BranchedLoopExtractor, "loop-extract-with-branch",
                 "Extract loops into new functions and add branches", false, false)
 INITIALIZE_PASS_DEPENDENCY(BreakCriticalEdges)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 INITIALIZE_PASS_END(BranchedLoopExtractor, "loop-extract-with-branch",
                 "Extract loops into new functions and add branches", false, false)
-*/
 
 
 
+/*
 static void* initializeBranchedLoopExtractorPassOnce (PassRegistry &Registry) {
     initializeBreakCriticalEdgesPass(Registry);
     initializeLoopSimplifyPass(Registry);
@@ -100,7 +101,7 @@ void llvm::initializeBranchedLoopExtractorPass(PassRegistry &Registry) {
 		sys::cas_flag tmp = initialized; sys::MemoryFence(); 
 		while (tmp != 2) { tmp = initialized; sys::MemoryFence(); } 
 	} 
-}
+}*/
 
 struct staticInit
 {

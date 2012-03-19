@@ -40,6 +40,7 @@
 
 #include <algorithm>
 #include <set>
+#include <fstream>
 #include <vector>
 
 using namespace llvm;
@@ -49,84 +50,84 @@ using namespace std;
 
 namespace
 {
-class BranchedCodeExtractor
-{
-	typedef SetVector<Value*> Values;
-	SetVector<BasicBlock*> BlocksToExtract;
+	class BranchedCodeExtractor
+	{
+			typedef SetVector<Value*> Values;
+			SetVector<BasicBlock*> BlocksToExtract;
 
-	SetVector<BasicBlock*> OriginalLoopBlocks;
-	SetVector<BasicBlock*> ClonedLoopBlocks;
+			SetVector<BasicBlock*> OriginalLoopBlocks;
+			SetVector<BasicBlock*> ClonedLoopBlocks;
 
-	DominatorTree* DT;
-	unsigned NumExitBlocks;
-	Type *RetTy;
+			DominatorTree* DT;
+			unsigned NumExitBlocks;
+			Type *RetTy;
 
-public:
-	BranchedCodeExtractor(DominatorTree* dt = 0)
-		: DT(dt), NumExitBlocks(~0U), OriginalLoopBlocks(BlocksToExtract) {}
+		public:
+			BranchedCodeExtractor(DominatorTree* dt = 0)
+				: DT(dt), NumExitBlocks(~0U), OriginalLoopBlocks(BlocksToExtract) {}
 
-	CallInst* ExtractCodeRegion(const std::vector<BasicBlock*> &code);
+			CallInst* ExtractCodeRegion(const std::vector<BasicBlock*> &code);
 
-	bool isEligible(const std::vector<BasicBlock*> &code);
+			bool isEligible(const std::vector<BasicBlock*> &code);
 
-private:
-	/// definedInRegion - Return true if the specified value is defined in the
-	/// extracted region.
-	bool definedInRegion(Value *V) const {
-		if (Instruction *I = dyn_cast<Instruction>(V))
-			if (BlocksToExtract.count(I->getParent()))
-				return true;
-		return false;
-	}
+		private:
+			/// definedInRegion - Return true if the specified value is defined in the
+			/// extracted region.
+			bool definedInRegion(Value *V) const {
+				if (Instruction *I = dyn_cast<Instruction>(V))
+					if (BlocksToExtract.count(I->getParent()))
+						return true;
+				return false;
+			}
 
-	/// definedInCaller - Return true if the specified value is defined in the
-	/// function being code extracted, not in the region being extracted.
-	/// These values must be passed in as live-ins to the function.
-	bool definedInCaller(Value *V) const {
-		if (isa<Argument>(V)) return true;
-		if (Instruction *I = dyn_cast<Instruction>(V))
-			if (!BlocksToExtract.count(I->getParent()))
-				return true;
-		return false;
-	}
+			/// definedInCaller - Return true if the specified value is defined in the
+			/// function being code extracted, not in the region being extracted.
+			/// These values must be passed in as live-ins to the function.
+			bool definedInCaller(Value *V) const {
+				if (isa<Argument>(V)) return true;
+				if (Instruction *I = dyn_cast<Instruction>(V))
+					if (!BlocksToExtract.count(I->getParent()))
+						return true;
+				return false;
+			}
 
-	void severSplitPHINodes(BasicBlock *&Header);
-	void splitReturnBlocks();
-	void findInputsOutputs(Values &inputs, Values &outputs);
+			void severSplitPHINodes(BasicBlock *&Header);
+			void splitReturnBlocks();
+			void findInputsOutputs(Values &inputs, Values &outputs);
 
-	void moveCodeToFunction(Function *newFunction);
+			void moveCodeToFunction(Function *newFunction);
 
-	void emitCallAndSwitchStatement(Function *newFunction,
-	                                BasicBlock *newHeader,
-	                                Values &inputs,
-	                                Values &outputs);
-	void makeFunctionBody(Function * LoopFunction,
-	                      BasicBlock * header,
-	                      BasicBlock * clonedHeader,
-	                      Values inputs, Values outputs,
-	                      std::vector<BasicBlock*> & ExitBlocks,
-	                      ValueToValueMapTy & allToAllMap);
+			void emitCallAndSwitchStatement(Function *newFunction,
+			                                BasicBlock *newHeader,
+			                                Values &inputs,
+			                                Values &outputs);
+			void makeFunctionBody(Function * LoopFunction,
+			                      BasicBlock * header,
+			                      BasicBlock * clonedHeader,
+			                      Values inputs, Values outputs,
+			                      std::vector<BasicBlock*> & ExitBlocks,
+			                      ValueToValueMapTy & allToAllMap);
 
-	CallInst *createCallAndBranch(Function* LaunchFunc, Function* KernelFunc,
-	                              Values & inputs,Values & outputs,
-	                              BasicBlock * callAndBranchBlock,
-	                              BasicBlock * header,
-	                              BasicBlock * loadAndSwitchExitBlock,
-	                              AllocaInst * &Struct );
+			CallInst *createCallAndBranch(Function* LaunchFunc, Function* KernelFunc,
+			                              Values & inputs,Values & outputs,
+			                              BasicBlock * callAndBranchBlock,
+			                              BasicBlock * header,
+			                              BasicBlock * loadAndSwitchExitBlock,
+			                              AllocaInst * &Struct );
 
 
-	void createLoadsAndSwitch(CallInst *callLoopFuncInst,
-	                          Values & inputs, Values & outputs,
-	                          BasicBlock * loadAndSwitchExitBlock,
-	                          const std::vector<BasicBlock*> & ExitBlocks,
-	                          ValueToValueMapTy & OutputsToLoadInstMap,
-	                          AllocaInst * Struct);
+			void createLoadsAndSwitch(CallInst *callLoopFuncInst,
+			                          Values & inputs, Values & outputs,
+			                          BasicBlock * loadAndSwitchExitBlock,
+			                          const std::vector<BasicBlock*> & ExitBlocks,
+			                          ValueToValueMapTy & OutputsToLoadInstMap,
+			                          AllocaInst * Struct);
 
-	void updatePhiNodes( Values & outputs, ValueToValueMapTy & OutputsToLoadInstMap,
-	                     BasicBlock * loadAndSwitchBlock,
-	                     std::vector<BasicBlock*> & ExitBlocks);
+			void updatePhiNodes( Values & outputs, ValueToValueMapTy & OutputsToLoadInstMap,
+			                     BasicBlock * loadAndSwitchBlock,
+			                     std::vector<BasicBlock*> & ExitBlocks);
 
-};
+	};
 }
 
 /// severSplitPHINodes - If a PHI node has multiple inputs from outside of the
@@ -268,13 +269,13 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
 				if (definedInCaller(*O) && ((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy()))
 					if(!setOfIntegerInputs.count(*O))
-							setOfIntegerInputs.insert(*O);
-					
+						setOfIntegerInputs.insert(*O);
+
 			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
 				if (definedInCaller(*O) && !((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy()))
 					if(!setOfNonIntegerInputs.count(*O))
-							setOfNonIntegerInputs.insert(*O);
-							
+						setOfNonIntegerInputs.insert(*O);
+
 			// Consider uses of this instruction (outputs).
 			for (Value::use_iterator UI = I->use_begin(), E = I->use_end();
 			     UI != E; ++UI)
@@ -284,16 +285,16 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 				}
 		} // for: insts
 
-     
+
 		// Keep track of the exit blocks from the region.
 		TerminatorInst *TI = BB->getTerminator();
 		for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i)
 			if (!BlocksToExtract.count(TI->getSuccessor(i)))
 				ExitBlocks.insert(TI->getSuccessor(i));
 	} // for: basic blocks
-    inputs.insert(setOfIntegerInputs.begin(), setOfIntegerInputs.end());
-    inputs.insert(setOfNonIntegerInputs.begin(), setOfNonIntegerInputs.end());
-	
+	inputs.insert(setOfIntegerInputs.begin(), setOfIntegerInputs.end());
+	inputs.insert(setOfNonIntegerInputs.begin(), setOfNonIntegerInputs.end());
+
 	NumExitBlocks = ExitBlocks.size();
 }
 
@@ -411,12 +412,11 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 	// Aggregate args types into struct type
 	PointerType *StructPtrType;
 	Value* structArg = NULL;
-	if (inputs.size() + outputs.size() > 0)
-	{
+	if (inputs.size() + outputs.size() > 0) {
 		StructPtrType = PointerType::getUnqual(
-			StructType::get(context, paramTy, false /* isPacked */));
+		                    StructType::get(context, paramTy, false /* isPacked */));
 		structArg = CastInst::CreatePointerCast(AI, StructPtrType, "",
-			FuncRoot->getTerminator());
+		                                        FuncRoot->getTerminator());
 	}
 
 	// Rewrite all users of the inputs in the cloned region to use the
@@ -566,12 +566,11 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	// function, which contains the Loop.
 	StructType* StructArgTy = StructType::get(
 	                              context, ArgTypes, false /* isPacked */);
-	Struct = new AllocaInst(StructArgTy, 0, "",
-	                        callAndBranchBlock->getParent()->begin()->begin());
+								  
+	IRBuilder<> Builder( callAndBranchBlock->getParent()->begin() -> getTerminator());
+	Struct = Builder.CreateAlloca(StructArgTy, 0, "");
 
 	// Initially, fill struct with zeros.
-	IRBuilder<> Builder(
-	    callAndBranchBlock->getParent()->begin()->begin());
 	CallInst* MI = Builder.CreateMemSet(Struct,
 	                                    Constant::getNullValue(Type::getInt8Ty(context)),
 	                                    ConstantExpr::getSizeOf(StructArgTy), 1);
@@ -589,16 +588,18 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 		                              callAndBranchBlock);
 	}
 
+
 	// Create a metadata node holding a constant array
 	// with original called function name.
 	Value* name[] = { ConstantDataArray::getString(
-		context, KernelFunc->getName(), true) };
+	                      context, KernelFunc->getName(), true)
+	                };
 	MDNode* nameMD = MDNode::get(context, name);
 
 	// Add pointer to the original function string name
 	// (to be set later on).
 	params.push_back(
-		Constant::getNullValue(Type::getInt8PtrTy(context)));
+	    Constant::getNullValue(Type::getInt8PtrTy(context)));
 
 	// Store the size of the aggregated arguments struct
 	// to the new call arguments list.
@@ -608,34 +609,33 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	// aggregated arguments struct.
 	Constant* size =
 	    Constant::getNullValue(Type::getInt64Ty(context));
-	if (numints)
-	{
+	if (numints) {
 		size = ConstantExpr::getSub(
-			// The offset of the last integer argument.
-			ConstantExpr::getAdd(ConstantExpr::getOffsetOf(StructArgTy, (numints - 1) + 2),
-			// The size of the last integer argument.
-			ConstantExpr::getSizeOf(ArgTypes[(numints - 1) + 2])),
-			// The offset of the first argument.
-			ConstantExpr::getOffsetOf(StructArgTy, 2));
+		           // The offset of the last integer argument.
+		           ConstantExpr::getAdd(ConstantExpr::getOffsetOf(StructArgTy, (numints - 1) + 2),
+		                                // The size of the last integer argument.
+		                                ConstantExpr::getSizeOf(ArgTypes[(numints - 1) + 2])),
+		           // The offset of the first argument.
+		           ConstantExpr::getOffsetOf(StructArgTy, 2));
 	}
 	params.push_back(size);
 
 	// Store the pointer to the aggregated arguments struct
 	// to the new call args list.
 	Instruction* IntPtrToStruct = CastInst::CreatePointerCast(
-		Struct, PointerType::getInt32PtrTy(context), "", callAndBranchBlock);
+	                                  Struct, PointerType::getInt32PtrTy(context), "", callAndBranchBlock);
 	params.push_back(IntPtrToStruct);
 
 	// Emit the call to the function
 	CallInst* call = CallInst::Create(
-		LaunchFunc, params, NumExitBlocks > 1 ? "targetBlock" : "");
+	                     LaunchFunc, params, NumExitBlocks > 1 ? "targetBlock" : "");
 	callAndBranchBlock->getInstList().push_back(call);
-	
+
 	// Attach metadata node with the called function name.
 	call->setMetadata("kernelgen_launch", nameMD);
 
 	Value* Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
-		call, ConstantInt::get(Type::getInt32Ty(context), -1));
+	                           call, ConstantInt::get(Type::getInt32Ty(context), -1));
 	BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
 
 	return call;
@@ -709,11 +709,11 @@ void BranchedCodeExtractor::createLoadsAndSwitch(
 		BranchInst::Create(ExitBlocks[0], TheSwitch);
 		TheSwitch->eraseFromParent();
 		break;
-	/*case 2:
-		BranchInst::Create(ExitBlocks[1], ExitBlocks[0],
-		                   callLoopFuncInst, TheSwitch);
-		TheSwitch->eraseFromParent();
-		break;*/
+		/*case 2:
+			BranchInst::Create(ExitBlocks[1], ExitBlocks[0],
+			                   callLoopFuncInst, TheSwitch);
+			TheSwitch->eraseFromParent();
+			break;*/
 	default:
 		// Otherwise, add case fo every ExitBlock
 		for(int ExitBlock = 0; ExitBlock < NumExitBlocks; ExitBlock++)
@@ -728,69 +728,54 @@ void BranchedCodeExtractor::updatePhiNodes(
     BasicBlock* loadAndSwitchBlock,
     std::vector<BasicBlock*>& ExitBlocks)
 {
-	SetVector<Value *> Users;
-	if(!NumExitBlocks) return;
-	ValueToValueMapTy OutputsToPhiNodes[NumExitBlocks];
-	for(int i = 0; i < NumExitBlocks; i++  ) {
-		BasicBlock * ExitBlock = ExitBlocks[i];
+	if(NumExitBlocks == 0) return;
+	if(outputs.size() == 0) return;
+	
+	BasicBlock * ExitBlock = ExitBlocks[0];
+	
+	unsigned NumPreds = 0;
+	for(pred_iterator predBlock = pred_begin(ExitBlock), predBlockE = pred_end(ExitBlock);
+	    predBlock != predBlockE; predBlock++)
+		NumPreds++;
 
-		unsigned NumPreds = 0;
+	for(Values::iterator Out = outputs.begin(), Outputs_end = outputs.end(); Out != Outputs_end; Out++) {
+		Instruction *I = dyn_cast<Instruction>(*Out);
+        I->setName("Output");
+		
+		SetVector<Value *> Users;
+		Users = SetVector<Value *>(I->use_begin(),I->use_end());
+
+		for(BasicBlock::iterator Inst = ExitBlock->begin(), E = ExitBlock->getFirstNonPHI();
+		    Inst != E; Inst++) {
+			PHINode * phi_node = dyn_cast<PHINode>(Inst);
+			if(Users.count(phi_node))
+			{
+				phi_node ->  addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
+				Users.remove(phi_node);
+			}
+		}
+
+		PHINode * newPN = PHINode::Create(I->getType(), NumPreds,
+		                                  "newPHINode", ExitBlock -> begin());
+
 		for(pred_iterator predBlock = pred_begin(ExitBlock), predBlockE = pred_end(ExitBlock);
 		    predBlock != predBlockE; predBlock++)
-			NumPreds++;
+			if( *predBlock != loadAndSwitchBlock) {
+				if(OriginalLoopBlocks.count(*predBlock)) newPN -> addIncoming(I, *predBlock);
+				else
+					newPN -> addIncoming(UndefValue::get(I->getType()), *predBlock);
+			} else newPN -> addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
 
-
-		for(Values::iterator Out = outputs.begin(), Outputs_end = outputs.end(); Out != Outputs_end; Out++) {
-			Instruction *I = dyn_cast<Instruction>(*Out);
-			bool catched = false;
-
-			Users.clear();
-			SetVector<Value *> Users(I->use_begin(),I->use_end());
-
-			for(BasicBlock::iterator Inst = ExitBlock->begin(), E = ExitBlock->getFirstNonPHI();
-			    Inst != E; Inst++) {
-				PHINode * phi_node = dyn_cast<PHINode>(Inst);
-				if(Users.count(phi_node)) {
-					catched = true;
-					phi_node ->  addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
-					OutputsToPhiNodes[i][I] = phi_node;
-					break;
-				}
-			}
-			if(!catched) {
-				// add new phi-node
-				PHINode * newPN = PHINode::Create(I->getType(), NumPreds,
-				                                  "", ExitBlock -> getFirstNonPHI());
-
-				for(pred_iterator predBlock = pred_begin(ExitBlock), predBlockE = pred_end(ExitBlock);
-				    predBlock != predBlockE; predBlock++)
-					if( *predBlock != loadAndSwitchBlock) {
-						if(OriginalLoopBlocks.count(*predBlock)) newPN -> addIncoming(I, *predBlock);
-						else
-							newPN -> addIncoming(UndefValue::get(I->getType()), *predBlock);
-					} else newPN -> addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
-				OutputsToPhiNodes[i][I] = newPN;
-			}
-
-		}
-	}
-
-	/////////////////////////
-	// for current version //
-	/////////////////////////
-
-	for(Values::iterator Out = outputs.begin(), Outputs_end = outputs.end();
-	    Out != Outputs_end; Out++) {
-		Instruction *I = dyn_cast<Instruction>(*Out);
-		for (Value::use_iterator UI = I->use_begin(), E = I->use_end(); UI != E; ++UI) {
+		
+		for (SetVector<Value *>::iterator UI = Users.begin(), E = Users.end(); UI != E; ++UI) {
 			Instruction * User = dyn_cast<Instruction>(*UI);
-			if(User && !OriginalLoopBlocks.count( User->getParent()) && User != OutputsToPhiNodes[0][I]) {
-				User->replaceUsesOfWith(I,OutputsToPhiNodes[0][I]);
+			if(User && !OriginalLoopBlocks.count( User->getParent())) {
+				User->replaceUsesOfWith(I, newPN);
+				User->setName("UserOfOutput");
 			}
 		}
+		Users.clear();
 	}
-
-
 }
 
 /// ExtractRegion - Removes a loop from a function, replaces it with a call to
@@ -813,6 +798,8 @@ CallInst *BranchedCodeExtractor::
 ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 {
 	if (!isEligible(code)) return NULL;
+	static int i = 0;
+
 
 	// 1) Find inputs, outputs
 	// 2) Construct new function
@@ -842,6 +829,10 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	// If we have to split PHI nodes or the entry block, do so now.
 	severSplitPHINodes(header);
 
+	LLVMContext& context = header->getContext();
+	Function *parentFunction = header->getParent();
+	Module* m = parentFunction->getParent();
+
 	// If we have any return instructions in the region, split those blocks so
 	// that the return is not in the region.
 	splitReturnBlocks();
@@ -849,26 +840,24 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	// Find inputs to, outputs from the code region.
 	findInputsOutputs(inputs, outputs);
 
-        if (NumExitBlocks != 1) {
-          outs().changeColor(raw_ostream::YELLOW);
-          outs() << "KernelGen dropped loop: There must be only one exit block "
-            "from the code region for the current version\n";
-          outs().resetColor();
-          return NULL;
-        }
+	if (NumExitBlocks != 1) {
+		outs().changeColor(raw_ostream::YELLOW);
+		outs() << "KernelGen dropped loop: There must be only one exit block "
+		       "from the code region for the current version\n";
+		outs().resetColor();
+		return NULL;
+	}
 
 	ClonedCodeInfo CodeInfo;
 	ValueToValueMapTy VMap;
 	auto_ptr<SetVector<BasicBlock*> > clonedCode;
 	clonedCode.reset(CloneCodeRegion(BlocksToExtract,
-		RF_IgnoreMissingEntries, VMap, ".cloned", &CodeInfo));
+	                                 RF_IgnoreMissingEntries, VMap, ".cloned", &CodeInfo));
 
 	ClonedLoopBlocks.insert(clonedCode.get()->begin(),clonedCode.get()->end());
 	OriginalLoopBlocks.insert(BlocksToExtract.begin(), BlocksToExtract.end());
 
-	LLVMContext& context = header->getContext();
-	Function *parentFunction = header->getParent();
-	Module* m = parentFunction->getParent();
+
 
 	// This takes place of the original loop
 	BasicBlock *loadAndSwitchExitBlock = BasicBlock::Create(
@@ -910,10 +899,14 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	BasicBlock* clonedHeader = cast<BasicBlock>(VMap[header]);
 	clonedHeader->setName(clonedHeader->getName() + ".header");
 
+
+
 	// Make function body.
 	std::vector<BasicBlock*> ExitBlocks;
 	makeFunctionBody(loopFunction, header, clonedHeader,
 	                 inputs, outputs, ExitBlocks, VMap);
+
+
 
 	// Make call and make branch after call.
 	AllocaInst* Struct;
@@ -921,6 +914,10 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	                                    launchFunction, loopFunction,
 	                                    inputs, outputs, callAndBranchBlock,
 	                                    header, loadAndSwitchExitBlock, Struct);
+
+
+
+
 
 	// Rewrite branches to basic blocks outside of the loop to new dummy blocks
 	// within the new function. This must be done before we lose track of which
@@ -977,6 +974,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 
 	if (verifyFunction(*loopFunction))
 		cout << "verifyFunction failed!";
+
 	return callLoopFuctionInst;
 }
 
