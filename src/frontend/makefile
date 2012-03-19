@@ -7,11 +7,7 @@ LLVM_INC = -I$(LLVM_ROOT)/build/include $(LLVM_DEF)
 LLVM_LIB = -L$(LLVM_ROOT)/build/Debug+Asserts/lib -lLLVM-3.1svn
 
 KERNELGEN_INC = -I.. -I../include -I../libasfermi/tests/dyloader
-KERNELGEN_LIB = -L../runtime -lkernelgen -lelf -lmhash -ldl \
-	-L../libasfermi/tests/dyloader -ldyloader -L../libasfermi \
-	$(LLVM_ROOT)/build/tools/polly/Debug+Asserts/lib/LLVMPolly.so \
-	-L${HOME}/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
-	-L${HOME}/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl -lffi -lrt -lgmp
+KERNELGEN_LIB = -lelf
 
 BUGPOINT_ROOT ?= $(LLVM_ROOT)/tools/bugpoint
 
