@@ -41,13 +41,13 @@ libkernelgen-opt.so: $(OBJECTS_OPT)
 kernelgen-simple: $(OBJECTS_KS) libkernelgen-opt.so
 	g++ -g $(OBJECTS_KS) -o $@ $(KERNELGEN_LIB) $(LLVM_LIB) -L. -lkernelgen-opt
 
-kernelgen-ct.o: compile.cpp
+kernelgen-ct.o: compile.cpp tracker.h
 	g++ -g -fPIC $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@
 
 kernelgen-lt.o: link.cpp
 	g++ -g -fPIC $(KERNELGEN_INC) $(LLVM_INC) -fPIC -c $< -o $@
 
-simple.o: simple.cpp
+simple.o: simple.cpp tracker.h
 	g++ -g -I$(BUGPOINT_ROOT) $(KERNELGEN_INC) $(LLVM_INC) -c $< -o $@
 
 BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 

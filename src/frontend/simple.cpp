@@ -19,12 +19,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "runtime/elf.h"
-
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <elf.h>
 #include <fcntl.h>
+#include <gelf.h>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -61,15 +61,13 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
-#include "BugDriver.h"
-
 #include "BranchedLoopExtractor.h"
+#include "tracker.h"
 
 using namespace llvm;
 using namespace llvm::sys;
 using namespace llvm::sys::fs;
 using namespace std;
-using namespace util::elf;
 
 static int verbose = 0;
 
@@ -77,109 +75,6 @@ const char* compiler = "kernelgen-gfortran";
 const char* linker = "ld";
 const char* objcopy = "objcopy";
 const char* cp = "cp";
-
-// Tracker to catch and inspect the crashing LLVM passes.
-class PassTracker
-{
-	list<Pass*> passes;
-
-	Module* module;
-	
-	string input;
-
-	// Run the same passes in the bugpoint.
-	static void handler(void* instance)
-	{
-		PassTracker* tracker = (PassTracker*)instance;
-		if (!tracker->module) return;
-	
-		// Initialize the bug driver
-		bool FindBugs = false;
-		int TimeoutValue = 300;
-		int MemoryLimit = -1;
-		bool UseValgrind = false;
-		BugDriver D("kernelgen-simple", FindBugs, TimeoutValue, MemoryLimit,
-			UseValgrind, getGlobalContext());
-		D.setNewProgram(tracker->module);
-
-		// Add currently tracked passes.
-		for (list<Pass*>::iterator i = tracker->passes.begin(),
-			e = tracker->passes.end(); i != e; i++)
-		{
-			const void *ID = (*i)->getPassID();
-			const PassInfo *PI = PassRegistry::getPassRegistry()->getPassInfo(ID);
-			if (PI) 
-				D.addPass(PI->getPassArgument());
-			else
-			{
-				cerr << "Cannot get pass info by ID for this pass: " << (*i)->getPassName();
-				return;
-			}
-		}
-
-		auto_ptr<Module> module_to_break;
-		module_to_break.reset(CloneModule(tracker->module));
-		D.setNewProgram(module_to_break.get());
-
-		// Reduce the test case.
-		D.debugOptimizerCrash(tracker->input);
-	}
-
-public:
-	PassTracker() : input("foo"), module(NULL)
-	{
-		sys::AddSignalHandler(PassTracker::handler, this);
-	}
-
-	void reset()
-	{
-		passes.clear();
-		if (module)
-		{
-			delete module;
-			module = NULL;
-		}
-	}
-
-	void add(Pass *P)
-	{
-		passes.push_back(P);
-	}
-	
-	void run(Module* M)
-	{
-		module = CloneModule(M);
-	}
-}
-*tracker;
-
-
-class TrackedPassManager : public PassManager
-{
-	PassTracker* tracker;
-
-public:
-	TrackedPassManager(PassTracker* tracker) :
-		PassManager(), tracker(tracker) { }
-
-	virtual void add(Pass *P)
-	{
-		tracker->add(P);
-		PassManager::add(P);
-	}
-	
-	virtual bool run(Module &M)
-	{
-		tracker->run(&M);
-		return PassManager::run(M);
-	}
-	
-	~TrackedPassManager()
-	{
-		tracker->reset();
-	}
-};
-
 
 static bool a_ends_with_b(const char* a, const char* b)
 {
@@ -195,6 +90,47 @@ static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBas
 	PM.add(createFixPointersPass());
 	PM.add(createInstructionCombiningPass());
 	PM.add(createBranchedLoopExtractorPass());
+}
+
+struct fallback_args_t
+{
+	int argc;
+	char** argv;
+	const char* input;
+	const char* output;
+};
+
+static void fallback(void* arg)
+{
+	fallback_args_t* args = (fallback_args_t*)arg;
+	int argc = args->argc;
+	const char** argv = (const char**)(args->argv);
+
+	// Compile source code using the regular compiler.
+	if (verbose)
+	{
+		cout << argv[0];
+		for (int i = 1; argv[i]; i++)
+			cout << " " << argv[i];
+		cout << endl;
+	}
+	const char** envp = const_cast<const char **>(environ);
+	vector<const char*> env;
+	for (int i = 0; envp[i]; i++)
+		env.push_back(envp[i]);
+	env.push_back("KERNELGEN_FALLBACK=1");
+	env.push_back(NULL);
+	string err;
+	int status = Program::ExecuteAndWait(
+		Program::FindProgramByName(compiler), argv,
+		&env[0], NULL, 0, 0, &err);
+	if (status)
+	{
+		cerr << err;
+		exit(1);
+	}
+
+	exit(0);
 }
 
 static int compile(int argc, char** argv, const char* input, const char* output)
@@ -494,7 +430,7 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 	return 0;
 }
 
-int link(int argc, char** argv, const char* input, const char* output)
+static int link(int argc, char** argv, const char* input, const char* output)
 {
 	//
 	// 1) Check if there is "-c" option around. In this
@@ -1476,7 +1412,12 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	tracker = new PassTracker();
+	fallback_args_t* fallback_args = new fallback_args_t();
+	fallback_args->argc = argc;
+	fallback_args->argv = argv;
+	fallback_args->input = input;
+	fallback_args->output = output;
+	tracker = new PassTracker(input, &fallback, fallback_args);
 
 	PluginLoader loader;
 	loader.operator =("libkernelgen-opt.so");
