@@ -83,11 +83,13 @@ static bool a_ends_with_b(const char* a, const char* b)
 }
 
 Pass* createFixPointersPass();
+Pass* createMoveUpCastsPass();
 
 static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
-	PM.add(createInstructionCombiningPass());
 	PM.add(createFixPointersPass());
+	PM.add(createInstructionCombiningPass());
+	PM.add(createMoveUpCastsPass());
 	PM.add(createInstructionCombiningPass());
 	PM.add(createBranchedLoopExtractorPass());
 }

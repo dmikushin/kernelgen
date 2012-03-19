@@ -21,22 +21,39 @@
 
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
+#include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Analysis/Verifier.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/IRReader.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/PluginLoader.h"
+#include "llvm/Support/PrettyStackTrace.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/ADT/SetVector.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
-
-#include "BranchedLoopExtractor.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include <gmp.h>
 #include <iostream>
+#include <list>
+
+#include "BranchedLoopExtractor.h"
+#include "tracker.h"
  
 extern "C"
 {
@@ -55,6 +72,15 @@ Pass* createFixPointersPass();
 Pass* createMoveUpCastsPass();
 
 extern string dragonegg_result;
+
+static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
+{
+	PM.add(createFixPointersPass());
+	PM.add(createInstructionCombiningPass());
+	PM.add(createMoveUpCastsPass());
+	PM.add(createInstructionCombiningPass());
+	PM.add(createBranchedLoopExtractorPass());
+}
 
 // The parent gcc instance already compiled the source code.
 // Here we need to compile the same source code to LLVM IR and
@@ -80,38 +106,25 @@ extern "C" void callback (void*, void*)
 		const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::AlwaysInline);
 		func->setAttributes(attr_new);
 	}
-	
-	//
-	// 2) Inline calls and extract loops into new functions.
-	//
-	{
-		std::vector<CallInst*> LoopFuctionCalls;
-		PassManager manager;
-                manager.add(createFixPointersPass());
-		manager.add(createInstructionCombiningPass());
-                manager.add(createMoveUpCastsPass());
-		manager.add(createInstructionCombiningPass());
-		manager.add(createBranchedLoopExtractorPass(LoopFuctionCalls));
-		manager.run(*m.get());
-	}
 
 	//
-	// 3) Apply optimization passes to the resulting common
-	// module.
+	// 2) Inline calls and extract loops into new functions.
+	// Apply optimization passes to the resulting common module.
 	//
 	{
-		PassManager manager;
-		//manager.add(createLowerSetJmpPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
+		builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
+			addKernelgenPasses);
+		TrackedPassManager manager(tracker);
 		builder.populateModulePassManager(manager);
 		manager.run(*m.get());
 	}
-	 
+
 	//
-	// 4) Embed the resulting module into object file.
+	// 3) Embed the resulting module into object file.
 	//
 	{
 		// The name of the symbol to hold LLVM IR source.

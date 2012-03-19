@@ -6,7 +6,6 @@ LLVM_DEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVM_INC = -I$(LLVM_ROOT)/build/include $(LLVM_DEF)
 LLVM_LIB = -L$(LLVM_ROOT)/build/Debug+Asserts/lib -lLLVM-3.1svn
 
-KERNELGEN_INC = -I.. -I../include -I../libasfermi/tests/dyloader
 KERNELGEN_LIB = -lelf
 
 BUGPOINT_ROOT ?= $(LLVM_ROOT)/tools/bugpoint
@@ -42,13 +41,13 @@ kernelgen-simple: $(OBJECTS_KS) libkernelgen-opt.so
 	g++ -g $(OBJECTS_KS) -o $@ $(KERNELGEN_LIB) $(LLVM_LIB) -L. -lkernelgen-opt
 
 kernelgen-ct.o: compile.cpp tracker.h
-	g++ -g -fPIC $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@
+	g++ -g -fPIC -I$(BUGPOINT_ROOT) $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@
 
 kernelgen-lt.o: link.cpp
-	g++ -g -fPIC $(KERNELGEN_INC) $(LLVM_INC) -fPIC -c $< -o $@
+	g++ -g -fPIC $(LLVM_INC) -fPIC -c $< -o $@
 
 simple.o: simple.cpp tracker.h
-	g++ -g -I$(BUGPOINT_ROOT) $(KERNELGEN_INC) $(LLVM_INC) -c $< -o $@
+	g++ -g -I$(BUGPOINT_ROOT) $(LLVM_INC) -c $< -o $@
 
 BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
 	g++ -g -fPIC $(LLVM_INC) -fno-rtti -c $< -o $@
