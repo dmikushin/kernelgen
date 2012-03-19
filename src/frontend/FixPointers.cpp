@@ -5,7 +5,9 @@
 #include "llvm/Function.h"
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include <set>
+
 #include <map>
 #include <iostream>
 using namespace llvm;
@@ -46,7 +48,7 @@ void FixPointers::FixPointersInModule(Module *m)
 		GetElementPtrInst* GEPInst = *GEPs_iterator;
 		if(GEPInst->getNumIndices() == 1 &&
 		   isa<Instruction>(GEPInst->getOperand(0)) &&
-		   targetData.getTypeStoreSize(GEPInst -> getType() ->getElementType())==1 ) {
+		   targetData.getTypeAllocSize(GEPInst -> getType() ->getElementType())==1 ) {
 			Value * GEPIndex = *GEPInst->idx_begin(); // Index argument of GEP
 			int64_t constantIndex = 0;
 			bool isConstant = false;
@@ -59,7 +61,7 @@ void FixPointers::FixPointersInModule(Module *m)
 				case Instruction::Mul: { // index is realIndex*indexCoefficient
 					if( isa<ConstantInt>(*instIndex -> getOperand(0)))
 						instIndex->swapOperands();//move Constant to second place
-					ConstantInt *secondOperand;
+					ConstantInt *secondOperand = NULL;
 					//first operand must be regular Value, second - Constant
 					//Otherwise, how to define which argument is realIndex?
 					if(!isa<ConstantInt>(*instIndex -> getOperand(0)) &&
@@ -86,21 +88,30 @@ void FixPointers::FixPointersInModule(Module *m)
 					BitCastInst * castInst = cast<BitCastInst>(*userOfGep);
 					if(castInst -> getDestTy() -> isPointerTy()) {
 						PointerType * newPointerType = cast<PointerType>(castInst -> getDestTy());
-						int typeStoreSize = targetData.getTypeStoreSize(newPointerType -> getElementType());
-						//create newBitCast : (newPointerType)ptr, if there is no such
+						int typeAllocSize = targetData.getTypeAllocSize(newPointerType -> getElementType());
+						
+						if(typeAllocSize == 0) 
+						{
+						    outs().changeColor(raw_ostream::BLUE);
+		                    outs() << "KernelGen can not remove unnecessary bit cast: "
+		                              "typeAlloc size is zero (maybe it is cast to variable sized array)\n";
+		                    outs().resetColor();
+							continue;
+						}
+ 						//create newBitCast : (newPointerType)ptr, if there is no such
 						Instruction* newBitCast = new BitCastInst(GEPInst->getOperand(0),newPointerType,"newBitCast");
 						newBitCast -> insertAfter(cast<Instruction>(GEPInst->getOperand(0)));
 						Instruction* newGEPInst;
 						//create index for new GEP
-						if(isConstant && (constantIndex % typeStoreSize == 0)) {
-							//create newGEPInst : &newBitCast[constantIndex/typeStoreSize]
-							Value * newIndex = ConstantInt::getSigned(GEPIndex->getType(),constantIndex / typeStoreSize);
+						if(isConstant && (constantIndex % typeAllocSize == 0)) {
+							//create newGEPInst : &newBitCast[constantIndex/typeAllocSize]
+							Value * newIndex = ConstantInt::getSigned(GEPIndex->getType(),constantIndex / typeAllocSize);
 							vector<Value *> Idx;
 							Idx.push_back(newIndex);
 							newGEPInst = GetElementPtrInst::Create(newBitCast, Idx, "newGEPInst");
-						} else if(indexCoefficient % typeStoreSize == 0 ) {
+						} else if(indexCoefficient % typeAllocSize == 0 ) {
 							Instruction* newIndex = instIndex->clone();
-							newIndex ->setOperand(1,ConstantInt::getSigned(instIndex->getType(),indexCoefficient / typeStoreSize));
+							newIndex ->setOperand(1,ConstantInt::getSigned(instIndex->getType(),indexCoefficient / typeAllocSize));
 							newIndex -> setName("newIndex");
 							newIndex -> insertAfter(instIndex);
 							vector<Value *> Idx;
