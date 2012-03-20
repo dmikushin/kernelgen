@@ -53,16 +53,16 @@ void FixPointers::FixPointersInModule(Module *m)
 		if(GEPInst->getNumIndices() == 1 &&
 		   isa<Instruction>(GEPInst->getOperand(0)) &&
 		   targetData.getTypeAllocSize(GEPInst -> getType() ->getElementType())==1 ) {
-			
+
 			Value * GEPIndex = *GEPInst->idx_begin();
-			
+
 			bool isConstant = false;
 			bool isInstruction = false;
-            
+
 			int64_t constantIndex = 0;
 			BinaryOperator * instructionIndex = NULL;
 			int64_t indexCoefficient = 0;
-			
+
 			// <handle non constant indexes >
 			if( isa<BinaryOperator>(*GEPIndex) ) {
 				instructionIndex = cast<BinaryOperator>(GEPIndex);
@@ -99,13 +99,13 @@ void FixPointers::FixPointersInModule(Module *m)
 					if(castInst -> getDestTy() -> isPointerTy()) {
 						PointerType * newPointerType = cast<PointerType>(castInst -> getDestTy());
 						int typeAllocSize = targetData.getTypeAllocSize(newPointerType -> getElementType());
-						
-						/*{  
+
+						/*{
 							outs() << "<------------------------------- One more GEP Inst ------------------------------->" << "\n";
 							PointerType * asdf = cast<PointerType>(cast<Instruction>(GEPInst->getOperand(0))->getOperand(0)->getType());
 							outs() << " Real type : ";
-					        outs() << "<-----| "<<*(asdf->getElementType()) << " |---->\n";
-							
+						    outs() << "<-----| "<<*(asdf->getElementType()) << " |---->\n";
+
 							outs().indent(6) << *(GEPInst->getOperand(0)) << "\n";
 							if(isInstruction) {
 								assert(instIndex);
@@ -118,7 +118,7 @@ void FixPointers::FixPointersInModule(Module *m)
 							outs().indent(6) << *castInst << "\n";
 							outs() << "<--------------------------------------------------------------------------------->" << "\n\n";
 						}*/
-						
+
 						if(typeAllocSize == 0) {
 							outs().changeColor(raw_ostream::BLUE);
 							outs() << "KernelGen can not remove bit cast: "
@@ -151,14 +151,18 @@ void FixPointers::FixPointersInModule(Module *m)
 						if(newGEPInst) {
 							newGEPInst -> insertAfter(GEPInst);
 							castInst -> replaceAllUsesWith(newGEPInst);
+						} else {
+
+							outs().changeColor(raw_ostream::BLUE);
+							outs() << "KernelGen can not remove bit cast: "
+							       "typeAllocSize is not divider of offset\n";
+							outs().resetColor();
+							continue;
 						}
 					}
 				}
 		}
 	}
-
-	//m -> print(OS,false);
-	//OS.flush();
 }
 class MoveUpCasts : public ModulePass
 {
