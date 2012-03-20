@@ -164,7 +164,7 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM) {
 	  
 	  if(LoopFunctionCalls)
 	      LoopFunctionCalls->push_back(Call);
-      LPM.deleteLoopFromQueue(L);
+      //LPM.deleteLoopFromQueue(L);
     }
     ++NumBranchedExtracted;
   }

@@ -972,7 +972,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	DT->DT->recalculate(*parentFunction);
 	//DT->DT->recalculate(*loopFunction);
 
-	if (verifyFunction(*loopFunction))
+	if (verifyFunction(*loopFunction) || verifyFunction(*parentFunction))
 		cout << "verifyFunction failed!";
 
 	return callLoopFuctionInst;

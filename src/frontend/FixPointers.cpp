@@ -163,9 +163,12 @@ void MoveUpCasts::MoveUpCastsInModule(Module *m)
 					}
 				}
 	for(int i = 0; i < castInsts.size(); i++) {
-		castInsts[i]->removeFromParent();
 		Instruction * operand = cast<Instruction>(castInsts[i]->getOperand(0));
-                castInsts[i]->insertBefore(operand -> getParent() -> getTerminator());
+		if(operand -> getParent() != castInsts[i] -> getParent())
+		{
+		     castInsts[i]->removeFromParent();
+		     castInsts[i]->insertBefore(operand -> getParent() -> getTerminator());
+		}
 	}
 	/*map<BitCastInst *,BitCastInst *> equalBitCasts;
 	for(int i = 0; i < castInsts.size(); i++)
