@@ -771,7 +771,7 @@ void BranchedCodeExtractor::updatePhiNodes(
 			Instruction * User = dyn_cast<Instruction>(*UI);
 			if(User && !OriginalLoopBlocks.count( User->getParent())) {
 				User->replaceUsesOfWith(I, newPN);
-				User->setName("UserOfOutput");
+				//User->setName("UserOfOutput");
 			}
 		}
 		Users.clear();
@@ -970,7 +970,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	updatePhiNodes(outputs, OutputsToLoadInstMap, loadAndSwitchExitBlock, ExitBlocks);
 
 	DT->DT->recalculate(*parentFunction);
-	DT->DT->recalculate(*loopFunction);
+	//DT->DT->recalculate(*loopFunction);
 
 	if (verifyFunction(*loopFunction))
 		cout << "verifyFunction failed!";
