@@ -5,6 +5,7 @@
 #include "llvm/Function.h"
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include <set>
 
@@ -43,37 +44,45 @@ void FixPointers::FixPointersInModule(Module *m)
 			    instruction!=instruction_end; instruction++)
 				if(isa<GetElementPtrInst>(*instruction))
 					GEPs.push_back(cast<GetElementPtrInst>(instruction));
-	for(vector<GetElementPtrInst *>::iterator GEPs_iterator = GEPs.begin(), GEPs_iterator_end = GEPs.end();
-	    GEPs_iterator != GEPs_iterator_end; GEPs_iterator++) {
-		GetElementPtrInst* GEPInst = *GEPs_iterator;
+	//for(vector<GetElementPtrInst *>::iterator GEPs_iterator = GEPs.begin(), GEPs_iterator_end = GEPs.end();
+	//    GEPs_iterator != GEPs_iterator_end; GEPs_iterator++) {
+	//GetElementPtrInst* GEPInst = *GEPs_iterator;
+
+	for(int i = 0 ; i < GEPs.size(); i++) {
+		GetElementPtrInst* GEPInst = GEPs[i];
 		if(GEPInst->getNumIndices() == 1 &&
 		   isa<Instruction>(GEPInst->getOperand(0)) &&
 		   targetData.getTypeAllocSize(GEPInst -> getType() ->getElementType())==1 ) {
-			Value * GEPIndex = *GEPInst->idx_begin(); // Index argument of GEP
-			int64_t constantIndex = 0;
+			
+			Value * GEPIndex = *GEPInst->idx_begin();
+			
 			bool isConstant = false;
+			bool isInstruction = false;
+            
+			int64_t constantIndex = 0;
+			BinaryOperator * instructionIndex = NULL;
 			int64_t indexCoefficient = 0;
-			BinaryOperator * instIndex = NULL;
+			
 			// <handle non constant indexes >
 			if( isa<BinaryOperator>(*GEPIndex) ) {
-				instIndex = dyn_cast<BinaryOperator>(GEPIndex);
-				switch(instIndex->getOpcode()) {
+				instructionIndex = cast<BinaryOperator>(GEPIndex);
+				switch(instructionIndex->getOpcode()) {
 				case Instruction::Mul: { // index is realIndex*indexCoefficient
-					if( isa<ConstantInt>(*instIndex -> getOperand(0)))
-						instIndex->swapOperands();//move Constant to second place
-					ConstantInt *secondOperand = NULL;
+					if( isa<ConstantInt>(*instructionIndex -> getOperand(0)))
+						instructionIndex->swapOperands();//move Constant to second place
 					//first operand must be regular Value, second - Constant
 					//Otherwise, how to define which argument is realIndex?
-					if(!isa<ConstantInt>(*instIndex -> getOperand(0)) &&
-					   (secondOperand = dyn_cast<ConstantInt>(instIndex -> getOperand(1))))
+					if(!isa<Constant>(*instructionIndex -> getOperand(0)) &&
+					   (isa<ConstantInt>(*instructionIndex -> getOperand(1)))) {
 						//FIXME: IndexCoefficiesnt is signed value
+						ConstantInt *secondOperand = cast<ConstantInt>(instructionIndex -> getOperand(1));
 						indexCoefficient = secondOperand -> getSExtValue();
-					else instIndex = NULL;
+						isInstruction = true;
+					}
 				}
 				break;
 				default:
 					//TODO: review other possible suitable cases
-					instIndex = NULL;
 					break;
 				}
 			}// <handle non constant indexes>
@@ -81,7 +90,8 @@ void FixPointers::FixPointersInModule(Module *m)
 				constantIndex = dyn_cast<ConstantInt>(GEPIndex)-> getSExtValue();
 				isConstant = true;
 			}// </ handle constant indexes>
-			if(!instIndex && !isConstant) continue;
+			if(!isInstruction && !isConstant) continue;
+
 			for(Value::use_iterator userOfGep = GEPInst -> use_begin(), userOfGep_end = GEPInst -> use_end();
 			    userOfGep != userOfGep_end; userOfGep++)
 				if(isa<BitCastInst>(**userOfGep)) {
@@ -90,18 +100,37 @@ void FixPointers::FixPointersInModule(Module *m)
 						PointerType * newPointerType = cast<PointerType>(castInst -> getDestTy());
 						int typeAllocSize = targetData.getTypeAllocSize(newPointerType -> getElementType());
 						
-						if(typeAllocSize == 0) 
-						{
-						    outs().changeColor(raw_ostream::BLUE);
-		                    outs() << "KernelGen can not remove unnecessary bit cast: "
-		                              "typeAlloc size is zero (maybe it is cast to variable sized array)\n";
-		                    outs().resetColor();
+						/*{  
+							outs() << "<------------------------------- One more GEP Inst ------------------------------->" << "\n";
+							PointerType * asdf = cast<PointerType>(cast<Instruction>(GEPInst->getOperand(0))->getOperand(0)->getType());
+							outs() << " Real type : ";
+					        outs() << "<-----| "<<*(asdf->getElementType()) << " |---->\n";
+							
+							outs().indent(6) << *(GEPInst->getOperand(0)) << "\n";
+							if(isInstruction) {
+								assert(instIndex);
+								outs().indent(6) << *instIndex << " with coefficient " << indexCoefficient << "\n";
+							}
+							if(isConstant) {
+								outs().indent(6) << " contsantIndex: " << constantIndex << "\n";
+							}
+							outs().indent(6) << *GEPInst << "\n";
+							outs().indent(6) << *castInst << "\n";
+							outs() << "<--------------------------------------------------------------------------------->" << "\n\n";
+						}*/
+						
+						if(typeAllocSize == 0) {
+							outs().changeColor(raw_ostream::BLUE);
+							outs() << "KernelGen can not remove bit cast: "
+							       "typeAlloc size is zero (possibly it is cast to variable sized array)\n";
+							outs().resetColor();
 							continue;
 						}
- 						//create newBitCast : (newPointerType)ptr, if there is no such
+						//create newBitCast : (newPointerType)ptr, if there is no such
 						Instruction* newBitCast = new BitCastInst(GEPInst->getOperand(0),newPointerType,"newBitCast");
-						newBitCast -> insertAfter(cast<Instruction>(GEPInst->getOperand(0)));
-						Instruction* newGEPInst;
+						//newBitCast -> insertAfter(cast<Instruction>(GEPInst->getOperand(0)));
+						newBitCast -> insertBefore(GEPInst);
+						Instruction* newGEPInst = NULL;
 						//create index for new GEP
 						if(isConstant && (constantIndex % typeAllocSize == 0)) {
 							//create newGEPInst : &newBitCast[constantIndex/typeAllocSize]
@@ -109,24 +138,27 @@ void FixPointers::FixPointersInModule(Module *m)
 							vector<Value *> Idx;
 							Idx.push_back(newIndex);
 							newGEPInst = GetElementPtrInst::Create(newBitCast, Idx, "newGEPInst");
-						} else if(indexCoefficient % typeAllocSize == 0 ) {
-							Instruction* newIndex = instIndex->clone();
-							newIndex ->setOperand(1,ConstantInt::getSigned(instIndex->getType(),indexCoefficient / typeAllocSize));
+						} else if(isInstruction && (indexCoefficient % typeAllocSize == 0) ) {
+
+							Instruction* newIndex = instructionIndex->clone();
+							newIndex ->setOperand(1,ConstantInt::getSigned(instructionIndex->getType(),indexCoefficient / typeAllocSize));
 							newIndex -> setName("newIndex");
-							newIndex -> insertAfter(instIndex);
+							newIndex -> insertAfter(instructionIndex);
 							vector<Value *> Idx;
 							Idx.push_back(newIndex);
 							newGEPInst = GetElementPtrInst::Create(newBitCast, Idx, "newGEPInst");
 						}
-						assert(newGEPInst);
-						newGEPInst -> insertAfter(GEPInst);
-						//replace all uses of oldBitCast by newGEPInst and erase oldBitCast
-						castInst -> replaceAllUsesWith(newGEPInst);
-						//castInst -> eraseFromParent();
+						if(newGEPInst) {
+							newGEPInst -> insertAfter(GEPInst);
+							castInst -> replaceAllUsesWith(newGEPInst);
+						}
 					}
 				}
 		}
 	}
+
+	//m -> print(OS,false);
+	//OS.flush();
 }
 class MoveUpCasts : public ModulePass
 {
@@ -164,10 +196,9 @@ void MoveUpCasts::MoveUpCastsInModule(Module *m)
 				}
 	for(int i = 0; i < castInsts.size(); i++) {
 		Instruction * operand = cast<Instruction>(castInsts[i]->getOperand(0));
-		if(operand -> getParent() != castInsts[i] -> getParent())
-		{
-		     castInsts[i]->removeFromParent();
-		     castInsts[i]->insertBefore(operand -> getParent() -> getTerminator());
+		if(operand -> getParent() != castInsts[i] -> getParent()) {
+			castInsts[i]->removeFromParent();
+			castInsts[i]->insertBefore(operand -> getParent() -> getTerminator());
 		}
 	}
 	/*map<BitCastInst *,BitCastInst *> equalBitCasts;
@@ -184,4 +215,3 @@ void MoveUpCasts::MoveUpCastsInModule(Module *m)
 	  equalPair->second -> eraseFromParent();
 	}*/
 }
-
