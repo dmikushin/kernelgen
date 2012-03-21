@@ -842,8 +842,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 
 	if (NumExitBlocks != 1) {
 		outs().changeColor(raw_ostream::YELLOW);
-		outs() << "KernelGen dropped loop: There must be only one exit block "
-		       "from the code region for the current version\n";
+		outs() << "KernelGen dropped loop: There must be only one exit block from the code region\n";
 		outs().resetColor();
 		return NULL;
 	}
@@ -972,7 +971,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	DT->DT->recalculate(*parentFunction);
 	//DT->DT->recalculate(*loopFunction);
 
-	if (verifyFunction(*loopFunction) || verifyFunction(*parentFunction))
+	if (verifyFunction(*loopFunction))
 		cout << "verifyFunction failed!";
 
 	return callLoopFuctionInst;

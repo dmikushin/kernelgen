@@ -92,6 +92,7 @@ static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBas
 	PM.add(createMoveUpCastsPass());
 	PM.add(createInstructionCombiningPass());
 	PM.add(createBranchedLoopExtractorPass());
+	PM.add(createVerifierPass());
 }
 
 struct fallback_args_t
