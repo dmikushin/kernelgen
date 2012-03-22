@@ -24,10 +24,12 @@
 #include <cstdlib>
 #include <elf.h>
 #include <fcntl.h>
+#include <fstream>
 #include <gelf.h>
 #include <iostream>
 #include <list>
 #include <memory>
+#include <sstream>
 #include <string.h>
 #include <unistd.h>
 #include <vector>
@@ -285,7 +287,10 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		func->setAttributes(attr_new);
 	}
 	
-			for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
+	/*//
+	// Add noalias for all used functions arguments (dirty hack).
+	//
+	for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
 	    function != function_end; function++) {
 		Function * f = function;
 		int i = 1;
@@ -297,7 +302,7 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 					f -> setDoesNotAlias(i);
 			i++;
 		}
-	}
+	}*/
 	
 	//
 	// 4) Inline calls and extract loops into new functions.
@@ -536,25 +541,37 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		if (verbose)
 			cout << "Linking " << arg << " ..." << endl;
 
-		int fd = open(arg, O_RDONLY);
-		if (fd < 0)
+		vector<char> container;
+		char *image = NULL;
+		stringstream stream(stringstream::in | stringstream::out |
+			stringstream::binary);
+		ifstream f(arg, ios::in | ios::binary);
+		stream << f.rdbuf();
+		f.close();
+		string str = stream.str();
+		container.resize(str.size() + 1);
+		image = (char*)&container[0];
+		memcpy(image, str.c_str(), str.size() + 1);
+
+		if (strncmp(image, ELFMAG, 4))
 		{
-			cerr << "Cannot open " << arg << endl;
+			cerr << "Cannot read ELF image from " << arg << endl;
 			return 1;
 		}
 
-		// Get symbols table and the index of .kernelgen section.
-		Elf* e = elf_begin(fd, ELF_C_READ, NULL);
+		// Walk through the ELF image and record the positions
+		// of the .kernelgen section.
+		Elf* e = elf_memory(image, container.size());
 		if (!e)
 		{
 			cerr << "elf_begin() failed: " << elf_errmsg(-1) << endl;
-			throw;
+			return 1;
 		}
 		size_t shstrndx;
 		if (elf_getshdrstrndx(e, &shstrndx))
 		{
 			cerr << "elf_getshdrstrndx() failed: " << elf_errmsg(-1) << endl;
-			throw;
+			return 1;
 		}
 		Elf_Data* symbols = NULL;
 		int nsymbols = 0, ikernelgen = -1;
@@ -567,7 +584,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			if (!gelf_getshdr(scn, &shdr))
 			{
 				cerr << "gelf_getshdr() failed for " << elf_errmsg(-1) << endl;
-				throw;
+				return 1;
 			}
 
 			if (shdr.sh_type == SHT_SYMTAB)
@@ -576,7 +593,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				if (!symbols)
 				{
 					cerr << "elf_getdata() failed for " << elf_errmsg(-1);
-					throw;
+					return 1;
 				}
 				if (shdr.sh_entsize)
 					nsymbols = shdr.sh_size / shdr.sh_entsize;
@@ -587,7 +604,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 			{
 				cerr << "Cannot read the section " << i << " name" << endl;
-				throw;
+				return 1;
 			}
 
 			if (!strcmp(name, ".kernelgen"))
@@ -646,26 +663,23 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				// Since our objects are not fully linked, offset in st_value
 				// is relative and must be shifted by section offset to get
 				// the absolute value.
-				OwningPtr<MemoryBuffer> buffer;
-				MemoryBuffer::getOpenFile(fd, arg, buffer,
-					(int64_t)symbol.st_size, -1,
-					(int64_t)symbol.st_value + okernelgen, false);
-				if (!buffer.get())
+				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(
+						image + okernelgen + symbol.st_value);
+				if (!buffer)
 				{
 					cerr << "Error reading object file symbol " << name << endl;
 					return 1;
 				}
-				MemoryBuffer* another = buffer.get();
-				buffer.take();
-				Module* m = ParseIR(another, diag, context);
-				if (!m)
+				auto_ptr<Module> m;
+				m.reset(ParseIR(buffer, diag, context));
+				if (!m.get())
 				{
 					cerr << "Error parsing LLVM IR module from symbol " << name << endl;
 					return 1;
 				}
 
 				string err;
-				if (Linker::LinkModules(&composite, m, Linker::PreserveSource, &err))
+				if (Linker::LinkModules(&composite, m.get(), Linker::PreserveSource, &err))
 				{
 					cerr << "Error linking module " << name << " : " << err << endl;
 					return 1;
@@ -697,7 +711,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			}
 		}*/
 		elf_end(e);
-		close(fd);
 	}
 	if (!main_output)
 	{

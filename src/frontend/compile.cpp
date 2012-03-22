@@ -116,11 +116,10 @@ extern "C" void callback (void*, void*)
 		func->setAttributes(attr_new);
 	}
 
+	/*//
+	// Add noalias for all used functions arguments (dirty hack).
 	//
-	// 2) Inline calls and extract loops into new functions.
-	// Apply optimization passes to the resulting common module.
-	//
-		for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
+	for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
 	    function != function_end; function++) {
 		Function * f = function;
 		int i = 1;
@@ -132,8 +131,12 @@ extern "C" void callback (void*, void*)
 					f -> setDoesNotAlias(i);
 			i++;
 		}
-	}
+	}*/
 	
+	//
+	// 2) Inline calls and extract loops into new functions.
+	// Apply optimization passes to the resulting common module.
+	//
 	{
 		int optLevel = 3;
 		
