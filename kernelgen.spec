@@ -51,6 +51,7 @@ Patch7:		llvm.polly.patch
 Patch8:		llvm.scev.patch
 Patch9:		bugpoint.patch
 Patch10:	gcc.patch
+Patch11:	llvm.statistic.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -105,6 +106,7 @@ tar -xf $RPM_SOURCE_DIR/nvopencc-r12003483.tar.gz
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
+%patch11 -p1
 %endif
 
 

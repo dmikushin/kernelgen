@@ -25,7 +25,7 @@
 
 #define real float
 
-const char *a = "aa", *z = "zz";
+//const char *a = "aa", *z = "zz";
 
 void sincos_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
 
@@ -42,17 +42,17 @@ int main(int argc, char* argv[])
 	real* y = (real*)malloc(sizeof(real) * nx * ny * nz);
 	real* xy = (real*)malloc(sizeof(real) * nx * ny * nz);
 	double invrmax = 1.0 / RAND_MAX;
-	for (int i = 0; i < nx * ny * nz; i++)
+	for (int i = 0; i < 100/*nx * ny * nz*/; i++)
 	{
 		x[i] = rand() * invrmax;
 		y[i] = rand() * invrmax;
 	}
 	
 	sincos_(&nx, &ny, &nz, x, y, xy);
-	sincos_(&nx, &ny, &nz, x, y, xy);
+	//sincos_(&nx, &ny, &nz, x, y, xy);
 
-	nx--; ny--; nz--;
-	sincos_(&nx, &ny, &nz, x, y, xy);
+	//nx--; ny--; nz--;
+	//sincos_(&nx, &ny, &nz, x, y, xy);
 
 	free(x);
 	free(y);

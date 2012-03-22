@@ -225,13 +225,15 @@ public:
 		cout << "<--------------------------------------------------------->" << endl;
 	}
 	void printSizeOfLoops(Size3 &size3, int numberOfLoops) {
-		cout << "    Number of good nested parallel loops: " << numberOfLoops << endl;
+		outs().changeColor(raw_ostream::GREEN);
+		cout << "\n    Number of good nested parallel loops: " << numberOfLoops << endl;
 		if(numberOfLoops) {
 			cout << "    Average size of loops: " << size3.x;
 			if(numberOfLoops >=2) cout << " " << size3.y;
 			if(numberOfLoops >=3) cout << " " << size3.z;
 			cout << endl;
 		}
+		outs().resetColor();
 
 	}
 	void setMemoryForSizes(vector<Size3> *memForSizes) {
@@ -248,8 +250,7 @@ public:
 		ScopPass::getAnalysisUsage(AU);
 		AU.addRequired<CloogInfo>();
 		AU.addRequired<Dependences>();
-		AU.addPreserved<CloogInfo>();
-		AU.addPreserved<Dependences>();
+        AU.setPreservesAll();
 	}
 };
 bool isaGoodListOfStatements(const clast_stmt * stmt, const clast_for * &nested_for, bool & user_or_assignment)
@@ -343,7 +344,8 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 		sizeOfLoops->push_back(Size3());
     
 	printSizeOfLoops( (*sizeOfLoops)[0], goodLoopsCount);
-    printCloogAST(C);
+    //printCloogAST(C);
+	outs() << "\n<------------------------------ Scop: end ----------------------------------->\n";
 	return true;
 }
 

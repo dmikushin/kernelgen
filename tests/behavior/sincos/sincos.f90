@@ -35,7 +35,7 @@ subroutine sincos(nx, ny, nz, x, y, xy)
 
 implicit none
 
-integer, intent(in) :: nx, ny, nz
+integer, intent(inout) :: nx, ny, nz
 real, intent(in) :: x(nx, ny, nz), y(nx, ny, nz)
 real, intent(inout) :: xy(nx, ny, nz)
 
@@ -51,6 +51,9 @@ do k = 1, nz
 enddo
 
 print *, sum(xy), maxval(xy), minval(xy)
+!nx = sum(xy)
+!ny = maxval(xy)
+!nz = minval(xy)
 
-end subroutine sincos
+end subroutine sincos	
 

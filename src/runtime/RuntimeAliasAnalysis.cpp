@@ -40,9 +40,9 @@ bool isIntersect(MemoryRange &range1, MemoryRange &range2)
 	return !(range2.first > range1.second ||
 	         range1.first > range2.second );
 }
-void printRange(MemoryRange &range, raw_ostream &OS)
+void printRange(MemoryRange &range, raw_ostream &out)
 {
-	OS << "[" << range.first << ", " << range.second << "]";
+	out << "[" << range.first << ", " << range.second << "]";
 }
 
 
@@ -59,11 +59,11 @@ class RuntimeAliasAnalysis : public ScopPass
 		static char ID;
 		RuntimeAliasAnalysis()
 			:ScopPass(ID) {
-			Readings=0;
+			/*Readings=0;
 			Writings=0;
 			ReadWrite=0;
 			WriteWrite=0;
-			NoAAScops=0;
+			NoAAScops=0;*/
 		}
 		bool runOnScop(Scop &scop);
 		static int getAccessFunction(__isl_take isl_set *Set, __isl_take isl_aff *Aff, void *User);
@@ -74,10 +74,10 @@ class RuntimeAliasAnalysis : public ScopPass
 			AU.setPreservesAll();
 		}
 };
-	void printCloogAST(CloogInfo &C, raw_os_ostream  & OS) {
-		OS << "<------------------- Cloog AST of Scop ------------------->\n";
-		C.pprint(OS);
-		OS << "<--------------------------------------------------------->\n";
+	void printCloogAST(CloogInfo &C) {
+		outs() << "<------------------- Cloog AST of Scop ------------------->\n";
+		C.pprint(outs());
+		outs() << "<--------------------------------------------------------->\n";
 	}
 int RuntimeAliasAnalysis::getAccessFunction(__isl_take isl_set *Set, __isl_take isl_aff *Aff, void *User)
 {
@@ -97,12 +97,11 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 	TD = &getAnalysis<TargetData>();
 	C = &getAnalysis<CloogInfo>();
 
-	raw_os_ostream OS(cout);
 	if(print_flag)
     {
-		OS << "\n<------------------------------ One Another Scop ----------------------------->\n";
-        printCloogAST(*C,OS);
-		OS << "\n";
+		outs() << "\n<------------------------------ Scop: start --------------------------------->\n";
+        printCloogAST(*C);
+		outs() << "\n";
 	}
 	//assert(scop.getNumParams() == 0 &&
 	//       "FIXME: "
@@ -116,8 +115,8 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 			isl_set *stmtDomain = stmt->getDomain();
 			if(print_flag) {
 
-				OS.indent(8) << stmt -> getBaseName() << " domain := "<<"\n";// print name of statement
-				OS.indent(12) << stmt -> getDomainStr() << "\n\n";           // print domain of statement
+				outs().indent(8) << stmt -> getBaseName() << " domain := "<<"\n";// print name of statement
+				outs().indent(12) << stmt -> getDomainStr() << "\n\n";           // print domain of statement
 			}
 			//<foreach memory access in scop>
 			for(ScopStmt::memacc_iterator access_iterator=stmt->memacc_begin(), access_iterator_end = stmt->memacc_end();
@@ -129,9 +128,9 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 				if(isa<AllocaInst>(*baseAddressValue))
 					// we hope that it is mem2reg allocatinon in stack, created in polly::CodePreparation
 				{
-					memoryAccess -> print(OS);
-                    OS.indent(16) << "WARNING: Found access to memory, allocated by AllocaInst!\n";
-					OS.indent(16) << "         It must be reg2mem, created by polly:CodePreparation!\n\n";
+					//memoryAccess -> print(outs());
+                    //outs().indent(16) << "WARNING: Found access to memory, allocated by AllocaInst!\n";
+					//outs().indent(16) << "         It must be reg2mem, created by polly:CodePreparation!\n\n";
 					continue;
 				}
 				assert(isa<ConstantExpr>(*baseAddressValue)&&
@@ -181,11 +180,11 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 
 				// print information
 				if(print_flag) {
-					memoryAccess -> print(OS);
-					OS.indent(16) << "Base address  =  " << baseAddress << "   SizeOfElement = " << storeSize <<"\n";
-					OS.indent(20) << "Minimum offset = " << min << "  Maximum offset = " << max << "\n";
-					OS.indent(20) << "Byte min offset = " << storeSize*min << "  Byte max offset = " << storeSize*max << "\n";
-					OS.indent(16) << "Total access range = [" << baseAddress + storeSize*min << ", " <<  baseAddress + storeSize*max << "]\n\n";
+					memoryAccess -> print(outs());
+					outs().indent(16) << "Base address  =  " << baseAddress << "   SizeOfElement = " << storeSize <<"\n";
+					outs().indent(20) << "Minimum offset = " << min << "  Maximum offset = " << max << "\n";
+					outs().indent(20) << "Byte min offset = " << storeSize*min << "  Byte max offset = " << storeSize*max << "\n";
+					outs().indent(16) << "Total access range = [" << baseAddress + storeSize*min << ", " <<  baseAddress + storeSize*max << "]\n\n";
 				}
 				// save range
 				if(memoryAccess->isRead())
@@ -214,8 +213,8 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 		printRange((first),(stream)); \
 		(stream) << " vs ";	\
 		printRange((second),(stream)); \
-		if( !( flag = isIntersect( (first), ( second)) )) (stream) << " .... OK!\n"; \
-		else   (stream) << " .... FAIL!\n"; \
+		if( !( flag = isIntersect( (first), ( second)) )) { (stream).changeColor(raw_ostream::GREEN); (stream) << " .... OK!\n"; (stream).resetColor(); }\
+		else  {(stream).changeColor(raw_ostream::RED); (stream) << " .... FAIL!\n"; (stream).resetColor();} \
 	}
 
 	bool flag = true;
@@ -225,7 +224,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 		//<test if there are read-write conflicts>
 		for(unsigned i = 0; i < readingMemoryRanges.size(); i++)
 			for(unsigned j = 0; j < writingMemoryRanges.size(); j++) {
-				PRINT_TESTING_PAIR(readingMemoryRanges[i], writingMemoryRanges[j], OS, localFlag)
+				PRINT_TESTING_PAIR(readingMemoryRanges[i], writingMemoryRanges[j], outs(), localFlag)
 				flag = flag && !localFlag;
 				if(localFlag) ReadWrite++; //,   "Number of read-write conflicts"
 			}
@@ -233,7 +232,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 		//<test if there are write-write conflicts>
 		for(unsigned i = 0; i < writingMemoryRanges.size(); i++)
 			for(unsigned j = i+1; j < writingMemoryRanges.size(); j++) {
-				PRINT_TESTING_PAIR(writingMemoryRanges[i], writingMemoryRanges[j], OS, localFlag)
+				PRINT_TESTING_PAIR(writingMemoryRanges[i], writingMemoryRanges[j], outs(), localFlag)
 				flag = flag && !localFlag;
 				if(localFlag) WriteWrite++; //,   "Number of write-write conflicts"
 			}
@@ -241,7 +240,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 	}
 	if(!flag ) getAnalysis<ScopInfo>().releaseMemory(); // delete scop
 	if(flag) NoAAScops++;// "Number of scops with no memory aliasing"
-	OS.flush();
+	outs().flush();
 	return false;
 }
 

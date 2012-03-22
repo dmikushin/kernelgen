@@ -22,13 +22,13 @@
 all: sincos
 
 sincos: sincos.o main.o
-	kernelgen-gfortran $^ -o $@
+	kernelgen-simple $^ -o $@
 
 main.o: main.c
-	kernelgen-gcc -g -std=c99 -c $< -o $@
+	kernelgen-simple -g -std=c99 -c $< -o $@
 
 sincos.o: sincos.f90
-	kernelgen-gfortran -g -c $< -o $@
+	kernelgen-simple -g -c $< -o $@
 
 clean:
 	rm -rf *.o sincos

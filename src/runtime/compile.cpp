@@ -70,6 +70,10 @@ namespace polly
 {
 	extern cl::opt<bool> CUDA;
 };
+namespace llvm
+{
+	void RemoveStatistics();
+}
 extern cl::opt<bool>  IgnoreAliasing;
 // Arrays and sets of KernelGen and CUDA intrinsics.
 static string cuda_intrinsics[] = {
@@ -112,39 +116,57 @@ Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 	}
 	return Size3(launchParameters);
 }
-
+void printSpecifiedStatistics(vector<string> statisticsNames)
+{
+	string allStatistics;
+	raw_string_ostream stringOS(allStatistics);
+	llvm::PrintStatistics(stringOS);
+	  outs().changeColor(raw_ostream::YELLOW);
+	for(int i = 0; i < statisticsNames.size(); i++) {
+		string statisticName = statisticsNames[i];
+		int start = 0;
+		int end = 0;
+		while( (start = allStatistics.find(statisticName,end)) != -1) {
+			start = allStatistics.rfind('\n',start);
+			if(start == -1) start == 0;
+			end = allStatistics.find('\n',start+1);
+			outs() << allStatistics.substr(start+1,end-start);
+		}
+	}
+	outs().resetColor();
+}
 static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 {
+	llvm::EnableStatistics();
 	PassManager polly = getPollyPassManager(kernel->module);
 	polly.run(*kernel->module);
-
+	llvm::RemoveStatistics();
+	
 	IgnoreAliasing.setValue(true);
 	polly::CUDA.setValue(mode);
 
+    llvm::EnableStatistics();
 	vector<Size3> sizes;
 	{
-			
 		PassManager polly;
 		polly.add(new TargetData(kernel->module));
+		//registerPollyPreoptPasses(polly);
 		if(kernel->name != "__kernelgen_main") {
-			llvm::EnableStatistics();
 			polly.add(createRuntimeAliasAnalysisPass());
 			polly.add(createSizeOfLoopsPass(&sizes));
 		}
 		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
 		polly.add(createCFGSimplificationPass());
 		polly.run(*kernel->module);
-		if(kernel->name != "__kernelgen_main") {
-			raw_os_ostream OS(cout);
-			llvm::PrintStatistics(OS);
-			//OS.flush();
-		}
 	}
-
 	if(kernel->name != "__kernelgen_main") {
 		Size3 SizeOfLoops;
 		if(sizes.size() == 0)
-			cout << "    FAIL: No Valid Scops detected in kernel!!!" << endl << endl;
+		{
+	        outs().changeColor(raw_ostream::RED);
+			outs() << "\n    FAIL: No Valid Scops detected in kernel!!!\n\n";
+			outs().resetColor();
+		}
 		else {
 			// non-negative define sizes
 			// if parallelized less than 3 loops then remaining will be -1
@@ -160,7 +182,18 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		}
 
 	}
-
+	vector<string> statisticsNames;
+	statisticsNames.push_back("polly-detect");
+	statisticsNames.push_back("runtime-AA");
+	printSpecifiedStatistics(statisticsNames);
+	llvm::RemoveStatistics();
+	
+        if(verbose)
+		{
+			outs().changeColor(raw_ostream::BLUE);
+		    outs() << "<------------------ "<< kernel->name << ": compile completed ------------------->\n\n";
+			outs().resetColor();
+		}
 }
 static void runPollyNATIVE(kernel_t *kernel)
 {
@@ -221,6 +254,13 @@ kernel_func_t kernelgen::runtime::compile(
 	if (kernel->source == "")
 		return kernel->target[runmode].binary;
 
+        if(verbose)
+		{
+			outs().changeColor(raw_ostream::BLUE);
+		    outs() << "\n<------------------ "<< kernel->name << ": compile started --------------------->\n";
+			outs().resetColor();
+		}
+		
 	Module* m = module;
 	LLVMContext &context = getGlobalContext();
 	if (!m) {
@@ -235,16 +275,17 @@ kernel_func_t kernelgen::runtime::compile(
 		kernel->module = m;
 
 
-
 		if (szdatai != 0) {
 			Function* f = m->getFunction(kernel->name);
 			if (kernel->name != "__kernelgen_main")
+			{
 				ConstantSubstitution(f, data);
+			}
 		}
 	}
 
-	if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
-
+   	if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
+    
 	PassManager polly = getPollyPassManager(m);
 
 	// Emit target assembly and binary image, depending
@@ -628,5 +669,6 @@ kernel_func_t kernelgen::runtime::compile(
 		THROW("Unknown runmode " << runmode);
 	}
 
+   
 	return NULL;
 }
