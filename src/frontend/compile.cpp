@@ -47,6 +47,7 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/LinkAllPasses.h"
 
 #include <gmp.h>
 #include <iostream>
@@ -79,7 +80,10 @@ static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBas
 	PM.add(createInstructionCombiningPass());
 	PM.add(createMoveUpCastsPass());
 	PM.add(createInstructionCombiningPass());
+	PM.add(createBasicAliasAnalysisPass());
+	PM.add(createGVNPass());  
 	PM.add(createBranchedLoopExtractorPass());
+	PM.add(createVerifierPass());
 }
 
 // A fallback function to be called in case kernelgen-enabled
@@ -116,14 +120,37 @@ extern "C" void callback (void*, void*)
 	// 2) Inline calls and extract loops into new functions.
 	// Apply optimization passes to the resulting common module.
 	//
+		for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
+	    function != function_end; function++) {
+		Function * f = function;
+		int i = 1;
+		for(Function::arg_iterator arg_iter = f -> arg_begin(), arg_iter_end = f -> arg_end();
+		    arg_iter != arg_iter_end; arg_iter++) {
+			Argument * arg = arg_iter;
+			if(isa<PointerType>(*(arg -> getType())))
+				if(arg -> getType() -> getSequentialElementType() -> isSingleValueType() )
+					f -> setDoesNotAlias(i);
+			i++;
+		}
+	}
+	
 	{
+		int optLevel = 3;
+		
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = 3;
-		builder.DisableSimplifyLibCalls = true;
-		builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-			addKernelgenPasses);
+		builder.Inliner = createFunctionInliningPass();
+		builder.OptLevel = optLevel;
+	    builder.DisableSimplifyLibCalls = true;
+		
 		TrackedPassManager manager(tracker);
+		
+		if(optLevel == 0)
+			addKernelgenPasses(builder,manager);
+        else		
+		    builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
+			    addKernelgenPasses);
+		
 		builder.populateModulePassManager(manager);
 		manager.run(*m.get());
 	}

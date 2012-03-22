@@ -177,7 +177,7 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 		}
 
 	}
-	/*if(NumBranchedExtracted - tmpBranchedExtracted == 100) {
+	if(NumBranchedExtracted - tmpBranchedExtracted == 1) {
 		tmpBranchedExtracted = NumBranchedExtracted;
 
 		outs().changeColor(raw_ostream::GREEN);
@@ -185,7 +185,7 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 		       << " CurrentFunction:\"" << L->getHeader()->getParent()->getName()
 		       << "\" CurrentHeader:\"" << L->getHeader()->getName() << "\"\n";
 		outs().resetColor();
-	}*/
+	}
 
 	return Changed;
 }

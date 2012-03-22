@@ -60,6 +60,7 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/LinkAllPasses.h"
 
 #include "BranchedLoopExtractor.h"
 #include "tracker.h"
@@ -82,8 +83,8 @@ static bool a_ends_with_b(const char* a, const char* b)
 	return equal(a + strlen(a) - strlen(b), a + strlen(a), b);
 }
 
-Pass* createFixPointersPass();
-Pass* createMoveUpCastsPass();
+Pass *createFixPointersPass();
+Pass *createMoveUpCastsPass();
 
 static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
@@ -91,6 +92,8 @@ static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBas
 	PM.add(createInstructionCombiningPass());
 	PM.add(createMoveUpCastsPass());
 	PM.add(createInstructionCombiningPass());
+	PM.add(createBasicAliasAnalysisPass());
+	PM.add(createGVNPass());  
 	PM.add(createBranchedLoopExtractorPass());
 	PM.add(createVerifierPass());
 }
@@ -278,6 +281,20 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		const AttrListPtr attr = func->getAttributes();
 		const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::AlwaysInline);
 		func->setAttributes(attr_new);
+	}
+	
+			for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
+	    function != function_end; function++) {
+		Function * f = function;
+		int i = 1;
+		for(Function::arg_iterator arg_iter = f -> arg_begin(), arg_iter_end = f -> arg_end();
+		    arg_iter != arg_iter_end; arg_iter++) {
+			Argument * arg = arg_iter;
+			if(isa<PointerType>(*(arg -> getType())))
+				if(arg -> getType() -> getSequentialElementType() -> isSingleValueType() )
+					f -> setDoesNotAlias(i);
+			i++;
+		}
 	}
 	
 	//
