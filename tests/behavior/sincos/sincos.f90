@@ -51,9 +51,6 @@ do k = 1, nz
 enddo
 
 print *, sum(xy), maxval(xy), minval(xy)
-!nx = sum(xy)
-!ny = maxval(xy)
-!nz = minval(xy)
 
 end subroutine sincos	
 
