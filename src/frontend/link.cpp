@@ -22,11 +22,18 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
+#include <elf.h>
 #include <fcntl.h>
+#include <fstream>
+#include <gelf.h>
 #include <iostream>
+#include <list>
 #include <memory>
+#include <sstream>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
@@ -34,215 +41,251 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Analysis/Verifier.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/IRReader.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/PluginLoader.h"
+#include "llvm/Support/PrettyStackTrace.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Analysis/Verifier.h"
+
+#include "BranchedLoopExtractor.h"
+#include "tracker.h"
 
 using namespace llvm;
+using namespace llvm::sys;
+using namespace llvm::sys::fs;
 using namespace std;
+
+static int verbose = 0;
+
+const char* compiler = "kernelgen-gfortran";
+const char* linker = "ld";
+const char* objcopy = "objcopy";
+const char* cp = "cp";
+
+struct fallback_args_t
+{
+	const char* input;
+	const char* output;
+	PassTracker* tracker;
+};
+
+// A fallback function to be called in case kernelgen-enabled
+// link process fails by some reason.
+void fallback(void* arg)
+{
+	fallback_args_t* fallback_args =
+			(fallback_args_t*)arg;
+
+	rename(fallback_args->input, fallback_args->output);
+
+	delete fallback_args;
+	delete tracker;
+	exit(0);
+}
 
 extern "C" void kernelgen_link(const char* input, const char* output)
 {
-	printf("input=%s\n", input);
-	printf("output=%s\n", output);
-
-	rename(input, output);
-
-	/*//
-	// 1) Check if there is "-c" option around. In this
-	// case there is just compilation, not linking, but
-	// in a way we do not know how to handle.
-	//
-	for (list<string>::iterator iarg = args.begin(), iearg = args.end();
-		iarg != iearg; iarg++)
-	{
-		const char* arg = (*iarg).c_str();
-		if (!strcmp(arg, "-c"))
-			return execute(host_compiler, args, "", NULL, NULL);
-	}
+	// Enable or disable verbose output.
+	char* cverbose = getenv("KERNELGEN_VERBOSE");
+	if (cverbose) verbose = atoi(cverbose);
 
 	//
-	// 2) Extract all object files out of the command line.
-	// From each object file extract LLVM IR modules and merge
+	// 1) Turn on LLVM passes bug tracker.
+	//
+	fallback_args_t* fallback_args = new fallback_args_t();
+	fallback_args->input = input;
+	fallback_args->output = output;
+	PassTracker* tracker = new PassTracker(input, &fallback, fallback_args);
+	PluginLoader loader;
+	loader.operator =("libkernelgen-opt.so");
+	fallback_args->tracker = tracker;
+
+	//
+	// 2) Extract LLVM IR modules from the output file and merge
 	// them into single composite module.
-	// In the meantime, capture an object containing main entry.
 	//
-	string object = "";
-	cfiledesc tmp_object = cfiledesc::mktemp(fileprefix);
+	int fd;
+	string tmp_mask = "%%%%%%%%";
+	SmallString<128> tmp_main_vector;
+	string tmp_main_output1 = input;
+	if (unique_file(tmp_mask, fd, tmp_main_vector))
+	{
+		cout << "Cannot generate main output file name" << endl;
+		abort();
+	}
+	string tmp_main_output2 = (StringRef)tmp_main_vector;
+	close(fd);
+	string err;
+	tool_output_file tmp_main_object2(tmp_main_output2.c_str(), err, raw_fd_ostream::F_Binary);
+	if (!err.empty())
+	{
+		cerr << "Cannot open output file" << tmp_main_output2.c_str() << endl;
+		abort();
+	}
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	Module composite("composite", context);
-	for (list<string>::iterator iarg = args.begin(), iearg = args.end();
-		iarg != iearg; iarg++)
+	if (elf_version(EV_CURRENT) == EV_NONE)
 	{
-		const char* arg = (*iarg).c_str();
-		if (strcmp(arg + strlen(arg) - 2, ".o"))
-			continue;
-		
-		if (verbose)
-			cout << "Linking " << arg << " ..." << endl;
+		cerr << "ELF library initialization failed: " << elf_errmsg(-1) << endl;
+		abort();
+	}
 
-		// Search current object for main entry. It will be
-		// used as a container for LLVM IR data.
-		// For build process consistency, all activities will
-		// be performed on duplicate object.
+	Elf* e = NULL;
+	try
+	{
+		vector<char> container;
+		char *image = NULL;
+		stringstream stream(stringstream::in | stringstream::out |
+			stringstream::binary);
+		ifstream f(input, ios::in | ios::binary);
+		stream << f.rdbuf();
+		f.close();
+		string str = stream.str();
+		container.resize(str.size() + 1);
+		image = (char*)&container[0];
+		memcpy(image, str.c_str(), str.size() + 1);
+
+		if (strncmp(image, ELFMAG, 4))
 		{
-			celf e(arg, "");
-			cregex regex("^main$", REG_EXTENDED | REG_NOSUB);
-			vector<csymbol*> symbols = e.getSymtab()->find(regex);
-			if (symbols.size())
+			cerr << "Cannot read ELF image from " << input;
+			throw;
+		}
+
+		// Walk through the ELF image and record the positions
+		// of the .kernelgen section.
+		e = elf_memory(image, container.size());
+		if (!e)
+		{
+			cerr << "elf_begin() failed: " << elf_errmsg(-1) << endl;
+			throw;
+		}
+		size_t shstrndx;
+		if (elf_getshdrstrndx(e, &shstrndx))
+		{
+			cerr << "elf_getshdrstrndx() failed: " << elf_errmsg(-1) << endl;
+			throw;
+		}
+		Elf_Data* symbols = NULL;
+		int nsymbols = 0, ikernelgen = -1;
+		int64_t okernelgen = 0;
+		Elf_Scn* scn = elf_nextscn(e, NULL);
+		GElf_Shdr symtab;
+		for (int i = 1; scn != NULL; scn = elf_nextscn(e, scn), i++)
+		{
+			GElf_Shdr shdr;
+			if (!gelf_getshdr(scn, &shdr))
 			{
-				object = arg;
-				list<string> cp_args;
-				cp_args.push_back(arg);
-				cp_args.push_back(tmp_object.getFilename());
-				int status = execute("cp", cp_args, "", NULL, NULL);
-				if (status) return status;
-				*iarg = tmp_object.getFilename();
-				arg = tmp_object.getFilename().c_str();
+				cerr << "gelf_getshdr() failed for " << elf_errmsg(-1) << endl;
+				throw;
+			}
+
+			if (shdr.sh_type == SHT_SYMTAB)
+			{
+				symbols = elf_getdata(scn, NULL);
+				if (!symbols)
+				{
+					cerr << "elf_getdata() failed for " << elf_errmsg(-1);
+					throw;
+				}
+				if (shdr.sh_entsize)
+					nsymbols = shdr.sh_size / shdr.sh_entsize;
+				symtab = shdr;
+			}
+
+			char* name = NULL;
+			if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
+			{
+				cerr << "Cannot read the section " << i << " name" << endl;
+				throw;
+			}
+
+			if (!strcmp(name, ".kernelgen"))
+			{
+				ikernelgen = i;
+
+				// Account section address, since in this case the
+				// input binary is fully linked.
+				okernelgen = shdr.sh_offset - shdr.sh_addr;
 			}
 		}
 
-		// Load and link together all LLVM IR modules from
-		// symbols names starting with __kernelgen_.
-		vector<string> names;
+		// Early exit if no .kernelgen section.
+		// Means we work with an ordinary object file.
+		if ((ikernelgen == -1) || !symbols)
 		{
-			celf e(arg, "");
-			cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
-			vector<csymbol*> symbols = e.getSymtab()->find(regex);
+			elf_end(e);
+			fallback(fallback_args);
+			delete fallback_args;
+			delete tracker;
+			return;
+		}
 
-			// Load data for discovered symbols names.
-			// For each symbol name containing module, link into
-			// the composite module.
-			for (vector<csymbol*>::iterator i = symbols.begin(),
-				ie = symbols.end(); i != ie; i++)
+		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
+		{
+			GElf_Sym symbol;
+			gelf_getsym(symbols, isymbol, &symbol);
+			char* name = elf_strptr(e, symtab.sh_link, symbol.st_name);
+
+			// Find all symbols belonging to the .kernelgen section and link
+			// them together into composite module.
+			if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
+				(symbol.st_shndx == ikernelgen))
 			{
-				csymbol* symbol = *i;
-				const char* data = symbol->getData();
-				const string& name = symbol->getName();
-				names.push_back(name);
-
-				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(data);
-				std::auto_ptr<Module> m;
+				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(
+						image + okernelgen + symbol.st_value);
+				if (!buffer)
+				{
+					cerr << "Error reading object file symbol " << name << endl;
+					abort();
+				}
+				auto_ptr<Module> m;
 				m.reset(ParseIR(buffer, diag, context));
+				if (!m.get())
+				{
+					cerr << "Error parsing LLVM IR module from symbol " << name << endl;
+					abort();
+				}
 
-				if (!m.get()) THROW("Error loading module " << name);
-		
-				if (verbose)
-					cout << "Linking " << name << endl;
-		
 				string err;
-				if (Linker::LinkModules(&composite, m.get(),Linker::PreserveSource, &err))
-					THROW("Error linking module " << name << " : " << err);
+				if (Linker::LinkModules(&composite, m.get(), Linker::PreserveSource, &err))
+				{
+					cerr << "Error linking module " << name << " : " << err << endl;
+					abort();
+				}
 			}
-		}
-
-		// Remove symbols starting with __kernelgen_.
-		// TODO: do not strip symbols here!!
-		for (vector<string>::iterator i = names.begin(),
-			ie = names.end(); i != ie; i++)
-		{
-			string& name = *i;
-			list<string> objcopy_args;
-			objcopy_args.push_back("--strip-symbol=" + name);
-			objcopy_args.push_back(arg);
-			int status = execute("objcopy", objcopy_args, "", NULL, NULL);
-			if (status) return status;
 		}
 	}
-	if (object == "")
+	catch (...)
 	{
-		// TODO: In general case this is not an error.
-		// Missing main entry only means we are linking
-		// a library. In this case every public symbol
-		// must be treated as main entry.
-		THROW("Cannot find object containing main entry");
-	}*/
+		if (e) elf_end(e);
+		abort();
+	}
+	elf_end(e);
 	
 	//
-	// 3) Convert global variables into main entry locals and
+	// 3) TODO: Convert global variables into main entry locals and
 	// arguments of loops functions.
 	//
-	/*{
-		// Form the type of structure to hold global variables.
-		// Constant globals are excluded from structure.
-		std::vector<Type*> paramTy;
-		for (Module::global_iterator i = composite.global_begin(),
-			ie = composite.global_end(); i != ie; i++)
-		{
-			GlobalVariable* gvar = i;
-			if (i->isConstant()) continue;
-			paramTy.push_back(i->getType());
-		}
-		Type* structTy = StructType::get(context, paramTy, true);
 
-		// Allocate globals structure in the beginning of main.
-		Instruction* first = composite.getFunction("main")->begin()->begin();
-		AllocaInst* structArg = new AllocaInst(structTy, 0, "", first);
-
-		// Fill globals structure with initial values of globals.
-		int ii = 0;
-		vector<GlobalVariable*> remove;
-		for (Module::global_iterator i = composite.global_begin(),
-			ie = composite.global_end(); i != ie; i++)
-		{
-			GlobalVariable* gvar = i;
-			if (gvar->isConstant()) continue;
-
-			// Generate index.
-			Value *Idx[2];
-			Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
-			Idx[1] = ConstantInt::get(Type::getInt32Ty(context), ii);
-
-			// Get address of "globals[i]" in struct.
-			GetElementPtrInst *GEP = GetElementPtrInst::Create(
-				structArg, Idx, "", first);
-
-			if (gvar->hasInitializer())
-			{
-				// Store initial value to that address.
-				StoreInst *SI = new StoreInst(gvar->getInitializer(), GEP, false, first);
-			}
-
-			// TODO: Replace all uses with GEP & LoadInst.
-			// gvar->replaceAllUsesWith(GEP);
-			for (Value::use_iterator i = gvar->use_begin(),
-				ie = gvar->use_end(); i != ie; i++)
-			{
-				LoadInst* LI = new LoadInst(GEP, "", *i);
-				i->replaceAllUsesWith(LI);
-			}
-
-			remove.push_back(gvar);
-			
-			ii++;
-		}
-		
-		// Erase replaced globals.
-		for (vector<GlobalVariable*>::iterator i = remove.begin(), ie = remove.end();
-			i != ie; i++)
-		{
-			GlobalVariable* gvar = *i;
-			gvar->eraseFromParent();
-		}
-
-		//composite.dump();
-
-		// For each loop function add globals structure
-		// as an argument.
-
-		// Replace uses of globals with uses of local globals struct.
-	}*/
-
-	/*//
+	//
 	// 4) Rename main entry and insert another one
 	// into composite module.
 	//
@@ -324,7 +367,7 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 		if (verifyFunction(*main))
 		{
 			cerr << "Function verification failed!" << endl;
-			return 1;
+			abort();
 		}
 	}
 	
@@ -333,9 +376,8 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 	// module.
 	//
 	{
-		PassManager manager;
+		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(&composite));
-		//manager.add(createLowerSetJmpPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = 3;
@@ -371,15 +413,27 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 					// Get the called function name from the metadata node.
 					MDNode* nameMD = call->getMetadata("kernelgen_launch");
 					if (!nameMD)
-						THROW("Cannot find kernelgen_launch metadata");
+					{
+						cerr << "Cannot find kernelgen_launch metadata" << endl;
+						abort();
+					}
 					if (nameMD->getNumOperands() != 1)
-						THROW("Unexpected kernelgen_launch metadata number of operands");
+					{
+						cerr << "Unexpected kernelgen_launch metadata number of operands" << endl;
+						abort();
+					}
 					ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
 						nameMD->getOperand(0));
 					if (!nameArray)
-						THROW("Invalid kernelgen_launch metadata operand");
+					{
+						cerr << "Invalid kernelgen_launch metadata operand" << endl;
+						abort();
+					}
 					if (!nameArray->isCString())
-						THROW("Invalid kernelgen_launch metadata operand");
+					{
+						cerr << "Invalid kernelgen_launch metadata operand" << endl;
+						abort();
+					}
 					string name = nameArray->getAsCString();
 					if (verbose)
 						cout << "Launcher invokes kernel " << name << endl;
@@ -398,7 +452,7 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 					main->Dematerialize(func);
 				}
 
-		PassManager manager;
+		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(main.get()));
 		
 		// Delete functions called through launcher.
@@ -415,7 +469,33 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 
 		manager.run(*main.get());
 	}
-		
+
+	InitializeAllTargets();
+	InitializeAllTargetMCs();
+	InitializeAllAsmPrinters();
+	InitializeAllAsmParsers();
+
+	Triple triple(composite.getTargetTriple());
+	if (triple.getTriple().empty())
+		triple.setTriple(sys::getDefaultTargetTriple());
+	TargetOptions options;
+	const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
+	if (!target)
+	{
+		cerr << "Error auto-selecting target for module '" << err << endl;
+		abort();
+	}
+	auto_ptr<TargetMachine> machine;
+	machine.reset(target->createTargetMachine(
+	        triple.getTriple(), "", "", options, Reloc::PIC_, CodeModel::Default));
+	if (!machine.get())
+	{
+		cerr <<  "Could not allocate target machine" << endl;
+		abort();
+	}
+
+	const TargetData* tdata = machine.get()->getTargetData();
+
 	//
 	// 7) Clone composite module and transform it into the
 	// "loop" kernels, each one executing single parallel loop.
@@ -424,7 +504,7 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 		std::auto_ptr<Module> loops;
 		loops.reset(CloneModule(&composite));
 		{
-			PassManager manager;
+			TrackedPassManager manager(tracker);
 			manager.add(new TargetData(loops.get()));
 
 			std::vector<GlobalValue*> plain_functions;
@@ -439,6 +519,15 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 			manager.add(createStripDeadPrototypesPass());
 			manager.run(*loops);
 		}
+
+		tmp_main_vector.clear();
+		if (unique_file(tmp_mask, fd, tmp_main_vector))
+		{
+			cout << "Cannot generate temporary main object file name" << endl;
+			abort();
+		}
+		string tmp_loop_output = (StringRef)tmp_main_vector;
+		close(fd);
 
 		for (Module::iterator f1 = loops.get()->begin(), fe1 = loops.get()->end(); f1 != fe1; f1++)
 		{
@@ -455,7 +544,7 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 					remove_functions.push_back(f2);
 			}
 			
-			PassManager manager;
+			TrackedPassManager manager(tracker);
 			manager.add(new TargetData(loop.get()));
 
 			// Delete all loops functions, except entire one.
@@ -474,22 +563,79 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 
 			// Embed "loop" module into object.
 			{
+				// Put the resulting module into LLVM output file
+				// as object binary. Method: create another module
+				// with a global variable incorporating the contents
+				// of entire module and emit it for X86_64 target.
 				string ir_string;
 				raw_string_ostream ir(ir_string);
 				ir << (*loop.get());
-				celf e(tmp_object.getFilename(), tmp_object.getFilename());
-				e.getSection(".data")->addSymbol(
-					string(f1->getName()),
-					ir_string.c_str(), ir_string.size() + 1);
-			}			
+				Module obj_m("kernelgen", context);
+				Constant* name = ConstantDataArray::getString(context, ir_string, true);
+				GlobalVariable* GV1 = new GlobalVariable(obj_m, name->getType(),
+					true, GlobalValue::LinkerPrivateLinkage, name,
+					f1->getName(), 0, false);
+
+				PassManager manager;
+				manager.add(new TargetData(*tdata));
+
+				tool_output_file tmp_loop_object(tmp_loop_output.c_str(), err, raw_fd_ostream::F_Binary);
+				if (!err.empty())
+				{
+					cerr << "Cannot open output file" << tmp_loop_output.c_str() << endl;
+					abort();
+				}
+
+				formatted_raw_ostream fos(tmp_loop_object.os());
+				if (machine.get()->addPassesToEmitFile(manager, fos,
+			        TargetMachine::CGFT_ObjectFile, CodeGenOpt::None))
+				{
+					cerr << "Target does not support generation of this file type" << endl;
+					abort();
+				}
+
+				manager.run(obj_m);
+				fos.flush();
+
+				vector<const char*> args;
+				args.push_back(linker);
+				args.push_back("--unresolved-symbols=ignore-all");
+				args.push_back("-r");
+				args.push_back("-o");
+				args.push_back(tmp_main_output2.c_str());
+				args.push_back(tmp_main_output1.c_str());
+				args.push_back(tmp_loop_output.c_str());
+				args.push_back(NULL);
+				if (verbose)
+				{
+					cout << args[0];
+					for (int i = 1; args[i]; i++)
+						cout << " " << args[i];
+					cout << endl;
+				}
+				int status = Program::ExecuteAndWait(
+					Program::FindProgramByName(linker), &args[0],
+					NULL, NULL, 0, 0, &err);
+				if (status)
+				{
+					cerr << err;
+					abort();
+				}
+
+				// Swap tmp_main_output 1 and 2.
+				string swap = tmp_main_output1;
+				tmp_main_output1 = tmp_main_output2;
+				tmp_main_output2 = swap;
+			}
 		}
 	}
 	
 	//
 	// 8) Delete all plain functions, except main out of "main" module.
+	// Add wrapper around main to make it compatible with kernelgen_launch.
 	//
 	{
-		PassManager manager;
+		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(main.get()));
 
 		std::vector<GlobalValue*> plain_functions;
@@ -578,52 +724,134 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 
 		//main.get()->dump();
 
-		// Embed "main" module into object.
+		// Embed "main" module into main_output.
 		{
+			// Put the resulting module into LLVM output file
+			// as object binary. Method: create another module
+			// with a global variable incorporating the contents
+			// of entire module and emit it for X86_64 target.
 			string ir_string;
 			raw_string_ostream ir(ir_string);
 			ir << (*main.get());
-			celf e(tmp_object.getFilename(), tmp_object.getFilename());
-			e.getSection(".data")->addSymbol(
-				"__kernelgen_main", ir_string.c_str(), ir_string.size() + 1);
+			Module obj_m("kernelgen", context);
+			Constant* name = ConstantDataArray::getString(context, ir_string, true);
+			GlobalVariable* GV1 = new GlobalVariable(obj_m, name->getType(),
+				true, GlobalValue::LinkerPrivateLinkage, name,
+				"__kernelgen_main", 0, false);
+
+			PassManager manager;
+			manager.add(new TargetData(*tdata));
+
+			tmp_main_vector.clear();
+			if (unique_file(tmp_mask, fd, tmp_main_vector))
+			{
+				cout << "Cannot generate temporary main object file name" << endl;
+				abort();
+			}
+			string tmp_main_output = (StringRef)tmp_main_vector;
+			close(fd);
+			tool_output_file tmp_main_object(tmp_main_output.c_str(), err, raw_fd_ostream::F_Binary);
+			if (!err.empty())
+			{
+				cerr << "Cannot open output file" << tmp_main_output.c_str() << endl;
+				abort();
+			}
+
+			formatted_raw_ostream fos(tmp_main_object.os());
+			if (machine.get()->addPassesToEmitFile(manager, fos,
+		        TargetMachine::CGFT_ObjectFile, CodeGenOpt::None))
+			{
+				cerr << "Target does not support generation of this file type" << endl;
+				abort();
+			}
+
+			manager.run(obj_m);
+			fos.flush();
+
+			vector<const char*> args;
+			args.push_back(linker);
+			args.push_back("--unresolved-symbols=ignore-all");
+			args.push_back("-r");
+			args.push_back("-o");
+			args.push_back(tmp_main_output2.c_str());
+			args.push_back(tmp_main_output1.c_str());
+			args.push_back(tmp_main_output.c_str());
+			args.push_back(NULL);
+			if (verbose)
+			{
+				cout << args[0];
+				for (int i = 1; args[i]; i++)
+					cout << " " << args[i];
+				cout << endl;
+			}
+			int status = Program::ExecuteAndWait(
+				Program::FindProgramByName(linker), &args[0],
+				NULL, NULL, 0, 0, &err);
+			if (status)
+			{
+				cerr << err;
+				abort();
+			}
+
+			// Swap tmp_main_output 1 and 2.
+			string swap = tmp_main_output1;
+			tmp_main_output1 = tmp_main_output2;
+			tmp_main_output2 = swap;
 		}
 	}
-	
+
 	//
 	// 9) Rename original main entry and insert new main
 	// with switch between original main and kernelgen's main.
 	//
 	{
-		list<string> objcopy_args;
-		objcopy_args.push_back("--redefine-sym main=__regular_main");
-		objcopy_args.push_back(tmp_object.getFilename());
-		int status = execute("objcopy", objcopy_args, "", NULL, NULL);
-		if (status) return status;
-
+		vector<const char*> args;
+		args.push_back(objcopy);
+		args.push_back("--redefine-sym");
+		args.push_back("main=__regular_main");
+		args.push_back(tmp_main_output1.c_str());
+		args.push_back(NULL);
+		if (verbose)
 		{
-			list<string> merge_args_ext = merge_args;		
-			merge_args_ext.push_back(tmp_object.getFilename() + "_");
-			merge_args_ext.push_back(tmp_object.getFilename());
-			merge_args_ext.push_back("--whole-archive");
-			if (arch == 32)
-				merge_args_ext.push_back("/opt/kernelgen/lib/libkernelgen.a");
-			else
-				merge_args_ext.push_back("/opt/kernelgen/lib64/libkernelgen.a");
-			if (verbose)
-			{
-				cout << merge;
-				for (list<string>::iterator it = merge_args_ext.begin();
-					it != merge_args_ext.end(); it++)
-					cout << " " << *it;
-				cout << endl;
-			}
-			int status = execute(merge, merge_args_ext, "", NULL, NULL);
-			if (status) return status;
-			list<string> mv_args;
-			mv_args.push_back(tmp_object.getFilename() + "_");
-			mv_args.push_back(tmp_object.getFilename());
-			status = execute("mv", mv_args, "", NULL, NULL);
-			if (status) return status;
+			cout << args[0];
+			for (int i = 1; args[i]; i++)
+				cout << " " << args[i];
+			cout << endl;
+		}
+		int status = Program::ExecuteAndWait(
+			Program::FindProgramByName(objcopy), &args[0],
+			NULL, NULL, 0, 0, &err);
+		if (status)
+		{
+			cerr << err;
+			abort();
+		}
+	}
+	{
+		vector<const char*> args;
+		args.push_back(linker);
+		args.push_back("--unresolved-symbols=ignore-all");
+		args.push_back("-r");
+		args.push_back("-o");
+		args.push_back(tmp_main_output2.c_str());
+		args.push_back(tmp_main_output1.c_str());
+		args.push_back("--whole-archive");
+		args.push_back("/opt/kernelgen/lib/libkernelgen.a");
+		args.push_back(NULL);
+		if (verbose)
+		{
+			cout << args[0];
+			for (int i = 1; args[i]; i++)
+				cout << " " << args[i];
+			cout << endl;
+		}
+		int status = Program::ExecuteAndWait(
+			Program::FindProgramByName(linker), &args[0],
+			NULL, NULL, 0, 0, &err);
+		if (status)
+		{
+			cerr << err;
+			abort();
 		}
 	}
 
@@ -633,6 +861,11 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 	{
 		// Adding -rdynamic to use executable global symbols
 		// to resolve dependencies of subsequently loaded kernel objects.
+		vector<const char*> args;
+		args.push_back(compiler);
+		args.push_back("-o");
+		args.push_back(output);
+		args.push_back(tmp_main_output2.c_str());
 		args.push_back("-rdynamic");
 		args.push_back("/opt/kernelgen/lib/libLLVM-3.1svn.so");
 		args.push_back("/opt/kernelgen/lib/LLVMPolly.so");
@@ -645,18 +878,29 @@ extern "C" void kernelgen_link(const char* input, const char* output)
 		args.push_back("-ldl");
 		args.push_back("-lffi");
 		args.push_back("-lstdc++");
+		args.push_back(NULL);
 		if (verbose)
 		{
-			cout << host_compiler;
-			for (list<string>::iterator it = args.begin();
-				it != args.end(); it++)
-				cout << " " << *it;
+			cout << args[0];
+			for (int i = 1; args[i]; i++)
+				cout << " " << args[i];
 			cout << endl;
 		}
-		int status = execute(host_compiler, args, "", NULL, NULL);
-		if (status) return status;
+		const char** envp = const_cast<const char **>(environ);
+		vector<const char*> env;
+		for (int i = 0; envp[i]; i++)
+			env.push_back(envp[i]);
+		env.push_back("KERNELGEN_FALLBACK=1");
+		env.push_back(NULL);
+		int status = Program::ExecuteAndWait(
+			Program::FindProgramByName(compiler), &args[0],
+			&env[0], NULL, 0, 0, &err);
+		if (status)
+		{
+			cerr << err;
+			abort();
+		}
 	}
-	
-	return 0;*/
-}
 
+	delete tracker;
+}

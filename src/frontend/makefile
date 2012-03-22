@@ -6,8 +6,6 @@ LLVM_DEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVM_INC = -I$(LLVM_ROOT)/build/include $(LLVM_DEF)
 LLVM_LIB = -L$(LLVM_ROOT)/build/Debug+Asserts/lib -lLLVM-3.1svn
 
-KERNELGEN_LIB = -lelf
-
 BUGPOINT_ROOT ?= $(LLVM_ROOT)/tools/bugpoint
 
 all: libkernelgen-ct.so libkernelgen-lt.so libkernelgen-opt.so kernelgen-simple
@@ -19,7 +17,7 @@ BUGPOINT := $(addsuffix .bugpoint, $(BUGPOINT))
 OBJECTS_CT := kernelgen-ct $(BUGPOINT)
 OBJECTS_CT := $(addsuffix .o, $(OBJECTS_CT))
 
-OBJECTS_LT := kernelgen-lt
+OBJECTS_LT := kernelgen-lt $(BUGPOINT)
 OBJECTS_LT := $(addsuffix .o, $(OBJECTS_LT))
 
 OBJECTS_OPT := BranchedLoopExtractor BranchedCodeExtractor FixPointers
@@ -32,19 +30,19 @@ libkernelgen-ct.so: $(OBJECTS_CT) libkernelgen-opt.so
 	g++ -g -shared $(OBJECTS_CT) -o $@ $(LLVM_LIB) -L. -lkernelgen-opt
 
 libkernelgen-lt.so: $(OBJECTS_LT)
-	g++ -g -shared $^ -o $@ $(LLVM_LIB)
+	g++ -g -shared $^ -o $@ $(LLVM_LIB) -lelf
 
 libkernelgen-opt.so: $(OBJECTS_OPT)
 	g++ -g -shared $^ -o $@ $(LLVM_LIB)
 
 kernelgen-simple: $(OBJECTS_KS) libkernelgen-opt.so
-	g++ -g $(OBJECTS_KS) -o $@ $(KERNELGEN_LIB) $(LLVM_LIB) -L. -lkernelgen-opt
+	g++ -g $(OBJECTS_KS) -o $@ -lelf $(LLVM_LIB) -L. -lkernelgen-opt
 
 kernelgen-ct.o: compile.cpp tracker.h
 	g++ -g -fPIC -I$(BUGPOINT_ROOT) $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@
 
 kernelgen-lt.o: link.cpp
-	g++ -g -fPIC $(LLVM_INC) -fPIC -c $< -o $@
+	g++ -g -fPIC -I$(BUGPOINT_ROOT) $(LLVM_INC) -fPIC -c $< -o $@
 
 simple.o: simple.cpp tracker.h
 	g++ -g -I$(BUGPOINT_ROOT) $(LLVM_INC) -c $< -o $@

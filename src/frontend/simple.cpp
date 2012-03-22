@@ -136,6 +136,8 @@ static void fallback(void* arg)
 		exit(1);
 	}
 
+	delete args;
+	delete tracker;
 	exit(0);
 }
 
@@ -947,6 +949,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			manager.run(*loops);
 		}
 
+		tmp_main_vector.clear();
 		if (unique_file(tmp_mask, fd, tmp_main_vector))
 		{
 			cout << "Cannot generate temporary main object file name" << endl;
@@ -1058,7 +1061,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	
 	//
 	// 8) Delete all plain functions, except main out of "main" module.
-	// Add wrapper around main to make it conformant with kernelgen_launch.
+	// Add wrapper around main to make it compatible with kernelgen_launch.
 	//
 	{
 		TrackedPassManager manager(tracker);
@@ -1168,6 +1171,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			PassManager manager;
 			manager.add(new TargetData(*tdata));
 
+			tmp_main_vector.clear();
 			if (unique_file(tmp_mask, fd, tmp_main_vector))
 			{
 				cout << "Cannot generate temporary main object file name" << endl;
@@ -1352,7 +1356,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Enable or disable verbose output.
-	char* cverbose = getenv("kernelgen_verbose");
+	char* cverbose = getenv("KERNELGEN_VERBOSE");
 	if (cverbose) verbose = atoi(cverbose);
 
 	// Supported source code files extensions.
