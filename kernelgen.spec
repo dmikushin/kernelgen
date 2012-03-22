@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target debian
+%define target fedora
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -58,8 +58,8 @@ License:        GPL/BSD/Freeware
 URL:            https://hpcforge.org/projects/kernelgen/
 
 %if (%target == fedora)
-BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
-Requires:       elfutils-libelf libffi gmp mpfr libmpc
+#BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
+#Requires:       elfutils-libelf libffi gmp mpfr libmpc
 %else
 #BuildRequires:	gcc g++ gfortran perl libelf-dev libffi-dev libgmp3-dev libmpfr-dev libmpc-dev flex libc6-dev libc6-dev-i386 gcc-multiliblib git autoconf automake libtool
 #Requires:	libelf ffi libgmp3 libmpfr libmpc g++-4.6-multilib
@@ -279,7 +279,9 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/gfortran.info
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/libgomp.info
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/info/libquadmath.info
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/openssl/bn.h
-
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/X11/Xw32defs.h
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/locale/de/LC_MESSAGES/libstdc++.mo
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fr/LC_MESSAGES/libstdc++.mo
 
 #
 # Final cleanup (off for fast repack).
@@ -1966,7 +1968,6 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/linux/a.out.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/README
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/syslimits.h
-/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/X11/Xw32defs.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/float.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/fma4intrin.h
 /opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/ia32intrin.h

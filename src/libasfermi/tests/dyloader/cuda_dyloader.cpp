@@ -339,7 +339,7 @@ struct CUDYloader_t
 
 			// Allocate space for uberkernel arguments.
 			CUTHROW( cuMemAlloc(&buffer, sizeof(buffer_t) + this->capacity) );
-			binary = buffer + sizeof(buffer_t);
+			binary = (char*)buffer + sizeof(buffer_t);
 
 			// Fill the structure address constant with the address value.
 			CUTHROW( cuMemcpyHtoD(config, &buffer, sizeof(CUdeviceptr*)) );
@@ -367,7 +367,7 @@ struct CUDYloader_t
 			cout << "LEPC = 0x" << hex << lepc << dec << endl;
 
 			// Set binary pointer in buffer.
-			CUTHROW( cuMemcpyHtoD(buffer + 8, &binary, sizeof(CUdeviceptr*)) );
+			CUTHROW( cuMemcpyHtoD((char*)buffer + 8, &binary, sizeof(CUdeviceptr*)) );
 
 			// Pin memory for offset.
 			CUTHROW( cuMemHostRegister(&offset, sizeof(int), 0) );
