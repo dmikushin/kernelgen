@@ -1,20 +1,20 @@
---- a/dragonegg/src/Types.cpp       (revision 153246)
-+++ b/dragonegg/src/Types.cpp       (working copy)
-@@ -709,6 +709,10 @@
-    // Compute zext/sext attributes.
-    PAttributes |= HandleArgumentExtension(ArgTy);
-
+--- a/dragonegg/src/Types.cpp	2012-03-22 14:48:14.302606248 +0300
++++ b/dragonegg/src/Types.cpp	2012-03-22 14:50:34.153536680 +0300
+@@ -699,6 +699,10 @@
+     // Compute zext/sext attributes.
+     PAttributes |= HandleArgumentExtension(ArgTy);
+ 
 +    // Compute noalias attributes.
 +    if (POINTER_TYPE_P(ArgTy) && TYPE_RESTRICT(ArgTy))
 +      PAttributes |= Attribute::NoAlias;
 +
-    if (PAttributes != Attribute::None)
-      Attrs.push_back(AttributeWithIndex::get(ArgTys.size(), PAttributes));
-  }
-@@ -848,11 +852,8 @@
-    // inspect it for restrict qualifiers, otherwise try the argument
-    // types.
-    tree RestrictArgTy = (DeclArgs) ? TREE_TYPE(DeclArgs) : ArgTy;
+     if (PAttributes != Attribute::None)
+       Attrs.push_back(AttributeWithIndex::get(ArgTys.size(), PAttributes));
+   }
+@@ -838,11 +842,8 @@
+     // inspect it for restrict qualifiers, otherwise try the argument
+     // types.
+     tree RestrictArgTy = (DeclArgs) ? TREE_TYPE(DeclArgs) : ArgTy;
 -    if (TREE_CODE(RestrictArgTy) == POINTER_TYPE ||
 -        TREE_CODE(RestrictArgTy) == REFERENCE_TYPE) {
 -      if (TYPE_RESTRICT(RestrictArgTy))
@@ -22,6 +22,6 @@
 -    }
 +    if (POINTER_TYPE_P(RestrictArgTy) && TYPE_RESTRICT(RestrictArgTy))
 +      PAttributes |= Attribute::NoAlias;
-
+ 
  #ifdef LLVM_TARGET_ENABLE_REGPARM
-    // Allow the target to mark this as inreg.
+     // Allow the target to mark this as inreg.
