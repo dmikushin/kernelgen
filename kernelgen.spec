@@ -37,7 +37,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r729.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r734.tar.gz
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -50,8 +50,8 @@ Patch6: 	nvopencc.patch
 Patch7:		llvm.polly.patch
 Patch8:		llvm.scev.patch
 Patch9:		bugpoint.patch
-Patch10:	gcc.patch
-Patch11:	llvm.statistic.patch
+Patch10:	llvm.statistic.patch
+Patch11:        gcc.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -106,7 +106,8 @@ tar -xf $RPM_SOURCE_DIR/nvopencc-r12003483.tar.gz
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
-%patch11 -p1
+%patch9 -p1
+%patch10 -p1
 %endif
 
 
@@ -146,7 +147,7 @@ cd build/
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xf $RPM_SOURCE_DIR/kernelgen-r729.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r734.tar.gz
 cd $RPM_BUILD_DIR/kernelgen
 ./configure
 cd $RPM_BUILD_DIR
