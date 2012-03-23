@@ -29,6 +29,7 @@
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Support/raw_os_ostream.h"
 
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
@@ -164,9 +165,11 @@ int kernelgen_launch(kernel_t* kernel,
 				// Launch GPU loop kernel, if it is compiled.
 				dim3 blockDim = kernel->target[runmode].blockDim;
 				dim3 gridDim = kernel->target[runmode].gridDim;
-				cout << "Launching kernel " << kernel->name << ", gridDim = { " <<
-					gridDim.x << ", " << gridDim.y << ", " << gridDim.z << " }, blockDim = { " <<
-					blockDim.x << ", " << blockDim.y << ", " << blockDim.z << " }" << endl;
+				outs().changeColor(raw_ostream::CYAN);
+				outs() << "Launching kernel " << kernel->name << "\n" <<
+                        "    blockDim = " << blockDim << "\n" <<
+						"    gridDim = " << gridDim << "\n";
+				outs().resetColor();
 				timer t;
 				{
 

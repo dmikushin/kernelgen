@@ -25,10 +25,12 @@
 #include "bind.h"
 #include "llvm/Instructions.h"
 #include "llvm/Module.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include <cstdarg>
 #include <map>
+#include <ostream>
 #include <string>
 
 #include "kernelgen_interop.h"
@@ -69,9 +71,39 @@ public:
 	void reset() {
 		x=y=z=-1;
 	}
+	Size3(int64_t _x,int64_t _y,int64_t _z)
+	:x(_x),y(_y),z(_z) {}
+	void writeToArray(int64_t arr[3])
+	{
+		arr[0] = x;
+		arr[1] = y;
+		arr[2] = z;
+	}
+    int getNumOfDimensions()
+	{
+		if(x == -1) return 0;
+		if(y == -1) return 1;
+		if(z == -1) return 2;
+		return 3;
+	}
+
 };
 
-struct dim3 { unsigned int x, y, z; };
+struct dim3 { 
+	unsigned int x, y, z;
+	friend std::ostream & operator<<(std::ostream &stream, dim3 & dim)
+	{
+		stream << "{ " << dim.x << ", " << dim.y << ", " << dim.z << " }";
+		return stream;
+	} 
+	friend llvm::raw_ostream & operator<<(llvm::raw_ostream &stream, dim3 & dim)
+	{
+		stream << "{ " << dim.x << ", " << dim.y << ", " << dim.z << " }";
+		return stream;
+	}
+	dim3(unsigned int _x=1,unsigned int _y=1,unsigned int _z=1)
+	:x(_x),y(_y),z(_z) {}
+	};
 
 namespace kernelgen {
 

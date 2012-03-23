@@ -54,6 +54,7 @@
 #include "util.h"
 #include "runtime.h"
 
+#include <math.h>
 #include <cstdlib>
 #include <dlfcn.h>
 #include <fstream>
@@ -103,16 +104,14 @@ Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 {
 	int64_t sizes[3];
 	int64_t launchParameters[3];
-	sizes[0] = LoopSizes.x;
-	sizes[1] = LoopSizes.y;
-	sizes[2] = LoopSizes.z;
-	int numberOfLoops=0;
-	for(int i = 0; i < 3; i++)
-		if(sizes[i] == -1) launchParameters[i] = 1;
-		else numberOfLoops++;
+    LoopSizes.writeToArray(sizes);
+	int numberOfLoops = LoopSizes.getNumOfDimensions();
 	for(int i = 0; i < numberOfLoops; i++) {
 		launchParameters[i] = sizes[numberOfLoops-i-1];
 		if(launchParameters[i] == 0) launchParameters[i] = 1;
+	}
+	for(int i = numberOfLoops; i < 3; i++) {
+		launchParameters[i] = 1;
 	}
 	return Size3(launchParameters);
 }
@@ -406,23 +405,54 @@ kernel_func_t kernelgen::runtime::compile(
 		return kernel_func;
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
-		dim3 blockDim, gridDim;
-		blockDim.x = blockDim.y = blockDim.z = 1;
-		gridDim.x = gridDim.y = gridDim.z = 1;
-
+		dim3 blockDim(1,1,1);
+        dim3 gridDim(1,1,1);
+#define BLOCK_SIZE 1024
+#define BLOCK_DIM_X 32
 		// Apply the Polly codegen for native target.
 		Size3 sizeOfLoops;
 		if (kernelgen::polly) {
 			runPollyCUDA(kernel,&sizeOfLoops);
 
 			//   x   y     z       x     y  z
-			//  123 13640 -1  ->  13640 123 1
+			//  123 13640   -1  ->  13640 123 1     two loops
+			//  123 13640 2134  ->  2134 13640 123   three loops
+			//  123   -1    -1  ->  123 1 1        one loop
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
-			dim3 iterationsPerThread;
-
+			
+	        int numberOfLoops = sizeOfLoops.getNumOfDimensions();
+			if(launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
+	            switch(numberOfLoops)
+			    {
+				    case 0: blockDim = dim3(1,1,1);
+					        assert(false);
+						break;
+				    case 1: blockDim = dim3(BLOCK_SIZE,1,1);
+				        break;
+				    case 2: blockDim = dim3(BLOCK_DIM_X,BLOCK_SIZE / BLOCK_DIM_X, 1);
+				        break;
+				    case 3: 
+				    {
+					    double remainder = BLOCK_SIZE / BLOCK_DIM_X;
+					    double coefficient = (double)sizeOfLoops.z / (double)sizeOfLoops.y;
+					    double yPow2 = remainder / coefficient;
+					    double y = sqrt(yPow2); 	
+					    blockDim =  dim3(BLOCK_DIM_X, y , coefficient*y);
+					    assert(blockDim.x * blockDim.y * blockDim.z < BLOCK_SIZE);
+				    }
+				    break;
+		       }
+			else
+			{ 
+				//?????????????
+				// Number of all iterations lower that number of threads in block
+				blockDim = dim3(launchParameters.x,launchParameters.y,launchParameters.z);
+			}
+			
+			
+			dim3 iterationsPerThread(1,1,1);
 			// Compute grid parameters from specified blockDim and desired
 			//iterationsPerThread.
-			iterationsPerThread.x = iterationsPerThread.y = iterationsPerThread.z = 1;
 			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
 			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
 			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
