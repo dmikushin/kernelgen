@@ -421,7 +421,7 @@ kernel_func_t kernelgen::runtime::compile(
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
 			
 	        int numberOfLoops = sizeOfLoops.getNumOfDimensions();
-			if(launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
+			/*if(launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
 	            switch(numberOfLoops)
 			    {
 				    case 0: blockDim = dim3(1,1,1);
@@ -447,7 +447,7 @@ kernel_func_t kernelgen::runtime::compile(
 				//?????????????
 				// Number of all iterations lower that number of threads in block
 				blockDim = dim3(launchParameters.x,launchParameters.y,launchParameters.z);
-			}
+			}*/
 			
 			
 			dim3 iterationsPerThread(1,1,1);
