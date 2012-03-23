@@ -438,7 +438,7 @@ kernel_func_t kernelgen::runtime::compile(
 					    double yPow2 = remainder / coefficient;
 					    double y = sqrt(yPow2); 	
 					    blockDim =  dim3(BLOCK_DIM_X, y , coefficient*y);
-					    assert(blockDim.x * blockDim.y * blockDim.z < BLOCK_SIZE);
+					    assert(blockDim.x * blockDim.y * blockDim.z <= BLOCK_SIZE);
 				    }
 				    break;
 		       }
