@@ -162,12 +162,15 @@ int kernelgen_launch(kernel_t* kernel,
 			if (kernel->name != "__kernelgen_main")
 			{
 				// Launch GPU loop kernel, if it is compiled.
+				dim3 blockDim = kernel->target[runmode].blockDim;
+				dim3 gridDim = kernel->target[runmode].gridDim;
+				cout << "Launching kernel " << kernel->name << ", gridDim = { " <<
+					gridDim.x << ", " << gridDim.y << ", " << gridDim.z << " }, blockDim = { " <<
+					blockDim.x << ", " << blockDim.y << ", " << blockDim.z << " }" << endl;
 				timer t;
 				{
 
 					size_t szshmem = 0;
-					dim3 blockDim = kernel->target[runmode].blockDim;
-					dim3 gridDim = kernel->target[runmode].gridDim;
 					int err = cudyLaunch(
 						(CUDYfunction)kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
