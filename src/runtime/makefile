@@ -42,10 +42,12 @@ OBJECTS := \
 
 OBJECTS := $(addsuffix .o, $(OBJECTS))
 
-all: libkernelgen.a
+all: libkernelgen-rt.so
 
-libkernelgen.a: $(OBJECTS)
-	$(AR) rcs $@ $(OBJECTS)
+libkernelgen-rt.so: $(OBJECTS)
+	$(CXX) -shared $(OBJECTS) -o $@ \
+		/opt/kernelgen/lib/LLVMPolly.so -L/opt/kernelgen/lib -lLLVM-3.1svn \
+		-ldyloader -lasfermi -lelf -lrt -lgmp -lmhash -ldl -lffi
 
 entry.o: entry.cpp bind.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -96,5 +98,5 @@ RuntimeAliasAnalysis.o : RuntimeAliasAnalysis.cpp
 	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@  
 
 clean:
-	rm -rf *.o libkernelgen.a
+	rm -rf *.o libkernelgen-rt.so
 

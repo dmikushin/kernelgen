@@ -7,7 +7,7 @@ all: libdyloader.so
 	cd ../.. && $(MAKE) libasfermi.so
 
 libdyloader.so: cuda_dyloader.o ../../libasfermi.so
-	g++ -shared $< -o $@ -L../.. -lasfermi -lcuda -lelf -L../../../runtime -lkernelgen
+	g++ -shared $< -o $@ -L../.. -lasfermi -lcuda -lelf -L../../../runtime -lkernelgen-rt
 
 cuda_dyloader.o: cuda_dyloader.cpp cuda_dyloader.h loader.h
 	g++ -I. -I../.. -I../../.. -fPIC -g -c $< -o $@

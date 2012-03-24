@@ -495,7 +495,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	string tmp_main_output1 = (StringRef)tmp_main_vector;
 	close(fd);
 	string err;
-	tool_output_file tmp_main_object1(tmp_main_output1.c_str(), err, raw_fd_ostream::F_Binary);
+	tool_output_file tmp_main_object1(
+		tmp_main_output1.c_str(), err, raw_fd_ostream::F_Binary);
 	if (!err.empty())
 	{
 		cerr << "Cannot open output file" << tmp_main_output1.c_str() << endl;
@@ -508,7 +509,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 	string tmp_main_output2 = (StringRef)tmp_main_vector;
 	close(fd);
-	tool_output_file tmp_main_object2(tmp_main_output2.c_str(), err, raw_fd_ostream::F_Binary);
+	tool_output_file tmp_main_object2(
+		tmp_main_output2.c_str(), err, raw_fd_ostream::F_Binary);
 	if (!err.empty())
 	{
 		cerr << "Cannot open output file" << tmp_main_output2.c_str() << endl;
@@ -686,30 +688,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				}
 			}
 		}
-
-		/*// Remove the .kernelgen section.
-		{
-			vector<const char*> args;
-			args.push_back(objcopy);
-			args.push_back("--remove-section=.kernelgen");
-			args.push_back(tmp_main_output1.c_str());
-			args.push_back(NULL);
-			if (verbose)
-			{
-				cout << args[0];
-				for (int i = 1; args[i]; i++)
-					cout << " " << args[i];
-				cout << endl;
-			}
-			int status = Program::ExecuteAndWait(
-				Program::FindProgramByName(objcopy), &args[0],
-				NULL, NULL, 0, 0, &err);
-			if (status)
-			{
-				cerr << err;
-				return status;
-			}
-		}*/
 		elf_end(e);
 	}
 	if (!main_output)
@@ -943,6 +921,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	// 7) Clone composite module and transform it into the
 	// "loop" kernels, each one executing single parallel loop.
 	//
+	int nloops = 0;
 	{
 		std::auto_ptr<Module> loops;
 		loops.reset(CloneModule(&composite));
@@ -1069,7 +1048,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				string swap = tmp_main_output1;
 				tmp_main_output1 = tmp_main_output2;
 				tmp_main_output2 = swap;
-			}			
+			}
+			nloops++;
 		}
 	}
 	
@@ -1270,37 +1250,11 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			return status;
 		}
 	}
-	{
-		vector<const char*> args;
-		args.push_back(linker);
-		args.push_back("--unresolved-symbols=ignore-all");
-		args.push_back("-r");
-		args.push_back("-o");
-		args.push_back(tmp_main_output2.c_str());
-		args.push_back(tmp_main_output1.c_str());
-		args.push_back("--whole-archive");
-		args.push_back("/opt/kernelgen/lib/libkernelgen.a");
-		args.push_back(NULL);
-		if (verbose)
-		{
-			cout << args[0];
-			for (int i = 1; args[i]; i++)
-				cout << " " << args[i];
-			cout << endl;
-		}
-		int status = Program::ExecuteAndWait(
-			Program::FindProgramByName(linker), &args[0],
-			NULL, NULL, 0, 0, &err);
-		if (status)
-		{
-			cerr << err;
-			return status;
-		}
-	}
 
 	//
 	// 10) Link code using regular linker.
 	//
+	if (output)
 	{
 		// Use cloned main object instead of original one.
 		vector<const char*> args;
@@ -1308,7 +1262,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		for (int i = 0; argv[i]; i++)
 		{
 			if (!strcmp(argv[i], main_output)) {
-				args.push_back(tmp_main_output2.c_str());
+				args.push_back(tmp_main_output1.c_str());
 				continue;
 			}
 			args.push_back(argv[i]);
@@ -1317,17 +1271,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Adding -rdynamic to use executable global symbols
 		// to resolve dependencies of subsequently loaded kernel objects.
 		args.push_back("-rdynamic");
-		args.push_back("/opt/kernelgen/lib/libLLVM-3.1svn.so");
-		args.push_back("/opt/kernelgen/lib/LLVMPolly.so");
-		args.push_back("/opt/kernelgen/lib/libdyloader.so");
-		args.push_back("/opt/kernelgen/lib/libasfermi.so");
-		args.push_back("-lelf");
-		args.push_back("-lrt");
-		args.push_back("-lgmp");
-		args.push_back("-lmhash");
-		args.push_back("-ldl");
-		args.push_back("-lffi");
-		args.push_back("-lstdc++");
+		args.push_back("/opt/kernelgen/lib/libkernelgen-rt.so");
 		args.push_back(NULL);
 		args[0] = compiler;
 		if (verbose)
@@ -1352,6 +1296,88 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			return status;
 		}
 	}
+	else
+	{
+		// When no output, kernelgen-simple acts as and LTO backend.
+		// Here we need to output the list of objects collect2 will
+		// pass to linker.
+		if (nloops % 2) tmp_main_object1.keep();
+		else tmp_main_object2.keep();
+		for (int i = 1; argv[i]; i++)
+		{
+			string name = tmp_main_output1;
+
+			// To be compatible with LTO, we need to clone all
+			// objects, except the one containing main entry,
+			// which is already clonned.
+			if (strcmp(argv[i], main_output))
+			{
+		                tmp_main_vector.clear();
+        		        if (unique_file(tmp_mask, fd, tmp_main_vector))
+                		{
+                        		cout << "Cannot generate temporary main object file name" << endl;
+	                        	return 1;
+	        	        }
+        	        	name = (StringRef)tmp_main_vector;
+	        	        close(fd);
+		        	tool_output_file tmp_object(name.c_str(), err, raw_fd_ostream::F_Binary);
+				if (!err.empty())
+				{
+					cerr << "Cannot open output file" << name.c_str() << endl;
+					return 1;
+				}
+				tmp_object.keep();
+				{
+					vector<const char*> args;
+					args.push_back(cp);
+					args.push_back(argv[i]);
+					args.push_back(name.c_str());
+					args.push_back(NULL);
+					if (verbose)
+					{
+						cout << args[0];
+						for (int i = 1; args[i]; i++)
+							cout << " " << args[i];
+						cout << endl;
+					}
+					int status = Program::ExecuteAndWait(
+						Program::FindProgramByName(cp), &args[0],
+						NULL, NULL, 0, 0, &err);
+					if (status)
+					{
+						cerr << err;
+						return status;
+					}
+				}
+			}
+
+			// Remove the .kernelgen section from the clonned object.
+			{
+				vector<const char*> args;
+				args.push_back(objcopy);
+				args.push_back("--remove-section=.kernelgen");
+				args.push_back(name.c_str());
+				args.push_back(NULL);
+				if (verbose)
+				{
+					cout << args[0];
+					for (int i = 1; args[i]; i++)
+						cout << " " << args[i];
+					cout << endl;
+				}
+				int status = Program::ExecuteAndWait(
+					Program::FindProgramByName(objcopy), &args[0],
+					NULL, NULL, 0, 0, &err);
+				if (status)
+				{
+					cerr << err;
+					return status;
+				}
+			}
+
+			cout << name << endl;
+		}
+	}
 	
 	return 0;
 }
@@ -1360,11 +1386,10 @@ int main(int argc, char* argv[])
 {
 	llvm::PrettyStackTraceProgram X(argc, argv);
 
-	cout << "kernelgen: note \"simple\" is a development frontend not intended for regular use!" << endl;
-
 	// Behave like compiler if no arguments.
 	if (argc == 1)
 	{
+		cout << "kernelgen: note \"simple\" is a development frontend not intended for regular use!" << endl;
 		cout << "kernelgen: no input files" << endl;
 		return 0;
 	}
@@ -1422,7 +1447,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	if (!output)
+	if (input && !output)
 	{
 		output_vector.reserve(strlen(input + 1));
 		output = &output_vector[0];
@@ -1449,6 +1474,8 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
+	if (input || output)
+		cout << "kernelgen: note \"simple\" is a development frontend not intended for regular use!" << endl;
 
 	fallback_args_t* fallback_args = new fallback_args_t();
 	fallback_args->argc = argc;
@@ -1457,13 +1484,14 @@ int main(int argc, char* argv[])
 	fallback_args->output = output;
 	tracker = new PassTracker(input, &fallback, fallback_args);
 
-	PluginLoader loader;
-	loader.operator =("libkernelgen-opt.so");
-
 	// Execute either compiler or linker.
 	int result;
 	if (input)
+	{
+		PluginLoader loader;
+		loader.operator =("libkernelgen-opt.so");
 		result = compile(argc, argv, input, output);
+	}
 	else
 		result = link(argc, argv, input, output);
 	delete tracker;
