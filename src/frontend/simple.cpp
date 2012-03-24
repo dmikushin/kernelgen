@@ -849,7 +849,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				
 					// Check if function is called (needs -instcombine pass).
 					Function* callee = call->getCalledFunction();
-					if (!callee && !callee->isDeclaration()) continue;
+					if (!callee) continue;
+					if (!callee->isDeclaration()) continue;
 					if (callee->getName() != "kernelgen_launch") continue;
 				
 					// Get the called function name from the metadata node.
