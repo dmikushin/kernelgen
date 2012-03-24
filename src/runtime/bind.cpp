@@ -56,6 +56,12 @@ cuModuleGetGlobal_t cuModuleGetGlobal;
 cuLaunchKernel_t cuLaunchKernel;
 cuStreamCreate_t cuStreamCreate;
 cuStreamSynchronize_t cuStreamSynchronize;
+cuEventCreate_t cuEventCreate;
+cuEventDestroy_t cuEventDestroy;
+cuEventElapsedTime_t cuEventElapsedTime;
+cuEventRecord_t cuEventRecord;
+cuEventSynchronize_t cuEventSynchronize;
+
 
 CUresult cuMemAlloc(void** ptr, size_t size)
 {
@@ -182,6 +188,21 @@ handle(handle)
 		cuStreamSynchronize = (cuStreamSynchronize_t)dlsym(handle, "cuStreamSynchronize");
 		if (!cuStreamSynchronize)
 			THROW("Cannot dlsym cuStreamSynchronize " << dlerror());
+		cuEventCreate = (cuEventCreate_t)dlsym(handle, "cuEventCreate");
+		if (!cuEventCreate)
+			THROW("Cannot dlsym cuEventCreate " << dlerror());
+		cuEventDestroy = (cuEventDestroy_t)dlsym(handle, "cuEventDestroy");
+		if (!cuEventDestroy)
+			THROW("Cannot dlsym cuEventDestroy " << dlerror());
+		cuEventElapsedTime = (cuEventElapsedTime_t)dlsym(handle, "cuEventElapsedTime");
+		if (!cuEventElapsedTime)
+			THROW("Cannot dlsym cuEventElapsedTime " << dlerror());
+		cuEventRecord = (cuEventRecord_t)dlsym(handle, "cuEventRecord");
+		if (!cuEventRecord)
+			THROW("Cannot dlsym cuEventRecord " << dlerror());
+		cuEventSynchronize = (cuEventSynchronize_t)dlsym(handle, "cuEventSynchronize");
+		if (!cuEventSynchronize)
+			THROW("Cannot dlsym cuEventSynchronize " << dlerror());
 	}
 
 	CUresult err = cuInit(0);

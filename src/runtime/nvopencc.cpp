@@ -395,11 +395,11 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 		tmp_stream.close();
 	}
 
-	void* kernel_func = NULL;
+	CUfunction kernel_func = NULL;
 	if (name == "__kernelgen_main")
 	{
 		// Load CUBIN from string into module.
-		void* module;
+		CUmodule module;
 		int err = cuModuleLoad(&module, tmp3.getFilename().c_str());
 		if (err)
 			THROW("Error in cuModuleLoadData " << err);

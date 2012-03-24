@@ -22,11 +22,12 @@
 #ifndef KERNELGEN_BIND_H
 #define KERNELGEN_BIND_H
 
-typedef int CUresult;
-typedef void* CUstream;
-typedef void* CUmodule;
-typedef void* CUfunction;
-typedef void* CUdeviceptr;
+typedef struct CUevent_st* 	CUevent;
+typedef struct CUmodule_st*	CUmodule;
+typedef int 			CUresult;
+typedef struct CUstream_st*	CUstream;
+typedef struct CUfunction_st*	CUfunction;
+typedef void*			CUdeviceptr;
 
 #define CUDA_SUCCESS					0
 #define CUDA_ERROR_OUT_OF_MEMORY			2
@@ -57,15 +58,21 @@ typedef CUresult (*cuMemsetD32Async_t)(void*, unsigned int, size_t, void*);
 typedef CUresult (*cuMemHostRegister_t)(void*, size_t, unsigned int);
 typedef CUresult (*cuMemHostGetDevicePointer_t)(void**, void*, unsigned int);
 typedef CUresult (*cuMemHostUnregister_t)(void*);
-typedef CUresult (*cuModuleLoad_t)(void**, const char*);
-typedef CUresult (*cuModuleLoadDataEx_t)(void**, const char*, unsigned int, int* options, void**);
+typedef CUresult (*cuModuleLoad_t)(CUmodule*, const char*);
+typedef CUresult (*cuModuleLoadDataEx_t)(CUmodule*, const char*, unsigned int, int* options, void**);
 typedef CUresult (*cuModuleUnload_t)(void*);
-typedef CUresult (*cuModuleGetFunction_t)(void**, void*, const char*);
+typedef CUresult (*cuModuleGetFunction_t)(CUfunction*, void*, const char*);
 typedef CUresult (*cuModuleGetGlobal_t)(void**, size_t*, void*, const char*);
 typedef CUresult (*cuLaunchKernel_t)(void*, unsigned int, unsigned int, unsigned int,
 	unsigned int, unsigned int, unsigned int, unsigned int, void*, void**, void**);
 typedef CUresult (*cuStreamCreate_t)(void*, unsigned int);
 typedef CUresult (*cuStreamSynchronize_t)(void*);
+typedef CUresult (*cuEventCreate_t)(CUevent, unsigned int);
+typedef CUresult (*cuEventDestroy_t)(CUevent);
+typedef CUresult (*cuEventElapsedTime_t)(float*, CUevent, CUevent);
+typedef CUresult (*cuEventRecord_t)(CUevent, CUstream);
+typedef CUresult (*cuEventSynchronize_t)(CUevent);
+
 
 extern cuInit_t cuInit;
 extern cuDeviceGet_t cuDeviceGet;
@@ -93,6 +100,11 @@ extern cuModuleGetGlobal_t cuModuleGetGlobal;
 extern cuLaunchKernel_t cuLaunchKernel;
 extern cuStreamCreate_t cuStreamCreate;
 extern cuStreamSynchronize_t cuStreamSynchronize;
+extern cuEventCreate_t cuEventCreate;
+extern cuEventDestroy_t cuEventDestroy;
+extern cuEventElapsedTime_t cuEventElapsedTime;
+extern cuEventRecord_t cuEventRecord;
+extern cuEventSynchronize_t cuEventSynchronize;
 
 CUresult cuMemAlloc(void** ptr, size_t size);
 CUresult cuMemFree(void* ptr);

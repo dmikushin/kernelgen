@@ -183,8 +183,8 @@ struct kernel_t
 		dim3 gridDim, blockDim;
 		
 		// Streams for work and monitor kernels.
-		void* monitor_kernel_stream;
-		void* kernel_stream;
+		CUstream monitor_kernel_stream;
+		CUstream kernel_stream;
 
 		// Kernel execution statistics: min/max/avg time and
 		// the number of launches.
