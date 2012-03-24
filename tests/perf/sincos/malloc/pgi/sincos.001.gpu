@@ -1,0 +1,94 @@
+#include "cuda_runtime.h"
+#include "pgi_cuda_runtime.h"
+struct DT1_82{signed char* m0;signed char* m8;};
+struct DT1_90{long long m0;long long m8;long long m16;signed char* m24;signed char* m32;signed char* m40;struct DT1_82* m48;struct DT1_82* m56;struct DT1_82* m64;};
+extern "C" __global__ __launch_bounds__(256) void
+sincos_15_gpu(
+    int tc9,
+    int tc8,
+    int tc7,
+    signed char* p1,
+    signed char* p2,
+    signed char* p3,
+    int u1,
+    int u3,
+    int u4)
+{
+int _i_1;
+__shared__ int i7s;
+__shared__ int i8s;
+int j110;
+int j61;
+int j10;
+if( (((((int)threadIdx.x)+((int)threadIdx.y))+((int)threadIdx.z))!=0)) goto _BB_6;
+i7s = ((int)blockIdx.y)*((int)blockDim.z);
+_BB_6: ;
+__syncthreads();
+if( (((tc7)-(((int)blockIdx.y)*((int)blockDim.z)))<=0)) goto _BB_10;
+_BB_7: ;
+__syncthreads();
+if( (((((int)threadIdx.x)+((int)threadIdx.y))+((int)threadIdx.z))!=0)) goto _BB_12;
+i8s = ((int)blockIdx.x)*((int)blockDim.y);
+_BB_12: ;
+__syncthreads();
+if( (((tc8)-(((int)blockIdx.x)*((int)blockDim.y)))<=0)) goto _BB_2;
+_BB_13: ;
+if( (((int)threadIdx.z)>=((tc7)-(i7s))))  goto _BB_35;
+if( (((int)threadIdx.y)>=((tc8)-(i8s))))  goto _BB_35;
+if( ((0)>=(tc9)))  goto _BB_35;
+j10 = ((int)threadIdx.x)-(tc9);
+j61 = tc9;
+j110 = 0;
+if( (((tc9)+(-32))<(3)))  goto _BB_26;
+_BB_30: ;
+if( ((j10)>=0)) goto _BB_18;
+_i_1 = ((((int)threadIdx.x)+((u4)*((((int)threadIdx.y)+((u3)*(((int)threadIdx.z)+(i7s))))+(i8s))))*(4))+(j110);
+(*(float*)((_i_1)+(p1)));
+(*(float*)((_i_1)+(p2)));
+*(float*)((_i_1)+(p3)) = (cosf((*(float*)((_i_1)+(p1)))))+(sinf((*(float*)((_i_1)+(p2)))));
+_BB_18: ;
+if( (((j10)+(16))>=0)) goto _BB_34;
+_i_1 = ((((int)threadIdx.x)+((u4)*((((int)threadIdx.y)+((u3)*(((int)threadIdx.z)+(i7s))))+(i8s))))*(4))+(j110);
+(*(float*)(((_i_1)+(p1))+(64)));
+(*(float*)(((_i_1)+(p2))+(64)));
+*(float*)(((_i_1)+(p3))+(64)) = (cosf((*(float*)(((_i_1)+(p1))+(64)))))+(sinf((*(float*)(((_i_1)+(p2))+(64)))));
+_BB_34: ;
+if( (((j10)+(32))>=0)) goto _BB_38;
+_i_1 = ((((int)threadIdx.x)+((u4)*((((int)threadIdx.y)+((u3)*(((int)threadIdx.z)+(i7s))))+(i8s))))*(4))+(j110);
+(*(float*)(((_i_1)+(p1))+(128)));
+(*(float*)(((_i_1)+(p2))+(128)));
+*(float*)(((_i_1)+(p3))+(128)) = (cosf((*(float*)(((_i_1)+(p1))+(128)))))+(sinf((*(float*)(((_i_1)+(p2))+(128)))));
+_BB_38: ;
+j10 = (j10)+(48);
+j61 = (j61)+(-48);
+j110 = (j110)+(192);
+if( (((-2)+(j61))>0)) goto _BB_30;
+if( ((j61)<=0)) goto _BB_35;
+_BB_26: ;
+_BB_24: ;
+if( ((j10)>=0)) goto _BB_25;
+_i_1 = ((((int)threadIdx.x)+((u4)*((((int)threadIdx.y)+((u3)*(((int)threadIdx.z)+(i7s))))+(i8s))))*(4))+(j110);
+(*(float*)((_i_1)+(p1)));
+(*(float*)((_i_1)+(p2)));
+*(float*)((_i_1)+(p3)) = (cosf((*(float*)((_i_1)+(p1)))))+(sinf((*(float*)((_i_1)+(p2)))));
+_BB_25: ;
+j10 = (j10)+(16);
+j61 = (j61)+(-16);
+j110 = (j110)+(64);
+if( ((j61)>0)) goto _BB_24;
+_BB_35: ;
+__syncthreads();
+if( (((((int)threadIdx.x)+((int)threadIdx.y))+((int)threadIdx.z))!=0)) goto _BB_15;
+i8s = (((int)gridDim.x)*(4))+(i8s);
+_BB_15: ;
+__syncthreads();
+if( (((tc8)-(i8s))>0)) goto _BB_13;
+_BB_2: ;
+__syncthreads();
+if( (((((int)threadIdx.x)+((int)threadIdx.y))+((int)threadIdx.z))!=0)) goto _BB_9;
+i7s = (((int)gridDim.y)*(4))+(i7s);
+_BB_9: ;
+__syncthreads();
+if( (((tc7)-(i7s))>0)) goto _BB_7;
+_BB_10: ;
+}

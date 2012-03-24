@@ -1,0 +1,22 @@
+KERNELGEN
+
+regcount = 23, size = 936
+Launching kernel __kernelgen_sincos__loop_12
+    blockDim = { 32, 5, 5 }
+    gridDim = { 16, 103, 13 }
+__kernelgen_sincos__loop_12 time = 0.0066962 sec
+only the kernel execution time = 0.00653904 sec
+
+PGI ACCELERATOR
+
+Accelerator Kernel Timing data
+/home/marcusmae/Programming/kernelgen/tests/perf/sincos/malloc/pgi/../sincos.f90
+  sincos
+    12: region entered 1 time
+        time(us): total=2362577 init=2268435 region=94142
+                  kernels=3575 data=86839
+        w/o init: total=94142 max=94142 min=94142 avg=94142
+        15: kernel launched 1 times
+            grid: [128x16]  block: [16x4x4]
+            time(us): total=3575 max=3575 min=3575 avg=3575
+
