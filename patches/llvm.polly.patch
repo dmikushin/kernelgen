@@ -1,5 +1,5 @@
 --- a/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-22 02:51:59.000000000 +0400
-+++ b/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-23 16:57:54.123210803 +0400
++++ b/llvm/tools/polly/lib/CodeGeneration.cpp	2012-03-24 22:58:34.000000000 +0400
 @@ -39,6 +39,7 @@
  #include "llvm/Support/IRBuilder.h"
  #include "llvm/Target/TargetData.h"
@@ -45,7 +45,7 @@
  // Create a new loop.
  //
  // @param Builder The builder used to create the loop.  It also defines the
-@@ -153,6 +174,68 @@
+@@ -153,6 +174,66 @@
  
    return IV;
  }
@@ -91,10 +91,8 @@
 +	// Maybe not executed at all.                                                                         //
 +	// next iteration performed if loop condition is true:                                                //
 +	// InductionVariable <= ThreadUpperBound && InductionVariable <= LoopUpperBound                       //
-+	Value *ThreadCMP = Builder->CreateICmpSLE(IV, ThreadUB, (string)"isInThreadBounds." + dimension);     //
-+	Value *LoopCMP = Builder->CreateICmpSLE(IV,UB,(string)"isInLoopBounds." + dimension);                 //
-+	Value *ExitCond = Builder->CreateAnd(ThreadCMP,LoopCMP,(string)"isInBounds." + dimension);            //
-+                                                                                                          //
++	Value *ExitCond = Builder->CreateICmpSLE(IV, ThreadUB, (string)"isInThreadBounds." + dimension);      //
++                                                                                                          //                                                                                                          //
 +    Builder->CreateCondBr(ExitCond, BodyBB, AfterBB);                                                     //
 +    DT->addNewBlock(BodyBB, HeaderBB);																	  //
 +                                                                                                          //
@@ -114,7 +112,7 @@
  
  class BlockGenerator {
    IRBuilder<> &Builder;
-@@ -919,6 +1002,26 @@
+@@ -919,6 +1000,26 @@
  
    std::vector<std::string> parallelLoops;
  
@@ -141,7 +139,7 @@
  public:
  
    const std::vector<std::string> &getParallelLoops();
-@@ -977,6 +1080,202 @@
+@@ -977,6 +1078,233 @@
    /// statement.
    void codegenForOpenMP(const clast_for *f);
  
@@ -228,6 +226,8 @@
 +                                                                                                      //
 +		// stride of loop                                                                             //
 +		assert(polly::APInt_from_MPZ(f->stride) != 0 && "what we must do in those situation?");       //
++		assert(polly::APInt_from_MPZ(f->stride).getSExtValue() > 0 && "TODO: support of negative stride");       //
++		
 +		Value *LoopStride = ConstantInt::get(IntType,                                                 //
 +								polly::APInt_from_MPZ(f->stride).zext(IntType->getBitWidth()));		  //																					  //
 +		                                                                                              //
@@ -274,7 +274,7 @@
 +		Value * ThreadUpperBound =                                                                    //
 +		    Builder.CreateAdd(ThreadLowerBound,StrideMulIterPerThreadMinusOne,                        //
 +		                      string("ThreadUpperBound.") + dimensionName);                           //
-+                                                                                                      //
++																									  //
 +		// Generate code for loop with computed bounds and stride                                     //
 +		// CountBoundsBB BasicBlock is a preheader of that loop                                       //
 +        BasicBlock *AfterBB;                                                                          //
@@ -286,9 +286,38 @@
 +        if (f->body)                                                                                  //
 +            codegen(f->body);                                                                         //
 +        // Loop is finished, so remove its iv from the live symbols.                                  //
-+        clastVars->erase(f->iterator);                                                                //
++		                                                                                              //
++		clastVars->erase(f->iterator);                                                                //
 +        AfterBB->moveAfter(Builder.GetInsertBlock());		                                          //
-+        Builder.SetInsertPoint(AfterBB->begin());                                                     //
++                                                                                                      //
++		// make block for truncation of threadUpperBound                                              //
++		BasicBlock *truncateThreadUB = SplitBlock(CountBoundsBB,CountBoundsBB->getTerminator(),P);    //
++		truncateThreadUB->setName(string("CUDA.truncateThreadUB.") + dimensionName);                  //
++		                                                                                              //
++		Builder.SetInsertPoint(truncateThreadUB->getTerminator());                                    //
++																									  //
++		// if(threadUpperBound > loopUpperBound) threadUpperBound = loopUpperBound;                   //
++        Value *isThreadUBgtLoopUB =                                                                   //
++		    Builder.CreateICmpSGT(ThreadUpperBound, upperBound,                                       //
++			                      string("isThreadUBgtLoopUB.") + dimensionName);                     //
++		ThreadUpperBound =                                                                            //
++		    Builder.CreateSelect(isThreadUBgtLoopUB, upperBound, ThreadUpperBound,                    //
++			                      string("truncatedThreadUB.") + dimensionName);                      //
++				                                                                                      //
++		//get terminator of CountBoundsBB                                                             //
++		TerminatorInst * terminator = CountBoundsBB->getTerminator();                                 //
++		Builder.SetInsertPoint(CountBoundsBB);                                                        //
++		//if(threadLowerBound > loopUpperBound) then no execute body et all                           //
++		Value *isThreadLBgtLoopUB =                                                                   //
++		    Builder.CreateICmpSGT(ThreadLowerBound, upperBound,                                       //
++			                      string("isThreadLBgtLoopUB.") + dimensionName);                     //
++		Builder.CreateCondBr(isThreadLBgtLoopUB, AfterBB, truncateThreadUB);                          //
++																									  //
++		//erase old terminator                                                                        //
++		terminator -> eraseFromParent();                                                              //
++		                                                                                              //
++																									  //
++		Builder.SetInsertPoint(AfterBB->begin());                                                     //
 +	}                                                                                                 //
 +////////////////////////////////////////////////////////////////////////////////////////////////////////     
 +
@@ -344,7 +373,7 @@
    bool isInnermostLoop(const clast_for *f);
  
    /// @brief Get the number of loop iterations for this loop.
-@@ -1111,9 +1410,11 @@
+@@ -1111,9 +1439,11 @@
  
    // Loop is finished, so remove its iv from the live symbols.
    clastVars->erase(f->iterator);
@@ -356,7 +385,7 @@
  Function *ClastStmtCodeGen::addOpenMPSubfunction(Module *M) {
    Function *F = Builder.GetInsertBlock()->getParent();
    std::vector<Type*> Arguments(1, Builder.getInt8PtrTy());
-@@ -1417,7 +1718,14 @@
+@@ -1417,7 +1747,14 @@
      parallelLoops.push_back(f->iterator);
      codegenForOpenMP(f);
      parallelCodeGeneration = false;
@@ -372,7 +401,7 @@
      codegenForSequential(f);
  }
  
-@@ -1518,6 +1826,13 @@
+@@ -1518,6 +1855,13 @@
    parallelCodeGeneration = false;
  
    const clast_stmt *stmt = (const clast_stmt*) r;
@@ -386,7 +415,7 @@
    if (stmt->next)
      codegen(stmt->next);
  
-@@ -1548,6 +1863,49 @@
+@@ -1548,6 +1892,49 @@
  
    CodeGeneration() : ScopPass(ID) {}
  
@@ -436,7 +465,7 @@
    // Add the declarations needed by the OpenMP function calls that we insert in
    // OpenMP mode.
    void addOpenMPDeclarations(Module *M)
-@@ -1696,6 +2054,7 @@
+@@ -1696,6 +2083,7 @@
      Module *M = region->getEntry()->getParent()->getParent();
  
      if (OpenMP) addOpenMPDeclarations(M);
@@ -444,7 +473,7 @@
  
      // In the CFG the optimized code of the SCoP is generated next to the
      // original code. Both the new and the original version of the code remain
-@@ -1741,7 +2100,8 @@
+@@ -1741,7 +2129,8 @@
      parallelLoops.insert(parallelLoops.begin(),
                           CodeGen.getParallelLoops().begin(),
                           CodeGen.getParallelLoops().end());
