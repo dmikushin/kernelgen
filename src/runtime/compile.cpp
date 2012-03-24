@@ -421,7 +421,7 @@ kernel_func_t kernelgen::runtime::compile(
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
 			
 	        int numberOfLoops = sizeOfLoops.getNumOfDimensions();
-			/*if(launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
+			if(launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
 	            switch(numberOfLoops)
 			    {
 				    case 0: blockDim = dim3(1,1,1);
@@ -434,7 +434,7 @@ kernel_func_t kernelgen::runtime::compile(
 				    case 3: 
 				    {
 					    double remainder = BLOCK_SIZE / BLOCK_DIM_X;
-					    double coefficient = (double)sizeOfLoops.z / (double)sizeOfLoops.y;
+					    double coefficient = (double)launchParameters.z / (double)launchParameters.y;
 					    double yPow2 = remainder / coefficient;
 					    double y = sqrt(yPow2); 	
 					    blockDim =  dim3(BLOCK_DIM_X, y , coefficient*y);
@@ -447,7 +447,7 @@ kernel_func_t kernelgen::runtime::compile(
 				//?????????????
 				// Number of all iterations lower that number of threads in block
 				blockDim = dim3(launchParameters.x,launchParameters.y,launchParameters.z);
-			}*/
+			}
 			
 			
 			dim3 iterationsPerThread(1,1,1);
@@ -456,7 +456,7 @@ kernel_func_t kernelgen::runtime::compile(
 			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
 			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
 			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
-
+            
 			// Substitute grid parameters to reduce amount of instructions
 			// and used registers.
 			substituteGridParams(kernel, gridDim, blockDim);
@@ -618,6 +618,8 @@ kernel_func_t kernelgen::runtime::compile(
 				// significantly improved by unrolling.
 				manager.add(createLoopUnrollPass(512, -1, 1));
 			}
+			
+
 			/*if (sizeOfLoops.x == -1)
 			{
 				// Use runtime unrolling (disabpled by default).
