@@ -1,16 +1,11 @@
-#include "bind.h"
-
-using namespace kernelgen::bind::cuda;
-
 #include <time.h>
 
 namespace kernelgen { namespace runtime {
 
 class timer
 {
-        timespec ts_start, ts_stop;
-        cudaEvent_t ce_start, ce_stop;
-        bool cuda, started;
+        timespec time_start, time_stop;
+        bool started;
 
 public :
 

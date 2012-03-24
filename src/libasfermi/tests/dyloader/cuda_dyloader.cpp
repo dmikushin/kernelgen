@@ -454,7 +454,7 @@ struct CUDYloader_t
 	CUresult Launch(CUDYfunction_t* function,
 		unsigned int gx, unsigned int gy, unsigned int gz,
 		unsigned int bx, unsigned int by, unsigned int bz,
-		size_t szshmem, void* args, CUstream stream)
+		size_t szshmem, void* args, CUstream stream, float* time)
 	{
 		// Initialize command value with LEPC, so on the next
 		// launch uberkern will load dynamic kernel code and exit.
@@ -467,6 +467,14 @@ struct CUDYloader_t
 
 		// Synchronize stream.
 		CUTHROW( cuStreamSynchronize(stream) );
+
+		CUevent start, stop;
+		if (time)
+		{
+			cuEventCreate(&start, 0);
+			cuEventCreate(&stop, 0);
+			cuEventRecord(start, stream);
+		}
 
 		// Launch device function.
 		// Note we are always sending 256 Bytes, regardless
@@ -481,6 +489,14 @@ struct CUDYloader_t
 		CUTHROW( cuLaunchKernel(entry[function->regcount],
 			gx, gy, gz, bx, by, bz, szshmem,
 			stream, NULL, config) );
+
+		if (time)
+		{
+			cuEventRecord(stop, stream);
+			cuEventSynchronize(stop);
+			cuEventElapsedTime(time, start, stop);
+			*time *= 1e-3;
+		}
 
 		return CUDA_SUCCESS;
 	}
@@ -543,12 +559,12 @@ CUresult cudyLoadOpcodes(CUDYfunction* function,
 CUresult cudyLaunch(CUDYfunction function,
 	unsigned int gx, unsigned int gy, unsigned int gz,
 	unsigned int bx, unsigned int by, unsigned int bz,
-	size_t szshmem, void* args, CUstream stream)
+	size_t szshmem, void* args, CUstream stream, float* time)
 {
 	try
 	{
 		return function->loader->Launch(function,
-			gx, gy, gz, bx, by, bz, szshmem, args, stream);
+			gx, gy, gz, bx, by, bz, szshmem, args, stream, time);
 	}
 	catch (CUresult cuerr)
 	{

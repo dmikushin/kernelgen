@@ -167,18 +167,19 @@ int kernelgen_launch(kernel_t* kernel,
 				dim3 gridDim = kernel->target[runmode].gridDim;
 				outs().changeColor(raw_ostream::CYAN);
 				outs() << "Launching kernel " << kernel->name << "\n" <<
-                        "    blockDim = " << blockDim << "\n" <<
-						"    gridDim = " << gridDim << "\n";
+                        		"    blockDim = " << blockDim << "\n" <<
+					"    gridDim = " << gridDim << "\n";
 				outs().resetColor();
 				timer t;
+				float kernel_time;
 				{
-
 					size_t szshmem = 0;
 					int err = cudyLaunch(
 						(CUDYfunction)kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem,
-						&data, kernel->target[runmode].monitor_kernel_stream);
+						&data, kernel->target[runmode].monitor_kernel_stream,
+						&kernel_time);
 					if (err)
 						THROW("Error in cudyLaunch " << err);
 				}
@@ -189,6 +190,7 @@ int kernelgen_launch(kernel_t* kernel,
 				if (err) THROW("Error in cuStreamSynchronize " << err);
 
 				cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
+				cout << "only the kernel execution time = " << kernel_time << " sec" << endl;
 				break;
 			}
 
@@ -212,7 +214,7 @@ int kernelgen_launch(kernel_t* kernel,
 					(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem, args,
-					kernel->target[runmode].monitor_kernel_stream);
+					kernel->target[runmode].monitor_kernel_stream, NULL);
 				if (err)
 					THROW("Error in cudyLaunch " << err);
 			}
@@ -348,7 +350,7 @@ int kernelgen_launch(kernel_t* kernel,
 						(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem, args,
-						kernel->target[runmode].monitor_kernel_stream);
+						kernel->target[runmode].monitor_kernel_stream, NULL);
 					if (err)
 						THROW("Error in cudyLaunch " << err);
 				}

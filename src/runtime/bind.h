@@ -67,7 +67,7 @@ typedef CUresult (*cuLaunchKernel_t)(void*, unsigned int, unsigned int, unsigned
 	unsigned int, unsigned int, unsigned int, unsigned int, void*, void**, void**);
 typedef CUresult (*cuStreamCreate_t)(void*, unsigned int);
 typedef CUresult (*cuStreamSynchronize_t)(void*);
-typedef CUresult (*cuEventCreate_t)(CUevent, unsigned int);
+typedef CUresult (*cuEventCreate_t)(CUevent*, unsigned int);
 typedef CUresult (*cuEventDestroy_t)(CUevent);
 typedef CUresult (*cuEventElapsedTime_t)(float*, CUevent, CUevent);
 typedef CUresult (*cuEventRecord_t)(CUevent, CUstream);
