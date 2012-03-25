@@ -25,11 +25,12 @@
 LIB32 ?= lib
 LIB64 ?= lib
 
+#
+# Optimization level
+#
+OPT ?= 0
+
 PREFIX = $(ROOT)/opt/kernelgen
-CUDA_PREFIX = undefined
-ifeq ($(HAVE_CUDA), 1)
-CUDA_PREFIX = /opt/cuda
-endif
 
 .PHONY: frontend libruntime libasfermi
 

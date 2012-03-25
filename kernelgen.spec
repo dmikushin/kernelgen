@@ -37,7 +37,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r747.tar.bz2
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r752.tar.bz2
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -151,9 +151,7 @@ cd build/
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xjf $RPM_SOURCE_DIR/kernelgen-r747.tar.bz2
-cd $RPM_BUILD_DIR/kernelgen
-./configure
+tar -xjf $RPM_SOURCE_DIR/kernelgen-r752.tar.bz2
 cd $RPM_BUILD_DIR
 #
 # Build parts of the system
@@ -167,7 +165,7 @@ cd $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa
 make
 %else
 cd $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel
-make
+make BUILD_OPTIMIZE=-Ofast
 %endif
 #
 # Build LLVM.
@@ -191,11 +189,12 @@ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-
 # Build DragonEgg
 #
 cd $RPM_BUILD_DIR/dragonegg
-GCC=$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Debug+Asserts/bin/llvm-config make clean
 %if %debug
+GCC=$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Debug+Asserts/bin/llvm-config make clean
 CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/gcc-4.6.3/gcc/:$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/:$RPM_BUILD_DIR/gcc-4.6.3/include/:$RPM_BUILD_DIR/gcc-4.6.3/libcpp/include/ GCC=$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Debug+Asserts/bin/llvm-config make CXXFLAGS="-g -O0 -fPIC"
 %else
-CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/gcc-4.6.3/gcc/:$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/:$RPM_BUILD_DIR/gcc-4.6.3/include/:$RPM_BUILD_DIR/gcc-4.6.3/libcpp/include/ GCC=$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Debug+Asserts/bin/llvm-config make
+GCC=$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make clean
+CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/gcc-4.6.3/gcc/:$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/:$RPM_BUILD_DIR/gcc-4.6.3/include/:$RPM_BUILD_DIR/gcc-4.6.3/libcpp/include/ GCC=$RPM_BUILD_DIR/gcc-4.6.3/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make
 %endif
 cd $RPM_BUILD_DIR
 patch -p1 <$RPM_SOURCE_DIR/gcc.patch
@@ -204,7 +203,11 @@ patch -p1 <$RPM_SOURCE_DIR/gcc.patch
 # Build KernelGen
 #
 cd $RPM_BUILD_DIR/kernelgen
+%if %debug
 make src
+%else
+make src OPT=3 LLVM_MODE=Release+Asserts
+%endif
 #
 # Build modified GCC.
 # Note GCC depends on DragonEgg and plugins from KernelGen,
@@ -217,7 +220,7 @@ cd $RPM_BUILD_DIR/gcc-4.6.3/build/gcc
 %if %debug
 KERNELGEN_FALLBACK=1 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/llvm/build/Debug+Asserts/lib KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-KERNELGEN_FALLBACK=1 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/llvm/build/Debug+Asserts/lib KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make -j%{njobs}
+KERNELGEN_FALLBACK=1 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/llvm/build/Release+Asserts/lib KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make -j%{njobs}
 %endif
 
 
@@ -268,7 +271,11 @@ ROOT=$RPM_BUILD_ROOT LIB32=lib LIB64=lib make install
 # Install GCC.
 #
 cd $RPM_BUILD_DIR/gcc-4.6.3/build
+%if %debug
 KERNELGEN_FALLBACK=1 KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/dragonegg:$RPM_BUILD_DIR/kernelgen/src/frontend:$RPM_BUILD_DIR/llvm/build/Debug+Asserts/lib LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make install
+%else
+KERNELGEN_FALLBACK=1 KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/dragonegg:$RPM_BUILD_DIR/kernelgen/src/frontend:$RPM_BUILD_DIR/llvm/build/Release+Asserts/lib LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make install
+%endif
 #
 # Clean some unnecessary files.
 #

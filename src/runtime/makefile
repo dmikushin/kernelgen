@@ -19,8 +19,8 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-OPT ?= 0
-
+LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm
+LLVM_MODE ?= Debug+Asserts
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = \
 	-I/usr/include/i686-linux-gnu \
@@ -31,8 +31,10 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/cloog/include \
 	-I${HOME}/rpmbuild/BUILD/cloog/isl/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
+LLVM_LIB = \
+	$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib/LLVMPolly.so \
+	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-3.1svn
 
-CFLAGS = -g -fPIC -std=c99 -O$(OPT) -I../include
 CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
 
 OBJECTS := \
@@ -45,8 +47,7 @@ OBJECTS := $(addsuffix .o, $(OBJECTS))
 all: libkernelgen-rt.so
 
 libkernelgen-rt.so: $(OBJECTS)
-	$(CXX) -shared $(OBJECTS) -o $@ \
-		/opt/kernelgen/lib/LLVMPolly.so -L/opt/kernelgen/lib -lLLVM-3.1svn \
+	$(CXX) -shared $(OBJECTS) -o $@ $(LLVM_LIB) \
 		-ldyloader -lasfermi -lelf -lrt -lgmp -lmhash -ldl -lffi
 
 entry.o: entry.cpp bind.h
