@@ -1,6 +1,6 @@
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-4.6.3/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
-@@ -0,0 +1,303 @@
+@@ -0,0 +1,308 @@
 +/* main.c: defines main() for cc1, cc1plus, etc.
 +   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
 +
@@ -241,7 +241,7 @@
 +    // Create new argc & argv.
 +    int compiler_argc = argc + 5; // + 5 more arguments
 +    vector<const char*> compiler_argv_vector;
-+    compiler_argv_vector.resize(compiler_argc);
++    compiler_argv_vector.resize(compiler_argc + 1);
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
 +    compiler_argv[0] = argv[0];
 +    int i = 0; for ( ; i < argc; i++)
@@ -252,6 +252,7 @@
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
 +    compiler_argv[i++] = "-D_KERNELGEN";
++    compiler_argv[i++] = NULL;
 +
 +    rcompiler = toplev_main(compiler_argc, compiler_argv);
 +  }
@@ -286,11 +287,13 @@
 +  // This time compiler should generate a regular assembly
 +  // file, where plugin also inserts a symbol containing
 +  // DragonEgg output.
++  // Also we enable LTO by default, since kernelgen
++  // linking is based on LTO.
 +  {
 +    // Create new argc & argv.
-+    int compiler_argc = argc + 2; // + 2 more arguments
++    int compiler_argc = argc + 3; // + 3 more arguments
 +    vector<const char*> compiler_argv_vector;
-+    compiler_argv_vector.resize(compiler_argc);
++    compiler_argv_vector.resize(compiler_argc + 1);
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
 +    compiler_argv[0] = argv[0];
 +    int i = 0; for ( ; i < argc; i++)
@@ -298,6 +301,8 @@
 +    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "libkernelgen-ct.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-D_KERNELGEN";
++    compiler_argv[i++] = "-flto";
++    compiler_argv[i++] = NULL;
 +
 +    rcompiler = toplev_main(compiler_argc, compiler_argv);
 +  }
@@ -355,15 +360,6 @@
  
  # -------------------------------
  # Standard autoconf-set variables
-@@ -196,7 +196,7 @@
- 
- AWK = gawk
- CC =  /home/marcusmae/rpmbuild/BUILD/gcc-4.6.3/build/./prev-gcc/xgcc -B/home/marcusmae/rpmbuild/BUILD/gcc-4.6.3/build/./prev-gcc/ -B/home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/bin/ -B/home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/bin/ -B/home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/lib/ -isystem /home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/include -isystem /home/marcusmae/rpmbuild/BUILDROOT/kernelgen-0.2-accurate.x86_64/opt/kernelgen/x86_64-unknown-linux-gnu/sys-include   
--CXX = g++
-+CXX = g++ -DPLUGIN_PREFIX=\"/opt/kernelgen/lib/\"
- BISON = bison
- BISONFLAGS =
- FLEX = flex
 @@ -215,7 +215,7 @@
  ifneq ($(ENABLE_BUILD_WITH_CXX),yes)
  COMPILER = $(CC)
@@ -412,235 +408,77 @@
     hosthooks.h $(HOSTHOOKS_DEF_H)
 --- a/gcc-4.6.3/gcc/collect2.c	2011-01-06 21:50:20.000000000 +0300
 +++ b/gcc-4.6.3/gcc/collect2.c	2012-03-13 02:09:10.000000000 +0400
-@@ -206,7 +206,9 @@
- static char **lto_o_files;		/* Output files for LTO.  */
- const char *ldout;			/* File for ld stdout.  */
- const char *lderrout;			/* File for ld stderr.  */
--static const char *output_file;		/* Output file for ld.  */
-+static const char *output_file;		/* Output file for ld. */
-+static const char *tmp_output_file;	/* Temporary output file for ld. */
-+static char tmp_output_file_cont[L_tmpnam + 8];
- static const char *nm_file_name;	/* pathname of nm */
- #ifdef LDD_SUFFIX
- static const char *ldd_file_name;	/* pathname of ldd (or equivalent) */
-@@ -412,8 +414,8 @@
-       maybe_unlink (lderrout);
-     }
+@@ -943,9 +945,9 @@
+       char **p;
+       char **lto_o_ptr;
+       struct lto_object *list;
+-      char *lto_wrapper = getenv ("COLLECT_LTO_WRAPPER");
++      char *lto_wrapper = "kernelgen-simple";
+       struct pex_obj *pex;
+-      const char *prog = "lto-wrapper";
++      const char *prog = "kernelgen-simple";
+       int lto_ld_argv_size = 0;
+       char **out_lto_ld_argv;
+       int out_lto_ld_argv_size;
+@@ -1017,7 +1019,7 @@
+ 	 plus number of partitions.  */
+       for (lto_ld_argv_size = 0; lto_ld_argv[lto_ld_argv_size]; lto_ld_argv_size++)
+ 	;
+-      out_lto_ld_argv = XCNEWVEC(char *, num_files + lto_ld_argv_size + 1);
++      out_lto_ld_argv = XCNEWVEC(char *, num_files + lto_ld_argv_size + 2);
+       out_lto_ld_argv_size = 0;
  
--  if (status != 0 && output_file != 0 && output_file[0])
--    maybe_unlink (output_file);
-+  if (status != 0 && tmp_output_file != 0 && tmp_output_file[0])
-+    maybe_unlink (tmp_output_file);
+       /* After running the LTO back end, we will relink, substituting
+@@ -1051,6 +1053,7 @@
+ 	    out_lto_ld_argv[out_lto_ld_argv_size++] = *p;
+ 	  p++;
+         }
++      out_lto_ld_argv[out_lto_ld_argv_size++] = "/opt/kernelgen/lib/libkernelgen-rt.so";
+       out_lto_ld_argv[out_lto_ld_argv_size++] = 0;
  
-   if (response_file)
-     maybe_unlink (response_file);
-@@ -1183,9 +1185,9 @@
-   /* Do not invoke xcalloc before this point, since locale needs to be
-      set first, in case a diagnostic is issued.  */
- 
--  ld1_argv = XCNEWVEC (char *, argc + 4);
-+  ld1_argv = XCNEWVEC (char *, argc + 6);
-   ld1 = CONST_CAST2 (const char **, char **, ld1_argv);
--  ld2_argv = XCNEWVEC (char *, argc + 11);
-+  ld2_argv = XCNEWVEC (char *, argc + 13);
-   ld2 = CONST_CAST2 (const char **, char **, ld2_argv);
-   object_lst = XCNEWVEC (char *, argc);
-   object = CONST_CAST2 (const char **, char **, object_lst);
-@@ -1245,6 +1247,24 @@
+       /* Run the linker again, this time replacing the object files
+@@ -1245,6 +1248,14 @@
  #else
    output_file = DEFAULT_A_OUT_NAME;
  #endif
 +  // Check what mode is used: kernelgen or fallback.
-+  // In case of kernelgen we will first create a temporary
-+  // output file, generate it, and then stage through
-+  // the kernelgen_link external function. This function
-+  // should put the final output into the real output file.
-+  // In case of fallback, the process is similar to the
-+  // regular gcc's collect: no any extra activities, just
-+  // generate directly to the output file and done.
-+  sprintf(tmp_output_file_cont, "%s/XXXXXX", P_tmpdir);
-+  mkstemp(tmp_output_file_cont);
-+  tmp_output_file = tmp_output_file_cont;
++  // For kernelgen - always use LTO.
 +  const char* cfallback = getenv("KERNELGEN_FALLBACK");
-+  if (cfallback) {
-+    int fallback = atoi(cfallback);
-+    if (fallback) {
-+      tmp_output_file = output_file;
-+    }
-+  }
++  int fallback = 0;
++  if (cfallback)
++    fallback = atoi(cfallback);
++  if (!fallback)
++    lto_mode = LTO_MODE_WHOPR;
  
    obstack_begin (&temporary_obstack, 0);
    temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
-@@ -1450,6 +1470,7 @@
-   /* After the first file, put in the c++ rt0.  */
+@@ -2668,8 +2716,8 @@
+              the LTO objects list if found.  */
+           for (p = buf; (ch = *p) != '\0' && ch != '\n'; p++)
+             if (ch == ' '  && p[1] == '_' && p[2] == '_'
+-		&& (strncmp (p + (p[3] == '_' ? 2 : 1), "__gnu_lto_v1", 12) == 0)
+-		&& ISSPACE (p[p[3] == '_' ? 14 : 13]))
++		&& (strncmp (p + (p[3] == '_' ? 2 : 1), "__kernelgen", 11) == 0)
++		&& ISSPACE (p[p[3] == '_' ? 13 : 12]))
+               {
+                 add_lto_object (&lto_objects, prog_name);
  
-   first_file = 1;
-+  int output_file_specified = 0;
- #ifdef HAVE_LD_DEMANGLE
-   if (!demangle_flag && !no_demangle)
-     demangle_flag = "--demangle";
-@@ -1529,10 +1550,25 @@
- #endif
- 
- 	    case 'o':
--	      if (arg[2] == '\0')
--		output_file = *ld1++ = *ld2++ = *++argv;
-+              output_file_specified = 1;
-+	      if (arg[2] == '\0') {
-+                if (output_file == tmp_output_file) {
-+                  output_file = *++argv;
-+                  tmp_output_file = output_file;
-+                }
-+                else
-+                  output_file = *++argv;
-+                *ld1++ = *ld2++ = tmp_output_file;
-+              }
- 	      else
--		output_file = &arg[2];
-+              {
-+                if (output_file == tmp_output_file) {
-+                  output_file = &arg[2];
-+                  tmp_output_file = output_file;
-+                }
-+                else
-+                  output_file = &arg[2];
-+              }
- 	      break;
- 
- 	    case 'r':
-@@ -1622,6 +1658,11 @@
- 	}
-     }
- 
-+    if (!output_file_specified) {
-+      *ld1++ = *ld2++ = "-o";
-+      *ld1++ = *ld2++ = tmp_output_file;
-+    }
-+
- #ifdef COLLECT_EXPORT_LIST
-   /* This is added only for debugging purposes.  */
-   if (debug)
-@@ -1786,10 +1827,10 @@
-      destructor tables to a .s file and reload.  */
- 
-   if (ld1_filter != SCAN_NOTHING)
--    scan_prog_file (output_file, PASS_FIRST, ld1_filter);
-+    scan_prog_file (tmp_output_file, PASS_FIRST, ld1_filter);
- 
- #ifdef SCAN_LIBRARIES
--  scan_libraries (output_file);
-+  scan_libraries (tmp_output_file);
- #endif
- 
-   if (debug)
-@@ -1837,7 +1878,7 @@
- 						  real_strip_argv);
- 
- 	  strip_argv[0] = strip_file_name;
--	  strip_argv[1] = output_file;
-+	  strip_argv[1] = tmp_output_file;
- 	  strip_argv[2] = (char *) 0;
- 	  fork_execute ("strip", real_strip_argv);
- 	}
-@@ -1856,7 +1897,7 @@
-   sort_ids (&constructors);
-   sort_ids (&destructors);
- 
--  maybe_unlink(output_file);
-+  maybe_unlink(tmp_output_file);
-   outf = fopen (c_file, "w");
-   if (outf == (FILE *) 0)
-     fatal_perror ("fopen %s", c_file);
-@@ -1906,8 +1947,8 @@
- 
-   if (debug)
+--- a/gcc-4.6.3/gcc/toplev.c	2012-03-25 16:59:48.910888752 +0400
++++ b/gcc-4.6.3/gcc/toplev.c	2012-03-25 17:00:19.527225426 +0400
+@@ -637,13 +637,13 @@
      {
--      fprintf (stderr, "\n========== output_file = %s, c_file = %s\n",
--	       output_file, c_file);
-+      fprintf (stderr, "\n========== tmp_output_file = %s, c_file = %s\n",
-+	       tmp_output_file, c_file);
-       write_c_file (stderr, "stderr");
-       fprintf (stderr, "========== end of c_file\n\n");
- #ifdef COLLECT_EXPORT_LIST
-@@ -1939,7 +1980,7 @@
- 
-   /* Let scan_prog_file do any final mods (OSF/rose needs this for
-      constructors/destructors in shared libraries.  */
--  scan_prog_file (output_file, PASS_SECOND, SCAN_ALL);
-+  scan_prog_file (tmp_output_file, PASS_SECOND, SCAN_ALL);
- #endif
- 
-   maybe_unlink (c_file);
-@@ -2313,10 +2354,10 @@
-   char *prefix, *r;
-   int frames = (frame_tables.number > 0);
- 
--  /* Figure out name of output_file, stripping off .so version.  */
--  p = strrchr (output_file, '/');
-+  /* Figure out name of tmp_output_file, stripping off .so version.  */
-+  p = strrchr (tmp_output_file, '/');
-   if (p == 0)
--    p = output_file;
-+    p = tmp_output_file;
-   else
-     p++;
-   q = p;
-@@ -2348,7 +2389,7 @@
-       *r = '_';
-   if (debug)
-     notice ("\nwrite_c_file - output name is %s, prefix is %s\n",
--	    output_file, prefix);
-+	    tmp_output_file, prefix);
- 
-   initname = concat ("_GLOBAL__FI_", prefix, NULL);
-   fininame = concat ("_GLOBAL__FD_", prefix, NULL);
-@@ -3255,7 +3296,7 @@
- }
- 
- static void
--do_dsymutil (const char *output_file) {
-+do_dsymutil (const char *tmp_output_file) {
-   const char *dsymutil = DSYMUTIL + 1;
-   struct pex_obj *pex;
-   char **real_argv = XCNEWVEC (char *, 3);
-@@ -3263,7 +3304,7 @@
- 				    real_argv);
- 
-   argv[0] = dsymutil;
--  argv[1] = output_file;
-+  argv[1] = tmp_output_file;
-   argv[2] = (char *) 0;
- 
-   pex = collect_execute (dsymutil, real_argv, NULL, NULL, PEX_LAST | PEX_SEARCH);
-@@ -3275,10 +3316,29 @@
-   if (!(temp_file && flag_idsym) && !flag_dsym)
-     return;
-       
--  do_dsymutil (output_file);
-+  do_dsymutil (tmp_output_file);
- }
+ #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
+       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
+-				      "__gnu_lto_v1",
++				      "__kernelgen",
+ 				      (unsigned HOST_WIDE_INT) 1, 8);
+ #elif defined ASM_OUTPUT_ALIGNED_COMMON
+-      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_v1",
++      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__kernelgen",
+ 				 (unsigned HOST_WIDE_INT) 1, 8);
  #else
-+typedef void (*kernelgen_link_t)(const char* input, const char* output);
- static void
- process_args (int *argcp ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) { }
--static void post_ld_pass (bool temp_file ATTRIBUTE_UNUSED) { }
-+static void post_ld_pass (bool temp_file ATTRIBUTE_UNUSED) {
-+  // Don't do anything if output names are equal -
-+  // means the fallback mode is used by some reason.
-+  if (output_file != tmp_output_file) {
-+    // Check if environment defines KERNELGEN_PLUGINS_PATH.
-+    // If it does not, then use the default setting.
-+    char* kernelgen_plugins_path = "/opt/kernelgen/lib/";
-+    char* plugins_path = getenv("KERNELGEN_PLUGINS_PATH");
-+    if (plugins_path) kernelgen_plugins_path = plugins_path;
-+
-+    // Load the link-time plugin and execute its link command.
-+    const char* filename = "libkernelgen-lt.so";
-+    char filepath[strlen(kernelgen_plugins_path) + strlen(filename)];
-+    sprintf(filepath, "%s%s", kernelgen_plugins_path, filename);
-+    void* handle = dlopen(filepath, RTLD_NOW);
-+    kernelgen_link_t kernelgen_link = (kernelgen_link_t)dlsym(handle, "kernelgen_link");
-+    kernelgen_link(tmp_output_file, output_file);
-+  }
-+}
+-      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_v1",
++      ASM_OUTPUT_COMMON (asm_out_file, "__kernelgen",
+ 			 (unsigned HOST_WIDE_INT) 1,
+ 			 (unsigned HOST_WIDE_INT) 1);
  #endif

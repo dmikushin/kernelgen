@@ -37,7 +37,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r734.tar.gz
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r747.tar.bz2
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -140,14 +140,18 @@ cd build
 cd $RPM_BUILD_DIR/gcc-4.6.3
 mkdir build
 cd build/
+%if (%target == "fedora")
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
+%else
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin --libexecdir=$RPM_BUILD_ROOT/usr/lib --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu
+%endif
 %endif
 #
 # Configure KernelGen
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xf $RPM_SOURCE_DIR/kernelgen-r734.tar.gz
+tar -xjf $RPM_SOURCE_DIR/kernelgen-r747.tar.bz2
 cd $RPM_BUILD_DIR/kernelgen
 ./configure
 cd $RPM_BUILD_DIR
@@ -209,7 +213,6 @@ make src
 mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/lib
 cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
 cp $RPM_BUILD_DIR/kernelgen/src/frontend/libkernelgen-ct.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
-cp $RPM_BUILD_DIR/kernelgen/src/frontend/libkernelgen-lt.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
 cd $RPM_BUILD_DIR/gcc-4.6.3/build/gcc
 %if %debug
 KERNELGEN_FALLBACK=1 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/llvm/build/Debug+Asserts/lib KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
@@ -314,8 +317,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fr/LC_MESSAGES/libstdc++.mo
 /opt/kernelgen/include/kernelgen_memory.h
 /opt/kernelgen/include/kernelgen_runtime.h
 /opt/kernelgen/lib/libkernelgen-ct.so
-/opt/kernelgen/lib/libkernelgen-lt.so
-/opt/kernelgen/lib/libkernelgen.a
+/opt/kernelgen/lib/libkernelgen-rt.so
 /opt/kernelgen/lib/libasfermi.so
 /opt/kernelgen/lib/libdyloader.so
 #

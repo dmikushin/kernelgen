@@ -28,13 +28,13 @@ hello_c: main.c.o
 	kernelgen-gcc $< -o $@
 
 main.c.o: main.c
-	kernelgen-gcc -g -c $< -o $@
+	kernelgen-gcc -c $< -o $@
 
 hello_f: main.f90.o
 	kernelgen-gfortran $< -o $@
 
 main.f90.o: main.f90
-	kernelgen-gfortran -g -c $< -o $@
+	kernelgen-gfortran -c $< -o $@
 
 clean:
 	rm -rf *.o hello_c hello_f

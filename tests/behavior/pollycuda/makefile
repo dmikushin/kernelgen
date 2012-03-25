@@ -22,10 +22,10 @@
 all: pollycuda
 
 pollycuda: for.o
-	kernelgen-simple $< -o $@
+	kernelgen-gcc $< -o $@
 
 for.o: for.c
-	kernelgen-simple -g -c $< -o $@
+	kernelgen-gcc -c $< -o $@
 
 clean:
 	rm -rf *.o pollycuda
