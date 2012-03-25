@@ -1,17 +1,17 @@
 EXTRA = -Mcuda=keepgpu,keepbin,keepptx
 PGF = pgfortran -fast -Mnomain -Minfo=accel -ta=nvidia:4.1,time $(EXTRA)
 
-all: sincos
+all: jacobi
 
-sincos: sincos.o main.o
-	$(PGF) sincos.o main.o -o $@
+jacobi: jacobi.o main.o
+	$(PGF) jacobi.o main.o -o $@
 
 main.o: ../main.c
 	pgcc -c $< -o $@
 
-sincos.o: ../sincos.f90
+jacobi.o: ../jacobi.f90
 	$(PGF) -c $< -o $@
 
 clean:
-	rm -rf *.o sincos
+	rm -rf *.o jacobi
 

@@ -8,7 +8,7 @@
 .target sm_10, map_f64_to_f32
 .address_size 64
 
-	.file	1 "/tmp/pgnvdyfCbiYWJHDRo.i"
+	.file	1 "/tmp/pgnvdumtf86hPNOGO.i"
 	.file	2 "sincos.001.gpu"
 	.file	3 "/opt/cuda/nvvm/ci_include.h"
 	.file	4 "/opt/pgi/linux86-64/2012/cuda/4.1/include/math_functions.h"
