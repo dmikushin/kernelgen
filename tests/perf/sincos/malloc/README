@@ -1,11 +1,12 @@
 KERNELGEN
 
-regcount = 23, size = 936
+regcount = 9, size = 432
+Loaded '__kernelgen_sincos__loop_12' at: 0x2258fc0
 Launching kernel __kernelgen_sincos__loop_12
-    blockDim = { 32, 5, 5 }
-    gridDim = { 16, 103, 13 }
-__kernelgen_sincos__loop_12 time = 0.0066962 sec
-only the kernel execution time = 0.00653904 sec
+    blockDim = { 32, 16, 2 }
+    gridDim = { 16, 32, 32 }
+__kernelgen_sincos__loop_12 time = 0.00407534 sec
+only the kernel execution time = 0.00388784 sec
 
 PGI ACCELERATOR
 

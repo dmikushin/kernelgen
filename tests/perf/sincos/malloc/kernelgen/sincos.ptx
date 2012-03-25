@@ -2,14 +2,14 @@
 	.target sm_20
 	.address_size 64
 	// compiled with /opt/kernelgen/lib//be
-	// nvopencc 4.1 built on 2012-03-22
+	// nvopencc 4.1 built on 2012-03-25
 
 	.extern .func (.param .u64 __cudaretf___rawmemchr) __rawmemchr (.param .u64 __cudaparmf1___rawmemchr, .param .s32 __cudaparmf2___rawmemchr)
 
 	.extern .func (.param .u64 __cudaretf_strchr) strchr (.param .u64 __cudaparmf1_strchr, .param .s32 __cudaparmf2_strchr)
 
 	//-----------------------------------------------------------
-	// Compiling /tmp/iPqLKj (/tmp/ccBI#.baSPHJ)
+	// Compiling /tmp/VwHf7P (/tmp/ccBI#.yge1KR)
 	//-----------------------------------------------------------
 
 	//-----------------------------------------------------------
@@ -22,73 +22,77 @@
 	//-----------------------------------------------------------
 
 	.file	1	"<command-line>"
-	.file	2	"/opt/kernelgen/include/kernelgen_runtime.h"
-	.file	3	"/opt/kernelgen/include/kernelgen_interop.h"
-	.file	4	"/usr/include/string.h"
-	.file	5	"/usr/include/features.h"
-	.file	6	"/usr/include/sys/cdefs.h"
-	.file	7	"/usr/include/bits/wordsize.h"
-	.file	8	"/usr/include/gnu/stubs.h"
-	.file	9	"/usr/include/gnu/stubs-64.h"
-	.file	10	"/usr/lib/gcc/x86_64-redhat-linux/4.6.1/include/stddef.h"
-	.file	11	"/usr/include/xlocale.h"
-	.file	12	"/usr/include/bits/string2.h"
-	.file	13	"/usr/include/endian.h"
-	.file	14	"/usr/include/bits/byteswap.h"
-	.file	15	"/usr/include/bits/types.h"
-	.file	16	"/usr/include/bits/typesizes.h"
-	.file	17	"/usr/include/stdlib.h"
-	.file	18	"/opt/kernelgen/include/kernelgen_memory.h"
-	.file	19	"/tmp/iPqLKj"
-	.file	20	"/usr/lib/gcc/x86_64-redhat-linux/4.6.1/include/stdarg.h"
-	.file	21	"/usr/include/setjmp.h"
-	.file	22	"/usr/include/bits/sigset.h"
-	.file	23	"/usr/lib/gcc/x86_64-redhat-linux/4.6.1/include/limits.h"
-	.file	24	"/usr/lib/gcc/x86_64-redhat-linux/4.6.1/include/syslimits.h"
-	.file	25	"/usr/include/bits/posix1_lim.h"
-	.file	26	"/usr/include/bits/local_lim.h"
-	.file	27	"/usr/include/bits/posix2_lim.h"
+	.file	2	"/opt/cuda/include/device_functions.h"
+	.file	3	"/opt/cuda/include/sm_11_atomic_functions.h"
+	.file	4	"/opt/cuda/include/sm_12_atomic_functions.h"
+	.file	5	"/opt/cuda/include/sm_13_double_functions.h"
+	.file	6	"/opt/cuda/include/sm_20_atomic_functions.h"
+	.file	7	"/opt/cuda/include/sm_20_intrinsics.h"
+	.file	8	"/opt/cuda/include/surface_functions.h"
+	.file	9	"/opt/cuda/include/texture_fetch_functions.h"
+	.file	10	"/opt/kernelgen/include/kernelgen_runtime.h"
+	.file	11	"/opt/kernelgen/include/kernelgen_interop.h"
+	.file	12	"/usr/include/string.h"
+	.file	13	"/usr/include/features.h"
+	.file	14	"/usr/include/sys/cdefs.h"
+	.file	15	"/usr/include/bits/wordsize.h"
+	.file	16	"/usr/include/gnu/stubs.h"
+	.file	17	"/usr/include/gnu/stubs-64.h"
+	.file	18	"/usr/lib/gcc/x86_64-redhat-linux/4.6.1/include/stddef.h"
+	.file	19	"/usr/include/xlocale.h"
+	.file	20	"/usr/include/bits/string2.h"
+	.file	21	"/usr/include/endian.h"
+	.file	22	"/usr/include/bits/byteswap.h"
+	.file	23	"/usr/include/bits/types.h"
+	.file	24	"/usr/include/bits/typesizes.h"
+	.file	25	"/usr/include/stdlib.h"
+	.file	26	"/opt/kernelgen/include/kernelgen_memory.h"
+	.file	27	"/tmp/VwHf7P"
+	.file	28	"/usr/lib/gcc/x86_64-redhat-linux/4.6.1/include/stdarg.h"
+	.file	29	"/usr/include/setjmp.h"
+	.file	30	"/usr/include/bits/sigset.h"
+	.file	31	"/usr/lib/gcc/x86_64-redhat-linux/4.6.1/include/limits.h"
+	.file	32	"/usr/lib/gcc/x86_64-redhat-linux/4.6.1/include/syslimits.h"
+	.file	33	"/usr/include/bits/posix1_lim.h"
+	.file	34	"/usr/include/bits/local_lim.h"
+	.file	35	"/usr/include/bits/posix2_lim.h"
 
 
 	.entry __kernelgen_sincos__loop_12 (
 		.param .u64 __cudaparm___kernelgen_sincos__loop_12_llvm_cbe_args)
 	{
-	.reg .u32 %r<29>;
-	.reg .u64 %rd<47>;
+	.reg .u32 %r<15>;
+	.reg .u64 %rd<33>;
 	.reg .f32 %f<7>;
-	.reg .pred %p<8>;
+	.reg .pred %p<4>;
 	// llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z = 16
 	// llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y = 24
 	// llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_x = 32
-	// llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us = 40
-	// llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us = 48
-	// llvm_cbe_CUDA_2e_next_loopiv_2e_x_2e_us_2e_us = 56
-	// llvm_cbe_p__2e_us_2e_us = 64
-	.loc	19	283	0
+	// llvm_cbe_p_ = 40
+	.loc	27	283	0
 $LDWbegin___kernelgen_sincos__loop_12:
-	.loc	19	316	0
+	.loc	27	305	0
 	cvt.s32.u32 	%r1, %tid.z;
 	cvt.s64.s32 	%rd1, %r1;
 	cvt.s32.u32 	%r2, %ctaid.z;
 	cvt.s64.s32 	%rd2, %r2;
-	mul.wide.s32 	%rd3, %r2, 5;
+	shl.b64 	%rd3, %rd2, 1;
 	add.u64 	%rd4, %rd1, %rd3;
 	mov.s64 	%rd5, %rd4;
-	.loc	19	317	0
+	.loc	27	307	0
 	mov.s64 	%rd6, %rd5;
 	mov.u64 	%rd7, 63;
 	setp.gt.s64 	%p1, %rd6, %rd7;
-	@%p1 bra 	$Lt_0_514;
-$Lt_0_258:
-	.loc	19	324	0
+	@%p1 bra 	$Lt_0_1538;
+	.loc	27	313	0
 	cvt.s32.u32 	%r3, %tid.y;
 	cvt.s64.s32 	%rd8, %r3;
 	cvt.s32.u32 	%r4, %ctaid.y;
 	cvt.s64.s32 	%rd9, %r4;
-	mul.wide.s32 	%rd10, %r4, 5;
+	shl.b64 	%rd10, %rd9, 4;
 	add.u64 	%rd11, %rd8, %rd10;
 	mov.s64 	%rd12, %rd11;
-	.loc	19	325	0
+	.loc	27	314	0
 	cvt.s32.u32 	%r5, %tid.x;
 	cvt.s64.s32 	%rd13, %r5;
 	cvt.s32.u32 	%r6, %ctaid.x;
@@ -96,110 +100,43 @@ $Lt_0_258:
 	shl.b64 	%rd15, %rd14, 5;
 	add.u64 	%rd16, %rd13, %rd15;
 	mov.s64 	%rd17, %rd16;
-	.loc	19	326	0
+	.loc	27	316	0
 	mov.s64 	%rd18, %rd12;
-	mov.u64 	%rd19, 511;
-	setp.gt.s64 	%p2, %rd18, %rd19;
-	@%p2 bra 	$Lt_0_514;
-	.loc	19	327	0
-	mov.s64 	%rd20, %rd4;
-	.loc	19	328	0
-	mov.s64 	%rd21, %rd17;
-	mov.s64 	%rd22, 511;
-	setp.le.s64 	%p3, %rd21, %rd22;
-$Lt_0_770:
-	.loc	19	336	0
-	add.u64 	%rd23, %rd20, 5;
-	mov.s64 	%rd24, %rd23;
-	.loc	19	338	0
-	@!%p3 bra 	$Lt_0_1282;
-	.loc	19	339	0
-	mov.s64 	%rd25, %rd11;
-	.loc	19	340	0
-	shl.b64 	%rd26, %rd20, 18;
-	bra.uni 	$Lt_0_1026;
-$Lt_0_1282:
-	.loc	19	346	0
-	mov.s64 	%rd27, %rd24;
-	set.le.u32.s64 	%r7, %rd27, %rd6;
+	mov.s64 	%rd19, 511;
+	set.gt.u32.s64 	%r7, %rd18, %rd19;
 	neg.s32 	%r8, %r7;
-	mov.s64 	%rd28, 63;
-	set.le.u32.s64 	%r9, %rd27, %rd28;
+	mov.s64 	%rd20, %rd17;
+	mov.s64 	%rd21, 511;
+	set.gt.u32.s64 	%r9, %rd20, %rd21;
 	neg.s32 	%r10, %r9;
-	and.b32 	%r11, %r8, %r10;
+	or.b32 	%r11, %r8, %r10;
 	and.b32 	%r12, %r11, 1;
 	mov.u32 	%r13, 0;
-	setp.eq.s32 	%p4, %r12, %r13;
-	@%p4 bra 	$Lt_0_514;
-	.loc	19	347	0
-	mov.s64 	%rd20, %rd23;
-	.loc	19	348	0
-	bra.uni 	$Lt_0_770;
-$Lt_0_1026:
-	.loc	19	356	0
-	add.u64 	%rd29, %rd25, 5;
-	mov.s64 	%rd30, %rd29;
-	.loc	19	359	0
-	add.u64 	%rd31, %rd16, 32;
-	shl.b64 	%rd32, %rd25, 9;
-	add.s64 	%rd33, %rd26, %rd32;
-	add.s64 	%rd34, %rd16, %rd33;
-	bra.uni 	$Lt_0_1538;
-$Lt_0_1794:
-	.loc	19	362	0
-	mov.s64 	%rd35, %rd30;
-	set.le.u32.s64 	%r14, %rd35, %rd18;
-	neg.s32 	%r15, %r14;
-	mov.s64 	%rd36, 511;
-	set.le.u32.s64 	%r16, %rd35, %rd36;
-	neg.s32 	%r17, %r16;
-	and.b32 	%r18, %r15, %r17;
-	and.b32 	%r19, %r18, 1;
-	mov.u32 	%r20, 0;
-	setp.eq.s32 	%p5, %r19, %r20;
-	@%p5 bra 	$Lt_0_1282;
-	.loc	19	363	0
-	mov.s64 	%rd25, %rd29;
-	.loc	19	364	0
-	bra.uni 	$Lt_0_1026;
+	setp.ne.s32 	%p2, %r12, %r13;
+	@%p2 bra 	$Lt_0_1538;
+	.loc	27	322	0
+	shl.b64 	%rd22, %rd4, 18;
+	shl.b64 	%rd23, %rd11, 9;
+	add.u64 	%rd24, %rd22, %rd23;
+	add.u64 	%rd25, %rd16, %rd24;
+	mov.s64 	%rd26, %rd25;
+	.loc	27	323	0
+	mov.s64 	%rd27, %rd26;
+	mul.lo.u64 	%rd28, %rd27, 4;
+	add.u64 	%rd29, %rd28, 8595636224;
+	ld.f32 	%f1, [%rd29+-28672];
+	.loc	27	329	0
+	add.u64 	%rd30, %rd28, 8662745088;
+	ld.f32 	%f2, [%rd30+-24576];
+	.loc	27	335	0
+	cos.approx.f32 	%f3, %f2;
+	sin.approx.f32 	%f4, %f1;
+	add.f32 	%f5, %f3, %f4;
+	add.u64 	%rd31, %rd28, 8796962816;
+	st.f32 	[%rd31+-16384], %f5;
 $Lt_0_1538:
-	.loc	19	372	0
-	mov.s64 	%rd37, %rd31;
-	.loc	19	373	0
-	mov.s64 	%rd38, %rd34;
-	.loc	19	374	0
-	mov.s64 	%rd39, %rd38;
-	mul.lo.u64 	%rd40, %rd39, 4;
-	add.u64 	%rd41, %rd40, 8595636224;
-	ld.f32 	%f1, [%rd41+-28672];
-	.loc	19	380	0
-	add.u64 	%rd42, %rd40, 8662745088;
-	ld.f32 	%f2, [%rd42+-24576];
-	.loc	19	386	0
-	cos.approx.ftz.f32 	%f3, %f2;
-	sin.approx.ftz.f32 	%f4, %f1;
-	add.ftz.f32 	%f5, %f3, %f4;
-	add.u64 	%rd43, %rd40, 8796962816;
-	st.f32 	[%rd43+-16384], %f5;
-	.loc	19	391	0
-	mov.s64 	%rd44, %rd37;
-	set.le.u32.s64 	%r21, %rd44, %rd21;
-	neg.s32 	%r22, %r21;
-	mov.s64 	%rd45, 511;
-	set.le.u32.s64 	%r23, %rd44, %rd45;
-	neg.s32 	%r24, %r23;
-	and.b32 	%r25, %r22, %r24;
-	and.b32 	%r26, %r25, 1;
-	mov.u32 	%r27, 0;
-	setp.eq.s32 	%p6, %r26, %r27;
-	@%p6 bra 	$Lt_0_1794;
-	.loc	19	392	0
-	add.s64 	%rd34, %rd34, 32;
-	add.u64 	%rd31, %rd31, 32;
-	.loc	19	393	0
-	bra.uni 	$Lt_0_1538;
-$Lt_0_514:
-	.loc	19	402	0
+$Lt_0_258:
+	.loc	27	343	0
 	exit;
 $LDWend___kernelgen_sincos__loop_12:
 	} // __kernelgen_sincos__loop_12

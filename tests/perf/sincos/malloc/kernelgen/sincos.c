@@ -290,22 +290,11 @@ unsigned int *llvm_cbe_args) {
   unsigned long long llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z;
   unsigned long long llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y;
   unsigned long long llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_x;
-  unsigned long long llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us_2e_in;
-  unsigned long long llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us_2e_in__PHI_TEMPORARY;
-  unsigned long long llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us;
-  unsigned long long llvm_cbe_p__2e_moved_2e_to_2e_14_2e_cloned_2e_us;
-  unsigned long long llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us_2e_in;
-  unsigned long long llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us_2e_in__PHI_TEMPORARY;
-  unsigned long long llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us;
-  unsigned long long llvm_cbe_p__2e_moved_2e_to_2e_14_2e_cloned27_2e_us_2e_us;
-  unsigned long long llvm_cbe_CUDA_2e_loopiv_2e_x35_2e_us_2e_us;
-  unsigned long long llvm_cbe_CUDA_2e_loopiv_2e_x35_2e_us_2e_us__PHI_TEMPORARY;
-  unsigned long long llvm_cbe_CUDA_2e_next_loopiv_2e_x_2e_us_2e_us;
-  unsigned long long llvm_cbe_p__2e_us_2e_us;
-  float llvm_cbe__p_scalar__2e_us_2e_us;
-  float llvm_cbe_p_28_2e_us_2e_us;
-  float llvm_cbe__p_scalar_29_2e_us_2e_us;
-  float llvm_cbe_p_30_2e_us_2e_us;
+  unsigned long long llvm_cbe_p_;
+  float llvm_cbe__p_scalar_;
+  float llvm_cbe_p_28;
+  float llvm_cbe__p_scalar_29;
+  float llvm_cbe_p_30;
 
   llvm_cbe_threadIdx_2e_x =  /*tail*/ kernelgen_threadIdx_x();
   llvm_cbe_blockIdx_2e_x =  /*tail*/ kernelgen_blockIdx_x();
@@ -313,91 +302,43 @@ unsigned int *llvm_cbe_args) {
   llvm_cbe_blockIdx_2e_y =  /*tail*/ kernelgen_blockIdx_y();
   llvm_cbe_threadIdx_2e_z =  /*tail*/ kernelgen_threadIdx_z();
   llvm_cbe_blockIdx_2e_z =  /*tail*/ kernelgen_blockIdx_z();
-  llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z = ((unsigned long long )(((unsigned long long )(((unsigned long long )(((unsigned long long )llvm_cbe_blockIdx_2e_z) * ((unsigned long long )5ull))))) + ((unsigned long long )llvm_cbe_threadIdx_2e_z)));
-  if ((((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z) < ((signed long long )64ull))) {
-    goto llvm_cbe_CUDA_2e_CountBounds_2e_y_2e_lr_2e_ph;
-  } else {
+  llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z = ((unsigned long long )(((unsigned long long )(llvm_cbe_blockIdx_2e_z << 1ull)) + ((unsigned long long )llvm_cbe_threadIdx_2e_z)));
+  if ((((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z) > ((signed long long )63ull))) {
     goto llvm_cbe_CUDA_2e_AfterLoop_2e_z;
+  } else {
+    goto llvm_cbe_CUDA_2e_LoopHeader_2e_z_2e_preheader;
   }
 
-llvm_cbe_CUDA_2e_CountBounds_2e_y_2e_lr_2e_ph:
-  llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y = ((unsigned long long )(((unsigned long long )(((unsigned long long )(((unsigned long long )llvm_cbe_blockIdx_2e_y) * ((unsigned long long )5ull))))) + ((unsigned long long )llvm_cbe_threadIdx_2e_y)));
+llvm_cbe_CUDA_2e_LoopHeader_2e_z_2e_preheader:
+  llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y = ((unsigned long long )(((unsigned long long )(llvm_cbe_blockIdx_2e_y << 4ull)) + ((unsigned long long )llvm_cbe_threadIdx_2e_y)));
   llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_x = ((unsigned long long )(((unsigned long long )(llvm_cbe_blockIdx_2e_x << 5ull)) + ((unsigned long long )llvm_cbe_threadIdx_2e_x)));
-  if ((((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y) < ((signed long long )512ull))) {
-    llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us_2e_in__PHI_TEMPORARY = llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z;   /* for PHI node */
-    goto llvm_cbe_CUDA_2e_CountBounds_2e_x_2e_lr_2e_ph_2e_us;
-  } else {
+  if (((((((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y) > ((signed long long )511ull)) | (((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_x) > ((signed long long )511ull)))&1))) {
     goto llvm_cbe_CUDA_2e_AfterLoop_2e_z;
-  }
-
-  do {     /* Syntactic loop 'CUDA.CountBounds.x.lr.ph.us' to make GCC happy */
-llvm_cbe_CUDA_2e_CountBounds_2e_x_2e_lr_2e_ph_2e_us:
-  llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us_2e_in = llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us_2e_in__PHI_TEMPORARY;
-  llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us = ((unsigned long long )(((unsigned long long )llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us_2e_in) + ((unsigned long long )5ull)));
-  llvm_cbe_p__2e_moved_2e_to_2e_14_2e_cloned_2e_us = llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us_2e_in << 18ull;
-  if ((((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_x) < ((signed long long )512ull))) {
-    llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us_2e_in__PHI_TEMPORARY = llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y;   /* for PHI node */
-    goto llvm_cbe_CUDA_2e_LoopBody_2e_x_2e_lr_2e_ph_2e_us_2e_us;
   } else {
-    goto llvm_cbe_CUDA_2e_LoopHeader_2e_z_2e_loopexit_2e_us;
+    goto llvm_cbe_CUDA_2e_LoopHeader_2e_y_2e_backedge;
   }
 
-llvm_cbe_CUDA_2e_LoopHeader_2e_z_2e_loopexit_2e_us:
-  if (((((((signed long long )llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us) <= ((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z)) & (((signed long long )llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us) < ((signed long long )64ull)))&1))) {
-    llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us_2e_in__PHI_TEMPORARY = llvm_cbe_CUDA_2e_next_loopiv_2e_z44_2e_us;   /* for PHI node */
-    goto llvm_cbe_CUDA_2e_CountBounds_2e_x_2e_lr_2e_ph_2e_us;
-  } else {
-    goto llvm_cbe_CUDA_2e_AfterLoop_2e_z;
-  }
-
-  do {     /* Syntactic loop 'CUDA.LoopBody.x.lr.ph.us.us' to make GCC happy */
-llvm_cbe_CUDA_2e_LoopBody_2e_x_2e_lr_2e_ph_2e_us_2e_us:
-  llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us_2e_in = llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us_2e_in__PHI_TEMPORARY;
-  llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us = ((unsigned long long )(((unsigned long long )llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us_2e_in) + ((unsigned long long )5ull)));
-  llvm_cbe_p__2e_moved_2e_to_2e_14_2e_cloned27_2e_us_2e_us = ((unsigned long long )(((unsigned long long )(llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us_2e_in << 9ull)) + ((unsigned long long )llvm_cbe_p__2e_moved_2e_to_2e_14_2e_cloned_2e_us)));
-  llvm_cbe_CUDA_2e_loopiv_2e_x35_2e_us_2e_us__PHI_TEMPORARY = llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_x;   /* for PHI node */
-  goto llvm_cbe_CUDA_2e_LoopBody_2e_x_2e_us_2e_us;
-
-llvm_cbe_CUDA_2e_LoopHeader_2e_y_2e_loopexit_2e_us_2e_us:
-  if (((((((signed long long )llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us) <= ((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y)) & (((signed long long )llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us) < ((signed long long )512ull)))&1))) {
-    llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us_2e_in__PHI_TEMPORARY = llvm_cbe_CUDA_2e_next_loopiv_2e_y40_2e_us_2e_us;   /* for PHI node */
-    goto llvm_cbe_CUDA_2e_LoopBody_2e_x_2e_lr_2e_ph_2e_us_2e_us;
-  } else {
-    goto llvm_cbe_CUDA_2e_LoopHeader_2e_z_2e_loopexit_2e_us;
-  }
-
-  do {     /* Syntactic loop 'CUDA.LoopBody.x.us.us' to make GCC happy */
-llvm_cbe_CUDA_2e_LoopBody_2e_x_2e_us_2e_us:
-  llvm_cbe_CUDA_2e_loopiv_2e_x35_2e_us_2e_us = llvm_cbe_CUDA_2e_loopiv_2e_x35_2e_us_2e_us__PHI_TEMPORARY;
-  llvm_cbe_CUDA_2e_next_loopiv_2e_x_2e_us_2e_us = ((unsigned long long )(((unsigned long long )llvm_cbe_CUDA_2e_loopiv_2e_x35_2e_us_2e_us) + ((unsigned long long )32ull)));
-  llvm_cbe_p__2e_us_2e_us = ((unsigned long long )(((unsigned long long )llvm_cbe_p__2e_moved_2e_to_2e_14_2e_cloned27_2e_us_2e_us) + ((unsigned long long )llvm_cbe_CUDA_2e_loopiv_2e_x35_2e_us_2e_us)));
-  llvm_cbe__p_scalar__2e_us_2e_us = *((&(*((
+llvm_cbe_CUDA_2e_LoopHeader_2e_y_2e_backedge:
+  llvm_cbe_p_ = ((unsigned long long )(((unsigned long long )(((unsigned long long )(((unsigned long long )(llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_y << 9ull)) + ((unsigned long long )(llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_z << 18ull)))))) + ((unsigned long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_x)));
+  llvm_cbe__p_scalar_ = *((&(*((
 #ifdef __OPENCL_DEVICE_FUNC__
 __global
 #endif // __OPENCL_DEVICE_FUNC__
-l_unnamed_3 (*))(unsigned long)8595607552ull)).array[((signed long long )llvm_cbe_p__2e_us_2e_us)]));
-  llvm_cbe_p_28_2e_us_2e_us =  /*tail*/ sinf(llvm_cbe__p_scalar__2e_us_2e_us);
-  llvm_cbe__p_scalar_29_2e_us_2e_us = *((&(*((
+l_unnamed_3 (*))(unsigned long)8595607552ull)).array[((signed long long )llvm_cbe_p_)]));
+  llvm_cbe_p_28 =  /*tail*/ sinf(llvm_cbe__p_scalar_);
+  llvm_cbe__p_scalar_29 = *((&(*((
 #ifdef __OPENCL_DEVICE_FUNC__
 __global
 #endif // __OPENCL_DEVICE_FUNC__
-l_unnamed_3 (*))(unsigned long)8662720512ull)).array[((signed long long )llvm_cbe_p__2e_us_2e_us)]));
-  llvm_cbe_p_30_2e_us_2e_us =  /*tail*/ cosf(llvm_cbe__p_scalar_29_2e_us_2e_us);
+l_unnamed_3 (*))(unsigned long)8662720512ull)).array[((signed long long )llvm_cbe_p_)]));
+  llvm_cbe_p_30 =  /*tail*/ cosf(llvm_cbe__p_scalar_29);
   *((&(*((
 #ifdef __OPENCL_DEVICE_FUNC__
 __global
 #endif // __OPENCL_DEVICE_FUNC__
-l_unnamed_3 (*))(unsigned long)8796946432ull)).array[((signed long long )llvm_cbe_p__2e_us_2e_us)])) = (((float )(llvm_cbe_p_28_2e_us_2e_us + llvm_cbe_p_30_2e_us_2e_us)));
-  if (((((((signed long long )llvm_cbe_CUDA_2e_next_loopiv_2e_x_2e_us_2e_us) <= ((signed long long )llvm_cbe_BlockLB_2e_Add_2e_ThreadPosInBlock_2e_x)) & (((signed long long )llvm_cbe_CUDA_2e_next_loopiv_2e_x_2e_us_2e_us) < ((signed long long )512ull)))&1))) {
-    llvm_cbe_CUDA_2e_loopiv_2e_x35_2e_us_2e_us__PHI_TEMPORARY = llvm_cbe_CUDA_2e_next_loopiv_2e_x_2e_us_2e_us;   /* for PHI node */
-    goto llvm_cbe_CUDA_2e_LoopBody_2e_x_2e_us_2e_us;
-  } else {
-    goto llvm_cbe_CUDA_2e_LoopHeader_2e_y_2e_loopexit_2e_us_2e_us;
-  }
+l_unnamed_3 (*))(unsigned long)8796946432ull)).array[((signed long long )llvm_cbe_p_)])) = (((float )(llvm_cbe_p_28 + llvm_cbe_p_30)));
+  goto llvm_cbe_CUDA_2e_AfterLoop_2e_z;
 
-  } while (1); /* end of syntactic loop 'CUDA.LoopBody.x.us.us' */
-  } while (1); /* end of syntactic loop 'CUDA.LoopBody.x.lr.ph.us.us' */
-  } while (1); /* end of syntactic loop 'CUDA.CountBounds.x.lr.ph.us' */
 llvm_cbe_CUDA_2e_AfterLoop_2e_z:
   return;
 }
