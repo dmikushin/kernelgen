@@ -32,13 +32,16 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/cloog/isl/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 LLVM_LIB = \
+	-L../bindings -lkernelgen-gpu \
 	$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib/LLVMPolly.so \
 	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-3.1svn
 
-CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
+CXXFLAGS = \
+	-g -fPIC -O$(OPT) -I../include -I../bindings \
+	-I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
 
 OBJECTS := \
-	entry compile launch finish timer io elf execute bind nvopencc \
+	entry compile launch finish timer io elf execute nvopencc \
 	memory hostcall wrappers \
         ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis
 
@@ -47,10 +50,11 @@ OBJECTS := $(addsuffix .o, $(OBJECTS))
 all: libkernelgen-rt.so
 
 libkernelgen-rt.so: $(OBJECTS)
-	$(CXX) -shared $(OBJECTS) -o $@ $(LLVM_LIB) \
-		-ldyloader -lasfermi -lelf -lrt -lgmp -lmhash -ldl -lffi
+	$(CXX) -shared $(OBJECTS) -o $@ $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
+		-L../libasfermi/ -L../libasfermi/tests/dyloader -ldyloader -lasfermi \
+		-lelf -lrt -lgmp -lmhash -ldl -lffi
 
-entry.o: entry.cpp bind.h
+entry.o: entry.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 compile.o: compile.cpp runtime.h
@@ -72,9 +76,6 @@ elf.o: elf.cpp elf.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 execute.o: execute.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-bind.o: bind.cpp bind.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 nvopencc.o: nvopencc.cpp

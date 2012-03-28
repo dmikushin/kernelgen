@@ -19,8 +19,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "bind.h"
-#include "util.h"
+#include "cuda.h"
+#include "throw.h"
 
 #include <dlfcn.h>
 #include <stddef.h>

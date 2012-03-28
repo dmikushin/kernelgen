@@ -19,41 +19,36 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-#
-# Red Hat notation, could be different, for example, for Debian
-#
-LIB32 ?= lib
-LIB64 ?= lib
+LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm
+LLVM_MODE ?= Debug+Asserts
+LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
+LLVMINC = \
+	-I/usr/include/i686-linux-gnu \
+	-I/usr/include/x86_64-linux-gnu \
+	-I/usr/lib64/libffi-3.0.9/include \
+	-I${HOME}/rpmbuild/BUILD/llvm/build/include \
+	-I${HOME}/rpmbuild/BUILD/llvm/tools/polly/include \
+	-I${HOME}/rpmbuild/BUILD/cloog/include \
+	-I${HOME}/rpmbuild/BUILD/cloog/isl/include \
+	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
+LLVM_LIB = \
+	$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib/LLVMPolly.so \
+	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-3.1svn
 
-#
-# Optimization level
-#
-OPT ?= 0
+CXXFLAGS = -g -fPIC -O$(OPT) -I../include -I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
 
-PREFIX = $(ROOT)/opt/kernelgen
+OBJECTS := cuda
 
-.PHONY: frontend runtime asfermi bindings
+OBJECTS := $(addsuffix .o, $(OBJECTS))
 
-all: frontend runtime
+all: libkernelgen-gpu.so
 
-frontend:
-	cd frontend && $(MAKE)
+libkernelgen-gpu.so: $(OBJECTS)
+	$(CXX) -shared $(OBJECTS) -o $@ -ldl
 
-asfermi: bindings
-	cd libasfermi && $(MAKE)
-
-runtime: asfermi bindings
-	cd runtime && $(MAKE)
-
-bindings:
-	cd bindings && $(MAKE)
+cuda.o: cuda.cpp cuda.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	cd frontend && $(MAKE) clean
-	cd runtime && $(MAKE) clean
-	cd libasfermi && $(MAKE) clean
-	cd bindings && $(MAKE) clean
-
-install: frontend runtime
-	perl install $(PREFIX) $(LIB32) $(LIB64)
+	rm -rf *.o libkernelgen-gpu.so
 

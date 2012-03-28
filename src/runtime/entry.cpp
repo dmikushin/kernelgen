@@ -27,7 +27,6 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "bind.h"
 #include "elf.h"
 #include "util.h"
 #include "runtime.h"

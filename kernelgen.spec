@@ -2,7 +2,7 @@
 %define release accurate
 
 # Target operating system
-%define target fedora
+%define target debian
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -86,8 +86,9 @@ tar -xjf $RPM_SOURCE_DIR/gcc-4.6.3.tar.bz2
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r151057.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
-mkdir -p $RPM_BUILD_DIR/cloog
-sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
+#mkdir -p $RPM_BUILD_DIR/cloog
+#sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
+tar -xf $RPM_SOURCE_DIR/cloog-0.17.tar.gz
 rm -rf $RPM_BUILD_DIR/nvopencc
 tar -xf $RPM_SOURCE_DIR/nvopencc-r12003483.tar.gz
 %endif
@@ -140,11 +141,7 @@ cd build
 cd $RPM_BUILD_DIR/gcc-4.6.3
 mkdir build
 cd build/
-%if (%target == "fedora")
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
-%else
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin --libexecdir=$RPM_BUILD_ROOT/usr/lib --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu
-%endif
 %endif
 #
 # Configure KernelGen
@@ -325,6 +322,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fr/LC_MESSAGES/libstdc++.mo
 /opt/kernelgen/include/kernelgen_runtime.h
 /opt/kernelgen/lib/libkernelgen-ct.so
 /opt/kernelgen/lib/libkernelgen-rt.so
+/opt/kernelgen/lib/libkernelgen-gpu.so
 /opt/kernelgen/lib/libasfermi.so
 /opt/kernelgen/lib/libdyloader.so
 #

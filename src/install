@@ -65,6 +65,7 @@ my(@libraries) = (
 	"frontend/libkernelgen-ct.so",
 	"frontend/libkernelgen-opt.so",
 	"runtime/libkernelgen-rt.so",
+	"bindings/libkernelgen-gpu.so",
 	"libasfermi/libasfermi.so",
 	"libasfermi/tests/dyloader/libdyloader.so");
 foreach $library (@libraries)

@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-#include "runtime/bind.h"
+#include "bindings/cuda.h"
 #include "cuda_dyloader.h"
 #include "libasfermi.h"
 #include "loader.h"
