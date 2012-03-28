@@ -602,7 +602,7 @@ kernel_func_t kernelgen::runtime::compile(
 			// above to generate full host kernel in case hostcalls are around
 			// (.supported flag), rather than running kernel on device and invoke
 			// hostcalls on each individual iteration, which will be terribly slow.
-			//if (sizeOfLoops.x == -1) return NULL;
+			if (sizeOfLoops.x == -1) return NULL;
 		}
 
 		// Optimize module.
