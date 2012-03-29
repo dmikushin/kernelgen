@@ -1,4 +1,4 @@
-EXTRA = -Mcuda=keepgpu,keepbin,keepptx
+EXTRA = -Mcuda=keepgpu,keepbin,keepptx,ptxinfo
 PGF = pgfortran -fast -Mnomain -Minfo=accel -ta=nvidia:4.1,time $(EXTRA)
 
 all: jacobi

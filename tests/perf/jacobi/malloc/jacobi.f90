@@ -27,7 +27,7 @@ subroutine jacobi(m, n, nit, a, b, w0, w1, w2)
   enddo
   !$acc end region
   
-  print *, maxval(a), minval(a)
+!  print *, maxval(a), minval(a)
 
 end subroutine jacobi
 

@@ -8,13 +8,13 @@
 .target sm_20
 .address_size 64
 
-	.file	1 "/tmp/pgnvdwQtbcTW1w68X.i"
+	.file	1 "/tmp/pgnvd3yKLT4rOX5m.i"
 	.file	2 "jacobi.001.gpu"
 // __cuda_local_var_40382_32_non_const_S40 has been demoted
-// __cuda_local_var_40383_29_non_const_i8s has been demoted
-// __cuda_local_var_40384_29_non_const_i9s has been demoted
-// __cuda_local_var_40449_29_non_const_i6s has been demoted
-// __cuda_local_var_40450_29_non_const_i7s has been demoted
+// __cuda_local_var_40383_29_non_const_i4s has been demoted
+// __cuda_local_var_40384_29_non_const_i5s has been demoted
+// __cuda_local_var_40449_29_non_const_i2s has been demoted
+// __cuda_local_var_40450_29_non_const_i3s has been demoted
 
 .entry jacobi_16_gpu(
 	.param .u32 jacobi_16_gpu_param_0,
@@ -39,9 +39,9 @@
 	// demoted variable
 	.shared .align 8 .b8 __cuda_local_var_40382_32_non_const_S40[1296];
 	// demoted variable
-	.shared .align 4 .u32 __cuda_local_var_40383_29_non_const_i8s;
+	.shared .align 4 .u32 __cuda_local_var_40383_29_non_const_i4s;
 	// demoted variable
-	.shared .align 4 .u32 __cuda_local_var_40384_29_non_const_i9s;
+	.shared .align 4 .u32 __cuda_local_var_40384_29_non_const_i5s;
 
 	ld.param.u64 	%rl4, [jacobi_16_gpu_param_2];
 	cvta.to.global.u64 	%rl2, %rl4;
@@ -61,7 +61,7 @@
 	mov.u32 	%r19, %ctaid.y;
 	mov.u32 	%r20, %ntid.y;
 	mul.lo.s32 	%r21, %r20, %r19;
-	st.shared.u32 	[__cuda_local_var_40383_29_non_const_i8s], %r21;
+	st.shared.u32 	[__cuda_local_var_40383_29_non_const_i4s], %r21;
 
 BB0_2:
 	.loc 2 30 1
@@ -96,7 +96,7 @@ BB0_4:
 	mov.u32 	%r27, %ntid.x;
 	mov.u32 	%r28, %ctaid.x;
 	mul.lo.s32 	%r29, %r27, %r28;
-	st.shared.u32 	[__cuda_local_var_40384_29_non_const_i9s], %r29;
+	st.shared.u32 	[__cuda_local_var_40384_29_non_const_i5s], %r29;
 
 BB0_6:
 	.loc 2 37 1
@@ -112,7 +112,7 @@ BB0_6:
 	.loc 2 38 1
 	@%p7 bra 	BB0_35;
 
-	ld.shared.u32 	%r130, [__cuda_local_var_40384_29_non_const_i9s];
+	ld.shared.u32 	%r130, [__cuda_local_var_40384_29_non_const_i5s];
 
 BB0_8:
 	ld.param.u32 	%r109, [jacobi_16_gpu_param_0];
@@ -123,7 +123,7 @@ BB0_8:
 	setp.ge.s32 	%p8, %r7, %r35;
 	@%p8 bra 	BB0_13;
 
-	ld.shared.u32 	%r11, [__cuda_local_var_40383_29_non_const_i8s];
+	ld.shared.u32 	%r11, [__cuda_local_var_40383_29_non_const_i4s];
 	sub.s32 	%r36, %r8, %r11;
 	.loc 2 40 1
 	setp.ge.s32 	%p9, %r6, %r36;
@@ -159,7 +159,7 @@ BB0_13:
 	@%p13 bra 	BB0_18;
 
 	.loc 2 44 1
-	ld.shared.u32 	%r12, [__cuda_local_var_40383_29_non_const_i8s];
+	ld.shared.u32 	%r12, [__cuda_local_var_40383_29_non_const_i4s];
 	ld.param.u32 	%r114, [jacobi_16_gpu_param_1];
 	add.s32 	%r44, %r114, -14;
 	sub.s32 	%r45, %r44, %r12;
@@ -206,7 +206,7 @@ BB0_18:
 	setp.ge.s32 	%p18, %r7, %r56;
 	@%p18 bra 	BB0_24;
 
-	ld.shared.u32 	%r13, [__cuda_local_var_40383_29_non_const_i8s];
+	ld.shared.u32 	%r13, [__cuda_local_var_40383_29_non_const_i4s];
 	sub.s32 	%r57, %r8, %r13;
 	.loc 2 48 1
 	setp.ge.s32 	%p19, %r6, %r57;
@@ -246,7 +246,7 @@ BB0_24:
 	@%p23 bra 	BB0_29;
 
 	.loc 2 52 1
-	ld.shared.u32 	%r14, [__cuda_local_var_40383_29_non_const_i8s];
+	ld.shared.u32 	%r14, [__cuda_local_var_40383_29_non_const_i4s];
 	ld.param.u32 	%r113, [jacobi_16_gpu_param_1];
 	add.s32 	%r67, %r113, -14;
 	sub.s32 	%r68, %r67, %r14;
@@ -287,7 +287,7 @@ BB0_29:
 	.loc 2 55 1
 	bar.sync 	0;
 	.loc 2 56 1
-	ld.shared.u32 	%r15, [__cuda_local_var_40383_29_non_const_i8s];
+	ld.shared.u32 	%r15, [__cuda_local_var_40383_29_non_const_i4s];
 	ld.param.u32 	%r112, [jacobi_16_gpu_param_1];
 	.loc 2 56 1
 	sub.s32 	%r80, %r112, %r15;
@@ -295,7 +295,7 @@ BB0_29:
 	@%p27 bra 	BB0_32;
 
 	.loc 2 57 1
-	ld.shared.u32 	%r16, [__cuda_local_var_40384_29_non_const_i9s];
+	ld.shared.u32 	%r16, [__cuda_local_var_40384_29_non_const_i5s];
 	ld.param.u32 	%r107, [jacobi_16_gpu_param_0];
 	.loc 2 57 1
 	sub.s32 	%r81, %r107, %r16;
@@ -345,18 +345,18 @@ BB0_32:
 	@!%p1 bra 	BB0_34;
 
 	.loc 2 63 1
-	ld.shared.u32 	%r95, [__cuda_local_var_40384_29_non_const_i9s];
+	ld.shared.u32 	%r95, [__cuda_local_var_40384_29_non_const_i5s];
 	mov.u32 	%r96, %nctaid.x;
 	shl.b32 	%r97, %r96, 4;
 	.loc 2 63 1
 	add.s32 	%r98, %r97, %r95;
-	st.shared.u32 	[__cuda_local_var_40384_29_non_const_i9s], %r98;
+	st.shared.u32 	[__cuda_local_var_40384_29_non_const_i5s], %r98;
 
 BB0_34:
 	.loc 2 65 1
 	bar.sync 	0;
 	.loc 2 66 1
-	ld.shared.u32 	%r130, [__cuda_local_var_40384_29_non_const_i9s];
+	ld.shared.u32 	%r130, [__cuda_local_var_40384_29_non_const_i5s];
 	ld.param.u32 	%r106, [jacobi_16_gpu_param_0];
 	.loc 2 66 1
 	sub.s32 	%r99, %r106, %r130;
@@ -370,18 +370,18 @@ BB0_35:
 	@!%p1 bra 	BB0_37;
 
 	.loc 2 70 1
-	ld.shared.u32 	%r100, [__cuda_local_var_40383_29_non_const_i8s];
+	ld.shared.u32 	%r100, [__cuda_local_var_40383_29_non_const_i4s];
 	mov.u32 	%r101, %nctaid.y;
 	shl.b32 	%r102, %r101, 4;
 	.loc 2 70 1
 	add.s32 	%r103, %r102, %r100;
-	st.shared.u32 	[__cuda_local_var_40383_29_non_const_i8s], %r103;
+	st.shared.u32 	[__cuda_local_var_40383_29_non_const_i4s], %r103;
 
 BB0_37:
 	.loc 2 72 1
 	bar.sync 	0;
 	.loc 2 73 1
-	ld.shared.u32 	%r104, [__cuda_local_var_40383_29_non_const_i8s];
+	ld.shared.u32 	%r104, [__cuda_local_var_40383_29_non_const_i4s];
 	ld.param.u32 	%r111, [jacobi_16_gpu_param_1];
 	.loc 2 73 1
 	sub.s32 	%r105, %r111, %r104;
@@ -411,9 +411,9 @@ BB0_38:
 	.reg .s32 	%r<52>;
 	.reg .s64 	%rl<9>;
 	// demoted variable
-	.shared .align 4 .u32 __cuda_local_var_40449_29_non_const_i6s;
+	.shared .align 4 .u32 __cuda_local_var_40449_29_non_const_i2s;
 	// demoted variable
-	.shared .align 4 .u32 __cuda_local_var_40450_29_non_const_i7s;
+	.shared .align 4 .u32 __cuda_local_var_40450_29_non_const_i3s;
 
 	ld.param.u64 	%rl3, [jacobi_23_gpu_param_2];
 	ld.param.u64 	%rl4, [jacobi_23_gpu_param_3];
@@ -433,7 +433,7 @@ BB0_38:
 	mov.u32 	%r12, %ctaid.y;
 	mov.u32 	%r13, %ntid.y;
 	mul.lo.s32 	%r14, %r13, %r12;
-	st.shared.u32 	[__cuda_local_var_40449_29_non_const_i6s], %r14;
+	st.shared.u32 	[__cuda_local_var_40449_29_non_const_i2s], %r14;
 
 BB1_2:
 	.loc 2 94 1
@@ -468,7 +468,7 @@ BB1_4:
 	@!%p1 bra 	BB1_6;
 
 	.loc 2 99 1
-	st.shared.u32 	[__cuda_local_var_40450_29_non_const_i7s], %r7;
+	st.shared.u32 	[__cuda_local_var_40450_29_non_const_i3s], %r7;
 
 BB1_6:
 	.loc 2 101 1
@@ -478,7 +478,7 @@ BB1_6:
 
 BB1_7:
 	.loc 2 104 1
-	ld.shared.u32 	%r9, [__cuda_local_var_40449_29_non_const_i6s];
+	ld.shared.u32 	%r9, [__cuda_local_var_40449_29_non_const_i2s];
 	ld.param.u32 	%r48, [jacobi_23_gpu_param_1];
 	.loc 2 104 1
 	sub.s32 	%r23, %r48, %r9;
@@ -486,7 +486,7 @@ BB1_7:
 	@%p5 bra 	BB1_10;
 
 	.loc 2 105 1
-	ld.shared.u32 	%r10, [__cuda_local_var_40450_29_non_const_i7s];
+	ld.shared.u32 	%r10, [__cuda_local_var_40450_29_non_const_i3s];
 	ld.param.u32 	%r45, [jacobi_23_gpu_param_0];
 	.loc 2 105 1
 	sub.s32 	%r24, %r45, %r10;
@@ -522,15 +522,15 @@ BB1_10:
 	@!%p1 bra 	BB1_12;
 
 	.loc 2 111 1
-	ld.shared.u32 	%r34, [__cuda_local_var_40450_29_non_const_i7s];
+	ld.shared.u32 	%r34, [__cuda_local_var_40450_29_non_const_i3s];
 	add.s32 	%r35, %r8, %r34;
-	st.shared.u32 	[__cuda_local_var_40450_29_non_const_i7s], %r35;
+	st.shared.u32 	[__cuda_local_var_40450_29_non_const_i3s], %r35;
 
 BB1_12:
 	.loc 2 113 1
 	bar.sync 	0;
 	.loc 2 114 1
-	ld.shared.u32 	%r36, [__cuda_local_var_40450_29_non_const_i7s];
+	ld.shared.u32 	%r36, [__cuda_local_var_40450_29_non_const_i3s];
 	ld.param.u32 	%r44, [jacobi_23_gpu_param_0];
 	.loc 2 114 1
 	sub.s32 	%r37, %r44, %r36;
@@ -544,18 +544,18 @@ BB1_13:
 	@!%p1 bra 	BB1_15;
 
 	.loc 2 118 1
-	ld.shared.u32 	%r38, [__cuda_local_var_40449_29_non_const_i6s];
+	ld.shared.u32 	%r38, [__cuda_local_var_40449_29_non_const_i2s];
 	mov.u32 	%r39, %nctaid.y;
 	shl.b32 	%r40, %r39, 4;
 	.loc 2 118 1
 	add.s32 	%r41, %r40, %r38;
-	st.shared.u32 	[__cuda_local_var_40449_29_non_const_i6s], %r41;
+	st.shared.u32 	[__cuda_local_var_40449_29_non_const_i2s], %r41;
 
 BB1_15:
 	.loc 2 120 1
 	bar.sync 	0;
 	.loc 2 121 1
-	ld.shared.u32 	%r42, [__cuda_local_var_40449_29_non_const_i6s];
+	ld.shared.u32 	%r42, [__cuda_local_var_40449_29_non_const_i2s];
 	ld.param.u32 	%r47, [jacobi_23_gpu_param_1];
 	.loc 2 121 1
 	sub.s32 	%r43, %r47, %r42;
