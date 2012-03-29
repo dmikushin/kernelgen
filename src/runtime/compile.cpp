@@ -104,7 +104,7 @@ Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 {
 	int64_t sizes[3];
 	int64_t launchParameters[3];
-    LoopSizes.writeToArray(sizes);
+	LoopSizes.writeToArray(sizes);
 	int numberOfLoops = LoopSizes.getNumOfDimensions();
 	for(int i = 0; i < numberOfLoops; i++) {
 		launchParameters[i] = sizes[numberOfLoops-i-1];
@@ -144,7 +144,7 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 	IgnoreAliasing.setValue(true);
 	polly::CUDA.setValue(mode);
 
-    llvm::EnableStatistics();
+	llvm::EnableStatistics();
 	vector<Size3> sizes;
 	{
 		PassManager polly;
@@ -158,7 +158,7 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		polly.add(createCFGSimplificationPass());
 		polly.run(*kernel->module);
 	}
-	if(kernel->name != "__kernelgen_main") {
+	if (kernel->name != "__kernelgen_main") {
 		Size3 SizeOfLoops;
 		if(sizes.size() == 0)
 		{
@@ -187,20 +187,19 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 	printSpecifiedStatistics(statisticsNames);
 	llvm::RemoveStatistics();
 	
-        if(verbose)
-		{
-			outs().changeColor(raw_ostream::BLUE);
-		    outs() << "<------------------ "<< kernel->name << ": compile completed ------------------->\n\n";
-			outs().resetColor();
-		}
+        if (verbose) {
+		outs().changeColor(raw_ostream::BLUE);
+		outs() << "<------------------ "<< kernel->name << ": compile completed ------------------->\n\n";
+		outs().resetColor();
+	}
 }
-static void runPollyNATIVE(kernel_t *kernel)
+static void runPollyNATIVE(kernel_t *kernel, Size3 *sizeOfLoops)
 {
-	return runPolly(kernel,NULL,false);
+	return runPolly(kernel, sizeOfLoops, false);
 }
-static void runPollyCUDA(kernel_t *kernel,Size3 *sizeOfLoops)
+static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops)
 {
-	return runPolly(kernel,sizeOfLoops,true);
+	return runPolly(kernel, sizeOfLoops, true);
 }
 void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
@@ -224,16 +223,16 @@ void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 
 	for(int parameter =0; parameter < parameters.size(); parameter++)
 		for(int dimension=0; dimension < dimensions.size(); dimension++) {
-			const char *functionName = (new string(prefix1 + parameters[parameter] + prefix2 + dimensions[dimension]))->c_str();
-			Function * function = m->getFunction(functionName);
-			if(function && function -> getNumUses() > 0) {
-				assert(function -> getNumUses() == 1);
+			string functionName = prefix1 + parameters[parameter] + prefix2 + dimensions[dimension];
+			Function* function = m->getFunction(functionName);
+			if(function && function->getNumUses() > 0) {
+				assert(function->getNumUses() == 1);
 				CallInst *functionCall;
 				assert(functionCall = dyn_cast<CallInst>(*(function -> use_begin())));
-				functionCall -> replaceAllUsesWith(
+				functionCall->replaceAllUsesWith(
 				    ConstantInt::get(cast<IntegerType>(function->getReturnType()),
 				                     (uint64_t)gridParams[parameter][dimension]));
-				functionCall -> eraseFromParent();
+				functionCall->eraseFromParent();
 			}
 		}
 }
@@ -273,7 +272,6 @@ kernel_func_t kernelgen::runtime::compile(
 		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
 
-
 		if (szdatai != 0) {
 			Function* f = m->getFunction(kernel->name);
 			if (kernel->name != "__kernelgen_main")
@@ -291,20 +289,34 @@ kernel_func_t kernelgen::runtime::compile(
 	// on runmode.
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
-		// Apply the Polly codegen for native target.
-		if (kernelgen::polly) {
-			runPollyNATIVE(kernel);
-		}
+		if (kernel->name != "__kernelgen_main") {
+			// Apply the Polly codegen for native target.
+			// To perform this analysis, require the native runmode to be
+			// used globally for entire app, i.e. not a fallback from
+			// non-portable GPU kernel or hostcall.
+			if (runmode == kernelgen::runmode)
+			{
+				Size3 sizeOfLoops;
+				runPollyNATIVE(kernel, &sizeOfLoops);
 
-		// Optimize module.
-		{
-			PassManager manager;
-			PassManagerBuilder builder;
-			builder.Inliner = createFunctionInliningPass();
-			builder.OptLevel = 3;
-			builder.DisableSimplifyLibCalls = true;
-			builder.populateModulePassManager(manager);
-			manager.run(*m);
+				// Do not compile the loop kernel if no grid detected.
+				// Important to place this condition *after* hostcalls check
+				// above to generate full host kernel in case hostcalls are around
+				// (.supported flag), rather than running kernel on device and invoke
+				// hostcalls on each individual iteration, which will be terribly slow.
+				if (sizeOfLoops.x == -1) return NULL;
+			}
+
+			// Optimize module.
+			{
+				PassManager manager;
+				PassManagerBuilder builder;
+				builder.Inliner = createFunctionInliningPass();
+				builder.OptLevel = 3;
+				builder.DisableSimplifyLibCalls = true;
+				builder.populateModulePassManager(manager);
+				manager.run(*m);
+			}
 		}
 
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
@@ -406,13 +418,13 @@ kernel_func_t kernelgen::runtime::compile(
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 		dim3 blockDim(1,1,1);
-        dim3 gridDim(1,1,1);
+		dim3 gridDim(1,1,1);
 #define BLOCK_SIZE 1024
 #define BLOCK_DIM_X 32
 		// Apply the Polly codegen for native target.
 		Size3 sizeOfLoops;
-		if (kernelgen::polly) {
-			runPollyCUDA(kernel,&sizeOfLoops);
+		if (kernel->name != "__kernelgen_main")  {
+			runPollyCUDA(kernel, &sizeOfLoops);
 
 			//   x   y     z       x     y  z
 			//  123 13640   -1  ->  13640 123 1     two loops
@@ -420,10 +432,10 @@ kernel_func_t kernelgen::runtime::compile(
 			//  123   -1    -1  ->  123 1 1        one loop
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
 			
-	        int numberOfLoops = sizeOfLoops.getNumOfDimensions();
-			if(launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
-	            switch(numberOfLoops)
-			    {
+			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
+			if (launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
+			switch(numberOfLoops)
+			{
 				    case 0: blockDim = dim3(1,1,1);
 					        assert(false);
 						break;
@@ -441,14 +453,13 @@ kernel_func_t kernelgen::runtime::compile(
 					    assert(blockDim.x * blockDim.y * blockDim.z <= BLOCK_SIZE);
 				    }
 				    break;
-		       }
+			}
 			else
 			{ 
 				//?????????????
 				// Number of all iterations lower that number of threads in block
 				blockDim = dim3(launchParameters.x,launchParameters.y,launchParameters.z);
 			}
-			
 			
 			dim3 iterationsPerThread(1,1,1);
 			// Compute grid parameters from specified blockDim and desired

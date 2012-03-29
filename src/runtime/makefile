@@ -19,6 +19,8 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
+OPT ?= 0
+
 LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm
 LLVM_MODE ?= Debug+Asserts
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
