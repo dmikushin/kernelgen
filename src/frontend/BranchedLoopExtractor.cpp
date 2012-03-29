@@ -17,6 +17,7 @@
 
 #define DEBUG_TYPE "loop-extract-with-branch"
 
+#include "llvm/Constants.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Instructions.h"
 #include "llvm/PassSupport.h"
@@ -36,6 +37,7 @@
 #include <vector>
 
 using namespace llvm;
+using namespace std;
 
 STATISTIC(NumBranchedExtracted, "Number of loops extracted");
 static int tmpBranchedExtracted = 0;
@@ -159,31 +161,30 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 	DominatorTree &DT = getAnalysis<DominatorTree>();
 	bool Changed = false;
 
-	// If there is more than one top-level loop in this function, extract all of
-	// the loops. Otherwise there is exactly one top-level loop; in this case if
-	// this function is more than a minimal wrapper around the loop, extract
-	// the loop.
-	bool ShouldExtractLoop = false;
-
-	// Extract the loop if the entry block doesn't branch to the loop header.
-	TerminatorInst *EntryTI =
-	    L->getHeader()->getParent()->getEntryBlock().getTerminator();
-	if (!isa<BranchInst>(EntryTI) ||
-	    !cast<BranchInst>(EntryTI)->isUnconditional() ||
-	    EntryTI->getSuccessor(0) != L->getHeader())
-		ShouldExtractLoop = true;
-	else {
-		// Check to see if any exits from the loop are more than just return
-		// blocks.
-		SmallVector<BasicBlock*, 8> ExitBlocks;
-		L->getExitBlocks(ExitBlocks);
-		for (unsigned i = 0, e = ExitBlocks.size(); i != e; ++i)
-			if (!isa<ReturnInst>(ExitBlocks[i]->getTerminator())) {
-				ShouldExtractLoop = true;
+	// Extract the loop if it was not previously extracted:
+	// interate through the kernelgen.extracted metadata nodes and
+	// check whether the loop being extracted is already there.
+	bool ShouldExtractLoop = true;
+	Function* function = L->getHeader()->getParent();
+	Module* m = function->getParent();
+	string name = function->getName();
+	if (NamedMDNode* extracted = m->getNamedMetadata("kernelgen.extracted")) {
+		for (int i = 0, e = extracted->getNumOperands(); i != e; ++i) {
+			MDNode* node = extracted->getOperand(i);
+			ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
+				node->getOperand(0));
+			assert(nameArray && "Invalid kernelgen.extracted metadata operand");
+			assert(nameArray->isCString() && "Invalid kernelgen_launch metadata operand");
+			string extracted_name = nameArray->getAsCString();
+			if (extracted_name == name)
+			{
+				ShouldExtractLoop = false;
 				break;
 			}
+		}
 	}
-    LoopInfo &LI = getAnalysis<LoopInfo>();
+
+	LoopInfo &LI = getAnalysis<LoopInfo>();
 	if (ShouldExtractLoop) {
 		if (NumLoops == 0) return Changed;
 		--NumLoops;

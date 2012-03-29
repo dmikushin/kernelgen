@@ -896,6 +896,17 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	if (parentFunction->doesNotThrow())
 		loopFunction->setDoesNotThrow(true);
 
+	// FIXME: DM: the loop function should inherit all attributes of
+	// the parent function?
+	
+	// Attach a metadata node indicating the function is extracted.
+	Value* name[] = { ConstantDataArray::getString(
+		context, loopFunction->getName(), true)
+	};
+	MDNode* nameMD = MDNode::get(context, name);
+	NamedMDNode *NMD = m->getOrInsertNamedMetadata("kernelgen.extracted");
+	NMD->addOperand(nameMD);
+
 	// Rename Blocks.
 	for (SetVector<BasicBlock*>::iterator BB = OriginalLoopBlocks.begin(),
 	     BB_end = OriginalLoopBlocks.end(); BB != BB_end; BB++)
@@ -905,14 +916,10 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	BasicBlock* clonedHeader = cast<BasicBlock>(VMap[header]);
 	clonedHeader->setName(clonedHeader->getName() + ".header");
 
-
-
 	// Make function body.
 	std::vector<BasicBlock*> ExitBlocks;
 	makeFunctionBody(loopFunction, header, clonedHeader,
 	                 inputs, outputs, ExitBlocks, VMap);
-
-
 
 	// Make call and make branch after call.
 	AllocaInst* Struct;
@@ -920,10 +927,6 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	                                    launchFunction, loopFunction,
 	                                    inputs, outputs, callAndBranchBlock,
 	                                    header, loadAndSwitchExitBlock, Struct);
-
-
-
-
 
 	// Rewrite branches to basic blocks outside of the loop to new dummy blocks
 	// within the new function. This must be done before we lose track of which
