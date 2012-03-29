@@ -66,7 +66,7 @@ namespace
 			BranchedCodeExtractor(DominatorTree* dt = 0)
 				: DT(dt), NumExitBlocks(~0U), OriginalLoopBlocks(BlocksToExtract) {}
 
-			CallInst* ExtractCodeRegion(const std::vector<BasicBlock*> &code);
+			CallInst *ExtractCodeRegion(Loop *L, LoopInfo &LI );
 
 			bool isEligible(const std::vector<BasicBlock*> &code);
 
@@ -795,8 +795,9 @@ void BranchedCodeExtractor::updatePhiNodes(
 /// computed result back into memory.
 ///
 CallInst *BranchedCodeExtractor::
-ExtractCodeRegion(const std::vector<BasicBlock*> &code)
+ExtractCodeRegion(Loop *L, LoopInfo &LI )
 {
+	const std::vector<BasicBlock*> &code = L->getBlocks();
 	if (!isEligible(code)) return NULL;
 	static int i = 0;
 
@@ -866,6 +867,12 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	                                     header->getContext(), "callAndBranch",
 	                                     parentFunction, loadAndSwitchExitBlock);
 
+	Loop *parentLoop = NULL;
+	if((parentLoop = (L -> getParentLoop()))) {
+		parentLoop -> addBasicBlockToLoop(loadAndSwitchExitBlock,LI.getBase());
+		parentLoop -> addBasicBlockToLoop(callAndBranchBlock, LI.getBase());
+	}
+
 	// Add launch function declaration to module, if it is not already there.
 	Function* launchFunction = m->getFunction("kernelgen_launch");
 	if (!launchFunction)
@@ -892,7 +899,7 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	// Rename Blocks.
 	for (SetVector<BasicBlock*>::iterator BB = OriginalLoopBlocks.begin(),
 	     BB_end = OriginalLoopBlocks.end(); BB != BB_end; BB++)
-		(*BB)->setName((*BB)->getName() + ".orig");
+		(*BB)->setName((*BB)->getName() + "_orig");
 
 	header->setName(header->getName() + ".header");
 	BasicBlock* clonedHeader = cast<BasicBlock>(VMap[header]);
@@ -977,8 +984,12 @@ ExtractCodeRegion(const std::vector<BasicBlock*> &code)
 	return callLoopFuctionInst;
 }
 
-// ExtractBasicBlock - slurp a natural loop into a brand new function.
-CallInst* llvm::BranchedExtractLoop(DominatorTree &DT, Loop* L)
+namespace llvm
 {
-	return BranchedCodeExtractor(&DT).ExtractCodeRegion(L->getBlocks());
+// ExtractBasicBlock - slurp a natural loop into a brand new function.
+ CallInst* BranchedExtractLoop(DominatorTree& DT,LoopInfo &LI, Loop *L)
+{
+	return BranchedCodeExtractor(&DT).ExtractCodeRegion(L,LI);
+}
+
 }

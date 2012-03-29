@@ -64,7 +64,9 @@ namespace
 			AU.addRequiredID(BreakCriticalEdgesID);
 			AU.addRequiredID(LoopSimplifyID);
 			AU.addRequired<DominatorTree>();
+			AU.addRequired<LoopInfo>();
 		}
+		void recursiveExtractSubLoops(Loop *loop);
 	};
 }
 char BranchedLoopExtractor::ID = 0;
@@ -82,6 +84,7 @@ INITIALIZE_PASS_BEGIN(BranchedLoopExtractor, "loop-extract-with-branch",
 INITIALIZE_PASS_DEPENDENCY(BreakCriticalEdges)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 INITIALIZE_PASS_END(BranchedLoopExtractor, "loop-extract-with-branch",
                     "Extract loops into new functions and add branches", false, false)
 
@@ -121,6 +124,26 @@ static staticInit in;
 // createBranchedLoopExtractorPass - This pass extracts all natural loops from the
 // program into a function if it can.
 //
+void BranchedLoopExtractor::recursiveExtractSubLoops(Loop *loop)
+{
+	std::vector<Loop *> loops = loop -> getSubLoops();
+	DominatorTree &DT = getAnalysis<DominatorTree>();
+	LoopInfo &LI = getAnalysis<LoopInfo>();
+	
+	
+	if(loops.size() > 0) {
+		for(std::vector<Loop *>::iterator loop_iter = loops.begin(), loop_iter_end = loops.end();
+		    loop_iter != loop_iter_end; loop_iter++ ) {
+			Loop * subLoop = *loop_iter;
+			BranchedExtractLoop(DT, LI,subLoop);
+			recursiveExtractSubLoops(subLoop);
+			//BranchedCodeExtractor(&DT).ExtractCodeRegion(loop,LI);
+			outs().changeColor(raw_ostream::RED);
+			outs() << "subloop exctracted!!\n"; 
+			outs().resetColor();
+		}
+	}
+}
 
 bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 {
@@ -160,14 +183,15 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 				break;
 			}
 	}
-
+    LoopInfo &LI = getAnalysis<LoopInfo>();
 	if (ShouldExtractLoop) {
 		if (NumLoops == 0) return Changed;
 		--NumLoops;
 		CallInst * Call;
-		if ( (Call = BranchedExtractLoop(DT, L)) != 0) {
+		if ( (Call = BranchedExtractLoop(DT,LI, L)) != 0) {
 			Changed = true;
 			++NumBranchedExtracted;
+			recursiveExtractSubLoops(L);
 			// After extraction, the loop is replaced by a function call, so
 			// we shouldn't try to run any more loop passes on it.
 
