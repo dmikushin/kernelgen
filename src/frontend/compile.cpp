@@ -189,7 +189,7 @@ extern "C" void callback (void*, void*)
 		if (*tmpname == '/') tmpname++;
 		DECL_NAME (var) = get_identifier (tmpname);
 		DECL_SECTION_NAME (var) = build_string (11, ".kernelgen");
-		TREE_PUBLIC (var) = 0;
+		TREE_PUBLIC (var) = 1;
 		TREE_STATIC (var) = 1;
 		TREE_READONLY (var) = 1;
 		DECL_INITIAL (var) = string_val;
