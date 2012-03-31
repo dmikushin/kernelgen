@@ -616,9 +616,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			}
 		}
 
-		// Early exit if no .kernelgen section.
-		// Means we work with an ordinary object file.
-		if (ikernelgen == -1) continue;
+		// Early exit if no symbols
+		// Do not exit on absent .kernelgen section, since the object
+		// still may contain the main entry.
 		if (!symbols) continue;
 
 		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
