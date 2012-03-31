@@ -119,8 +119,10 @@ int kernelgen_launch(kernel_t* kernel,
 				cout << "No prebuilt kernel, compiling..." << endl;
 	
 			// Compile kernel for the specified target.
-			kernel_func = compile(runmode, kernel,NULL, args, szdatai);
-			if (!kernel_func) return -1;
+			// Function may return NULL in case the kernel is
+			// unexpected to be non-parallel - this must be
+			// recorded to cache as well.
+			kernel_func = compile(runmode, kernel, NULL, args, szdatai);
 			binaries[strhash] = kernel_func;
 		}
 		else
@@ -128,17 +130,23 @@ int kernelgen_launch(kernel_t* kernel,
 	}
 	else
 	{
-		// Compile and store universal binary.
+		// Compile and store the universal binary.
 		if (!kernel_func)
 		{
 			if (verbose)
 				cout << "No prebuilt kernel, compiling..." << endl;
 
-			kernel_func = compile(runmode, kernel);		
-			if (!kernel_func) return -1;
+			// If the universal binary cannot be compiled or is
+			// not parallel, then mark kernel unsupported for
+			// entire target.
+			kernel_func = compile(runmode, kernel);
 			kernel->target[runmode].binary = kernel_func;
+			if (!kernel_func)
+				kernel->target[runmode].supported = false;
 		}
 	}
+
+	if (!kernel_func) return -1;
 	
 	// Execute kernel, depending on target.
 	switch (runmode)
