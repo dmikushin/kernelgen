@@ -887,18 +887,22 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	                             TypeBuilder<void(types::i<32>*), true>::get(context),
 	                             GlobalValue::GlobalValue::ExternalLinkage,
 	                             parentFunction->getName() + "_loop_" + header->getName(), m);
-	Function::arg_iterator AI = loopFunction->arg_begin();
-	AI -> setName("args");
+
+        // FIXME: DM: the loop function should inherit all attributes of
+        // the parent function?
+
+        // If the old function is no-throw, so is the new one.
+        if (parentFunction->doesNotThrow())
+                loopFunction->setDoesNotThrow(true);
+
+	// Never inline the extracted function.
+	const AttrListPtr attr = loopFunction->getAttributes();
+	const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::NoInline);
+	loopFunction->setAttributes(attr_new);
+
 	// Reset to default visibility.
 	loopFunction->setVisibility(GlobalValue::DefaultVisibility);
 
-	// If the old function is no-throw, so is the new one.
-	if (parentFunction->doesNotThrow())
-		loopFunction->setDoesNotThrow(true);
-
-	// FIXME: DM: the loop function should inherit all attributes of
-	// the parent function?
-	
 	// Attach a metadata node indicating the function is extracted.
 	Value* name[] = { ConstantDataArray::getString(
 		context, loopFunction->getName(), true)
