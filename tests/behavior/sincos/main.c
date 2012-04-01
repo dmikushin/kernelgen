@@ -25,7 +25,7 @@
 
 #define real float
 
-//const char *a = "aa", *z = "zz";
+const char *a = "aa", *z = "zz";
 
 void sincos_(int* nx, int* ny, int* nz, real* x, real* y, real* xy);
 
