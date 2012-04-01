@@ -790,17 +790,20 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			return 1;
 		}
 	}
-	
+
 	//
 	// 5) Apply optimization passes to the resulting common
-	// module.
+	// module. Do not perform optimizations here, or the process
+	// would hang infinitely.
 	//
+	if (verbose)
+		cout << "Inlining ..." << endl;
 	{
 		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(&composite));
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = 3;
+		builder.OptLevel = 0;
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
 		manager.run(composite);
@@ -811,6 +814,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	// "main" kernel, executing serial portions of code on
 	// device.
 	//
+	if (verbose)
+		cout << "Prepare main kernel ... " << endl;
 	std::auto_ptr<Module> main;
 	main.reset(CloneModule(&composite));
 	{
@@ -923,13 +928,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	//
 	int nloops = 0;
 	{
-		std::auto_ptr<Module> loops;
-		loops.reset(CloneModule(&composite));
+		if (verbose)
+			cout << "Extracting loops kernels ..." << endl;
+		Module* loops = &composite;
 		{
 			TrackedPassManager manager(tracker);
-			manager.add(new TargetData(loops.get()));
-
+			manager.add(new TargetData(loops));
 			std::vector<GlobalValue*> plain_functions;
+			plain_functions.resize(loops->getFunctionList().size());
 			for (Module::iterator f = main.get()->begin(), fe = main.get()->end(); f != fe; f++)
 				if (!f->isDeclaration())
 					plain_functions.push_back(loops->getFunction(f->getName()));
@@ -951,14 +957,18 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		string tmp_loop_output = (StringRef)tmp_main_vector;
 		close(fd);
 
-		for (Module::iterator f1 = loops.get()->begin(), fe1 = loops.get()->end(); f1 != fe1; f1++)
+		for (Module::iterator f1 = loops->begin(), fe1 = loops->end(); f1 != fe1; f1++)
 		{
 			if (f1->isDeclaration()) continue;
+
+			if (verbose)
+				cout << "Extracting kernel " << f1->getName().str() << " ..." << endl;
 		
 			auto_ptr<Module> loop;
-			loop.reset(CloneModule(loops.get()));
+			loop.reset(CloneModule(loops));
 			loop->setModuleIdentifier(f1->getName());
 			std::vector<GlobalValue*> remove_functions;
+			remove_functions.resize(loop.get()->getFunctionList().size());			
 			for (Module::iterator f2 = loop.get()->begin(), fe2 = loop.get()->end(); f2 != fe2; f2++)
 			{
 				if (f2->isDeclaration()) continue;
@@ -1057,6 +1067,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	// 8) Delete all plain functions, except main out of "main" module.
 	// Add wrapper around main to make it compatible with kernelgen_launch.
 	//
+	if (verbose)
+		cout << "Extract kernel main ..." << endl;
 	{
 		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(main.get()));
