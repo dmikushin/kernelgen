@@ -49,7 +49,7 @@ Patch5:		dragonegg.noalias.patch
 Patch6: 	nvopencc.patch
 Patch7:		llvm.polly.patch
 Patch8:		llvm.scev.patch
-Patch9:		bugpoint.patch
+Patch9:		llvm.bugpoint.patch
 Patch10:	llvm.statistic.patch
 Patch11:        gcc.patch
 
