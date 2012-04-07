@@ -23,15 +23,18 @@
 #include "llvm/Instructions.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TypeBuilder.h"
 
 #include "elf.h"
 #include "util.h"
 #include "runtime.h"
 #include "kernelgen_interop.h"
 
+#include <ffi.h>
 #include <iostream>
 #include <cstdlib>
 
@@ -68,9 +71,6 @@ int kernelgen::runmode = -1;
 // Verbose output.
 int kernelgen::verbose = 0;
 
-// Polly analysis (enabled by default).
-int kernelgen::polly = 1;
-
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
 // for futher references.
@@ -79,8 +79,82 @@ std::map<string, kernel_t*> kernelgen::kernels;
 // CUDA runtime context.
 std::auto_ptr<kernelgen::bind::cuda::context> kernelgen::runtime::cuda_context;
 
-int main(int argc, char* argv[])
+int main(int argc, char* argv[], char* envp[])
 {
+	LLVMContext& context = getGlobalContext();
+
+	// Retrieve the regular main entry function prototype out of
+	// the internal table.
+	Function* regular_main = NULL;
+	celf e("/proc/self/exe", "");
+	//celf e("/home/marcusmae/Programming/kernelgen/tests/perf/polybench-3.1/atax_base", "");
+	cregex regex("^__kernelgen_main$", REG_EXTENDED | REG_NOSUB);
+	vector<csymbol*> symbols = e.getSymtab()->find(regex);
+	if (!symbols.size())
+	{
+		THROW("Cannot find the __kernelgen_main symbol");
+	}
+	else
+	{
+		// Load the regular main function prototype.
+		// It is needed to correctly select the argument list.
+		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(symbols[0]->getData());
+		SMDiagnostic diag;
+		Module* m = ParseIR(buffer, diag, context);
+		if (!m)
+			THROW("__kernelgen_regular_main:" << diag.getLineNo() << ": " <<
+				diag.getLineContents() << ": " << diag.getMessage());
+		regular_main = m->getFunction("__kernelgen_regular_main");
+		if (!regular_main)
+			THROW("Cannot find the __kernelgen_regular_main function");
+	}
+
+	FunctionType* mainFuncTy = regular_main->getFunctionType();
+	Type* mainRetTy = regular_main->getReturnType();
+
+	// Check whether the prototype is supported.
+	while (1)
+	{
+		if (mainFuncTy == TypeBuilder<void(), true>::get(context))
+			break;
+		if (mainFuncTy == TypeBuilder<void(
+			types::i<32>, types::i<8>**), true>::get(context))
+			break;
+		if (mainFuncTy == TypeBuilder<void(
+			types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
+			break;
+
+		if (mainFuncTy == TypeBuilder<types::i<32>(), true>::get(context))
+			break;
+		if (mainFuncTy == TypeBuilder<types::i<32>(
+			types::i<32>, types::i<8>**), true>::get(context))
+			break;
+		if (mainFuncTy == TypeBuilder<types::i<32>(
+			types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
+			break;
+
+		mainFuncTy->dump();
+		THROW("Unsupported main entry prototype");
+	}
+
+	// Structure defining aggregate form of the main entry
+	// parameters. Return value is also packed, since
+	// in CUDA and OpenCL kernels must return void.
+	// Also structure aggregates the callback record containing
+	// parameters of host-device communication state and the
+	// head of memory pool.
+	// Note the prototype of main function may vary, and in
+	// structure we define the maximum possible parameter list.
+	struct main_args_t
+	{
+		kernelgen_callback_t* callback;
+		kernelgen_memory_t* memory;
+		int argc;
+		char** argv;
+		char** envp;
+		int ret;
+	};
+
 	char* crunmode = getenv("kernelgen_runmode");
 	if (crunmode)
 	{	
@@ -107,14 +181,8 @@ int main(int argc, char* argv[])
 			cout << endl;
 		}
 
-		// Check if the polly switch value is supplied.
-		char* cpolly = getenv("kernelgen_polly");
-		if (cpolly) polly = atoi(cpolly);
-
 		// Build kernels index.
 		if (verbose) cout << "Building kernels index ..." << endl;
-		celf e("/proc/self/exe", "");
-		//celf e("/home/marcusmae/Programming/kernelgen/tests/perf/polybench-3.1/atax_base", "");
 		cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
 		vector<csymbol*> symbols = e.getSymtab()->find(regex);
 		for (vector<csymbol*>::iterator i = symbols.begin(),
@@ -139,14 +207,16 @@ int main(int argc, char* argv[])
 		}
 		if (verbose) cout << endl;
 
-		// Check internal table contains main entry.
+		// Check whether the internal table contains a main entry.
 		kernel_t* kernel = kernels["__kernelgen_main"];
-		if (!kernel) return __regular_main(argc, argv);
-        
+		if (!kernel)
+		{
+			THROW("Cannot find the __kernelgen_main symbol");
+		}
+
 		// Walk through kernel index and replace
 		// all names with kernel structure addresses
 		// for each kernelgen_launch call.
-		LLVMContext &context = getGlobalContext();
 		SMDiagnostic diag;
 		for (map<string, kernel_t*>::iterator i = kernels.begin(),
 			e = kernels.end(); i != e; i++)
@@ -209,22 +279,6 @@ int main(int argc, char* argv[])
 			
 			//m->dump();
 		}
-
-		// Structure defining aggregate form of the main entry
-		// parameters. Return value is also packed, since
-		// in CUDA and OpenCL kernels must return void.
-		// Also structure aggregates callback record containing
-		// parameters of host-device communication state.
-		struct main_args_t
-		{
-			FunctionType* FunctionTy;
-			StructType* StructTy;
-			int argc;
-			char** argv;
-			int ret;
-			kernelgen_callback_t* callback;
-			kernelgen_memory_t* memory;
-		};
 		
 		// Load arguments, depending on the target runmode
 		// and invoke the entry point kernel.
@@ -235,6 +289,7 @@ int main(int argc, char* argv[])
 				main_args_t args;
 				args.argc = argc;
 				args.argv = argv;
+				args.envp = envp;
 				kernelgen_launch(kernel, sizeof(main_args_t),
 					sizeof(int), (kernelgen_callback_data_t*)&args);
 				return args.ret;
@@ -282,25 +337,65 @@ int main(int argc, char* argv[])
 		                char* cszheap = getenv("kernelgen_szheap");
 				if (cszheap) szheap = atoi(cszheap);
 				kernelgen_memory_t* memory = init_memory_pool(szheap);
-	
+
+				// Duplicate argv into device memory.
+				// Note in addition to actiual arguments we must pass pass
+				// argv[argc] = NULL.
 				char** argv_dev = NULL;
+				if (mainFuncTy->getNumParams() > 1)
 				{
-					size_t size = sizeof(char*) * argc;
-					for (int i = 0; i < argc; i++)
-						size += strlen(argv[i]) + 1;
-					int err = cuMemAlloc((void**)&argv_dev, size);
-					if (err) THROW("Error in cuMemAlloc " << err);
+					{
+						size_t size = sizeof(char*) * (argc + 1);
+						for (int i = 0; i < argc; i++)
+							size += strlen(argv[i]) + 1;
+						int err = cuMemAlloc((void**)&argv_dev, size);
+						if (err) THROW("Error in cuMemAlloc " << err);
+					}
+					for (int i = 0, offset = 0; i < argc; i++)
+					{
+						char* arg = (char*)(argv_dev + argc + 1) + offset;
+						err = cuMemcpyHtoD(argv_dev + i, &arg, sizeof(char*));
+						if (err) THROW("Error in cuMemcpyHtoD " << err);
+						size_t length = strlen(argv[i]) + 1;
+						err = cuMemcpyHtoD(arg, argv[i], length);
+						if (err) THROW("Error in cuMemcpyDtoH " << err);
+						offset += length;
+					}
+					err = cuMemsetD8(argv_dev + argc, 0, sizeof(char*));
+					if (err) THROW("Error in cuMemsetD8 " << err);
 				}
-				for (int i = 0, offset = 0; i < argc; i++)
+
+				// Duplicate envp into device memory.
+				// Note in addition to actual arguments we must pass
+				// envp[argc] = NULL.
+				char** envp_dev = NULL;
+				if (mainFuncTy->getNumParams() > 2)
 				{
-					char* arg = (char*)(argv_dev + argc) + offset;
-					err = cuMemcpyHtoD(argv_dev + i, &arg, sizeof(char*));
-					if (err) THROW("Error in cuMemcpyHtoD " << err);
-					size_t length = strlen(argv[i]) + 1;
-					err = cuMemcpyHtoD(arg, argv[i], length);
-					if (err) THROW("Error in cuMemcpyDtoH " << err);
-					offset += length;
+					int envc = 0;
+					{
+						while (envp[envc]) envc++;
+						size_t size = sizeof(char*) * (envc + 1);
+						for (int i = 0; i < envc; i++)
+							size += strlen(envp[i]) + 1;
+						int err = cuMemAlloc((void**)&envp_dev, size);
+						if (err) THROW("Error in cuMemAlloc " << err);
+					}
+					for (int i = 0, offset = 0; i < envc; i++)
+					{
+						char* env = (char*)(envp_dev + envc + 1) + offset;
+						err = cuMemcpyHtoD(envp_dev + i, &env, sizeof(char*));
+						if (err) THROW("Error in cuMemcpyHtoD " << err);
+						size_t length = strlen(envp[i]) + 1;
+						err = cuMemcpyHtoD(env, envp[i], length);
+						if (err) THROW("Error in cuMemcpyDtoH " << err);
+						offset += length;
+					}
+					err = cuMemsetD8(envp_dev + envc, 0, sizeof(char*));
+					if (err) THROW("Error in cuMemsetD8 " << err);
 				}
+
+				// Setup argerator structure and fill it with the main
+				// entry arguments.
 				main_args_t args_host;
 				args_host.argc = argc;
 				args_host.argv = argv_dev;
@@ -313,15 +408,32 @@ int main(int argc, char* argv[])
 				if (err) THROW("Error in cuMemcpyHtoD " << err);
 				kernelgen_launch(kernel, sizeof(main_args_t), sizeof(int),
 					(kernelgen_callback_data_t*)args_dev);
-				err = cuMemcpyDtoH(&args_host.ret, &args_dev->ret, sizeof(int));
-				if (err) THROW("Error in cuMemcpyDtoH " << err);
-				err = cuMemFree(args_dev);
-				if (err) THROW("Error in cuMemFree " << err);
-				err = cuMemFree(argv_dev);
-				if (err) THROW("Error in cuMemFree " << err);
+
+				// Store back to host the return value, if present.
+				int ret = EXIT_SUCCESS;
+				if (!mainRetTy->isVoidTy())
+				{
+					err = cuMemcpyDtoH(&ret, &args_dev->ret, sizeof(int));
+					if (err) THROW("Error in cuMemcpyDtoH " << err);
+				}
+
+				// Release device memory buffers.
+				if (argv_dev)
+				{
+					err = cuMemFree(argv_dev);
+					if (err) THROW("Error in cuMemFree " << err);
+				}
+				if (envp_dev)
+				{
+					err = cuMemFree(envp_dev);
+					if (err) THROW("Error in cuMemFree " << err);
+				}
 				err = cuMemFree(callback_dev);
 				if (err) THROW("Error in cuMemFree " << err);
-				return args_host.ret;
+				err = cuMemFree(args_dev);
+				if (err) THROW("Error in cuMemFree " << err);
+
+				return ret;
 			}
 			case KERNELGEN_RUNMODE_OPENCL :
 			{
@@ -333,6 +445,40 @@ int main(int argc, char* argv[])
 	}
 	
 	// Chain to entry point of the regular binary.
-	return __regular_main(argc, argv);
+	// Since the main entry prototype may vary, it is
+	// invoked over FFI using the previously discovered
+	// actual argument list.
+
+	ffi_type* rtype = &ffi_type_sint32;
+	if (mainRetTy->isVoidTy()) rtype = &ffi_type_void;
+
+	ffi_type* argsTy[] = {
+			&ffi_type_sint32,
+			&ffi_type_pointer,
+			&ffi_type_pointer
+	};
+
+	ffi_cif cif;
+	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI,
+		mainFuncTy->getNumParams(), rtype, argsTy) != FFI_OK)
+		THROW("Error in ffi_prep_cif");
+
+	main_args_t args;
+	args.argc = argc;
+	args.argv = argv;
+	args.envp = envp;
+
+	void* pargs[] = {
+			&args.argc,
+			&args.argv,
+			&args.envp
+	};
+
+	int ret;
+	typedef void (*func_t)();
+	func_t func = (func_t)__regular_main;
+	ffi_call(&cif, func, &ret, (void**)&pargs);
+
+	return ret;
 }
 

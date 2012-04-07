@@ -113,9 +113,6 @@ extern int runmode;
 // Verbose output.
 extern int verbose;
 
-// Polly analysis (enabled by default).
-extern int polly;
-
 #define KERNELGEN_VERBOSE_DISABLE	0
 #define KERNELGEN_VERBOSE_SUMMARY	1 << 0
 #define KERNELGEN_VERBOSE_SOURCES	1 << 1

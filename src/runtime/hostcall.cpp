@@ -252,7 +252,7 @@ void kernelgen_hostcall(
 	ffi_cif cif;
 	if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, NumArgs,
 		rtype, &args[0]) != FFI_OK)
-		THROW("Error in fi_prep_cif");
+		THROW("Error in ffi_prep_cif");
 
 	// Set address of return value buffer. Also mmapped
 	// transparently in the same way as pointer arguments.
@@ -286,8 +286,8 @@ void kernelgen_hostcall(
 
 	ffi_call(&cif, (func_t)*func, ret, values.data());
 
-        if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
-        	cout << "Finishing hostcall to " << (void*)*func << endl;
+	if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
+		cout << "Finishing hostcall to " << (void*)*func << endl;
 	
 	// Unregister SIGSEGV signal handler and resore the
 	// original handler.

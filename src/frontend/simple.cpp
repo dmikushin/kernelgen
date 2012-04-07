@@ -681,11 +681,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				}
 
 				string err;
-				if (Linker::LinkModules(&composite, m.get(), Linker::PreserveSource, &err))
+				if (Linker::LinkModules(&composite, m.get(), Linker::DestroySource, &err))
 				{
 					cerr << "Error linking module " << name << " : " << err << endl;
 					return 1;
 				}
+
+				// TODO: to reduce memory footprint, try:
+				// composite.Dematerialize() all globals.
 			}
 		}
 		elf_end(e);
@@ -701,17 +704,19 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 	
 	//
-	// 3) TODO: Convert global variables into main entry locals and
-	// arguments of loops functions.
+	// 3) Rename main entry and insert new main entry into the
+	// composite module. The new main entry shall have all arguments
+	// wrapped into aggregator, similar to loop kernels, and also
+	// contain special fields specifically for main entry configuration:
+	// the callback structure and the device memory heap pointer.
 	//
-
-	//
-	// 4) Rename main entry and insert another one
-	// into composite module.
-	//
+	FunctionType* mainTy;
 	{
+		// Get the regular main entry and rename in to
+		// __kernelgen_regular_main.
 		Function* main_ = composite.getFunction("main");
-		main_->setName("main_");
+		main_->setName("_main");
+		mainTy = main_->getFunctionType();
 		
 		// Create new main(int* args).
 		Function* main = Function::Create(
@@ -719,9 +724,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			GlobalValue::ExternalLinkage, "main", &composite);
 		main->setHasUWTable();
 		main->setDoesNotThrow();
-
-		if (main_->doesNotThrow())
-			main->setDoesNotThrow(true);
 
 		// Create basic block in new main.
 		BasicBlock* root = BasicBlock::Create(context, "entry");
@@ -732,48 +734,143 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		arg->setName("args");
 		arg->addAttr(Attribute::NoCapture);
 
-		// Create and insert GEP to (int*)(args + 3).
-		Value *Idx1[1];
-		Idx1[0] = ConstantInt::get(Type::getInt64Ty(context), 6);
-		GetElementPtrInst *GEP1 = GetElementPtrInst::CreateInBounds(
-			arg, Idx1, "", root);
+		// Create global variable with pointer to callback structure.
+		GlobalVariable* callback1 = new GlobalVariable(
+			composite, Type::getInt32PtrTy(context), false,
+			GlobalValue::PrivateLinkage,
+			Constant::getNullValue(Type::getInt32PtrTy(context)),
+			"__kernelgen_callback");
 
-		// Bitcast (int8***)(int*)(args + 3).
-		Value* argv1 = new BitCastInst(GEP1, Type::getInt8Ty(context)->
-			getPointerTo(0)->getPointerTo(0)->getPointerTo(0), "", root);
+		// Assign callback structure pointer with value received
+		// from the arguments structure.
+		// %struct.callback_t = type { i32, i32, i8*, i32, i8* }
+		// %0 = getelementptr inbounds i32* %args, i64 0
+		// %1 = bitcast i32* %0 to %struct.callback_t**
+		// %2 = load %struct.callback_t** %1, align 8
+		// %3 = getelementptr inbounds %struct.callback_t* %2, i64 0, i32 0
+		// store i32* %3, i32** @__kernelgen_callback, align 8
+		{
+			Value *Idx3[1];
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
+				arg, Idx3, "", root);
+			Value* callback2 = new BitCastInst(GEP3,
+				Type::getInt32PtrTy(context)->getPointerTo(0), "", root);
+			LoadInst* callback3 = new LoadInst(callback2, "", root);
+			callback3->setAlignment(8);
+			Value *Idx4[1];
+			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
+				callback3, Idx4, "", root);
+			StoreInst* callback4 = new StoreInst(GEP4, callback1, true, root); // volatile!
+			callback4->setAlignment(8);
+		}
 
-		// Load argv from int8***.
-		LoadInst* argv2 = new LoadInst(argv1, "", root);
-		argv2->setAlignment(1);
+		// Create global variable with pointer to memory structure.
+		GlobalVariable* memory1 = new GlobalVariable(
+			composite, Type::getInt32PtrTy(context), false,
+			GlobalValue::PrivateLinkage,
+			Constant::getNullValue(Type::getInt32PtrTy(context)),
+			"__kernelgen_memory");
 
-		// Create and insert GEP to (int*)(args + 2).
-		Value *Idx2[1];
-		Idx2[0] = ConstantInt::get(Type::getInt64Ty(context), 4);
-		GetElementPtrInst *GEP2 = GetElementPtrInst::CreateInBounds(
-			arg, Idx2, "", root);
+		// Assign memory structure pointer with value received
+		// from the arguments structure.
+		// %struct.memory_t = type { i8*, i64, i64, i64 }
+		// %4 = getelementptr inbounds i32* %args, i64 2
+		// %5 = bitcast i32* %4 to %struct.memory_t**
+		// %6 = load %struct.memory_t** %5, align 8
+		// %7 = bitcast %struct.memory_t* %6 to i32*
+		// store i32* %7, i32** @__kernelgen_memory, align 8
+		{
+			Value *Idx3[1];
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 2);
+			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
+				arg, Idx3, "", root);
+			Value* memory2 = new BitCastInst(GEP3,
+				Type::getInt32PtrTy(context)->getPointerTo(0), "", root);
+			LoadInst* memory3 = new LoadInst(memory2, "", root);
+			memory3->setAlignment(8);
+			Value *Idx4[1];
+			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
+				memory3, Idx4, "", root);
+			StoreInst* memory4 = new StoreInst(GEP4, memory1, true, root); // volatile!
+			memory4->setAlignment(8);
+		}
 
-		// Load argc from (int*)args.
-		LoadInst* argc1 = new LoadInst(GEP2, "", root);
-		argc1->setAlignment(1);
-
-		// Create argument list and call instruction to
-		// call main_(int argc, char** argv).
+		// Create an argument list for the main_ call.
 		SmallVector<Value*, 16> call_args;
-		call_args.push_back(argc1);
-		call_args.push_back(argv2);
+
+		// Load the argc argument value from aggregator.
+		if (main_->getFunctionType()->getNumParams() >= 2)
+		{
+			// Create and insert GEP to (int*)(args + 2).
+			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 4) };
+			GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(
+				arg, Idx, "", root);
+
+			// Load argc from (int*)args.
+			LoadInst* argc = new LoadInst(GEP, "", root);
+			argc->setAlignment(1);
+
+			call_args.push_back(argc);
+		}
+
+		// Load the argv argument value from aggregator.
+		if (main_->getFunctionType()->getNumParams() >= 2)
+		{
+			// Create and insert GEP to (int*)(args + 3).
+			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 6) };
+			GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(
+				arg, Idx, "", root);
+
+			// Bitcast (int8***)(int*)(args + 3).
+			Value* argv1 = new BitCastInst(GEP, Type::getInt8Ty(context)->
+				getPointerTo(0)->getPointerTo(0)->getPointerTo(0), "", root);
+
+			// Load argv from int8***.
+			LoadInst* argv2 = new LoadInst(argv1, "", root);
+			argv2->setAlignment(1);
+
+			call_args.push_back(argv2);
+		}
+
+		// Load the envp argument value from aggregator.
+		// Create and insert GEP to (int*)(args + 4).
+		if (main_->getFunctionType()->getNumParams() == 3)
+		{
+			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 8) };
+			GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(
+					arg, Idx, "", root);
+
+			// Bitcast (int8***)(int*)(args + 4).
+			Value* envp1 = new BitCastInst(GEP, Type::getInt8Ty(context)->
+					getPointerTo(0)->getPointerTo(0)->getPointerTo(0), "", root);
+
+			// Load envp from int8***.
+			LoadInst* envp2 = new LoadInst(envp1, "", root);
+			envp2->setAlignment(1);
+
+			call_args.push_back(envp2);
+		}
+
+		// Create a call to main_(int argc, char* argv[], char* envp[]).
 		CallInst* call = CallInst::Create(main_, call_args, "", root);
 		call->setTailCall();
 		call->setDoesNotThrow();
 
-		// Create and insert GEP to (int*)(args + 5).
-		Value *Idx4[1];
-		Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 8);
-		GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
-			arg, Idx4, "", root);
+		// Set return value, if present.
+		if (!main_->getReturnType()->isVoidTy())
+		{
+			// Create and insert GEP to (int*)(args + 5).
+			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 10) };
+			GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(
+				arg, Idx, "", root);
 
-		// Store call ret value to ret.
-		StoreInst* ret1 = new StoreInst(call, GEP4, false, root);
-		ret1->setAlignment(1);
+			// Store the call return value to ret.
+			StoreInst* ret = new StoreInst(call, GEP, false, root);
+			ret->setAlignment(1);
+		}
 		
 		// Call kernelgen_finish to finalize execution.
 		Function* finish = Function::Create(TypeBuilder<void(), true>::get(context),
@@ -781,7 +878,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		SmallVector<Value*, 16> finish_args;
 		CallInst* finish_call = CallInst::Create(finish, finish_args, "", root);
 
-		// Return the int result of call instruction.
+		// Return at the end.
 		ReturnInst::Create(context, 0, root);
 
 		if (verifyFunction(*main))
@@ -792,8 +889,13 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 
 	//
-	// 5) Apply optimization passes to the resulting common
-	// module. Do not perform optimizations here, or the process
+	// 4) TODO: Convert global variables into main entry locals and
+	// arguments of loops functions.
+	//
+
+	//
+	// 5) Perform inlining pass on the resulting common module.
+	// Do not perform agressive optimizations here, or the process
 	// would hang infinitely.
 	//
 	if (verbose)
@@ -1086,76 +1188,12 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		manager.run(*main.get());
 
 		// Rename "main" to "__kernelgen_main".
-		Function* kernelgen_main_ = main->getFunction("main");
+		Function* kernelgen_main_ = main.get()->getFunction("main");
 		kernelgen_main_->setName("__kernelgen_main");
 
-		// Create global variable with pointer to callback structure.
-		GlobalVariable* callback1 = new GlobalVariable(
-			*main.get(), Type::getInt32PtrTy(context), false,
-			GlobalValue::PrivateLinkage,
-			Constant::getNullValue(Type::getInt32PtrTy(context)),
-			"__kernelgen_callback");
-		
-		// Assign callback structure pointer with value received
-		// from the arguments structure.
-		// %struct.callback_t = type { i32, i32, i8*, i32, i8* }
-		// %0 = getelementptr inbounds i32* %args, i64 10
-		// %1 = bitcast i32* %0 to %struct.callback_t**
-		// %2 = load %struct.callback_t** %1, align 8
-		// %3 = getelementptr inbounds %struct.callback_t* %2, i64 0, i32 0
-		// store i32* %3, i32** @__kernelgen_callback, align 8
-		{	
-			Instruction* root = kernelgen_main_->begin()->begin();
-			Function::arg_iterator arg = kernelgen_main_->arg_begin();
-			Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 10);
-			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
-				arg, Idx3, "", root);  
-			Value* callback2 = new BitCastInst(GEP3,
-				Type::getInt32PtrTy(context)->getPointerTo(0), "", root);
-			LoadInst* callback3 = new LoadInst(callback2, "", root);
-			callback3->setAlignment(8);
-			Value *Idx4[1];
-			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
-			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
-				callback3, Idx4, "", root);
-			StoreInst* callback4 = new StoreInst(GEP4, callback1, true, root); // volatile!
-			callback4->setAlignment(8);
-		}
-
-		// Create global variable with pointer to memory structure.
-		GlobalVariable* memory1 = new GlobalVariable(
-			*main.get(), Type::getInt32PtrTy(context), false,
-			GlobalValue::PrivateLinkage,
-			Constant::getNullValue(Type::getInt32PtrTy(context)),
-			"__kernelgen_memory");
-		
-		// Assign memory structure pointer with value received
-		// from the arguments structure.
-		// %struct.memory_t = type { i8*, i64, i64, i64 }
-		// %4 = getelementptr inbounds i32* %args, i64 12
-		// %5 = bitcast i32* %4 to %struct.memory_t**
-		// %6 = load %struct.memory_t** %5, align 8
-		// %7 = bitcast %struct.memory_t* %6 to i32*
-		// store i32* %7, i32** @__kernelgen_memory, align 8
-		{	
-			Instruction* root = kernelgen_main_->begin()->begin();
-			Function::arg_iterator arg = kernelgen_main_->arg_begin();
-			Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 12);
-			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
-				arg, Idx3, "", root);  
-			Value* memory2 = new BitCastInst(GEP3,
-				Type::getInt32PtrTy(context)->getPointerTo(0), "", root);
-			LoadInst* memory3 = new LoadInst(memory2, "", root);
-			memory3->setAlignment(8);
-			Value *Idx4[1];
-			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
-			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
-				memory3, Idx4, "", root);
-			StoreInst* memory4 = new StoreInst(GEP4, memory1, true, root); // volatile!
-			memory4->setAlignment(8);
-		}
+		// Add __kernelgen_regular_main reference.
+		Function::Create(mainTy, GlobalValue::ExternalLinkage,
+				"__kernelgen_regular_main", main.get());
 
 		//main.get()->dump();
 
@@ -1264,7 +1302,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 
 	//
-	// 10) Link code using regular linker.
+	// 10) Link code using the regular linker.
 	//
 	if (output)
 	{
