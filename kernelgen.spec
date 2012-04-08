@@ -52,7 +52,8 @@ Patch8:		llvm.scev.patch
 Patch9:		llvm.bugpoint.patch
 Patch10:	llvm.statistic.patch
 Patch11:	llvm.opts.patch
-Patch12:        gcc.patch
+Patch12:	gcc-multiarch.patch
+Patch13:	gcc.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -87,9 +88,9 @@ tar -xjf $RPM_SOURCE_DIR/gcc-4.6.3.tar.bz2
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r151057.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
-#mkdir -p $RPM_BUILD_DIR/cloog
-#sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
-tar -xf $RPM_SOURCE_DIR/cloog-0.17.tar.gz
+mkdir -p $RPM_BUILD_DIR/cloog
+sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
+#tar -xf $RPM_SOURCE_DIR/cloog-0.17.tar.gz
 rm -rf $RPM_BUILD_DIR/nvopencc
 tar -xf $RPM_SOURCE_DIR/nvopencc-r12003483.tar.gz
 %endif
@@ -111,6 +112,9 @@ tar -xf $RPM_SOURCE_DIR/nvopencc-r12003483.tar.gz
 %patch9 -p1
 %patch10 -p1
 %patch11 -p1
+%if (%target == debian)
+%patch12 -p1
+%endif
 %endif
 
 
@@ -212,14 +216,11 @@ make src OPT=3 LLVM_MODE=Release+Asserts
 # Note GCC depends on DragonEgg and plugins from KernelGen,
 # thus they both must be built and installed prior to GCC.
 #
-mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/lib
-cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
-cp $RPM_BUILD_DIR/kernelgen/src/frontend/libkernelgen-ct.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
 cd $RPM_BUILD_DIR/gcc-4.6.3/build/gcc
 %if %debug
-KERNELGEN_FALLBACK=1 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/llvm/build/Debug+Asserts/lib KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+KERNELGEN_FALLBACK=1 LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-KERNELGEN_FALLBACK=1 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RPM_BUILD_DIR/llvm/build/Release+Asserts/lib KERNELGEN_PLUGINS_PATH=$RPM_BUILD_ROOT/opt/kernelgen/lib/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu  make -j%{njobs}
+KERNELGEN_FALLBACK=1 LIBRARY_PATH=/usr/lib/x86_64-linux-gnu C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu make -j%{njobs}
 %endif
 
 

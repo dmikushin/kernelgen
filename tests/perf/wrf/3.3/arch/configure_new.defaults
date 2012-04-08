@@ -518,9 +518,9 @@ DMPARALLEL      =       # 1
 OMPCPP          =       # -D_OPENMP
 OMP             =       # -fopenmp
 OMPCC           =       # -fopenmp
-SFC             =       kernelgen-gfortran
-SCC             =       kernelgen-gcc
-CCOMP           =       kernelgen-gcc
+SFC             =       kernelgen-gfortran -ftime-report
+SCC             =       kernelgen-gcc -ftime-report
+CCOMP           =       kernelgen-gcc -ftime-report
 DM_FC           =       mpif90 -f90="$(SFC)"
 DM_CC           =       mpicc -cc="$(SCC)"
 FC              =       CONFIGURE_FC
