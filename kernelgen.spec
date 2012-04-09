@@ -37,7 +37,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r788.tar.bz2
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r792.tar.bz2
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -154,7 +154,7 @@ cd build/
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xjf $RPM_SOURCE_DIR/kernelgen-r788.tar.bz2
+tar -xjf $RPM_SOURCE_DIR/kernelgen-r792.tar.bz2
 cd $RPM_BUILD_DIR
 #
 # Build parts of the system
@@ -1051,7 +1051,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fr/LC_MESSAGES/libstdc++.mo
 /opt/kernelgen/include/polly/TempScopInfo.h
 /opt/kernelgen/lib/BugpointPasses.so
 /opt/kernelgen/lib/LLVMHello.so
-/opt/kernelgen/lib/LLVMPolly.so
+/opt/kernelgen/lib/libLLVMPolly.so
 /opt/kernelgen/lib/libLLVM-3.1svn.so
 /opt/kernelgen/lib/libLLVMAnalysis.a
 /opt/kernelgen/lib/libLLVMArchive.a
