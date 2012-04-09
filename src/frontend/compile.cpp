@@ -143,7 +143,6 @@ extern "C" void callback (void*, void*)
 		
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = optLevel;
 		builder.DisableSimplifyLibCalls = true;
 		
