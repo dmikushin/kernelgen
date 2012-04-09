@@ -1,3 +1,66 @@
+# (12:44:01 AM) mmarc__: hi guys! In Fortran we have something like "pointer variables used as scalars", i.e. foo(int* a) { <used only *a>}. Do you know are there any LLVM optimization passes that could lower this to foo (int *a) { int aa = *a; <use only aa>  } ?
+# (12:45:51 AM) baldrick: mmarc__: because the optimizers fail to reduce to one load at the start and one store at the end?
+# (12:46:39 AM) mmarc__: hi baldrick! I mean are there any existing optiization passes in LLVM that can potentially do such optimization?
+# (12:46:50 AM) pdox: mmarc__: I think memory barriers or function calls could force the compiler to reload a
+# (12:47:29 AM) baldrick: mmarc__: yes, but I forget which they are
+# (12:48:03 AM) baldrick: mmarc__: if they don't work well, try adding the noalias attribute to the parameter and see if they do a better job
+# (12:51:49 AM) baldrick: mmarc__: got an example that is poorly optimized?
+# (12:55:26 AM) mmarc__: baldrick: nothing special: http://fpaste.org/k8HO/
+# (12:56:08 AM) mmarc__: here we just have a loop modifying a scalar, passed to subroutine as pointer, according to Fortran default calling convention
+# (12:56:26 AM) mmarc__: and it does: store i32 %32, i32* %nx, align 4
+# (12:56:59 AM) mmarc__: meaning the explicit memory operation!
+# (12:57:10 AM) mmarc__: while it is just a scalar...
+# (12:57:50 AM) mmarc__: I thought every modern compiler is able to optimize that. Or otherwise perf of Fortran program against the similar one in C would be 1 : 10 :)
+# (01:00:30 AM) baldrick: mmarc__: but it's not a scalar, it's explicitly passed as a pointer.  What happens if you pass the same variable for nx, ny,nz etc?
+# (01:01:05 AM) joe: in fortran arguments are passed by reference but aren't allowed to alias, right?
+# (01:01:12 AM) mmarc__: baldrick: it's a pointer, but not due to the program logic, but due to the Fortran convention!
+# (01:01:13 AM) baldrick: mmarc__: if you store to nx does it then alter the value read by ny?
+# (01:01:37 AM) baldrick: mmarc__: what matters is the semantics, see question about aliasing on previous line ^
+# (01:01:47 AM) joe: marking the arguments as noalias should allow the optimizer to do what you want
+# (01:02:23 AM) baldrick: joe: yes, I just tried that and it does do the job
+# (01:02:31 AM) baldrick: joe: but is it correct?
+# (01:02:38 AM) joe: for fortran, yes
+# (01:02:48 AM) joe: unless the argument is marked 'target'
+# (01:03:04 AM) mmarc__: great!!
+# (01:04:09 AM) ***baldrick wonders why gcc doesn't mark them "restrict" internally then...
+# (01:04:51 AM) joe: the semantics of c99 restrict and fortran arguments may not line up entirely
+# (01:06:00 AM) mmarc__: baldrick, btw, we use gcc 4.6.3 + dragonegg
+# (01:06:40 AM) baldrick: joe: yeah, I'm poking at it a bit because dragonegg would give much better Fortran code if these arguments could be automagically marked "noalias"
+# (01:07:17 AM) joe: what does gfortran do?
+# (01:07:40 AM) baldrick: exactly
+# (01:08:42 AM) baldrick: joe: it looks like it does the same loads as dragonegg!
+# (01:08:51 AM) joe: weird
+# (01:09:12 AM) baldrick: ah, no, I read it wrong
+# (01:09:15 AM) baldrick: it does better
+# (01:16:46 AM) baldrick: maybe DECL_RESTRICTED_P
+# (01:53:00 AM) mmarc__: baldrick, joe: with noalias it also optimizes for us. BUT: are you saying dragonegg should add noalias? For us it does not.
+# (01:56:25 AM) mmarc__: baldrick, joe: With -fplugin-arg-dragonegg-llvm-ir-optimize=1 we can only have nocapture added, at best...
+# (01:30:47 PM) baldrick: mmarc__: OK, it looks like Fortran parameters have the restrict qualifier internally in GCC, but dragonegg isn't picking it up for some reason
+# (01:55:11 PM) baldrick: mmarc__: it seems that the information is readily available in GCC, but dragonegg didn't make use of it
+# (01:55:42 PM) baldrick: mmarc__: this is specific to Fortran, and is due to the workaround I added for Fortran passing incorrect parameters in function calls
+# (01:55:59 PM) baldrick: i.e. I broke this but didn't notice
+# (01:56:08 PM) baldrick: this = putting noalias on the parameters
+# (01:56:15 PM) mmarc__: I've seen DECL_RESTRICTED_P (decl) = 1; in fortran/trans-decl.c - is it the point where it it set?
+# (01:56:32 PM) mmarc__: OK, we are much interested to have a fix :-P
+# (01:58:39 PM) baldrick: mmarc__: no, it's not DECL_RESTRICTED_P, it's TYPE_RESTRICT
+# (02:19:49 PM) baldrick: mmarc__: I have a fix
+# (02:33:02 PM) mmarc__: baldrick: commit # = ?
+# (02:33:21 PM) baldrick: mmarc__: I'm still testing
+# (02:33:29 PM) baldrick: mmarc__: this will takes some hours
+# (02:33:33 PM) mmarc__: oh
+# (02:33:39 PM) baldrick: mmarc__: but I can send you the patch if you want to try it yourself
+# (02:34:14 PM) mmarc__: that would be great!! You have my email.
+# (02:41:12 PM) baldrick: mmarc__: sent!
+# (04:50:18 PM) mmarc__: baldrick: confirmed: patch works for us! DragonEgg is r151057. Thanks alot!!
+# (04:50:36 PM) baldrick: mmarc__: thanks for reporting it - it was a major bug!
+# (04:50:43 PM) mmarc__: :)
+# (12:05:19 AM) baldrick: joe: you were quite right about Fortran scalar arguments being 'restrict' qualified
+# (12:05:34 AM) baldrick: the fact this info wasn't reaching the LLVM IR was a bug in dragonegg
+# (12:06:37 AM) joe: baldrick: cool. i believe array arguments should be non-aliased as well, but i'm not enough of a fortran nerd to know if the exact rules for fortran arrays fit with the semantics of c restrict/llvm noalias
+# (12:07:06 AM) baldrick: joe: they are (the Fortran front-end sets 'restrict' on them, and I assume they know what they are doing)
+# (12:07:19 AM) baldrick: LLVM's noalias is weaker than GCC's restrict so it should be fine
+# (12:07:27 AM) joe: sounds good then. glad i could help
+
 --- a/dragonegg/src/Types.cpp	2012-03-22 14:48:14.302606248 +0300
 +++ b/dragonegg/src/Types.cpp	2012-03-22 14:50:34.153536680 +0300
 @@ -699,6 +699,10 @@
