@@ -305,6 +305,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fr/LC_MESSAGES/libstdc++.mo
 # KernelGen files.
 #
 /opt/kernelgen/bin/kernelgen-simple
+/opt/kernelgen/bin/kernelgen-dragonegg
 /opt/kernelgen/include/kernelgen_interop.h
 /opt/kernelgen/include/kernelgen_memory.h
 /opt/kernelgen/include/kernelgen_runtime.h
