@@ -37,7 +37,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r786.tar.bz2
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r788.tar.bz2
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -154,7 +154,7 @@ cd build/
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xjf $RPM_SOURCE_DIR/kernelgen-r786.tar.bz2
+tar -xjf $RPM_SOURCE_DIR/kernelgen-r788.tar.bz2
 cd $RPM_BUILD_DIR
 #
 # Build parts of the system
@@ -180,13 +180,13 @@ make -j%{njobs} CXXFLAGS=-O0
 make -j%{njobs}
 %endif
 #
-# Build original GCC.
+# Build GCC.
 #
 cd $RPM_BUILD_DIR/gcc-4.6.3/build
 %if %debug
-make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-make -j%{njobs}
+KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
 #
 # Build DragonEgg
@@ -210,17 +210,6 @@ cd $RPM_BUILD_DIR/kernelgen
 make src
 %else
 make src OPT=3 LLVM_MODE=Release+Asserts
-%endif
-#
-# Build modified GCC.
-# Note GCC depends on DragonEgg and plugins from KernelGen,
-# thus they both must be built and installed prior to GCC.
-#
-cd $RPM_BUILD_DIR/gcc-4.6.3/build/gcc
-%if %debug
-KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
-%else
-KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
 
 
