@@ -34,9 +34,9 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/cloog/isl/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 LLVM_LIB = \
-	-L../bindings -lkernelgen-gpu \
-	$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib/LLVMPolly.so \
-	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-3.1svn
+	-Wl,-rpath $(RPATH) -L../bindings -lkernelgen-gpu \
+	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-3.1svn \
+	-L$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib -lLLVMPolly
 
 CXXFLAGS = \
 	-g -fPIC -O$(OPT) -I../include -I../bindings \

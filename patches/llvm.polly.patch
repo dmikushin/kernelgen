@@ -558,3 +558,14 @@
                 cl::desc("Ignore possible aliasing of the array bases"),
                 cl::Hidden, cl::init(false));
 
+--- a/llvm/tools/polly/lib/Makefile	2012-04-09 22:48:06.178513379 +0400
++++ b/llvm/tools/polly/lib/Makefile	2012-04-09 22:49:03.599402919 +0400
+@@ -5,7 +5,7 @@
+ #
+ LEVEL :=..
+ 
+-LIBRARYNAME=LLVMPolly
++LIBRARYNAME=libLLVMPolly
+ LOADABLE_MODULE = 1
+ 
+ include $(LEVEL)/Makefile.config
