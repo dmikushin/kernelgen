@@ -717,6 +717,33 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		Function* main_ = composite.getFunction("main");
 		main_->setName("_main");
 		mainTy = main_->getFunctionType();
+
+		// Check whether the prototype is supported.
+		while (1)
+		{
+			if (mainTy == TypeBuilder<void(), true>::get(context))
+				break;
+			if (mainTy == TypeBuilder<void(
+				types::i<32>, types::i<8>**), true>::get(context))
+				break;
+			if (mainTy == TypeBuilder<void(
+				types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
+				break;
+
+			if (mainTy == TypeBuilder<types::i<32>(), true>::get(context))
+				break;
+			if (mainTy == TypeBuilder<types::i<32>(
+				types::i<32>, types::i<8>**), true>::get(context))
+				break;
+			if (mainTy == TypeBuilder<types::i<32>(
+				types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
+				break;
+
+			cerr << "Unsupported main entry prototype: ";
+			mainTy->dump();
+			cerr << endl;
+			return 1;
+		}
 		
 		// Create new main(int* args).
 		Function* main = Function::Create(

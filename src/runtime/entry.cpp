@@ -27,7 +27,6 @@
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TypeBuilder.h"
 
 #include "elf.h"
 #include "util.h"
@@ -111,31 +110,6 @@ int main(int argc, char* argv[], char* envp[])
 
 	FunctionType* mainFuncTy = regular_main->getFunctionType();
 	Type* mainRetTy = regular_main->getReturnType();
-
-	// Check whether the prototype is supported.
-	while (1)
-	{
-		if (mainFuncTy == TypeBuilder<void(), true>::get(context))
-			break;
-		if (mainFuncTy == TypeBuilder<void(
-			types::i<32>, types::i<8>**), true>::get(context))
-			break;
-		if (mainFuncTy == TypeBuilder<void(
-			types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
-			break;
-
-		if (mainFuncTy == TypeBuilder<types::i<32>(), true>::get(context))
-			break;
-		if (mainFuncTy == TypeBuilder<types::i<32>(
-			types::i<32>, types::i<8>**), true>::get(context))
-			break;
-		if (mainFuncTy == TypeBuilder<types::i<32>(
-			types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
-			break;
-
-		mainFuncTy->dump();
-		THROW("Unsupported main entry prototype");
-	}
 
 	// Structure defining aggregate form of the main entry
 	// parameters. Return value is also packed, since
