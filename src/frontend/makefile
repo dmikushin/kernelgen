@@ -29,31 +29,31 @@ OBJECTS_KS := $(addsuffix .o, $(OBJECTS_KS))
 CXXFLAGS = -g -fPIC -O$(OPT)
 
 libkernelgen-ct.so: $(OBJECTS_CT) libkernelgen-opt.so
-	g++ -g -shared $(OBJECTS_CT) -o $@ $(LLVM_LIB) -L. -lkernelgen-opt
+	$(CXX) -g -shared $(OBJECTS_CT) -o $@ $(LLVM_LIB) -L. -lkernelgen-opt
 
 libkernelgen-opt.so: $(OBJECTS_OPT)
-	g++ -g -shared $^ -o $@ $(LLVM_LIB)
+	$(CXX) -g -shared $^ -o $@ $(LLVM_LIB)
 
 kernelgen-simple: $(OBJECTS_KS) libkernelgen-opt.so
-	g++ -g $(OBJECTS_KS) -o $@ -lelf $(LLVM_LIB) -L. -lkernelgen-opt
+	$(CXX) -g $(OBJECTS_KS) -o $@ -lelf $(LLVM_LIB) -L. -lkernelgen-opt
 
 kernelgen-ct.o: compile.cpp tracker.h
-	g++ $(CXXFLAGS) -I$(BUGPOINT_ROOT) $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I$(BUGPOINT_ROOT) $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@
 
 simple.o: simple.cpp tracker.h
-	g++ $(CXXFLAGS) -I$(BUGPOINT_ROOT) $(LLVM_INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I$(BUGPOINT_ROOT) $(LLVM_INC) -c $< -o $@
 
 BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
-	g++ $(CXXFLAGS) $(LLVM_INC) -fno-rtti -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LLVM_INC) -fno-rtti -c $< -o $@
 
 BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
-	g++ $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
 
 FixPointers.o: FixPointers.cpp
-	g++ $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
 
 %.bugpoint.o: $(BUGPOINT_ROOT)/%.cpp
-	g++ -Dmain=bugpoint $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
+	$(CXX) -Dmain=bugpoint $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
 
 clean:
 	rm -rf kernelgen-simple libkernelgen-ct.so libkernelgen-opt.so *.o

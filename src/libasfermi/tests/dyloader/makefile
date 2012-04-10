@@ -7,10 +7,10 @@ all: libdyloader.so
 	cd ../.. && $(MAKE) libasfermi.so
 
 libdyloader.so: cuda_dyloader.o ../../libasfermi.so
-	g++ -shared $< -o $@ -L../.. -lasfermi -lcuda -lelf -L../../../bindings -lkernelgen-gpu
+	$(CXX) -shared $< -o $@ -L../.. -lasfermi -lelf -L../../../bindings -lkernelgen-gpu
 
 cuda_dyloader.o: cuda_dyloader.cpp cuda_dyloader.h loader.h
-	g++ -I. -I../.. -I../../.. -fPIC -g -c $< -o $@
+	$(CXX) -I. -I../.. -I../../.. -fPIC -g -c $< -o $@
 
 clean:
 	rm -rf *.o libdyloader.so test1 test2 test3 test4 test5

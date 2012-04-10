@@ -57,7 +57,6 @@ else
 	CP = cp
 endif
 
-CXX = g++
 CXXFLAGS = -g -w -fPIC -std=c++0x
 
 .PHONY: tests
@@ -65,10 +64,10 @@ CXXFLAGS = -g -w -fPIC -std=c++0x
 all: asfermi libasfermi.so tests
 
 asfermi: $(exe) $(allobjects)
-	g++ $(exe) $(allobjects) -o $@
+	$(CXX) $(exe) $(allobjects) -o $@
 
 libasfermi.so: $(lib) $(allobjects)
-	g++ $(lib) $(allobjects) -shared -o $@
+	$(CXX) $(lib) $(allobjects) -shared -o $@
 
 tests:
 	cd tests && $(MAKE)
@@ -97,7 +96,7 @@ asfermi.exe.o: asfermi.cpp SubString.h DataTypes.h Cubin.h GlobalVariables.h \
  RulesInstruction/RulesInstructionConversion.h \
  RulesInstruction/RulesInstructionMiscellaneous.h \
  RulesInstruction/RulesInstructionLogic.h RulesDirective.h
-	g++ $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 asfermi.lib.o: asfermi.cpp SubString.h DataTypes.h Cubin.h GlobalVariables.h \
  helper.h helper/helperMixed.h helper/helperParse.h helper/helperCubin.h \
  helper/../Cubin.h helper/helperException.h SpecificParsers.h stdafx.h \
@@ -117,7 +116,7 @@ asfermi.lib.o: asfermi.cpp SubString.h DataTypes.h Cubin.h GlobalVariables.h \
  RulesInstruction/RulesInstructionConversion.h \
  RulesInstruction/RulesInstructionMiscellaneous.h \
  RulesInstruction/RulesInstructionLogic.h RulesDirective.h
-	g++ $(CXXFLAGS) -DNO_MAIN -c $< -o $@
+	$(CXX) $(CXXFLAGS) -DNO_MAIN -c $< -o $@
 Cubin.o: Cubin.cpp Cubin.h SubString.h DataTypes.h stdafx.h \
  GlobalVariables.h helper.h helper/helperMixed.h helper/helperParse.h \
  helper/helperCubin.h helper/../Cubin.h helper/helperException.h \
