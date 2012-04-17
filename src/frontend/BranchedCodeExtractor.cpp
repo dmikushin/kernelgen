@@ -43,6 +43,8 @@
 #include <fstream>
 #include <vector>
 
+#define KERNELGEN_PRIVATIZE
+
 using namespace llvm;
 
 #include <iostream>
@@ -113,7 +115,8 @@ namespace
 			                              BasicBlock * callAndBranchBlock,
 			                              BasicBlock * header,
 			                              BasicBlock * loadAndSwitchExitBlock,
-			                              AllocaInst * &Struct );
+			                              AllocaInst * &Struct,
+			                              ValueToValueMapTy & allToAllMap);
 
 
 			void createLoadsAndSwitch(CallInst *callLoopFuncInst,
@@ -283,6 +286,27 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 					outputs.insert(I);
 					break;
 				}
+#ifdef KERNELGEN_PRIVATIZE			
+			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
+			{
+				if (isa<GlobalVariable>(*O) || (isa<Constant>(*O) && !isa<Function>(*O)))
+				{
+					std::cout << "Seen global variable or constant: " << endl;
+					(*O)->dump();
+					if ((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy())
+						if(!setOfIntegerInputs.count(*O))
+							setOfIntegerInputs.insert(*O);
+					else
+						if(!setOfNonIntegerInputs.count(*O))
+							setOfNonIntegerInputs.insert(*O);
+				}
+				if (isa<GlobalVariable>(*O))
+				{				
+					if (!outputs.count(*O))
+						outputs.insert(*O);
+				}
+			}
+#endif
 		} // for: insts
 
 
@@ -500,7 +524,7 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 					// TODO: do not allow loops jumping somewhere outside
 					//ReturnInst *NTRet = ReturnInst::Create(context, brVal, NewTarget);
 					ReturnInst *NTRet = ReturnInst::Create(context, 0, NewTarget);
-
+#ifndef KERNELGEN_PRIVATIZE
 					// Restore values just before we exit
 					Function::arg_iterator OAI = OutputArgBegin;
 					for (unsigned out = 0, e = outputs.size(); out != e; ++out) {
@@ -515,6 +539,7 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 
 						new StoreInst(allToAllMap[outputs[out]], GEP, NTRet);
 					}
+#endif
 				}
 				// rewrite the original branch instruction with this new target
 				TI->setSuccessor(i, NewTarget);
@@ -531,7 +556,8 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
     Function* LaunchFunc, Function* KernelFunc,
     Values& inputs, Values& outputs,
     BasicBlock* callAndBranchBlock, BasicBlock* header,
-    BasicBlock* loadAndSwitchExitBlock, AllocaInst* &Struct)
+    BasicBlock* loadAndSwitchExitBlock, AllocaInst* &Struct,
+    ValueToValueMapTy & allToAllMap)
 {
 	std::vector<Value*> params, StructValues, ReloadOutputs, Reloads;
 
@@ -637,7 +663,24 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	Value* Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
 	                           call, ConstantInt::get(Type::getInt32Ty(context), -1));
 	BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
+#ifdef KERNELGEN_PRIVATIZE
+	Function::arg_iterator OutputArgBegin = KernelFunc->arg_begin();
+	unsigned FirstOut = inputs.size() + 2;
+	std::advance(OutputArgBegin, FirstOut);
 
+	// Restore values just after the exit
+	Function::arg_iterator OAI = OutputArgBegin;
+	for (unsigned out = 0, e = outputs.size(); out != e; ++out) {
+		Value *Idx[2];
+		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), FirstOut + out);
+
+		GetElementPtrInst *GEP = GetElementPtrInst::Create(
+			Struct, Idx, "store_ptr_" + outputs[out]->getName(),
+			loadAndSwitchExitBlock);
+		new StoreInst(allToAllMap[outputs[out]], GEP, loadAndSwitchExitBlock);
+	}
+#endif
 	return call;
 }
 
@@ -738,25 +781,29 @@ void BranchedCodeExtractor::updatePhiNodes(
 	    predBlock != predBlockE; predBlock++)
 		NumPreds++;
 
-	for(Values::iterator Out = outputs.begin(), Outputs_end = outputs.end(); Out != Outputs_end; Out++) {
-		Instruction *I = dyn_cast<Instruction>(*Out);
-        I->setName("Output");
+	for (Values::iterator Out = outputs.begin(), Outputs_end = outputs.end(); Out != Outputs_end; Out++) {
+#ifdef KERNELGEN_PRIVATIZE	
+		GlobalValue* GV = dyn_cast<GlobalValue>(*Out);
+		if (GV) continue;
+#endif
+		Value *I = *Out;
+		I->setName("Output");
 		
 		SetVector<Value *> Users;
 		Users = SetVector<Value *>(I->use_begin(),I->use_end());
 
-		for(BasicBlock::iterator Inst = ExitBlock->begin(), E = ExitBlock->getFirstNonPHI();
-		    Inst != E; Inst++) {
+		for (BasicBlock::iterator Inst = ExitBlock->begin(), E = ExitBlock->getFirstNonPHI();
+			Inst != E; Inst++) {
 			PHINode * phi_node = dyn_cast<PHINode>(Inst);
-			if(Users.count(phi_node))
+			if (Users.count(phi_node))
 			{
-				phi_node ->  addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
+				phi_node->addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
 				Users.remove(phi_node);
 			}
 		}
 
-		PHINode * newPN = PHINode::Create(I->getType(), NumPreds,
-		                                  "newPHINode", ExitBlock -> begin());
+		PHINode* newPN = PHINode::Create(
+			I->getType(), NumPreds, "newPHINode", ExitBlock -> begin());
 
 		for(pred_iterator predBlock = pred_begin(ExitBlock), predBlockE = pred_end(ExitBlock);
 		    predBlock != predBlockE; predBlock++)
@@ -930,7 +977,7 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	CallInst* callLoopFuctionInst = createCallAndBranch(
 	                                    launchFunction, loopFunction,
 	                                    inputs, outputs, callAndBranchBlock,
-	                                    header, loadAndSwitchExitBlock, Struct);
+	                                    header, loadAndSwitchExitBlock, Struct, VMap);
 
 	// Rewrite branches to basic blocks outside of the loop to new dummy blocks
 	// within the new function. This must be done before we lose track of which
