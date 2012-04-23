@@ -916,12 +916,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 
 	//
-	// 4) TODO: Convert global variables into main entry locals and
-	// arguments of loops functions.
-	//
-
-	//
-	// 5) Perform inlining pass on the resulting common module.
+	// 4) Perform inlining pass on the resulting common module.
 	// Do not perform agressive optimizations here, or the process
 	// would hang infinitely.
 	//
@@ -936,93 +931,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
 		manager.run(composite);
-	}
-
-	//
-	// 6) Clone composite module and transform it into the
-	// "main" kernel, executing serial portions of code on
-	// device.
-	//
-	if (verbose)
-		cout << "Prepare main kernel ... " << endl;
-	std::auto_ptr<Module> main;
-	main.reset(CloneModule(&composite));
-	{
-		Instruction* root = NULL;
-		main->setModuleIdentifier("main");
-		std::vector<GlobalValue*> loops_functions;
-		for (Module::iterator f = main.get()->begin(), fe = main.get()->end(); f != fe; f++)
-			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-				for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
-				{
-					// Check if instruction in focus is a call.
-					CallInst* call = dyn_cast<CallInst>(cast<Value>(i));
-					if (!call) continue;
-				
-					// Check if function is called (needs -instcombine pass).
-					Function* callee = call->getCalledFunction();
-					if (!callee) continue;
-					if (!callee->isDeclaration()) continue;
-					if (callee->getName() != "kernelgen_launch") continue;
-				
-					// Get the called function name from the metadata node.
-					MDNode* nameMD = call->getMetadata("kernelgen_launch");
-					if (!nameMD)
-					{
-						cerr << "Cannot find kernelgen_launch metadata" << endl;
-						return 1;
-					}
-					if (nameMD->getNumOperands() != 1)
-					{
-						cerr << "Unexpected kernelgen_launch metadata number of operands" << endl;
-						return 1;
-					}
-					ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
-						nameMD->getOperand(0));
-					if (!nameArray)
-					{
-						cerr << "Invalid kernelgen_launch metadata operand" << endl;
-						return 1;
-					}
-					if (!nameArray->isCString())
-					{
-						cerr << "Invalid kernelgen_launch metadata operand" << endl;
-						return 1;
-					}
-					string name = nameArray->getAsCString();
-					if (verbose)
-						cout << "Launcher invokes kernel " << name << endl;
-
-					Function* func = main->getFunction(name);
-					if (!func)
-					{
-						// TODO: not fatal, as soon as function could be defined in
-						// linked library. The question is if we should we dump LLVM IR
-						// from libraries right now.
-						cerr << "Cannot find function " << name << endl;
-						continue;
-					}
-					
-					loops_functions.push_back(func);
-					main->Dematerialize(func);
-				}
-
-		TrackedPassManager manager(tracker);
-		manager.add(new TargetData(main.get()));
-		
-		// Delete functions called through launcher.
-		manager.add(createGVExtractionPass(loops_functions, true));
-
-		// Delete unreachable globals		
-		manager.add(createGlobalDCEPass());
-		
-		// Remove dead debug info.
-		manager.add(createStripDeadDebugInfoPass());
-		
-		// Remove dead func decls.
-		manager.add(createStripDeadPrototypesPass());
-
-		manager.run(*main.get());
 	}
 
 	InitializeAllTargets();
@@ -1052,158 +960,189 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	const TargetData* tdata = machine.get()->getTargetData();
 
 	//
-	// 7) Clone composite module and transform it into the
-	// "loop" kernels, each one executing single parallel loop.
+	// 5) Transform the composite module into "main" kernel,
+	// executing serial portions of code on device.
+	// Extract "loop" kernels, each one executing single parallel loop.
 	//
 	int nloops = 0;
+	if (verbose)
+		cout << "Prepare main kernel ... " << endl;
 	{
-		if (verbose)
-			cout << "Extracting loops kernels ..." << endl;
-		Module* loops = &composite;
+		Instruction* root = NULL;
+		composite.setModuleIdentifier("main");
+		Function* f = composite.getFunction("kernelgen_launch");
+		if (f)
 		{
-			TrackedPassManager manager(tracker);
-			manager.add(new TargetData(loops));
-			std::vector<GlobalValue*> plain_functions;
-			plain_functions.resize(loops->getFunctionList().size());
-			for (Module::iterator f = main.get()->begin(), fe = main.get()->end(); f != fe; f++)
-				if (!f->isDeclaration())
-					plain_functions.push_back(loops->getFunction(f->getName()));
-		
-			// Delete all plain functions (that are not called through launcher).
-			manager.add(createGVExtractionPass(plain_functions, true));
-			manager.add(createGlobalDCEPass());
-			manager.add(createStripDeadDebugInfoPass());
-			manager.add(createStripDeadPrototypesPass());
-			manager.run(*loops);
-		}
-
-		tmp_main_vector.clear();
-		if (unique_file(tmp_mask, fd, tmp_main_vector))
-		{
-			cout << "Cannot generate temporary main object file name" << endl;
-			return 1;
-		}
-		string tmp_loop_output = (StringRef)tmp_main_vector;
-		close(fd);
-
-		for (Module::iterator f1 = loops->begin(), fe1 = loops->end(); f1 != fe1; f1++)
-		{
-			if (f1->isDeclaration()) continue;
-
-			if (verbose)
-				cout << "Extracting kernel " << f1->getName().str() << " ..." << endl;
-		
-			auto_ptr<Module> loop;
-			loop.reset(CloneModule(loops));
-			loop->setModuleIdentifier(f1->getName());
-			std::vector<GlobalValue*> remove_functions;
-			remove_functions.resize(loop.get()->getFunctionList().size());			
-			for (Module::iterator f2 = loop.get()->begin(), fe2 = loop.get()->end(); f2 != fe2; f2++)
+			tmp_main_vector.clear();
+			if (unique_file(tmp_mask, fd, tmp_main_vector))
 			{
-				if (f2->isDeclaration()) continue;
-				if (f2->getName() != f1->getName())
-					remove_functions.push_back(f2);
+				cout << "Cannot generate temporary main object file name" << endl;
+				return 1;
 			}
-			
-			TrackedPassManager manager(tracker);
-			manager.add(new TargetData(loop.get()));
+			string tmp_loop_output = (StringRef)tmp_main_vector;
+			close(fd);
 
-			// Delete all loops functions, except entire one.
-			manager.add(createGVExtractionPass(remove_functions, true));
-			manager.add(createGlobalDCEPass());
-			manager.add(createStripDeadDebugInfoPass());
-			manager.add(createStripDeadPrototypesPass());
-			manager.run(*loop);
-
-			// Rename "loop" to "__kernelgen_loop".
-			loop->getFunction(f1->getName())->setName(
-				"__kernelgen_" + f1->getName());
-			f1->setName("__kernelgen_" + f1->getName());
-
-			//loop.get()->dump();
-
-			// Embed "loop" module into object.
+			// Extract "loop" kernels, each one executing single parallel loop.
+			for (Value::use_iterator UI = f->use_begin(), UE = f->use_end(); UI != UE; UI++)
 			{
-				// Put the resulting module into LLVM output file
-				// as object binary. Method: create another module
-				// with a global variable incorporating the contents
-				// of entire module and emit it for X86_64 target.
-				string ir_string;
-				raw_string_ostream ir(ir_string);
-				ir << (*loop.get());
-				Module obj_m("kernelgen", context);
-				Constant* name = ConstantDataArray::getString(context, ir_string, true);
-				GlobalVariable* GV1 = new GlobalVariable(obj_m, name->getType(),
-					true, GlobalValue::LinkerPrivateLinkage, name,
-					f1->getName(), 0, false);
-
-				PassManager manager;
-				manager.add(new TargetData(*tdata));
-
-				tool_output_file tmp_loop_object(tmp_loop_output.c_str(), err, raw_fd_ostream::F_Binary);
-				if (!err.empty())
+				// Check if instruction in focus is a call.
+				CallInst* call = dyn_cast<CallInst>(*UI);
+				if (!call) continue;
+				
+				// Get the called function name from the metadata node.
+				MDNode* nameMD = call->getMetadata("kernelgen_launch");
+				if (!nameMD)
 				{
-					cerr << "Cannot open output file" << tmp_loop_output.c_str() << endl;
+					cerr << "Cannot find kernelgen_launch metadata" << endl;
 					return 1;
 				}
-
-				formatted_raw_ostream fos(tmp_loop_object.os());
-				if (machine.get()->addPassesToEmitFile(manager, fos,
-			        TargetMachine::CGFT_ObjectFile, CodeGenOpt::None))
+				if (nameMD->getNumOperands() != 1)
 				{
-					cerr << "Target does not support generation of this file type" << endl;
+					cerr << "Unexpected kernelgen_launch metadata number of operands" << endl;
 					return 1;
 				}
-
-				manager.run(obj_m);
-				fos.flush();
-
-				vector<const char*> args;
-				args.push_back(linker);
-				args.push_back("--unresolved-symbols=ignore-all");
-				args.push_back("-r");
-				args.push_back("-o");
-				args.push_back(tmp_main_output2.c_str());
-				args.push_back(tmp_main_output1.c_str());
-				args.push_back(tmp_loop_output.c_str());
-				args.push_back(NULL);
+				ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
+					nameMD->getOperand(0));
+				if (!nameArray)
+				{
+					cerr << "Invalid kernelgen_launch metadata operand" << endl;
+					return 1;
+				}
+				if (!nameArray->isCString())
+				{
+					cerr << "Invalid kernelgen_launch metadata operand" << endl;
+					return 1;
+				}
+				string name = nameArray->getAsCString();
 				if (verbose)
-				{
-					cout << args[0];
-					for (int i = 1; args[i]; i++)
-						cout << " " << args[i];
-					cout << endl;
-				}
-				int status = Program::ExecuteAndWait(
-					Program::FindProgramByName(linker), &args[0],
-					NULL, NULL, 0, 0, &err);
-				if (status)
-				{
-					cerr << err;
-					return status;
-				}
+					cout << "Launcher invokes kernel " << name << endl;
 
-				// Swap tmp_main_output 1 and 2.
-				string swap = tmp_main_output1;
-				tmp_main_output1 = tmp_main_output2;
-				tmp_main_output2 = swap;
+				Function* func = composite.getFunction(name);
+				if (!func) continue;
+
+				if (verbose)
+					cout << "Extracting kernel " << func->getName().str() << " ..." << endl;
+				
+				func->removeFromParent();
+				
+				// Rename "loop" function to "__kernelgen_loop".
+				func->setName("__kernelgen_" + func->getName());
+				
+				// Create new module and populate it with entire loop function.
+				Module loop(func->getName(), context);
+				loop.getFunctionList().push_back(func);
+				
+				// Also clone all function definitions used by entire
+				// loop function to the new module.
+				for (Function::iterator bb = func->begin(), be = func->end(); bb != be; bb++)
+					for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
+					{
+						CallInst* CI = dyn_cast<CallInst>(i);
+						if (!CI) continue;
+				
+						Function* f = CI->getCalledFunction();
+						loop.getOrInsertFunction(f->getName(), f->getFunctionType());
+					}
+
+				// Embed "loop" module into object.
+				{
+					// Put the resulting module into LLVM output file
+					// as object binary. Method: create another module
+					// with a global variable incorporating the contents
+					// of entire module and emit it for X86_64 target.
+					string ir_string;
+					raw_string_ostream ir(ir_string);
+					ir << loop;
+					Module obj_m("kernelgen", context);
+					Constant* name = ConstantDataArray::getString(context, ir_string, true);
+					GlobalVariable* GV1 = new GlobalVariable(obj_m, name->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, name,
+						func->getName(), 0, false);
+
+					PassManager manager;
+					manager.add(new TargetData(*tdata));
+
+					tool_output_file tmp_loop_object(tmp_loop_output.c_str(),
+						err, raw_fd_ostream::F_Binary);
+					if (!err.empty())
+					{
+						cerr << "Cannot open output file" << tmp_loop_output.c_str() << endl;
+						return 1;
+					}
+
+					formatted_raw_ostream fos(tmp_loop_object.os());
+					if (machine.get()->addPassesToEmitFile(manager, fos,
+					TargetMachine::CGFT_ObjectFile, CodeGenOpt::None))
+					{
+						cerr << "Target does not support generation of this file type" << endl;
+						return 1;
+					}
+
+					manager.run(obj_m);
+					fos.flush();
+
+					vector<const char*> args;
+					args.push_back(linker);
+					args.push_back("--unresolved-symbols=ignore-all");
+					args.push_back("-r");
+					args.push_back("-o");
+					args.push_back(tmp_main_output2.c_str());
+					args.push_back(tmp_main_output1.c_str());
+					args.push_back(tmp_loop_output.c_str());
+					args.push_back(NULL);
+					if (verbose)
+					{
+						cout << args[0];
+						for (int i = 1; args[i]; i++)
+							cout << " " << args[i];
+						cout << endl;
+					}
+					int status = Program::ExecuteAndWait(
+						Program::FindProgramByName(linker), &args[0],
+						NULL, NULL, 0, 0, &err);
+					if (status)
+					{
+						cerr << err;
+						return status;
+					}
+
+					// Swap tmp_main_output 1 and 2.
+					string swap = tmp_main_output1;
+					tmp_main_output1 = tmp_main_output2;
+					tmp_main_output2 = swap;
+				}
+				
+				nloops++;
 			}
-			nloops++;
 		}
+		
+		TrackedPassManager manager(tracker);
+		manager.add(new TargetData(&composite));
+		
+		// Delete unreachable globals		
+		manager.add(createGlobalDCEPass());
+		
+		// Remove dead debug info.
+		manager.add(createStripDeadDebugInfoPass());
+		
+		// Remove dead func decls.
+		manager.add(createStripDeadPrototypesPass());
+
+		manager.run(composite);
 	}
 	
 	//
-	// 8) Delete all plain functions, except main out of "main" module.
+	// 6) Delete all plain functions, except main out of "main" module.
 	// Add wrapper around main to make it compatible with kernelgen_launch.
 	//
 	if (verbose)
-		cout << "Extract kernel main ..." << endl;
+		cout << "Extracting kernel main ..." << endl;
 	{
 		TrackedPassManager manager(tracker);
-		manager.add(new TargetData(main.get()));
+		manager.add(new TargetData(&composite));
 
 		std::vector<GlobalValue*> plain_functions;
-		for (Module::iterator f = main->begin(), fe = main->end(); f != fe; f++)
+		for (Module::iterator f = composite.begin(), fe = composite.end(); f != fe; f++)
 			if (!f->isDeclaration() && f->getName() != "main")
 				plain_functions.push_back(f);
 	
@@ -1212,17 +1151,17 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		manager.add(createGlobalDCEPass());
 		manager.add(createStripDeadDebugInfoPass());
 		manager.add(createStripDeadPrototypesPass());
-		manager.run(*main.get());
+		manager.run(composite);
 
 		// Rename "main" to "__kernelgen_main".
-		Function* kernelgen_main_ = main.get()->getFunction("main");
+		Function* kernelgen_main_ = composite.getFunction("main");
 		kernelgen_main_->setName("__kernelgen_main");
 
 		// Add __kernelgen_regular_main reference.
 		Function::Create(mainTy, GlobalValue::ExternalLinkage,
-				"__kernelgen_regular_main", main.get());
+			"__kernelgen_regular_main", &composite);
 
-		//main.get()->dump();
+		//composite.dump();
 
 		// Embed "main" module into main_output.
 		{
@@ -1232,7 +1171,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			// of entire module and emit it for X86_64 target.
 			string ir_string;
 			raw_string_ostream ir(ir_string);
-			ir << (*main.get());
+			ir << composite;
 			Module obj_m("kernelgen", context);
 			Constant* name = ConstantDataArray::getString(context, ir_string, true);
 			GlobalVariable* GV1 = new GlobalVariable(obj_m, name->getType(),
@@ -1301,7 +1240,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 	
 	//
-	// 9) Rename original main entry and insert new main
+	// 7) Rename original main entry and insert new main
 	// with switch between original main and kernelgen's main.
 	//
 	{
@@ -1329,7 +1268,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 
 	//
-	// 10) Link code using the regular linker.
+	// 8) Link code using the regular linker.
 	//
 	if (output)
 	{
