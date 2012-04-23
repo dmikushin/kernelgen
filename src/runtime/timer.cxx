@@ -23,6 +23,7 @@
 
 using namespace kernelgen::runtime;
 
+#include <stdint.h>
 #include <time.h>
 
 #define CLOCKID CLOCK_REALTIME
