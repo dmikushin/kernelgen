@@ -10,7 +10,7 @@ libdyloader.so: cuda_dyloader.o ../../libasfermi.so
 	$(CXX) -shared $< -o $@ -L../.. -lasfermi -lelf -L../../../bindings -lkernelgen-gpu
 
 cuda_dyloader.o: cuda_dyloader.cpp cuda_dyloader.h loader.h
-	$(CXX) -I. -I../.. -I../../.. -fPIC -g -c $< -o $@
+	$(CXX) -I. -I../.. -I../../.. -I/usr/include/libelf -fPIC -g -c $< -o $@
 
 clean:
 	rm -rf *.o libdyloader.so test1 test2 test3 test4 test5

@@ -22,8 +22,6 @@
 #ifndef KERNELGEN_UTIL_H
 #define KERNELGEN_UTIL_H
 
-#include <gelf.h>
-
 #ifdef __cplusplus
 
 #include <iostream>
@@ -60,40 +58,6 @@ public :
 
 } }
 
-#endif
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-// Load the specified ELF image symbol raw data.
-int util_elf_read(const int fd, const char* symname,
-	char** symdata, size_t* symsize);
-
-// Load the specified ELF image symbols raw data.
-int util_elf_read_many(const int fd, const int count, 
-	const char** symnames, char** symdatas, size_t* symsizes);
-
-// Load the specified ELF executable header.
-int util_elf_read_eheader(
-	const char* executable, GElf_Ehdr* ehdr);
-
-// Create ELF image containing symbol with the specified name,
-// associated data content and its length.
-int util_elf_write(const int fd, const int arch,
-	const char* symname, const char* symdata, size_t length);
-
-// Create ELF image containing multiple symbols with the specified names,
-// associated data contents and their lengths.
-int util_elf_write_many(const int fd, const int arch,
-	const int count, ...);
-
-int util_elf_find(const int fd, const char* symname_pattern,
-	char*** symnames, int* count);
-
-#ifdef __cplusplus
-}
 #endif
 
 #endif // KERNELGEN_UTIL_H

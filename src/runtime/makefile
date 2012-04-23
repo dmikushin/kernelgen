@@ -38,6 +38,8 @@ LLVM_LIB = \
 	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-3.1svn \
 	-L$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib -lLLVMPolly
 
+ELF_INC = /usr/include/libelf
+
 CXXFLAGS = \
 	-g -fPIC -O$(OPT) -I../include -I../bindings \
 	-I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
@@ -57,13 +59,13 @@ libkernelgen-rt.so: $(OBJECTS)
 		-lelf -lrt -lgmp -lmhash -ldl -lffi
 
 entry.o: entry.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
 
 compile.o: compile.cpp runtime.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
 
 launch.o: launch.cpp runtime.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
 
 finish.o: finish.cpp runtime.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -75,13 +77,13 @@ io.o: io.cpp io.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 elf.o: elf.cpp elf.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
 
 execute.o: execute.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 nvopencc.o: nvopencc.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
 
 memory.o: memory.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@

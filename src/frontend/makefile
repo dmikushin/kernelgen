@@ -9,6 +9,8 @@ LLVM_DEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVM_INC = -I$(LLVM_ROOT)/build/include $(LLVM_DEF)
 LLVM_LIB = -L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-3.1svn
 
+ELF_INC = /usr/include/libelf
+
 BUGPOINT_ROOT ?= $(LLVM_ROOT)/tools/bugpoint
 
 all: libkernelgen-ct.so libkernelgen-opt.so kernelgen-simple
@@ -41,7 +43,7 @@ kernelgen-ct.o: compile.cpp tracker.h
 	$(CXX) $(CXXFLAGS) -I$(BUGPOINT_ROOT) $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@
 
 simple.o: simple.cpp tracker.h
-	$(CXX) $(CXXFLAGS) -I$(BUGPOINT_ROOT) $(LLVM_INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I$(BUGPOINT_ROOT) -I$(ELF_INC) $(LLVM_INC) -c $< -o $@
 
 BranchedLoopExtractor.o: BranchedLoopExtractor.cpp 
 	$(CXX) $(CXXFLAGS) $(LLVM_INC) -fno-rtti -c $< -o $@
