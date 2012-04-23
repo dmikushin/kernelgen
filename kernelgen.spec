@@ -37,7 +37,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r792.tar.bz2
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r801.tar.bz2
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -147,14 +147,14 @@ cd build
 cd $RPM_BUILD_DIR/gcc-4.6.3
 mkdir build
 cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin --enable-gold
 %endif
 #
 # Configure KernelGen
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xjf $RPM_SOURCE_DIR/kernelgen-r792.tar.bz2
+tar -xjf $RPM_SOURCE_DIR/kernelgen-r801.tar.bz2
 cd $RPM_BUILD_DIR
 #
 # Build parts of the system
