@@ -925,6 +925,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	{
 		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(&composite));
+		manager.add(createInstructionCombiningPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = 0;
