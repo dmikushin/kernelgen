@@ -239,8 +239,8 @@ void kernelgen_hostcall(
 				if (err) THROW("Error in cuMemcpyDtoHAsync");
 
 				if (verbose & KERNELGEN_VERBOSE_DATAIO)
-					cout << "Mapped memory " << (char*)base - align << "(" << base << " - " <<
-					align << ") + " << size << endl;
+					cout << "Mapped memory " << (void*)((char*)base - align) <<
+						"(" << base << " - " << align << ") + " << size << endl;
 			}
 		}
 	}
