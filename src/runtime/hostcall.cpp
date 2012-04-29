@@ -110,7 +110,7 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
 	if (verbose & KERNELGEN_VERBOSE_DATAIO)
-		cout << "Mapped memory " << (char*)base - align << "(" << base << " - " <<
+		cout << "Mapped memory " << (void*)((char*)base - align) << "(" << base << " - " <<
 		align << ") + " << size << endl;
 }
 
