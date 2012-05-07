@@ -493,13 +493,9 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 	// over all of the blocks in the fuction body (ClonedLoopBlocks), updating any terminator
 	// instructions in the fuction body that branch to blocks that are
 	// not in it. In every created ReturnBlock insert StoreInst for each output.
-	Function::arg_iterator OutputArgBegin = LoopFunction->arg_begin();
 	unsigned FirstOut = inputs.size() + 2;
-	std::advance(OutputArgBegin, FirstOut);
-
 	std::map<BasicBlock*, BasicBlock*> ExitBlockMap;
 	unsigned switchVal = 0;
-
 	for (SetVector<BasicBlock*>::const_iterator i = ClonedLoopBlocks.begin(),
 	     e = ClonedLoopBlocks.end(); i != e; ++i) {
 		TerminatorInst *TI = (*i)->getTerminator();
@@ -524,14 +520,17 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 					// TODO: do not allow loops jumping somewhere outside
 					//ReturnInst *NTRet = ReturnInst::Create(context, brVal, NewTarget);
 					ReturnInst *NTRet = ReturnInst::Create(context, 0, NewTarget);
-#ifndef KERNELGEN_PRIVATIZE
+
 					// Restore values just before we exit
-					Function::arg_iterator OAI = OutputArgBegin;
 					for (unsigned out = 0, e = outputs.size(); out != e; ++out) {
+#ifdef KERNELGEN_PRIVATIZE
+						GlobalValue* GV = dyn_cast<GlobalValue>(outputs[out]);
+						if (GV) continue;
+#endif
 						Value *Idx[2];
 						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
 						Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
-						                          FirstOut+out);
+						                          FirstOut + out);
 
 						GetElementPtrInst *GEP = GetElementPtrInst::Create(
 						                             structArg, Idx, "store_ptr_" + outputs[out]->getName(),
@@ -539,7 +538,6 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 
 						new StoreInst(allToAllMap[outputs[out]], GEP, NTRet);
 					}
-#endif
 				}
 				// rewrite the original branch instruction with this new target
 				TI->setSuccessor(i, NewTarget);
@@ -664,13 +662,12 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	                           call, ConstantInt::get(Type::getInt32Ty(context), -1));
 	BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
 #ifdef KERNELGEN_PRIVATIZE
-	Function::arg_iterator OutputArgBegin = KernelFunc->arg_begin();
+	// Restore output values just after the exit
 	unsigned FirstOut = inputs.size() + 2;
-	std::advance(OutputArgBegin, FirstOut);
-
-	// Restore values just after the exit
-	Function::arg_iterator OAI = OutputArgBegin;
 	for (unsigned out = 0, e = outputs.size(); out != e; ++out) {
+                GlobalValue* GV = dyn_cast<GlobalValue>(outputs[out]);
+                if (!GV) continue;
+
 		Value *Idx[2];
 		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
 		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), FirstOut + out);
