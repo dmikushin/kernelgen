@@ -43,6 +43,8 @@
 #include <fstream>
 #include <vector>
 
+#define KERNELGEN_PRIVATIZE
+
 using namespace llvm;
 
 #include <iostream>
@@ -113,7 +115,8 @@ namespace
 			                              BasicBlock * callAndBranchBlock,
 			                              BasicBlock * header,
 			                              BasicBlock * loadAndSwitchExitBlock,
-			                              AllocaInst * &Struct );
+			                              AllocaInst * &Struct,
+			                              ValueToValueMapTy & allToAllMap);
 
 
 			void createLoadsAndSwitch(CallInst *callLoopFuncInst,
@@ -283,6 +286,27 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 					outputs.insert(I);
 					break;
 				}
+#ifdef KERNELGEN_PRIVATIZE			
+			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
+			{
+				if (isa<GlobalVariable>(*O) || (isa<Constant>(*O) && !isa<Function>(*O)))
+				{
+					std::cout << "Seen global variable or constant: " << endl;
+					(*O)->dump();
+					if ((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy())
+						if(!setOfIntegerInputs.count(*O))
+							setOfIntegerInputs.insert(*O);
+					else
+						if(!setOfNonIntegerInputs.count(*O))
+							setOfNonIntegerInputs.insert(*O);
+				}
+				if (isa<GlobalVariable>(*O))
+				{				
+					if (!outputs.count(*O))
+						outputs.insert(*O);
+				}
+			}
+#endif
 		} // for: insts
 
 
@@ -469,13 +493,9 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 	// over all of the blocks in the fuction body (ClonedLoopBlocks), updating any terminator
 	// instructions in the fuction body that branch to blocks that are
 	// not in it. In every created ReturnBlock insert StoreInst for each output.
-	Function::arg_iterator OutputArgBegin = LoopFunction->arg_begin();
 	unsigned FirstOut = inputs.size() + 2;
-	std::advance(OutputArgBegin, FirstOut);
-
 	std::map<BasicBlock*, BasicBlock*> ExitBlockMap;
 	unsigned switchVal = 0;
-
 	for (SetVector<BasicBlock*>::const_iterator i = ClonedLoopBlocks.begin(),
 	     e = ClonedLoopBlocks.end(); i != e; ++i) {
 		TerminatorInst *TI = (*i)->getTerminator();
@@ -502,12 +522,15 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 					ReturnInst *NTRet = ReturnInst::Create(context, 0, NewTarget);
 
 					// Restore values just before we exit
-					Function::arg_iterator OAI = OutputArgBegin;
 					for (unsigned out = 0, e = outputs.size(); out != e; ++out) {
+#ifdef KERNELGEN_PRIVATIZE
+						GlobalValue* GV = dyn_cast<GlobalValue>(outputs[out]);
+						if (GV) continue;
+#endif
 						Value *Idx[2];
 						Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
 						Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
-						                          FirstOut+out);
+						                          FirstOut + out);
 
 						GetElementPtrInst *GEP = GetElementPtrInst::Create(
 						                             structArg, Idx, "store_ptr_" + outputs[out]->getName(),
@@ -531,7 +554,8 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
     Function* LaunchFunc, Function* KernelFunc,
     Values& inputs, Values& outputs,
     BasicBlock* callAndBranchBlock, BasicBlock* header,
-    BasicBlock* loadAndSwitchExitBlock, AllocaInst* &Struct)
+    BasicBlock* loadAndSwitchExitBlock, AllocaInst* &Struct,
+    ValueToValueMapTy & allToAllMap)
 {
 	std::vector<Value*> params, StructValues, ReloadOutputs, Reloads;
 
@@ -637,7 +661,23 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	Value* Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
 	                           call, ConstantInt::get(Type::getInt32Ty(context), -1));
 	BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
+#ifdef KERNELGEN_PRIVATIZE
+	// Restore output values just after the exit
+	unsigned FirstOut = inputs.size() + 2;
+	for (unsigned out = 0, e = outputs.size(); out != e; ++out) {
+                GlobalValue* GV = dyn_cast<GlobalValue>(outputs[out]);
+                if (!GV) continue;
 
+		Value *Idx[2];
+		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), FirstOut + out);
+
+		GetElementPtrInst *GEP = GetElementPtrInst::Create(
+			Struct, Idx, "store_ptr_" + outputs[out]->getName(),
+			loadAndSwitchExitBlock);
+		new StoreInst(allToAllMap[outputs[out]], GEP, loadAndSwitchExitBlock);
+	}
+#endif
 	return call;
 }
 
@@ -738,25 +778,29 @@ void BranchedCodeExtractor::updatePhiNodes(
 	    predBlock != predBlockE; predBlock++)
 		NumPreds++;
 
-	for(Values::iterator Out = outputs.begin(), Outputs_end = outputs.end(); Out != Outputs_end; Out++) {
-		Instruction *I = dyn_cast<Instruction>(*Out);
-        I->setName("Output");
+	for (Values::iterator Out = outputs.begin(), Outputs_end = outputs.end(); Out != Outputs_end; Out++) {
+#ifdef KERNELGEN_PRIVATIZE	
+		GlobalValue* GV = dyn_cast<GlobalValue>(*Out);
+		if (GV) continue;
+#endif
+		Value *I = *Out;
+		I->setName("Output");
 		
 		SetVector<Value *> Users;
 		Users = SetVector<Value *>(I->use_begin(),I->use_end());
 
-		for(BasicBlock::iterator Inst = ExitBlock->begin(), E = ExitBlock->getFirstNonPHI();
-		    Inst != E; Inst++) {
+		for (BasicBlock::iterator Inst = ExitBlock->begin(), E = ExitBlock->getFirstNonPHI();
+			Inst != E; Inst++) {
 			PHINode * phi_node = dyn_cast<PHINode>(Inst);
-			if(Users.count(phi_node))
+			if (Users.count(phi_node))
 			{
-				phi_node ->  addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
+				phi_node->addIncoming(OutputsToLoadInstMap[I],loadAndSwitchBlock);
 				Users.remove(phi_node);
 			}
 		}
 
-		PHINode * newPN = PHINode::Create(I->getType(), NumPreds,
-		                                  "newPHINode", ExitBlock -> begin());
+		PHINode* newPN = PHINode::Create(
+			I->getType(), NumPreds, "newPHINode", ExitBlock -> begin());
 
 		for(pred_iterator predBlock = pred_begin(ExitBlock), predBlockE = pred_end(ExitBlock);
 		    predBlock != predBlockE; predBlock++)
@@ -887,18 +931,22 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	                             TypeBuilder<void(types::i<32>*), true>::get(context),
 	                             GlobalValue::GlobalValue::ExternalLinkage,
 	                             parentFunction->getName() + "_loop_" + header->getName(), m);
-	Function::arg_iterator AI = loopFunction->arg_begin();
-	AI -> setName("args");
+
+        // FIXME: DM: the loop function should inherit all attributes of
+        // the parent function?
+
+        // If the old function is no-throw, so is the new one.
+        if (parentFunction->doesNotThrow())
+                loopFunction->setDoesNotThrow(true);
+
+	// Never inline the extracted function.
+	const AttrListPtr attr = loopFunction->getAttributes();
+	const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::NoInline);
+	loopFunction->setAttributes(attr_new);
+
 	// Reset to default visibility.
 	loopFunction->setVisibility(GlobalValue::DefaultVisibility);
 
-	// If the old function is no-throw, so is the new one.
-	if (parentFunction->doesNotThrow())
-		loopFunction->setDoesNotThrow(true);
-
-	// FIXME: DM: the loop function should inherit all attributes of
-	// the parent function?
-	
 	// Attach a metadata node indicating the function is extracted.
 	Value* name[] = { ConstantDataArray::getString(
 		context, loopFunction->getName(), true)
@@ -926,7 +974,7 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	CallInst* callLoopFuctionInst = createCallAndBranch(
 	                                    launchFunction, loopFunction,
 	                                    inputs, outputs, callAndBranchBlock,
-	                                    header, loadAndSwitchExitBlock, Struct);
+	                                    header, loadAndSwitchExitBlock, Struct, VMap);
 
 	// Rewrite branches to basic blocks outside of the loop to new dummy blocks
 	// within the new function. This must be done before we lose track of which

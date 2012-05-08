@@ -30,6 +30,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/IRReader.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -52,6 +53,7 @@
 #include <gmp.h>
 #include <iostream>
 #include <list>
+#include <vector>
 
 #include "BranchedLoopExtractor.h"
 #include "tracker.h"
@@ -104,9 +106,8 @@ extern "C" void callback (void*, void*)
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(dragonegg_result);
-	auto_ptr<Module> m;
-	m.reset(ParseIR(buffer1, diag, context));
-	for (Module::iterator f = m.get()->begin(), fe = m.get()->end(); f != fe; f++)
+	Module* m = ParseIR(buffer1, diag, context);
+	for (Module::iterator f = m->begin(), fe = m->end(); f != fe; f++)
 	{
 		Function* func = f;
 		if (func->isDeclaration()) continue;
@@ -142,20 +143,19 @@ extern "C" void callback (void*, void*)
 		
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = optLevel;
-	    builder.DisableSimplifyLibCalls = true;
+		builder.DisableSimplifyLibCalls = true;
 		
 		TrackedPassManager manager(tracker);
 		
-		if(optLevel == 0)
+		if (optLevel == 0)
 			addKernelgenPasses(builder,manager);
-        else		
-		    builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-			    addKernelgenPasses);
+		else
+			builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
+				addKernelgenPasses);
 		
 		builder.populateModulePassManager(manager);
-		manager.run(*m.get());
+		manager.run(*m);
 	}
 
 	//
@@ -169,7 +169,7 @@ extern "C" void callback (void*, void*)
 		// The LLVM IR source data.
 		string string_data;
 		raw_string_ostream stream_data(string_data);
-		stream_data << (*m.get());
+		stream_data << (*m);
 	
 		// Create the constant string with the specified content.
 		tree index_type = build_index_type(size_int(string_data.length()));
@@ -188,7 +188,7 @@ extern "C" void callback (void*, void*)
 		if (*tmpname == '/') tmpname++;
 		DECL_NAME (var) = get_identifier (tmpname);
 		DECL_SECTION_NAME (var) = build_string (11, ".kernelgen");
-		TREE_PUBLIC (var) = 0;
+		TREE_PUBLIC (var) = 1;
 		TREE_STATIC (var) = 1;
 		TREE_READONLY (var) = 1;
 		DECL_INITIAL (var) = string_val;
@@ -196,17 +196,23 @@ extern "C" void callback (void*, void*)
 	}
 
 	delete tracker;
+
+	llvm_shutdown();
 }
  
 extern "C" int plugin_init (
 	plugin_name_args* info, plugin_gcc_version* ver)
 {
+	// Turn on time stats, if requested on gcc side.
+	if (time_report || !quiet_flag || flag_detailed_statistics)
+		llvm::TimePassesIsEnabled = true;
+
 	PluginLoader loader;
 	loader.operator =("libkernelgen-opt.so");
 
 	// Register callback.
 	register_callback (info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
-	
+
 	return 0;
 }
 
