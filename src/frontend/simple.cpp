@@ -311,7 +311,7 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 	{
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = 3;
+		builder.OptLevel = 0;
 		builder.DisableSimplifyLibCalls = true;
 		builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
 			addKernelgenPasses);
@@ -1205,73 +1205,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		Function* kernelgen_main_ = main->getFunction("main");
 		kernelgen_main_->setName("__kernelgen_main");
 
-		// Create global variable with pointer to callback structure.
-		GlobalVariable* callback1 = new GlobalVariable(
-			*main.get(), Type::getInt32PtrTy(context), false,
-			GlobalValue::PrivateLinkage,
-			Constant::getNullValue(Type::getInt32PtrTy(context)),
-			"__kernelgen_callback");
-		
-		// Assign callback structure pointer with value received
-		// from the arguments structure.
-		// %struct.callback_t = type { i32, i32, i8*, i32, i8* }
-		// %0 = getelementptr inbounds i32* %args, i64 10
-		// %1 = bitcast i32* %0 to %struct.callback_t**
-		// %2 = load %struct.callback_t** %1, align 8
-		// %3 = getelementptr inbounds %struct.callback_t* %2, i64 0, i32 0
-		// store i32* %3, i32** @__kernelgen_callback, align 8
-		{	
-			Instruction* root = kernelgen_main_->begin()->begin();
-			Function::arg_iterator arg = kernelgen_main_->arg_begin();
-			Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 10);
-			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
-				arg, Idx3, "", root);  
-			Value* callback2 = new BitCastInst(GEP3,
-				Type::getInt32PtrTy(context)->getPointerTo(0), "", root);
-			LoadInst* callback3 = new LoadInst(callback2, "", root);
-			callback3->setAlignment(8);
-			Value *Idx4[1];
-			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
-			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
-				callback3, Idx4, "", root);
-			StoreInst* callback4 = new StoreInst(GEP4, callback1, true, root); // volatile!
-			callback4->setAlignment(8);
-		}
-
-		// Create global variable with pointer to memory structure.
-		GlobalVariable* memory1 = new GlobalVariable(
-			*main.get(), Type::getInt32PtrTy(context), false,
-			GlobalValue::PrivateLinkage,
-			Constant::getNullValue(Type::getInt32PtrTy(context)),
-			"__kernelgen_memory");
-		
-		// Assign memory structure pointer with value received
-		// from the arguments structure.
-		// %struct.memory_t = type { i8*, i64, i64, i64 }
-		// %4 = getelementptr inbounds i32* %args, i64 12
-		// %5 = bitcast i32* %4 to %struct.memory_t**
-		// %6 = load %struct.memory_t** %5, align 8
-		// %7 = bitcast %struct.memory_t* %6 to i32*
-		// store i32* %7, i32** @__kernelgen_memory, align 8
-		{	
-			Instruction* root = kernelgen_main_->begin()->begin();
-			Function::arg_iterator arg = kernelgen_main_->arg_begin();
-			Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 12);
-			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
-				arg, Idx3, "", root);  
-			Value* memory2 = new BitCastInst(GEP3,
-				Type::getInt32PtrTy(context)->getPointerTo(0), "", root);
-			LoadInst* memory3 = new LoadInst(memory2, "", root);
-			memory3->setAlignment(8);
-			Value *Idx4[1];
-			Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
-			GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
-				memory3, Idx4, "", root);
-			StoreInst* memory4 = new StoreInst(GEP4, memory1, true, root); // volatile!
-			memory4->setAlignment(8);
-		}
 		// Add __kernelgen_regular_main reference.
 		Function::Create(mainTy, GlobalValue::ExternalLinkage,
 			"__kernelgen_regular_main", main.get());
@@ -1355,7 +1288,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 	
 	//
-	// 9) Rename original main entry and insert new main
+	// 7) Rename original main entry and insert new main
 	// with switch between original main and kernelgen's main.
 	//
 	{
@@ -1383,7 +1316,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 
 	//
-	// 10) Link code using regular linker.
+	// 8) Link code using the regular linker.
 	//
 	if (output)
 	{
