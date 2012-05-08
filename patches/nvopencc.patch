@@ -1,0 +1,67 @@
+--- a/nvopencc/open64/src/be/cg/NVISA/exp_loadstore.cxx
++++ b/nvopencc/open64/src/be/cg/NVISA/exp_loadstore.cxx
+@@ -1010,7 +1010,7 @@ Exp_Ldst (
+ 		}
+ 	} 
+ 	else if (CGEXP_auto_as_static) {
+-		// put in .local area (like a static).
++		// put in .local area (like a static).		
+ 		// Note that this doesn't work for recursion,
+ 		// but we don't support that yet.
+ 		// Inlining could cause multiple stack variables of
+@@ -1064,7 +1064,20 @@ Exp_Ldst (
+ 		base_tn = Gen_Symbol_TN (sym, 0, 0);
+ 		ofst_tn = Gen_Literal_TN (ofst, 4);
+ 	} else {
+-		FmtAssert(FALSE, ("stack variables not supported"));
++		Set_V_global_mem(variant);
++		if (ST_class(sym) == CLASS_CONST)
++		{
++		  Set_ST_class(sym, CLASS_VAR);
++		  Set_ST_sclass(sym, SCLASS_DGLOBAL);
++		}
++		else
++		  Set_ST_sclass(sym, SCLASS_UGLOBAL);
++		Clear_ST_is_temp_var(sym);
++		Set_ST_in_global_mem(sym);
++		Set_ST_base(sym, sym);
++		Set_ST_ofst(sym, 0);
++		base_tn = Gen_Symbol_TN (sym, 0, 0);
++		ofst_tn = Gen_Literal_TN (ofst, 4);
+ 	}
+     }
+ 
+--- a/nvopencc/open64/src/be/cg/cgemit.cxx
++++ b/nvopencc/open64/src/be/cg/cgemit.cxx
+@@ -8600,6 +8600,31 @@ EMT_Emit_PU ( ST *pu, DST_IDX pu_dst, WN *rwn )
+ #endif
+ 
+ #ifdef TARG_NVISA
++    // With auto_as_static turned off kernel stack data
++    // is written into .global variables. Here they must
++    // be emitted, before the function defintion.
++    if (!CGEXP_auto_as_static)
++    {
++        // Mark all non-global symbols as emitted (fake).
++        UINT i;
++        FOREACH_SYMBOL (CURRENT_SYMTAB, sym, i)
++        {
++            if ((ST_sclass(sym) != SCLASS_UGLOBAL) &&
++                (ST_sclass(sym) != SCLASS_DGLOBAL))
++                Set_BE_ST_emitted(sym);
++        }
++
++	 // Emit only global symbols.
++        Process_Bss_Data (CURRENT_SYMTAB);
++
++        // Unmark all non-global symbols as emitted.
++        FOREACH_SYMBOL (CURRENT_SYMTAB, sym, i)
++        {
++            if ((ST_sclass(sym) != SCLASS_UGLOBAL) &&
++                (ST_sclass(sym) != SCLASS_DGLOBAL))
++                Clear_BE_ST_emitted(sym);
++        }
++    }
+     CGEMIT_Function_Definition(pu);
+     // emit variable decls before the code 
+     /* Emit the initialized data associated with this PU. */

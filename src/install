@@ -1,0 +1,74 @@
+#!/usr/bin/perl -w
+
+##
+## KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+##
+## Copyright (c) 2011 Dmitry Mikushin
+##
+## This software is provided 'as-is', without any express or implied warranty.
+## In no event will the authors be held liable for any damages arising 
+## from the use of this software.
+## Permission is granted to anyone to use this software for any purpose, 
+## including commercial applications, and to alter it and redistribute it freely,
+## subject to the following restrictions:
+##
+## 1. The origin of this software must not be misrepresented;
+## you must not claim that you wrote the original software.
+## If you use this software in a product, an acknowledgment
+## in the product documentation would be appreciated but is not required.
+## 2. Altered source versions must be plainly marked as such,
+## and must not be misrepresented as being the original software.
+## 3. This notice may not be removed or altered from any source distribution.
+##
+
+if (scalar(@ARGV) != 3)
+{
+	print "Usage: install PREFIX LIB32 LIB64\n";
+	exit;
+}
+
+my($PREFIX) = $ARGV[0];
+my($LIB32) = $ARGV[1];
+my($LIB64) = $ARGV[2];
+
+`mkdir -p $PREFIX/bin`;
+`mkdir -p $PREFIX/include`;
+`mkdir -p $PREFIX/$LIB32`;
+`mkdir -p $PREFIX/$LIB64`;
+
+#
+# Copy binaries to install path.
+#
+my(@binaries) = (
+	"frontend/kernelgen-simple");
+foreach $binary (@binaries)
+{
+	`cp $binary $PREFIX\/bin\/`;
+}
+
+#
+# Copy includes to install path.
+#
+my(@includes) = (
+	"include/kernelgen_runtime.h",
+	"include/kernelgen_interop.h",
+	"include/kernelgen_memory.h");
+foreach $include (@includes)
+{
+	`cp $include $PREFIX\/include\/`;
+}
+
+#
+# Copy libraries to install path.
+#
+my(@libraries) = (
+	"frontend/libkernelgen-ct.so",
+	"frontend/libkernelgen-opt.so",
+	"runtime/libkernelgen-rt.so",
+	"bindings/libkernelgen-gpu.so",
+	"libasfermi/libasfermi.so",
+	"libasfermi/tests/dyloader/libdyloader.so");
+foreach $library (@libraries)
+{
+	`cp $library $PREFIX\/$LIB64\/`;
+}

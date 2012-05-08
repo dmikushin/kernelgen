@@ -1,0 +1,560 @@
+--- a/llvm/tools/polly/lib/CodeGeneration.cpp	2012-02-22 02:51:59.000000000 +0400
++++ b/llvm/tools/polly/lib/CodeGeneration.cpp	2012-03-24 22:58:34.000000000 +0400
+@@ -39,6 +39,7 @@
+ #include "llvm/Support/IRBuilder.h"
+ #include "llvm/Target/TargetData.h"
+ #include "llvm/Transforms/Utils/BasicBlockUtils.h"
++#include "llvm/Analysis/Verifier.h"
+ 
+ #define CLOOG_INT_GMP 1
+ #include "cloog/cloog.h"
+@@ -48,9 +49,11 @@
+ 
+ #include <vector>
+ #include <utility>
++#include <string>
+ 
+ using namespace polly;
+ using namespace llvm;
++using namespace std;
+ 
+ struct isl_set;
+ 
+@@ -90,6 +93,24 @@
+   IRBuilder<> *Builder;
+ }IslPwAffUserInfo;
+ 
++//////////////////////////////////////////////////////////////////////
++cl::opt<bool>                                                       //
++CUDA("enable-polly-CUDA",                                           //
++     cl::desc("Enable polly CUDA code generation"), cl::Hidden,     //
++     cl::value_desc("CUDA code generation enabled if true"),        //
++     cl::init(false));                                              //
++//////////////////////////////////////////////////////////////////////
++// Will be filled in CodeGeneration::addCUDADefinitions             //
++//////////////////////////////////////////////////////////////////////
++//CudaFunction is some extern function,                             //
++//    which returns some information about thread position in grid  //
++//CudaFunction returns one of the CudaIntricics                     //
++std::vector<const char*> CudaFunctions;                             //
++DenseMap<const char*,const char *> CudaInricics;                    //
++//dimensions contains names of dimensions. Default are x, y, z      //
++std::vector<string> dimensions;                                     //
++//////////////////////////////////////////////////////////////////////
++
+ // Create a new loop.
+ //
+ // @param Builder The builder used to create the loop.  It also defines the
+@@ -153,6 +174,66 @@
+ 
+   return IV;
+ }
++						 
++////////////////////////////////////////////////////////////////////////////////////////////////////////////
++static Value *createLoopForCUDA(IRBuilder<> *Builder, Value *LB, Value *UB,                               //
++                       Value * ThreadLB, Value * ThreadUB, Value * ThreadStride,                          //
++					   const char * dimension, DominatorTree *DT, Pass *P,                                //
++                       BasicBlock **AfterBlock)                                                           //
++{                                                                                                         //
++																										  //
++	Function *F = Builder->GetInsertBlock()->getParent();                                                 //
++	LLVMContext &Context = F->getContext();                                                               //
++																										  //
++	BasicBlock *PreheaderBB = Builder->GetInsertBlock();                                                  //
++	BasicBlock *HeaderBB = BasicBlock::Create(Context, (string)"CUDA.LoopHeader." + dimension, F);        //
++	BasicBlock *BodyBB = BasicBlock::Create(Context, (string)"CUDA.LoopBody." + dimension, F);            //
++																										  //
++	BasicBlock *AfterBB = SplitBlock(PreheaderBB, Builder->GetInsertPoint()++, P);                        //
++	AfterBB->setName((string)"CUDA.AfterLoop." + dimension);                                              //
++                                                                                                          //
++	PreheaderBB->getTerminator()->setSuccessor(0, HeaderBB);                                              //
++    DT->addNewBlock(HeaderBB, PreheaderBB);                                                               //
++                                                                                                          //
++    Builder->SetInsertPoint(HeaderBB);                                                                    //
++																										  //
++    // Use the type of upper and lower bound.                                                             //
++    assert(LB->getType() == UB->getType()                                                                 //
++         && "Different types for upper and lower bound.");                                                //
++                                                                                                          //
++    IntegerType *LoopIVType = dyn_cast<IntegerType>(UB->getType());                                       //
++    assert(LoopIVType && "UB is not integer?");                                                           //
++                                                                                                          //
++	// IV                                                                                                 //
++	PHINode *IV = Builder->CreatePHI(LoopIVType, 2, (string)"CUDA.loopiv." + dimension);                  //
++	IV->addIncoming(ThreadLB, PreheaderBB);                                                               //
++                                                                                                          //
++ 	// IV increment.                                                                                      //
++	Value *StrideValue = ThreadStride;                                                                    //
++	Value *IncrementedIV = Builder->CreateAdd(IV, StrideValue, (string)"CUDA.next_loopiv." + dimension);  //
++                                                                                                          //
++	// Exit condition.                                                                                    //
++	// Maybe not executed at all.                                                                         //
++	// next iteration performed if loop condition is true:                                                //
++	// InductionVariable <= ThreadUpperBound && InductionVariable <= LoopUpperBound                       //
++	Value *ExitCond = Builder->CreateICmpSLE(IV, ThreadUB, (string)"isInThreadBounds." + dimension);      //
++                                                                                                          //                                                                                                          //
++    Builder->CreateCondBr(ExitCond, BodyBB, AfterBB);                                                     //
++    DT->addNewBlock(BodyBB, HeaderBB);																	  //
++                                                                                                          //
++    Builder->SetInsertPoint(BodyBB);                                                                      //
++    Builder->CreateBr(HeaderBB);                                                                          //
++    IV->addIncoming(IncrementedIV, BodyBB);                                                               //
++    DT->changeImmediateDominator(AfterBB, HeaderBB);                                                      //
++																										  //
++    Builder->SetInsertPoint(BodyBB->begin());                                                             //
++    *AfterBlock = AfterBB;                                                                                //
++																										  //
++    return IV;                                                                                            //
++                                                                                                          //
++}                                                                                                         //
++////////////////////////////////////////////////////////////////////////////////////////////////////////////
++
+ 
+ class BlockGenerator {
+   IRBuilder<> &Builder;
+@@ -919,6 +1000,26 @@
+ 
+   std::vector<std::string> parallelLoops;
+ 
++////////////////////////////////////////////////////////////////////////////////////////////////////
++	//Each thread has it's own position in Grid                                                   //
++	//That position is computed in runtime for each dimension of grid                             //
++	vector<Value* > BlockPositionInGrid;                                                          //
++	vector<Value* > ThreadPositionInBlock;                                                        //
++	//                                                                                            //
++	//For each dimension of grid computes it's size (count of threads)                            //
++	//GridSize contains respectively Value *                                                      //
++	vector<Value*> GridSize;                                                                      //
++	//                                                                                            //
++	//For each dimension of block it's size obtained by call to one of the CUDA Functions         //
++	//BlockSize contains respectively Value *                                                     //
++	vector<Value*> BlockSize;                                                                     //
++	//                                                                                            //
++	int goodNestedParallelLoopsCount;                                                             //
++	//                                                                                            //
++	//Maximal count of good nested parallel loops, which can be parallelized                      //
++	int MaxDimensionsCount;                                                                       //
++////////////////////////////////////////////////////////////////////////////////////////////////////
++
+ public:
+ 
+   const std::vector<std::string> &getParallelLoops();
+@@ -977,6 +1078,233 @@
+   /// statement.
+   void codegenForOpenMP(const clast_for *f);
+ 
++////////////////////////////////////////////////////////////////////////////////////////////////////////
++	void createCUDAGridParamsAndPosInGridBlocks() {                                                   //
++																									  //
++		Module *M = Builder.GetInsertBlock()->getParent()->getParent();                               //
++		vector<Value *> GridParameters;                                                               //
++                                                                                                      //
++		// GridParams BasicBlock - load Grid parameters by calling CUDA functions                     //
++		BasicBlock *GridParamsBB = Builder.GetInsertBlock();                                          //
++		GridParamsBB->setName("CUDA.getGridParams");                                                  //
++		                                                                                              //
++		// PosInGrid BasicBlock - compute thread positin in grid                                      //
++		BasicBlock *PosInGridBB=SplitBlock(GridParamsBB,GridParamsBB->getTerminator(),P);             //
++		PosInGridBB->setName("CUDA.getPositionInGrid");                                               //
++		                                                                                              //
++		// compute needed values separately for each dimension                                        //
++		for(int dimension = 0; dimension < goodNestedParallelLoopsCount; dimension++) {               //
++			                                                                                          //
++			Builder.SetInsertPoint(GridParamsBB->getTerminator());                                    //
++                                                                                                      //
++			// call CUDA functions                                                                    //
++			// store values in vector GridParameters                                                  //
++			for(int GridParameter = 0; GridParameter < 4; GridParameter ++) {                         //
++				GridParameters.push_back(                                                             //
++				    Builder.CreateCall( M->getFunction(CudaFunctions[dimension*4 + GridParameter]),   // 
++				                        CudaInricics[CudaFunctions[dimension*4 + GridParameter]] ));  //
++			}                                                                                         //
++                                                                                                      //
++			Builder.SetInsertPoint(PosInGridBB->getTerminator());                                     //
++                                                                                                      //
++			// Grid Parameters for current dimension                                                  //
++			Value * threadId = GridParameters[dimension*4 + 0];                                       //
++			Value * blockId =  GridParameters[dimension*4 + 1];                                       //
++			Value * blockDim = GridParameters[dimension*4 + 2];                                       //
++			Value * gridDim =  GridParameters[dimension*4 + 3];                                       //
++																									  //
++			// absolute position of block's first thread (position of block)                          //
++			// blockId.x * blockDim.x - "position of block's thread 0 for dimension x"                //
++			Value* Position =                                                                         //
++			    Builder.CreateMul(blockId,blockDim,                                                   //
++			                      string("PositionOfBlockInGrid.") + dimensions[dimension]);          //
++																									  //
++			//GridDim.x * blockDim.x - size of grid in threads for dimension  x                       //
++			Value * Size =                                                                            //
++			    Builder.CreateMul(gridDim,blockDim,                                                   //
++			                      string("GridSize.") + dimensions[dimension]);                       //
++																									  //
++			// store values                                                                           //
++			BlockPositionInGrid.push_back(Position);                                                  //
++			ThreadPositionInBlock.push_back(threadId);                                                //
++			GridSize.push_back(Size);                                                                 //
++			BlockSize.push_back(blockDim);                                                            //
++		}                                                                                             //
++		BasicBlock *LoopPreheader=SplitBlock(PosInGridBB,PosInGridBB->getTerminator(),P);             //
++		Builder.SetInsertPoint(LoopPreheader->getTerminator());                                       //
++	}                                                                                                 //
++////////////////////////////////////////////////////////////////////////////////////////////////////////
++  
++////////////////////////////////////////////////////////////////////////////////////////////////////////
++	void codegenForCUDA(const clast_for *f) {                                                         //
++                                                                                                      //
++		// at that point GridParamsBB and PosInGridBB BasicBlocks have already created                //
++		// needed Value* stored in positionInGrid,GridSize,BlockSize for each thread                  //
++                                                                                                      //
++		int dimension = goodNestedParallelLoopsCount - parallelLoops.size();                          //
++		const char * dimensionName = dimensions[dimension].c_str();                                   //
++																									  //
++		// In CountBoundsBB BasicBlock for each dimension compute                                     //
++		//   CountOfIterations                                                                        //
++		//   ThreadUpperBound                                                                         //
++		//   ThreadLowerBound                                                                         //
++		//   Stride                                                                                   //
++		// That Values are defferent between threads in runtime                                       //
++		BasicBlock * CountBoundsBB = Builder.GetInsertBlock();                                        //
++		CountBoundsBB->setName(string("CUDA.CountBounds.") + dimensionName);                          //
++                                                                                                      //
++		IntegerType * IntType = TD->getIntPtrType(Builder.getContext());			        	      //													 //
++																									  //
++		//Lower and Upper Bounds of Loop                                                              //
++		Value * lowerBound = ExpGen.codegen(f->LB,IntType);                                           //
++		Value * upperBound = ExpGen.codegen(f->UB,IntType);                                           //
++                                                                                                      //
++		// stride of loop                                                                             //
++		assert(polly::APInt_from_MPZ(f->stride) != 0 && "what we must do in those situation?");       //
++		assert(polly::APInt_from_MPZ(f->stride).getSExtValue() > 0 && "TODO: support of negative stride");       //
++		
++		Value *LoopStride = ConstantInt::get(IntType,                                                 //
++								polly::APInt_from_MPZ(f->stride).zext(IntType->getBitWidth()));		  //																					  //
++		                                                                                              //
++		// number of loop's interations                                                               //
++		// ((UpperBound - LowerBound)/stride + 1)                                                     //
++		// number of iterations minus one = (UpperBound - LowerBound)/stride                          //
++		Value * UpperMinusLower =                                                                     //
++		   Builder.CreateSub(upperBound,lowerBound,                                                   //
++		                      string("UB.minus.LB.") + dimensionName);                                //
++		Value * NumOfIterationsMinusOne =                                                             //
++           Builder.CreateSDiv(UpperMinusLower,LoopStride,                                             //
++		                      string("NumOfIterationsMinusOne.") + dimensionName);                    //
++																		                              //
++		// Compute number of Iterations per thread                                                    //
++		// ((NumberOfIterations - 1) / GridSize) + 1)                                                 //
++		// ( NumOfIterationsMinusOne / GridSize + 1 )                                                 //
++		Value * One = ConstantInt::get(lowerBound->getType(), 1);                                     //    
++		Value * IterationsPerThreadMinusOne =                                                         //                        //
++		    Builder.CreateSDiv(NumOfIterationsMinusOne,GridSize[dimension],                           //
++			                   string("IterationsPerThreadMinusOne.") + dimensionName);               //             ///////
++		Value * IterationsPerThread =                                                                 //
++		    Builder.CreateAdd(IterationsPerThreadMinusOne,One,                                        //
++		                       string("IterationsPerThread.") + dimensionName);                       // 
++                                                                                                      //
++		// compute Thread's Upper Bound, Lower Bounds and Stride                                      //
++		// ThreadLowerBound = LoopStride*(IterationsPerThread*BlockPosition + ThreadPositionInBlock)  //
++		// ThreadUpperBound = ThreadLowerBound + ThreadStride*(IterationsPerThread-1)                 //
++		// Stride = BlockSize (to increase probability of coalescing transactions to memory)          //
++		Value * BlockLowerBound =                                                                     //
++		    Builder.CreateMul(BlockPositionInGrid[dimension], IterationsPerThread,                    //
++		                      string("BlockLowerBound.") + dimensionName);                            //
++		Value * BlockLBAddThreadPosInBlock =                                                          //
++		    Builder.CreateAdd( BlockLowerBound, ThreadPositionInBlock[dimension],                     //
++		                       string("BlockLB.Add.ThreadPosInBlock.") + dimensionName);              //
++		Value * ThreadLowerBound =                                                                    //
++		    Builder.CreateMul( BlockLBAddThreadPosInBlock, LoopStride,                                //
++		                       string("ThreadLowerBound.") + dimensionName);                          //
++		Value * ThreadStride =                                                                        //
++		    Builder.CreateMul(LoopStride, BlockSize[dimension],                                       //
++                                string("ThreadStride.") + dimensionName);                             //                                        //
++		Value * StrideMulIterPerThreadMinusOne =                                                      //
++		    Builder.CreateMul(IterationsPerThreadMinusOne, ThreadStride,                              //
++			                   string("ThreadStride.Mul.IterPerThreadMinusOne.") + dimensionName);    //                   //
++		Value * ThreadUpperBound =                                                                    //
++		    Builder.CreateAdd(ThreadLowerBound,StrideMulIterPerThreadMinusOne,                        //
++		                      string("ThreadUpperBound.") + dimensionName);                           //
++																									  //
++		// Generate code for loop with computed bounds and stride                                     //
++		// CountBoundsBB BasicBlock is a preheader of that loop                                       //
++        BasicBlock *AfterBB;                                                                          //
++		Value *IV = createLoopForCUDA(&Builder, lowerBound, upperBound,                               //
++								 ThreadLowerBound, ThreadUpperBound, ThreadStride, dimensionName,     //
++                                 DT, P, &AfterBB);                                                    //
++								                                                                      //
++		(*clastVars)[f->iterator] = IV;                                                               //
++        if (f->body)                                                                                  //
++            codegen(f->body);                                                                         //
++        // Loop is finished, so remove its iv from the live symbols.                                  //
++		                                                                                              //
++		clastVars->erase(f->iterator);                                                                //
++        AfterBB->moveAfter(Builder.GetInsertBlock());		                                          //
++                                                                                                      //
++		// make block for truncation of threadUpperBound                                              //
++		BasicBlock *truncateThreadUB = SplitBlock(CountBoundsBB,CountBoundsBB->getTerminator(),P);    //
++		truncateThreadUB->setName(string("CUDA.truncateThreadUB.") + dimensionName);                  //
++		                                                                                              //
++		Builder.SetInsertPoint(truncateThreadUB->getTerminator());                                    //
++																									  //
++		// if(threadUpperBound > loopUpperBound) threadUpperBound = loopUpperBound;                   //
++        Value *isThreadUBgtLoopUB =                                                                   //
++		    Builder.CreateICmpSGT(ThreadUpperBound, upperBound,                                       //
++			                      string("isThreadUBgtLoopUB.") + dimensionName);                     //
++		ThreadUpperBound =                                                                            //
++		    Builder.CreateSelect(isThreadUBgtLoopUB, upperBound, ThreadUpperBound,                    //
++			                      string("truncatedThreadUB.") + dimensionName);                      //
++				                                                                                      //
++		//get terminator of CountBoundsBB                                                             //
++		TerminatorInst * terminator = CountBoundsBB->getTerminator();                                 //
++		Builder.SetInsertPoint(CountBoundsBB);                                                        //
++		//if(threadLowerBound > loopUpperBound) then no execute body et all                           //
++		Value *isThreadLBgtLoopUB =                                                                   //
++		    Builder.CreateICmpSGT(ThreadLowerBound, upperBound,                                       //
++			                      string("isThreadLBgtLoopUB.") + dimensionName);                     //
++		Builder.CreateCondBr(isThreadLBgtLoopUB, AfterBB, truncateThreadUB);                          //
++																									  //
++		//erase old terminator                                                                        //
++		terminator -> eraseFromParent();                                                              //
++		                                                                                              //
++																									  //
++		Builder.SetInsertPoint(AfterBB->begin());                                                     //
++	}                                                                                                 //
++////////////////////////////////////////////////////////////////////////////////////////////////////////     
++
++//////////////////////////////////////////////////////////////////////////////////////////////////////////////
++bool isaGoodListOfStatements(const clast_stmt * stmt,                                                       //
++							 const clast_for * &nested_for, bool & user_or_assignment)                      //
++{                                                                                                           //
++	// возвращает true, если                                                                                //
++	//     в списке нет вложенных циклов                                                                    //
++	//     в списке есть всего один вложенный цикл и нет assignment или user_stmt, не вложенных в него      //
++	// через nested_for возвращает указатель на вложенный цикл или NULL если его нет                        //
++                                                                                                            //
++	if(!stmt) return true;                                                                                  //
++	bool good = true;                                                                                       //
++                                                                                                            //
++	if(CLAST_STMT_IS_A(stmt, stmt_user) || CLAST_STMT_IS_A(stmt, stmt_ass))                                 //
++	{	if(nested_for) return false; // уже где-то есть цикл --------------- :(                             //
++	    else user_or_assignment = true; }  // Нашли user/assignment !!!!!!!!!!!                             //
++	if(CLAST_STMT_IS_A(stmt, stmt_guard))                                                                   //
++		good = isaGoodListOfStatements(((const clast_guard *)stmt)->then, nested_for, user_or_assignment);  //
++	if(CLAST_STMT_IS_A(stmt, stmt_block))                                                                   //
++		good = isaGoodListOfStatements(((const clast_block *)stmt)->body, nested_for, user_or_assignment);  //
++	if(CLAST_STMT_IS_A(stmt, stmt_for))                                                                     //
++	{	if(nested_for || user_or_assignment) return false; // уже где-то есть user/assignment или цикл  :(  //
++		else nested_for = (const clast_for *)stmt; } //нашли for !!!!!!!!                                   //
++                                                                                                            //
++	return good && isaGoodListOfStatements( stmt->next, nested_for, user_or_assignment);                    //
++}                                                                                                           //
++//////////////////////////////////////////////////////////////////////////////////////////////////////////////
++
++////////////////////////////////////////////////////////////////////////////////////////
++int GoodNestedParallelLoops(const clast_stmt * stmt)                                  //
++{                                                                                     //
++	int goodLoops = 0;                                                                //
++	while(goodLoops < 3) {                                                            //
++		const clast_for * nested_for = NULL;                                          //
++		bool user_or_assignment = false;                                              //
++		if(isaGoodListOfStatements(stmt, nested_for, user_or_assignment)) {           //
++			if(nested_for) // если есть цикл                                          //
++				if(DP->isParallelFor(nested_for)) { // и он параллельный              //
++					goodLoops++; // то увеличиваем счётчик                            //
++					stmt = nested_for->body; //и проверяем тело обнаруженного цикла   //
++				} else break; //если встретился не параллельный цикл                  //
++			else break; // если нет больше циклов                                     //
++		} else break; // если список не удовлетворяет требованиям                     //
++	}                                                                                 //
++	return goodLoops;                                                                 //
++}                                                                                     //
++////////////////////////////////////////////////////////////////////////////////////////
++
++
++
+   bool isInnermostLoop(const clast_for *f);
+ 
+   /// @brief Get the number of loop iterations for this loop.
+@@ -1111,9 +1439,11 @@
+ 
+   // Loop is finished, so remove its iv from the live symbols.
+   clastVars->erase(f->iterator);
++  AfterBB->moveAfter(Builder.GetInsertBlock());
+   Builder.SetInsertPoint(AfterBB->begin());
+ }
+ 
++
+ Function *ClastStmtCodeGen::addOpenMPSubfunction(Module *M) {
+   Function *F = Builder.GetInsertBlock()->getParent();
+   std::vector<Type*> Arguments(1, Builder.getInt8PtrTy());
+@@ -1417,7 +1747,14 @@
+     parallelLoops.push_back(f->iterator);
+     codegenForOpenMP(f);
+     parallelCodeGeneration = false;
+-  } else
++//////////////////////////////////////////////////////////////////////////////////////////
++   } else if (CUDA && (int)parallelLoops.size() < goodNestedParallelLoopsCount) {       //
++			parallelLoops.push_back(f->iterator);                                       //
++			codegenForCUDA(f);                                                          //
++//////////////////////////////////////////////////////////////////////////////////////////
++   } else
++
++
+     codegenForSequential(f);
+ }
+ 
+@@ -1518,6 +1855,13 @@
+   parallelCodeGeneration = false;
+ 
+   const clast_stmt *stmt = (const clast_stmt*) r;
++  
++///////////////////////////////////////////////////////////////////////////////                   
++		if(CUDA && ((goodNestedParallelLoopsCount =                          //      
++		             GoodNestedParallelLoops(stmt->next)) > 0) )             //      
++			createCUDAGridParamsAndPosInGridBlocks();                        //    
++///////////////////////////////////////////////////////////////////////////////
++
+   if (stmt->next)
+     codegen(stmt->next);
+ 
+@@ -1548,6 +1892,49 @@
+ 
+   CodeGeneration() : ScopPass(ID) {}
+ 
++	// Adding prototypes required if OpenMP is enabled.                    
++	// For each dimension defines four functions, which returns parameters 
++	//  threadId                                                           
++	//	blockId                                                            
++	//	BlockDim                                                           
++	//	gridDim                                                            
++	// for a dimension                                                     
++	void addCUDADeclarations(Module *M)
++    {
++        IRBuilder<> Builder(M->getContext());
++		LLVMContext &Context = Builder.getContext();
++		IntegerType *intType = Type::getInt64Ty(Context); //TD->getInt32Type(Context);
++
++		if (!M->getFunction("kernelgen_threadIdx_x")) {
++	
++		    //  define all dimensions, that can be used while code generation  
++			dimensions.push_back("x");                                         
++			dimensions.push_back("y");                                         
++			dimensions.push_back("z");                                         
++
++			// define parameters of dimensions    
++			vector<string> parameters;            
++			parameters.push_back("threadIdx");    
++			parameters.push_back("blockIdx");     
++			parameters.push_back("blockDim");     
++			parameters.push_back("gridDim");      
++
++			string prefix1("kernelgen_");
++			string prefix2("_");
++			string prefix3(".");
++
++			for(unsigned int i = 0; i < dimensions.size(); i++)
++				for(unsigned int j =0; j < parameters.size(); j++) {
++					CudaFunctions.push_back((new string(prefix1 + parameters[j] + prefix2 + dimensions[i]))->c_str());
++					CudaInricics[CudaFunctions.back()] = (new string(parameters[j] + prefix3 + dimensions[i]))->c_str();
++				}
++			for(unsigned int i = 0; i < CudaFunctions.size(); i++) {
++				FunctionType *FT = FunctionType::get(intType, std::vector<Type*>(), false);
++				Function::Create(FT, Function::ExternalLinkage,(CudaFunctions)[i], M);
++			}
++		}
++	}
++  
+   // Add the declarations needed by the OpenMP function calls that we insert in
+   // OpenMP mode.
+   void addOpenMPDeclarations(Module *M)
+@@ -1696,6 +2083,7 @@
+     Module *M = region->getEntry()->getParent()->getParent();
+ 
+     if (OpenMP) addOpenMPDeclarations(M);
++	if (CUDA) addCUDADeclarations(M);
+ 
+     // In the CFG the optimized code of the SCoP is generated next to the
+     // original code. Both the new and the original version of the code remain
+@@ -1741,7 +2129,8 @@
+     parallelLoops.insert(parallelLoops.begin(),
+                          CodeGen.getParallelLoops().begin(),
+                          CodeGen.getParallelLoops().end());
+-
++    assert(!verifyFunction(*(region->getEntry()->getParent())) && 
++	                       "code generation failed : function was broken");
+     return true;
+   }
+
+--- a/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/include/polly/LinkAllPasses.h	2012-02-22 21:31:42.000000000 +0400
+@@ -28,7 +28,7 @@
+ using namespace llvm;
+ 
+ namespace polly {
+-  Pass *createAffSCEVItTesterPass();
++  //Pass *createAffSCEVItTesterPass();
+   Pass *createCloogExporterPass();
+   Pass *createCloogInfoPass();
+   Pass *createCodeGenerationPass();
+@@ -76,7 +76,7 @@
+       if (std::getenv("bar") != (char*) -1)
+         return;
+ 
+-       createAffSCEVItTesterPass();
++       //createAffSCEVItTesterPass();
+        createCloogExporterPass();
+        createCloogInfoPass();
+        createCodeGenerationPass();
+@@ -88,7 +88,7 @@
+        createDOTPrinterPass();
+        createDOTViewerPass();
+        createIndependentBlocksPass();
+-       createIndVarSimplifyPass();
++       polly::createIndVarSimplifyPass();
+        createJSONExporterPass();
+        createJSONImporterPass();
+        createRegionSimplifyPass();
+
+--- a/llvm/tools/polly/include/polly/ScopInfo.h	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/include/polly/ScopInfo.h	2012-02-22 21:31:42.000000000 +0400
+@@ -95,7 +95,7 @@
+ private:
+   isl_map *AccessRelation;
+   enum AccessType Type;
+-
++  unsigned elemTypeSize;
+   const Value* BaseAddr;
+   std::string BaseName;
+   isl_basic_map *createBasicAccessMap(ScopStmt *Statement);
+@@ -131,7 +131,9 @@
+   const Value *getBaseAddr() const {
+     return BaseAddr;
+   }
+-
++  unsigned getElemTypeSize() const {
++	  return elemTypeSize;
++  }
+   const std::string &getBaseName() const {
+     return BaseName;
+   }
+
+--- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	2012-02-22 21:31:42.000000000 +0400
+@@ -334,6 +334,7 @@
+   isl_int v;
+   isl_int_init(v);
+   isl_int_set_si(v, Access.getElemSizeInBytes());
++  elemTypeSize = Access.getElemSizeInBytes();
+   Affine = isl_pw_aff_scale_down(Affine, v);
+   isl_int_clear(v);
+
+--- a/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	2012-02-22 20:51:28.000000000 +0400
++++ b/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	2012-02-22 21:31:42.000000000 +0400
+@@ -74,7 +74,7 @@
+              cl::value_desc("The function name to detect scops in"),
+              cl::ValueRequired, cl::init(""));
+ 
+-static cl::opt<bool>
++cl::opt<bool>
+ IgnoreAliasing("polly-ignore-aliasing",
+                cl::desc("Ignore possible aliasing of the array bases"),
+                cl::Hidden, cl::init(false));
+

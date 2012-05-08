@@ -1,0 +1,358 @@
+--- a/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-04 17:05:14.427375487 +0300
++++ b/llvm/lib/Target/CBackend/CBackend.cpp	2011-12-04 17:04:32.609276879 +0300
+@@ -510,7 +510,9 @@
+     if (!IgnoreName)
+       return Out << getStructName(STy) << ' ' << NameSoFar;
+     
+-    Out << "struct " << NameSoFar + " {\n";
++    Out << "struct\n";
++    Out << "\n#if defined(__CUDA_DEVICE_FUNC__) || defined(__OPENCL_DEVICE_FUNC__)\n__attribute__ ((aligned(16)))\n#endif // __CUDA_DEVICE_FUNC__\n";
++    Out << NameSoFar + " {\n";
+     unsigned Idx = 0;
+     for (StructType::element_iterator I = STy->element_begin(),
+            E = STy->element_end(); I != E; ++I) {
+@@ -520,7 +522,7 @@
+     }
+     Out << '}';
+     if (STy->isPacked())
+-      Out << " __attribute__ ((packed))";
++      Out << "\n#if !defined(__CUDA_DEVICE_FUNC__) && !defined(__OPENCL_DEVICE_FUNC__)\n__attribute__ ((packed))\n#endif // __CUDA_DEVICE_FUNC__\n";
+     return Out;
+   }
+ 
+@@ -532,6 +534,8 @@
+         PTy->getElementType()->isVectorTy())
+       ptrName = "(" + ptrName + ")";
+ 
++    Out << "\n#ifdef __OPENCL_DEVICE_FUNC__\n__global\n#endif // __OPENCL_DEVICE_FUNC__\n";
++    
+     if (!PAL.isEmpty())
+       // Must be a function ptr cast!
+       return printType(Out, PTy->getElementType(), false, ptrName, true, PAL);
+@@ -1480,6 +1484,8 @@
+       << "#elif defined(_MSC_VER)\n"
+       << "#define inline _inline\n"
+       << "#define alloca(x) _alloca(x)\n"
++      << "#elif defined(__CUDA_DEVICE_FUNC__)\n"
++      << "#define alloca(x) kernelgen_malloc(x)\n"
+       << "#else\n"
+       << "#include <alloca.h>\n"
+       << "#endif\n\n";
+@@ -1569,7 +1575,8 @@
+       << "#define LLVM_ASM(X)\n"
+       << "#endif\n\n";
+ 
+-  Out << "#if __GNUC__ < 4 /* Old GCC's, or compilers not GCC */ \n"
++  Out << "/* Old GCC's, or compilers not GCC */\n"
++      << "#if defined(__CUDA_DEVICE_FUNC__) || defined(__OPENCL_DEVICE_FUNC__) || (__GNUC__ < 4)\n"
+       << "#define __builtin_stack_save() 0   /* not implemented */\n"
+       << "#define __builtin_stack_restore(X) /* noop */\n"
+       << "#endif\n\n";
+@@ -1577,7 +1584,7 @@
+   // Output typedefs for 128-bit integers. If these are needed with a
+   // 32-bit target or with a C compiler that doesn't support mode(TI),
+   // more drastic measures will be needed.
+-  Out << "#if __GNUC__ && __LP64__ /* 128-bit integer types */\n"
++  Out << "#if __GNUC__ && __LP64__ && !__CUDA_DEVICE_FUNC__ /* 128-bit integer types */\n"
+       << "typedef int __attribute__((mode(TI))) llvmInt128;\n"
+       << "typedef unsigned __attribute__((mode(TI))) llvmUInt128;\n"
+       << "#endif\n\n";
+@@ -1696,17 +1703,29 @@
+       break;
+     }
+   }
++  
++  // In case of OpenCL be C++, do not define size_t, enable double
++  // extension by request.
++  Out << "#ifdef __OPENCL_DEVICE_FUNC__\n";
++  Out << "#ifdef __OPENCL_HAVE_DOUBLE__\n";
++  Out << "#pragma OPENCL EXTENSION cl_khr_fp64: enable\n";
++  Out << "#endif\n";
++  Out << "#define __GNUG__\n";
++  Out << "#define size_t size_t\n";
++  Out << "#endif\n\n";
+ 
+   // get declaration for alloca
+   Out << "/* Provide Declarations */\n";
++  Out << "#ifndef __OPENCL_DEVICE_FUNC__\n";
+   Out << "#include <stdarg.h>\n";      // Varargs support
++  Out << "#endif // __OPENCL_DEVICE_FUNC__\n";
+   Out << "#include <setjmp.h>\n";      // Unwind support
+   Out << "#include <limits.h>\n";      // With overflow intrinsics support.
+   generateCompilerSpecificCode(Out, TD);
+ 
+   // Provide a definition for `bool' if not compiling with a C++ compiler.
+   Out << "\n"
+-      << "#ifndef __cplusplus\ntypedef unsigned char bool;\n#endif\n"
++      << "#if !defined(__cplusplus) && !defined(__OPENCL_DEVICE_FUNC__)\ntypedef unsigned char bool;\n#endif\n"
+ 
+       << "\n\n/* Support for floating point constants */\n"
+       << "typedef unsigned long long ConstantDoubleTy;\n"
+@@ -1754,9 +1773,15 @@
+     for (Module::global_iterator I = M.global_begin(), E = M.global_end();
+          I != E; ++I) {
+ 
++      Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribute__((device))\n#endif\n";
++
+       if (I->hasExternalLinkage() || I->hasExternalWeakLinkage() ||
+           I->hasCommonLinkage())
+-        Out << "extern ";
++      {
++        Out << "#if !defined(__CUDA_DEVICE_FUNC__) && !defined(__OPENCL_DEVICE_FUNC__)\n";
++        Out << "extern\n";
++        Out << "#endif // __CUDA_DEVICE_FUNC__\n";
++      }
+       else if (I->hasDLLImportLinkage())
+         Out << "__declspec(dllimport) ";
+       else
+@@ -1776,6 +1801,7 @@
+ 
+   // Function declarations
+   Out << "\n/* Function Declarations */\n";
++  Out << "#if !defined(__CUDA_DEVICE_FUNC__) && !defined(__OPENCL_DEVICE_FUNC__)\n";
+   Out << "double fmod(double, double);\n";   // Support for FP rem
+   Out << "float fmodf(float, float);\n";
+   Out << "long double fmodl(long double, long double);\n";
+@@ -1821,6 +1847,7 @@
+ 
+     Out << ";\n";
+   }
++  Out << "#endif // __CUDA_DEVICE_FUNC__\n";
+ 
+   // Output the global variable declarations
+   if (!M.global_empty()) {
+@@ -1835,7 +1862,9 @@
+         if (I->hasLocalLinkage())
+           Out << "static ";
+         else
+-          Out << "extern ";
++        {
++          Out << "#ifndef __CUDA_DEVICE_FUNC__\nextern ";
++        }
+ 
+         // Thread Local Storage
+         if (I->isThreadLocal())
+@@ -1855,6 +1884,9 @@
+         if (I->hasHiddenVisibility())
+           Out << " __HIDDEN__";
+         Out << ";\n";
++
++        if (!I->hasLocalLinkage())
++          Out << "#endif // __CUDA_DEVICE_FUNC__\n";
+       }
+   }
+ 
+@@ -1868,6 +1900,11 @@
+         if (getGlobalVariableClass(I))
+           continue;
+ 
++        Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribute__((device))\n#endif // __CUDA_DEVICE_FUNC__\n";
++        Out << "#if !defined(__CUDA_DEVICE_FUNC__) && !defined(__OPENCL_DEVICE_FUNC__)\n";
++        Out << "extern\n";
++        Out << "#endif // __CUDA_DEVICE_FUNC__\n";
++
+         if (I->hasLocalLinkage())
+           Out << "static ";
+         else if (I->hasDLLImportLinkage())
+@@ -1926,34 +1963,20 @@
+ 
+   // Emit some helper functions for dealing with FCMP instruction's
+   // predicates
+-  Out << "static inline int llvm_fcmp_ord(double X, double Y) { ";
+-  Out << "return X == X && Y == Y; }\n";
+-  Out << "static inline int llvm_fcmp_uno(double X, double Y) { ";
+-  Out << "return X != X || Y != Y; }\n";
+-  Out << "static inline int llvm_fcmp_ueq(double X, double Y) { ";
+-  Out << "return X == Y || llvm_fcmp_uno(X, Y); }\n";
+-  Out << "static inline int llvm_fcmp_une(double X, double Y) { ";
+-  Out << "return X != Y; }\n";
+-  Out << "static inline int llvm_fcmp_ult(double X, double Y) { ";
+-  Out << "return X <  Y || llvm_fcmp_uno(X, Y); }\n";
+-  Out << "static inline int llvm_fcmp_ugt(double X, double Y) { ";
+-  Out << "return X >  Y || llvm_fcmp_uno(X, Y); }\n";
+-  Out << "static inline int llvm_fcmp_ule(double X, double Y) { ";
+-  Out << "return X <= Y || llvm_fcmp_uno(X, Y); }\n";
+-  Out << "static inline int llvm_fcmp_uge(double X, double Y) { ";
+-  Out << "return X >= Y || llvm_fcmp_uno(X, Y); }\n";
+-  Out << "static inline int llvm_fcmp_oeq(double X, double Y) { ";
+-  Out << "return X == Y ; }\n";
+-  Out << "static inline int llvm_fcmp_one(double X, double Y) { ";
+-  Out << "return X != Y && llvm_fcmp_ord(X, Y); }\n";
+-  Out << "static inline int llvm_fcmp_olt(double X, double Y) { ";
+-  Out << "return X <  Y ; }\n";
+-  Out << "static inline int llvm_fcmp_ogt(double X, double Y) { ";
+-  Out << "return X >  Y ; }\n";
+-  Out << "static inline int llvm_fcmp_ole(double X, double Y) { ";
+-  Out << "return X <= Y ; }\n";
+-  Out << "static inline int llvm_fcmp_oge(double X, double Y) { ";
+-  Out << "return X >= Y ; }\n";
++  Out << "#define llvm_fcmp_ord(X, Y) ((X) == (X) && (Y) == (Y))\n";
++  Out << "#define llvm_fcmp_uno(X, Y) ((X) != (X) || (Y) != (Y))\n";
++  Out << "#define llvm_fcmp_ueq(X, Y) ((X) == (Y) || llvm_fcmp_uno(X, Y))\n";
++  Out << "#define llvm_fcmp_une(X, Y) ((X) != (Y))\n";
++  Out << "#define llvm_fcmp_ult(X, Y) ((X) <  (Y) || llvm_fcmp_uno(X, Y))\n";
++  Out << "#define llvm_fcmp_ugt(X, Y) ((X) >  (Y) || llvm_fcmp_uno(X, Y))\n";
++  Out << "#define llvm_fcmp_ule(X, Y) ((X) <= (Y) || llvm_fcmp_uno(X, Y))\n";
++  Out << "#define llvm_fcmp_uge(X, Y) ((X) >= (Y) || llvm_fcmp_uno(X, Y))\n";
++  Out << "#define llvm_fcmp_oeq(X, Y) ((X) == (Y))\n";
++  Out << "#define llvm_fcmp_one(X, Y) ((X) != (Y) && llvm_fcmp_ord(X, Y))\n";
++  Out << "#define llvm_fcmp_olt(X, Y) ((X) <  (Y))\n";
++  Out << "#define llvm_fcmp_ogt(X, Y) ((X) >  (Y))\n";
++  Out << "#define llvm_fcmp_ole(X, Y) ((X) <= (Y))\n";
++  Out << "#define llvm_fcmp_oge(X, Y) ((X) >= (Y))\n";
+ 
+   // Emit definitions of the intrinsics.
+   for (SmallVector<const Function*, 8>::const_iterator
+@@ -2002,6 +2025,7 @@
+   if (FPC->getType() == Type::getDoubleTy(FPC->getContext())) {
+     double Val = FPC->getValueAPF().convertToDouble();
+     uint64_t i = FPC->getValueAPF().bitcastToAPInt().getZExtValue();
++    Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribute__((device))\n#endif // __CUDA_DEVICE_FUNC__\n";
+     Out << "static const ConstantDoubleTy FPConstant" << FPCounter++
+     << " = 0x" << utohexstr(i)
+     << "ULL;    /* " << Val << " */\n";
+@@ -2009,6 +2033,7 @@
+     float Val = FPC->getValueAPF().convertToFloat();
+     uint32_t i = (uint32_t)FPC->getValueAPF().bitcastToAPInt().
+     getZExtValue();
++    Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribute__((device))\n#endif // __CUDA_DEVICE_FUNC__\n";
+     Out << "static const ConstantFloatTy FPConstant" << FPCounter++
+     << " = 0x" << utohexstr(i)
+     << "U;    /* " << Val << " */\n";
+@@ -2016,6 +2041,7 @@
+     // api needed to prevent premature destruction
+     APInt api = FPC->getValueAPF().bitcastToAPInt();
+     const uint64_t *p = api.getRawData();
++    Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribute__((device))\n#endif // __CUDA_DEVICE_FUNC__\n";
+     Out << "static const ConstantFP80Ty FPConstant" << FPCounter++
+     << " = { 0x" << utohexstr(p[0])
+     << "ULL, 0x" << utohexstr((uint16_t)p[1]) << ",{0,0,0}"
+@@ -2024,6 +2050,7 @@
+              FPC->getType() == Type::getFP128Ty(FPC->getContext())) {
+     APInt api = FPC->getValueAPF().bitcastToAPInt();
+     const uint64_t *p = api.getRawData();
++    Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribte__((device))\n#endif // __CUDA_DEVICE_FUNC__\n";
+     Out << "static const ConstantFP128Ty FPConstant" << FPCounter++
+     << " = { 0x"
+     << utohexstr(p[0]) << ", 0x" << utohexstr(p[1])
+@@ -2044,7 +2071,13 @@
+   Out << "  unsigned int Int32;\n";
+   Out << "  unsigned long long Int64;\n";
+   Out << "  float Float;\n";
++  Out << "#ifdef __OPENCL_DEVICE_FUNC__\n";
++  Out << "#ifdef __OPENCL_HAVE_DOUBLE__\n";
++  Out << "  double Double;\n";
++  Out << "#endif\n";
++  Out << "#else\n";
+   Out << "  double Double;\n";
++  Out << "#endif\n";
+   Out << "} llvmBitCastUnion;\n";
+ 
+   // Get all of the struct types used in the module.
+@@ -2247,9 +2280,9 @@
+   // Finish printing arguments... if this is a vararg function, print the ...,
+   // unless there are no known types, in which case, we just emit ().
+   //
+-  if (FT->isVarArg() && PrintedArg) {
++  /*if (FT->isVarArg() && PrintedArg) {
+     FunctionInnards << ",...";  // Output varargs portion of signature!
+-  } else if (!FT->isVarArg() && !PrintedArg) {
++  } else*/ if (!FT->isVarArg() && !PrintedArg) {
+     FunctionInnards << "void"; // ret() -> ret(void) in C.
+   }
+   FunctionInnards << ')';
+@@ -2282,6 +2315,8 @@
+   /// isStructReturn - Should this function actually return a struct by-value?
+   bool isStructReturn = F.hasStructRetAttr();
+ 
++  Out << "#ifdef __CUDA_DEVICE_FUNC__\n__attribute__((global)) __attribute__((used))\n#endif // __CUDA_DEVICE_FUNC__\n";
++
+   printFunctionSignature(&F, false);
+   Out << " {\n";
+ 
+@@ -3477,9 +3512,9 @@
+   bool IsUnaligned = Alignment &&
+     Alignment < TD->getABITypeAlignment(OperandType);
+ 
+-  if (!IsUnaligned)
++  //if (!IsUnaligned)
+     Out << '*';
+-  if (IsVolatile || IsUnaligned) {
++  /*if (IsVolatile || IsUnaligned) {
+     Out << "((";
+     if (IsUnaligned)
+       Out << "struct __attribute__ ((packed, aligned(" << Alignment << "))) {";
+@@ -3490,15 +3525,15 @@
+       Out << "*";
+     }
+     Out << ")";
+-  }
++  }*/
+ 
+   writeOperand(Operand);
+ 
+-  if (IsVolatile || IsUnaligned) {
++  /*if (IsVolatile || IsUnaligned) {
+     Out << ')';
+     if (IsUnaligned)
+       Out << "->data";
+-  }
++  }*/
+ }
+ 
+ void CWriter::visitLoadInst(LoadInst &I) {
+@@ -3508,23 +3543,37 @@
+ }
+ 
+ void CWriter::visitStoreInst(StoreInst &I) {
+-  writeMemoryAccess(I.getPointerOperand(), I.getOperand(0)->getType(),
+-                    I.isVolatile(), I.getAlignment());
+-  Out << " = ";
+-  Value *Operand = I.getOperand(0);
+-  Constant *BitMask = 0;
+-  if (IntegerType* ITy = dyn_cast<IntegerType>(Operand->getType()))
+-    if (!ITy->isPowerOf2ByteWidth())
+-      // We have a bit width that doesn't match an even power-of-2 byte
+-      // size. Consequently we must & the value with the type's bit mask
+-      BitMask = ConstantInt::get(ITy, ITy->getBitMask());
+-  if (BitMask)
+-    Out << "((";
+-  writeOperand(Operand);
+-  if (BitMask) {
+-    Out << ") & ";
+-    printConstant(BitMask, false);
+-    Out << ")";
++  ConstantArray *CA = dyn_cast<ConstantArray>(I.getOperand(0));
++  if (I.getOperand(0)->getType()->isArrayTy() && CA)
++  {
++    Out << "memcpy(";
++    writeOperand(I.getPointerOperand());
++    Out << ", ";
++    printConstantArray(CA, true);
++    Out << ", sizeof(";
++    printType(Out, I.getOperand(0)->getType());
++    Out << "))";
++  }
++  else
++  {
++    writeMemoryAccess(I.getPointerOperand(), I.getOperand(0)->getType(),
++                      I.isVolatile(), I.getAlignment());
++    Out << " = ";
++    Value *Operand = I.getOperand(0);
++    Constant *BitMask = 0;
++    if (IntegerType* ITy = dyn_cast<IntegerType>(Operand->getType()))
++      if (!ITy->isPowerOf2ByteWidth())
++        // We have a bit width that doesn't match an even power-of-2 byte
++        // size. Consequently we must & the value with the type's bit mask
++        BitMask = ConstantInt::get(ITy, ITy->getBitMask());
++    if (BitMask)
++      Out << "((";
++    writeOperand(Operand);
++    if (BitMask) {
++      Out << ") & ";
++      printConstant(BitMask, false);
++      Out << ")";
++    }
+   }
+ }
+ 

@@ -1,0 +1,44 @@
+--- a/dragonegg/src/Backend.cpp	2012-03-08 19:03:33.178648662 +0300
++++ b/dragonegg/src/Backend.cpp	2012-03-08 19:17:32.124873204 +0300
+@@ -84,6 +84,8 @@
+ #error Unsupported GCC major version
+ #endif
+ 
++extern std::string dragonegg_result;
++
+ // TODO: In GCC, add targhooks.h to the list of plugin headers and remove this.
+ extern "C" tree default_mangle_decl_assembler_name (tree, tree);
+ 
+@@ -116,6 +118,7 @@
+ static bool EnableGCCOptimizations;
+ static bool EmitIR;
+ static bool SaveGCCOutput;
++static bool InternalOutput;
+ static int LLVMCodeGenOptimizeArg = -1;
+ static int LLVMIROptimizeArg = -1;
+ 
+@@ -586,8 +589,14 @@
+   assert(!OutStream && "Output stream already initialized!");
+   std::string Error;
+ 
+-  OutStream = new raw_fd_ostream(llvm_asm_file_name, Error,
+-                                 Binary ? raw_fd_ostream::F_Binary : 0);
++  if (InternalOutput) {
++    // Write to internal array (to interface with other plugins).
++    OutStream = new raw_string_ostream(dragonegg_result);
++  } else {
++    // Write to file.
++    OutStream = new raw_fd_ostream(llvm_asm_file_name, Error,
++                                   Binary ? raw_fd_ostream::F_Binary : 0);
++  }
+ 
+   if (!Error.empty())
+     report_fatal_error(Error);
+@@ -2018,6 +2027,7 @@
+     { "enable-gcc-optzns", &EnableGCCOptimizations },
+     { "emit-ir", &EmitIR },
+     { "save-gcc-output", &SaveGCCOutput },
++    { "internal-output", &InternalOutput },
+     { NULL, NULL } // Terminator.
+ };
+ 
