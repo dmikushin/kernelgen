@@ -709,9 +709,40 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	// 4) Rename main entry and insert another one
 	// into composite module.
 	//
-	{
-		Function* main_ = composite.getFunction("main");
-		main_->setName("main_");
+	FunctionType* mainTy;
+ 	{
+		// Get the regular main entry and rename in to
+		// __kernelgen_regular_main.
+ 		Function* main_ = composite.getFunction("main");
+		main_->setName("_main");
+		mainTy = main_->getFunctionType();
+
+		// Check whether the prototype is supported.
+		while (1)
+		{
+			if (mainTy == TypeBuilder<void(), true>::get(context))
+				break;
+			if (mainTy == TypeBuilder<void(
+				types::i<32>, types::i<8>**), true>::get(context))
+				break;
+			if (mainTy == TypeBuilder<void(
+				types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
+				break;
+
+			if (mainTy == TypeBuilder<types::i<32>(), true>::get(context))
+				break;
+			if (mainTy == TypeBuilder<types::i<32>(
+				types::i<32>, types::i<8>**), true>::get(context))
+				break;
+			if (mainTy == TypeBuilder<types::i<32>(
+				types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
+				break;
+
+			cerr << "Unsupported main entry prototype: ";
+			mainTy->dump();
+			cerr << endl;
+			return 1;
+		}
 		
 		// Create new main(int* args).
 		Function* main = Function::Create(
@@ -1144,6 +1175,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			StoreInst* memory4 = new StoreInst(GEP4, memory1, true, root); // volatile!
 			memory4->setAlignment(8);
 		}
+		// Add __kernelgen_regular_main reference.
+		Function::Create(mainTy, GlobalValue::ExternalLinkage,
+			"__kernelgen_regular_main", main.get());
 
 		//main.get()->dump();
 

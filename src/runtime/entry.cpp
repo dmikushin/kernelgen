@@ -27,7 +27,6 @@
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TypeBuilder.h"
 
 #include "elf.h"
 #include "util.h"
@@ -98,7 +97,7 @@ int main(int argc, char* argv[], char* envp[])
 	{
 		// Load the regular main function prototype.
 		// It is needed to correctly select the argument list.
-		/*MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(symbols[0]->getData());
+		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(symbols[0]->getData());
 		SMDiagnostic diag;
 		Module* m = ParseIR(buffer, diag, context);
 		if (!m)
@@ -106,11 +105,11 @@ int main(int argc, char* argv[], char* envp[])
 				diag.getLineContents() << ": " << diag.getMessage());
 		regular_main = m->getFunction("__kernelgen_regular_main");
 		if (!regular_main)
-			THROW("Cannot find the __kernelgen_regular_main function");*/
+			THROW("Cannot find the __kernelgen_regular_main function");
 	}
 
-	FunctionType* mainFuncTy = TypeBuilder<types::i<32>(types::i<32>, types::i<8>*), true>::get(context); // regular_main->getFunctionType();
-	Type* mainRetTy = Type::getInt32Ty(context); // regular_main->getReturnType();
+	FunctionType* mainFuncTy = regular_main->getFunctionType();
+	Type* mainRetTy = regular_main->getReturnType();
 
 	// Structure defining aggregate form of the main entry
 	// parameters. Return value is also packed, since
