@@ -29,6 +29,7 @@
 #include "runtime.h"
 
 #include <fcntl.h>
+#include <gelf.h>
 #include <memory>
 #include <string.h>
 

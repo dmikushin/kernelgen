@@ -40,7 +40,8 @@ my($LIB64) = $ARGV[2];
 # Copy binaries to install path.
 #
 my(@binaries) = (
-	"frontend/kernelgen-simple");
+	"frontend/kernelgen-simple",
+	"frontend/kernelgen-dragonegg");
 foreach $binary (@binaries)
 {
 	`cp $binary $PREFIX\/bin\/`;

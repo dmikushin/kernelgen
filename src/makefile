@@ -30,7 +30,8 @@ LIB64 ?= lib
 #
 OPT ?= 0
 
-PREFIX = $(ROOT)/opt/kernelgen
+RPATH ?= /opt/kernelgen
+PREFIX = $(ROOT)/$(RPATH)
 
 .PHONY: frontend runtime asfermi bindings
 
@@ -43,7 +44,7 @@ asfermi: bindings
 	cd libasfermi && $(MAKE)
 
 runtime: asfermi bindings
-	cd runtime && $(MAKE)
+	cd runtime && $(MAKE) RPATH=$(RPATH)
 
 bindings:
 	cd bindings && $(MAKE)
