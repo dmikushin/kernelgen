@@ -145,6 +145,9 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 	polly::CUDA.setValue(mode);
 
 	llvm::EnableStatistics();
+	bool debug = ::llvm::DebugFlag;
+	if (verbose)
+		::llvm::DebugFlag = true;
 	vector<Size3> sizes;
 	{
 		PassManager polly;
@@ -186,6 +189,7 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 	statisticsNames.push_back("runtime-AA");
 	printSpecifiedStatistics(statisticsNames);
 	llvm::RemoveStatistics();
+	::llvm::DebugFlag = debug;
 	
         if (verbose) {
 		outs().changeColor(raw_ostream::BLUE);

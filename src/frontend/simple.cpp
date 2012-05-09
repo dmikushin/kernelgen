@@ -311,7 +311,7 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 	{
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = 3;
+		builder.OptLevel = 0;
 		builder.DisableSimplifyLibCalls = true;
 		builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
 			addKernelgenPasses);
@@ -702,7 +702,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		cerr << "Note kernelgen-simple only searches in objects!" << endl;
 		return 1;
 	}
-	
+
 	//
 	// 3) Rename main entry and insert new main entry into the
 	// composite module. The new main entry shall have all arguments
@@ -1031,6 +1031,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				
 				// Create new module and populate it with entire loop function.
 				Module loop(func->getName(), context);
+				loop.setTargetTriple(composite.getTargetTriple());
+				loop.setDataLayout(composite.getDataLayout());
 				loop.getFunctionList().push_back(func);
 				
 				// Also clone all function definitions used by entire
@@ -1116,7 +1118,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				nloops++;
 			}
 		}
-		
+
 		TrackedPassManager manager(tracker);
 		manager.add(new TargetData(&composite));
 		
@@ -1131,7 +1133,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 
 		manager.run(composite);
 	}
-	
+
 	//
 	// 6) Delete all plain functions, except main out of "main" module.
 	// Add wrapper around main to make it compatible with kernelgen_launch.
