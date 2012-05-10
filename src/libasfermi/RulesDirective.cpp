@@ -404,7 +404,8 @@ struct DirectiveRuleRegCount: DirectiveRule
 		if((*currentArg).Length>2 && (*currentArg)[0]=='0' && ((*currentArg)[1]=='x')||(*currentArg)[1]=='X')
 			count = currentArg->ToImmediate32FromHexConstant(false);
 		else
-			count = currentArg->ToImmediate32FromInt32(); //issue: what's the error message that it's gonna give?
+			// DM: false to omit zero warning
+			count = currentArg->ToImmediate32FromInt32(false); //issue: what's the error message that it's gonna give?
 		if(count>63)
 			throw 1019;//no larger than 63
 		csCurrentKernel.RegCount = count;

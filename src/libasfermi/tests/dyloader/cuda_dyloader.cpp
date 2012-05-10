@@ -59,6 +59,14 @@ using namespace kernelgen::bind::cuda;
 	if (result != CUDA_SUCCESS) throw result; \
 }
 
+namespace kernelgen
+{
+	// Verbose output.
+	extern int verbose;
+}
+
+using namespace kernelgen;
+
 // Device memory buffer for binary size and content.
 struct buffer_t
 {
@@ -176,8 +184,9 @@ struct CUDYfunction_t
 	
 		if (regcount == -1)
 			throw CUDA_ERROR_INVALID_SOURCE;
-	
-		cout << "regcount = " << regcount << ", size = " << szbinary << endl;
+
+		if (verbose)
+			cout << "regcount = " << regcount << ", size = " << szbinary << endl;
 	}
 
 	CUDYfunction_t(CUDYloader_t* loader,
@@ -364,7 +373,8 @@ struct CUDYloader_t
 			// Read the LEPC.
 			CUTHROW( cuMemcpyDtoH(&lepc, buffer, sizeof(int)) );
 
-			cout << "LEPC = 0x" << hex << lepc << dec << endl;
+			if (verbose)
+				cout << "LEPC = 0x" << hex << lepc << dec << endl;
 
 			// Set binary pointer in buffer.
 			CUTHROW( cuMemcpyHtoD((char*)buffer + 8, &binary, sizeof(CUdeviceptr*)) );

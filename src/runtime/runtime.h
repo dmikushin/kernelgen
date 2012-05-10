@@ -120,6 +120,7 @@ extern int verbose;
 #define KERNELGEN_VERBOSE_DATAIO	1 << 3
 #define KERNELGEN_VERBOSE_HOSTCALL	1 << 4
 #define KERNELGEN_VERBOSE_POLLYGEN	1 << 5
+#define KERNELGEN_VERBOSE_TIMEPERF	1 << 6
 
 // The prototype of kernel function.
 // Thanks to arguments aggregation, all

@@ -159,7 +159,8 @@ int kernelgen_launch(kernel_t* kernel,
 			{
 				native_kernel_func(data);
 			}
-			cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
+			if (verbose & KERNELGEN_VERBOSE_TIMEPERF)
+				cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA :
@@ -196,8 +197,11 @@ int kernelgen_launch(kernel_t* kernel,
 					kernel->target[runmode].monitor_kernel_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
 
-				cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
-				cout << "only the kernel execution time = " << kernel_time << " sec" << endl;
+				if (verbose & KERNELGEN_VERBOSE_TIMEPERF)
+				{
+					cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
+					cout << "only the kernel execution time = " << kernel_time << " sec" << endl;
+				}
 				break;
 			}
 
@@ -292,8 +296,9 @@ int kernelgen_launch(kernel_t* kernel,
 							data.args = callback->data;
 							kernelgen_hostcall(callback->kernel, FunctionTy, StructTy,
 								&data);
-							cout << callback->kernel->name << " time = " <<
-                                                        	t.get_elapsed() << " sec" << endl;
+							if (verbose & KERNELGEN_VERBOSE_TIMEPERF)
+								cout << callback->kernel->name << " time = " <<
+        	                                                	t.get_elapsed() << " sec" << endl;
 							break;
 						}
 						
@@ -331,8 +336,9 @@ int kernelgen_launch(kernel_t* kernel,
 							kernelgen_hostcall(callback->kernel, data->FunctionTy,
 								data->StructTy, data);
 						}
-						cout << callback->kernel->name << " time = " <<
-							t.get_elapsed() << " sec" << endl;
+						if (verbose & KERNELGEN_VERBOSE_TIMEPERF)
+							cout << callback->kernel->name << " time = " <<
+								t.get_elapsed() << " sec" << endl;
 
 						//err = cuMemHostUnregister(data);
 						//if (err) THROW("Error in cuMemHostUnregister " << err);
