@@ -215,7 +215,7 @@ kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL
 kernel_func_t nvopencc(std::string source, std::string name, CUstream stream);
 
 // CUDA runtime context.
-extern std::auto_ptr<kernelgen::bind::cuda::context> cuda_context;
+extern kernelgen::bind::cuda::context* cuda_context;
 
 // Setup the device global memory pool initial configuration.
 kernelgen_memory_t* init_memory_pool(size_t szpool);

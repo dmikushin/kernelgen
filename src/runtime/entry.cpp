@@ -76,7 +76,8 @@ int kernelgen::verbose = 0;
 std::map<string, kernel_t*> kernelgen::kernels;
 
 // CUDA runtime context.
-std::auto_ptr<kernelgen::bind::cuda::context> kernelgen::runtime::cuda_context;
+// TODO: sort out how to turn it into auto_ptr.
+kernelgen::bind::cuda::context* kernelgen::runtime::cuda_context = NULL;
 
 int main(int argc, char* argv[], char* envp[])
 {
@@ -271,8 +272,8 @@ int main(int argc, char* argv[], char* envp[])
 			case KERNELGEN_RUNMODE_CUDA :
 			{
 				// Initialize dynamic kernels loader.
-				kernelgen::runtime::cuda_context.reset(
-					kernelgen::bind::cuda::context::init(8192));
+				kernelgen::runtime::cuda_context =
+					kernelgen::bind::cuda::context::init(8192);
 
 				// Create streams where monitoring and target kernels
 				// will be executed.
@@ -406,6 +407,8 @@ int main(int argc, char* argv[], char* envp[])
 				if (err) THROW("Error in cuMemFree " << err);
 				err = cuMemFree(args_dev);
 				if (err) THROW("Error in cuMemFree " << err);
+
+				delete kernelgen::runtime::cuda_context;
 
 				return ret;
 			}
