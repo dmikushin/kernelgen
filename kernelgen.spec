@@ -1,8 +1,10 @@
+#define kernelgen revision
+%define kgen_rev 827
 # Release name
 %define release accurate
 
 # Target operating system
-%define target debian
+%define target fedora
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -37,7 +39,7 @@ Summary:        Compiler with automatic generation of GPU kernels from the regul
 Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
 Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
 Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r801.tar.bz2
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.bz2
 Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r151057.tar.gz
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
 Patch0:		llvm.varargs.patch
@@ -154,7 +156,7 @@ cd build/
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xjf $RPM_SOURCE_DIR/kernelgen-r801.tar.bz2
+tar -xjf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.bz2
 cd $RPM_BUILD_DIR
 #
 # Build parts of the system
@@ -260,7 +262,7 @@ ROOT=$RPM_BUILD_ROOT LIB32=lib LIB64=lib make install
 # Install GCC.
 #
 cd $RPM_BUILD_DIR/gcc-4.6.3/build
-KERNELGEN_FALLBACK=1 make install
+CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install
 #
 # Clean some unnecessary files.
 #
@@ -277,6 +279,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/X11/Xw32defs.h
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/locale/de/LC_MESSAGES/libstdc++.mo
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/share/locale/fr/LC_MESSAGES/libstdc++.mo
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include-fixed/zutil.h
 
 #
 # Final cleanup (off for fast repack).
