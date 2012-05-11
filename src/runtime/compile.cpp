@@ -144,10 +144,11 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 	IgnoreAliasing.setValue(true);
 	polly::CUDA.setValue(mode);
 
-	llvm::EnableStatistics();
-	bool debug = ::llvm::DebugFlag;
-	if (verbose)
-		::llvm::DebugFlag = true;
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		llvm::EnableStatistics();
+	//bool debug = ::llvm::DebugFlag;
+	//if (verbose)
+	//	::llvm::DebugFlag = true;
 	vector<Size3> sizes;
 	{
 		PassManager polly;
@@ -165,9 +166,12 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		Size3 SizeOfLoops;
 		if(sizes.size() == 0)
 		{
-	        outs().changeColor(raw_ostream::RED);
-			outs() << "\n    FAIL: No Valid Scops detected in kernel!!!\n\n";
-			outs().resetColor();
+			if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+			{
+				outs().changeColor(raw_ostream::RED);
+				outs() << "\n    FAIL: No Valid Scops detected in kernel!!!\n\n";
+				outs().resetColor();
+			}
 		}
 		else {
 			// non-negative define sizes
@@ -184,12 +188,15 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		}
 
 	}
-	vector<string> statisticsNames;
-	statisticsNames.push_back("polly-detect");
-	statisticsNames.push_back("runtime-AA");
-	printSpecifiedStatistics(statisticsNames);
-	llvm::RemoveStatistics();
-	::llvm::DebugFlag = debug;
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	{
+		vector<string> statisticsNames;
+		statisticsNames.push_back("polly-detect");
+		statisticsNames.push_back("runtime-AA");
+		printSpecifiedStatistics(statisticsNames);
+		llvm::RemoveStatistics();
+	}
+	//::llvm::DebugFlag = debug;
 	
         if (verbose) {
 		outs().changeColor(raw_ostream::BLUE);
@@ -257,11 +264,11 @@ kernel_func_t kernelgen::runtime::compile(
 		return kernel->target[runmode].binary;
 
         if(verbose)
-		{
-			outs().changeColor(raw_ostream::BLUE);
-		    outs() << "\n<------------------ "<< kernel->name << ": compile started --------------------->\n";
-			outs().resetColor();
-		}
+	{
+		outs().changeColor(raw_ostream::BLUE);
+		outs() << "\n<------------------ "<< kernel->name << ": compile started --------------------->\n";
+		outs().resetColor();
+	}
 		
 	Module* m = module;
 	LLVMContext &context = getGlobalContext();
