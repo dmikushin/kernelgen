@@ -1,13 +1,13 @@
 LEVEL=..
 include $(LEVEL)/Makefile.programs
 
-all:: timeit timeit-target fpcmp
+all:: timeit fpcmp
 
 timeit: timeit.c
 	$(ORIGINAL_CC) $(CFLAGS) -O3 -o $@ $<
 
 timeit-target: timeit.c
-	$(LD_ENV_OVERRIDES) $(LCC) -o $@ $< $(LDFLAGS) $(CFLAGS) $(TARGET_FLAGS) -O3
+	$(LD_ENV_OVERRIDES) $(LCCA) -o $@ $< $(LDFLAGS) $(CFLAGS) $(TARGET_FLAGS) -O3
 
 fpcmp: fpcmp.c
 	$(ORIGINAL_CC) $(CFLAGS) -O3 -o $@ $<
