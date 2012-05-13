@@ -1,0 +1,19 @@
+Package: kernelgen
+Version: 0.2
+Section: development 
+Priority: optional
+Architecture: amd64
+Essential: no
+Depends:
+Pre-Depends:
+Recommends:
+Suggests:
+Installed-Size:
+Maintainer: Dmitry Mikushin <maemarcus@gmail.com>
+Conflicts:
+Replaces:
+Provides: kernelgen
+Description: Compiler with automatic generation of GPU kernels from the regular source code
+             A tool for automatic generation of GPU kernels from Fortran source code.
+             From user's point of view it acts as regular GNU-compatible compiler.
+

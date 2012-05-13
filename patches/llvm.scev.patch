@@ -1,0 +1,126 @@
+--- a/llvm/lib/Analysis/ScalarEvolution.cpp	2012-02-22 02:51:59.000000000 +0400
++++ b/llvm/lib/Analysis/ScalarEvolution.cpp	2012-02-23 16:57:54.123210803 +0400
+@@ -4539,23 +4539,65 @@
+     if (EL.hasAnyInfo()) return EL;
+     break;
+   }
++  case ICmpInst::ICMP_SLE: {
++    // Convert to: while (X s< Y+1)
++    const SCEVAddRecExpr *AddRec = dyn_cast<SCEVAddRecExpr>(LHS);
++    const SCEV *Step = AddRec ? AddRec->getStepRecurrence(*this) :
++                       getConstant(RHS->getType(), 1);
++    const SCEV *AddStep = getAddExpr(RHS, Step);
++    ExitLimit EL = HowManyLessThans(LHS, AddStep, L, true);
++    if (EL.hasAnyInfo()) return EL;
++    break;
++  }  
+   case ICmpInst::ICMP_SGT: {
+     ExitLimit EL = HowManyLessThans(getNotSCEV(LHS),
+                                              getNotSCEV(RHS), L, true);
+     if (EL.hasAnyInfo()) return EL;
+     break;
+   }
++  case ICmpInst::ICMP_SGE: {
++    // Convert to: while (X s> Y+1)
++    const SCEVAddRecExpr *AddRec = dyn_cast<SCEVAddRecExpr>(LHS);
++    const SCEV *Step = AddRec ? AddRec->getStepRecurrence(*this) :
++                       getConstant(RHS->getType(), 1);
++    const SCEV *AddStep = getAddExpr(RHS, Step);
++    ExitLimit EL = HowManyLessThans(getNotSCEV(LHS), getNotSCEV(AddStep), L,
++                                    true);
++    if (EL.hasAnyInfo()) return EL;
++    break;
++  }  
+   case ICmpInst::ICMP_ULT: {
+     ExitLimit EL = HowManyLessThans(LHS, RHS, L, false);
+     if (EL.hasAnyInfo()) return EL;
+     break;
+   }
++  case ICmpInst::ICMP_ULE: {
++    // Convert to: while (X u< Y+1)
++    const SCEVAddRecExpr *AddRec = dyn_cast<SCEVAddRecExpr>(LHS);
++    const SCEV *Step = AddRec ? AddRec->getStepRecurrence(*this) :
++                       getConstant(RHS->getType(), 1);
++    const SCEV *AddStep = getAddExpr(RHS, Step);
++    ExitLimit EL = HowManyLessThans(LHS, AddStep, L, false);
++    if (EL.hasAnyInfo()) return EL;
++    break;
++  }  
+   case ICmpInst::ICMP_UGT: {
+     ExitLimit EL = HowManyLessThans(getNotSCEV(LHS),
+                                              getNotSCEV(RHS), L, false);
+     if (EL.hasAnyInfo()) return EL;
+     break;
+   }
++  case ICmpInst::ICMP_UGE: {
++    // Convert to: while (X u> Y+1)
++    const SCEVAddRecExpr *AddRec = dyn_cast<SCEVAddRecExpr>(LHS);
++    const SCEV *Step = AddRec ? AddRec->getStepRecurrence(*this) :
++                       getConstant(RHS->getType(), 1);
++    const SCEV *AddStep = getAddExpr(RHS, Step);
++    ExitLimit EL = HowManyLessThans(getNotSCEV(LHS), getNotSCEV(AddStep), L,
++                                    false);
++    if (EL.hasAnyInfo()) return EL;
++    break;
++  }  
+   default:
+ #if 0
+     dbgs() << "ComputeBackedgeTakenCount ";
+@@ -6263,9 +6305,30 @@
+   if (AddRec->isAffine()) {
+     unsigned BitWidth = getTypeSizeInBits(AddRec->getType());
+     const SCEV *Step = AddRec->getStepRecurrence(*this);
++    
++    // Determine LHS value on first iteration and on last iteration.
++    const SCEV *Start = AddRec->getStart();
+ 
++    // If we know that the condition is true in order to enter the loop,
++    // then we know that it will run exactly (m-n)/s times. Otherwise, we
++    // only know that it will execute (max(m,n)-n)/s times. In both cases,
++    // the division must round up.
++    const SCEV *End = RHS;
++    if (!isLoopEntryGuardedByCond(L,
++                                  isSigned ? ICmpInst::ICMP_SLT :
++                                             ICmpInst::ICMP_ULT,
++                                  getMinusSCEV(Start, Step), RHS))
++      End = isSigned ? getSMaxExpr(RHS, Start)
++                     : getUMaxExpr(RHS, Start);
++
+     if (Step->isZero())
+       return getCouldNotCompute();
++    
++    // If Start == End, the only iteration is possible for non zero step.
++    // To avoid additional pass-limit checks just set step to 1.
++    if (Start == End)
++      Step = getConstant(Step->getType(), 1);
++
+     if (Step->isOne()) {
+       // With unit stride, the iteration never steps past the limit value.
+     } else if (isKnownPositive(Step)) {
+@@ -6297,26 +6360,11 @@
+     // Note that we cannot simply return max(m-n,0)/s because it's not safe to
+     // treat m-n as signed nor unsigned due to overflow possibility.
+ 
+-    // First, we get the value of the LHS in the first iteration: n
+-    const SCEV *Start = AddRec->getOperand(0);
+-
+     // Determine the minimum constant start value.
+     const SCEV *MinStart = getConstant(isSigned ?
+       getSignedRange(Start).getSignedMin() :
+       getUnsignedRange(Start).getUnsignedMin());
+ 
+-    // If we know that the condition is true in order to enter the loop,
+-    // then we know that it will run exactly (m-n)/s times. Otherwise, we
+-    // only know that it will execute (max(m,n)-n)/s times. In both cases,
+-    // the division must round up.
+-    const SCEV *End = RHS;
+-    if (!isLoopEntryGuardedByCond(L,
+-                                  isSigned ? ICmpInst::ICMP_SLT :
+-                                             ICmpInst::ICMP_ULT,
+-                                  getMinusSCEV(Start, Step), RHS))
+-      End = isSigned ? getSMaxExpr(RHS, Start)
+-                     : getUMaxExpr(RHS, Start);
+-
+     // Determine the maximum constant end value.
+     const SCEV *MaxEnd = getConstant(isSigned ?
+       getSignedRange(End).getSignedMax() :
