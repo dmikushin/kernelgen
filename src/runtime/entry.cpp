@@ -300,11 +300,13 @@ int main(int argc, char* argv[], char* envp[])
 					// Use clang frontend to compile CUDA code into LLVM IR.
 					char* compiler = "clang";
 					vector<const char*> args;
+					args.push_back(compiler);
                 			args.push_back("-cc1");
 					args.push_back("/opt/kernelgen/include/kernelgen_monitor.cu");
 					args.push_back("-triple");
 					args.push_back("ptx64-unknown-unknown");
-					args.push_back("-fcuda-is-device -emit-llvm");
+					args.push_back("-fcuda-is-device");
+					args.push_back("-emit-llvm");
 					args.push_back("-D__CUDA_DEVICE_FUNC__");
 					args.push_back("-U_FORTIFY_SOURCE");
 					args.push_back("-I/opt/kernelgen/include");
@@ -323,7 +325,6 @@ int main(int argc, char* argv[], char* envp[])
 					args.push_back(gcc_output.c_str());
                 
 					args.push_back(NULL);
-			                args[0] = compiler;
 					if (verbose)
 					{
 						cout << args[0];

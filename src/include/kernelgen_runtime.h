@@ -46,7 +46,7 @@ __device__ void kernelgen_hostcall(unsigned char* kernel,
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_HOSTCALL;
-	callback->kernel = (struct kernel_t*)kernel;
+	callback->kernel = (kernelgen::kernel_t*)kernel;
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
 	callback->data = (struct kernelgen_callback_data_t*)data;
@@ -65,7 +65,7 @@ __device__ int kernelgen_launch(unsigned char* kernel,
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_LOOPCALL;
-	callback->kernel = (struct kernel_t*)kernel;
+	callback->kernel = (kernelgen::kernel_t*)kernel;
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
 	callback->data = (struct kernelgen_callback_data_t*)data;
