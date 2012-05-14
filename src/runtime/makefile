@@ -46,7 +46,7 @@ CXXFLAGS = \
 	-I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
 
 OBJECTS := \
-	entry compile launch finish timer io elf execute nvopencc \
+	entry compile launch finish timer io elf execute codegen \
 	memory hostcall wrappers \
         ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis
 
@@ -83,7 +83,7 @@ elf.o: elf.cpp elf.h
 execute.o: execute.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-nvopencc.o: nvopencc.cpp
+codegen.o: codegen.cpp
 	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
 
 memory.o: memory.cpp

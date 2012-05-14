@@ -55,7 +55,7 @@ __device__ void* kernelgen_malloc(size_t size)
 	// Align size.
 	if (size % 4096) size += 4096 - size % 4096;
 
-	kernelgen_memory_t* km = __kernelgen_memory;
+	kernelgen_memory_t* km = (kernelgen_memory_t*)__kernelgen_memory;
 
 	// If there is less free space in pool, than requested,
 	// then just return NULL.
@@ -107,12 +107,12 @@ __device__ int kernelgen_posix_memalign(void** ptr, size_t alignment, size_t siz
 	// TODO: Do actual alignment somehow, currently
 	// memory is always aligned to 4096 bytes.
 	*ptr = kernelgen_malloc(size);
-	return NULL;
+	return 0;
 }
 
 __device__ void kernelgen_free(void* p)
 {
-	kernelgen_memory_t* km = __kernelgen_memory;
+	kernelgen_memory_t* km = (kernelgen_memory_t*)__kernelgen_memory;
 
 	// Mark in MCB that this chunk is free.
 	kerelgen_memory_chunk_t* ptr = (kerelgen_memory_chunk_t*)p - 1;

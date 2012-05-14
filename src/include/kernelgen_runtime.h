@@ -24,12 +24,11 @@
 
 #define __device__ static __inline__ __attribute__((always_inline))
 
-extern __attribute__((device)) int __iAtomicCAS(
-	int *address, int compare, int val);
+extern int __iAtomicCAS(int *address, int compare, int val);
 
-extern __attribute__((__used__)) __attribute__((device)) unsigned int* __kernelgen_callback;
+extern unsigned int* __kernelgen_callback;
 
-extern __attribute__((__used__)) __attribute__((device)) unsigned int* __kernelgen_memory;
+extern unsigned int* __kernelgen_memory;
 
 #include "kernelgen_interop.h"
 #include "kernelgen_memory.h"
@@ -50,7 +49,7 @@ __device__ void kernelgen_hostcall(unsigned char* kernel,
 	callback->kernel = (struct kernel_t*)kernel;
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
-	callback->data = data;
+	callback->data = (struct kernelgen_callback_data_t*)data;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
@@ -69,7 +68,7 @@ __device__ int kernelgen_launch(unsigned char* kernel,
 	callback->kernel = (struct kernel_t*)kernel;
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
-	callback->data = data;
+	callback->data = (struct kernelgen_callback_data_t*)data;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 

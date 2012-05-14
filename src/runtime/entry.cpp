@@ -24,9 +24,12 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 #include "elf.h"
 #include "util.h"
@@ -34,6 +37,7 @@
 #include "kernelgen_interop.h"
 
 #include <ffi.h>
+#include <fstream>
 #include <iostream>
 #include <cstdlib>
 
@@ -44,31 +48,19 @@ using namespace kernelgen;
 using namespace kernelgen::runtime;
 using namespace kernelgen::bind::cuda;
 using namespace llvm;
+using namespace llvm::sys;
+using namespace llvm::sys::fs;
 using namespace std;
 using namespace util::elf;
-
-// GPU monitoring kernel source.
-string kernelgen_monitor_source =
-	"__attribute__((global)) __attribute__((used)) __attribute__((launch_bounds(1, 1)))\n"
-	"void kernelgen_monitor(int* callback)\n"
-	"{\n"
-	"	// Unlock blocked gpu kernel associated\n"
-	"	// with lock. It simply waits for lock\n"
-	"	// to be dropped to zero.\n"
-	"	__iAtomicCAS(&((struct kernelgen_callback_t*)callback)->lock, 1, 0);\n"
-	"\n"
-	"	// Wait for lock to be set.\n"
-	"	// When lock is set this thread exits,\n"
-	"	// and CPU monitor thread gets notified\n"
-	"	// by synchronization.\n"
-	"	while (!__iAtomicCAS(&((struct kernelgen_callback_t*)callback)->lock, 1, 1)) continue;\n"
-	"}\n";
 
 // Kernels runmode (target).
 int kernelgen::runmode = -1;
 
 // Verbose output.
 int kernelgen::verbose = 0;
+
+// Debug mode.
+bool kernelgen::debug = true;
 
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
@@ -285,9 +277,84 @@ int main(int argc, char* argv[], char* envp[])
 				if (err) THROW("Error in cuStreamCreate " << err);
 				
 				// Compile GPU monitoring kernel.
+				string kernelgen_monitor_source = "";
+				{
+					int fd;
+					string tmp_mask = "%%%%%%%%";
+					SmallString<128> gcc_output_vector;
+					if (unique_file(tmp_mask, fd, gcc_output_vector))
+					{
+						cout << "Cannot generate gcc output file name" << endl;
+						return 1;
+					}
+					string gcc_output = (StringRef)gcc_output_vector;
+					close(fd);
+					string err;
+					tool_output_file object(gcc_output.c_str(), err, raw_fd_ostream::F_Binary);
+					if (!err.empty())
+					{
+						cerr << "Cannot open output file" << gcc_output << endl;
+						return 1;
+					}
+
+					// Use clang frontend to compile CUDA code into LLVM IR.
+					char* compiler = "clang";
+					vector<const char*> args;
+                			args.push_back("-cc1");
+					args.push_back("/opt/kernelgen/include/kernelgen_monitor.cu");
+					args.push_back("-triple");
+					args.push_back("ptx64-unknown-unknown");
+					args.push_back("-fcuda-is-device -emit-llvm");
+					args.push_back("-D__CUDA_DEVICE_FUNC__");
+					args.push_back("-U_FORTIFY_SOURCE");
+					args.push_back("-I/opt/kernelgen/include");
+					args.push_back("-include");
+					args.push_back("kernelgen_runtime.h");
+
+					if (kernelgen::debug)
+					{
+						args.push_back("-g");
+						args.push_back("-O0");
+					}
+					else
+						args.push_back("-O3");
+
+					args.push_back("-o");
+					args.push_back(gcc_output.c_str());
+                
+					args.push_back(NULL);
+			                args[0] = compiler;
+					if (verbose)
+					{
+						cout << args[0];
+						for (int i = 1; args[i]; i++)
+							cout << " " << args[i];
+						cout << endl;
+					}
+
+					int status = Program::ExecuteAndWait(
+						Program::FindProgramByName(compiler), &args[0],
+						NULL, NULL, 0, 0, &err);
+					if (status)
+					{
+						cerr << err;
+						return status;
+					}
+
+					// Load LLVM IR to string.
+					std::ifstream tmp_stream(gcc_output.c_str());
+					tmp_stream.seekg(0, std::ios::end);
+					kernelgen_monitor_source.reserve(tmp_stream.tellg());
+					tmp_stream.seekg(0, std::ios::beg);
+
+					kernelgen_monitor_source.assign(
+						std::istreambuf_iterator<char>(tmp_stream),
+						std::istreambuf_iterator<char>());
+					tmp_stream.close();
+				}
 				kernel->target[runmode].monitor_kernel_func =
-					kernelgen::runtime::nvopencc(kernelgen_monitor_source,
-					"kernelgen_monitor", 0);
+					kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
+						kernelgen_monitor_source, "kernelgen_monitor", 0);
 
 				// Initialize callback structure.
 				// Initial lock state is "locked". It will be dropped

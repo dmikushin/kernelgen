@@ -42,10 +42,10 @@ using namespace kernelgen::runtime;
 using namespace util::io;
 using namespace std;
 
-bool debug = false;
+static bool debug = false;
 
 // Align cubin global data to the specified boundary.
-static void align(const char* cubin, size_t align, list<string>* names)
+static void cubin_align_data(const char* cubin, size_t align, list<string>* names)
 {
 	int fd = -1;
 	Elf* e = NULL;
@@ -158,7 +158,7 @@ static void align(const char* cubin, size_t align, list<string>* names)
                         {
                                 symbol.st_value = szglobal_new;
                                 if (symbol.st_size % align)
-                                        symbol.st_size += 4096 - symbol.st_size % 4096;
+                                        symbol.st_size += align - symbol.st_size % align;
                                 szglobal_new += symbol.st_size;
 
 				if (!gelf_update_sym(symbols, isymbol, &symbol))
@@ -172,7 +172,7 @@ static void align(const char* cubin, size_t align, list<string>* names)
                         {
 				size_t szaligned = symbol.st_size;
                                 if (szaligned % align)
-                                        szaligned += 4096 - szaligned % 4096;
+                                        szaligned += align - szaligned % align;
                                 szglobal_init_new += szaligned;
                         }
                 }
@@ -232,7 +232,7 @@ static void align(const char* cubin, size_t align, list<string>* names)
 
 				symbol.st_value = szglobal_init_new;
 				if (symbol.st_size % align)
-					symbol.st_size += 4096 - symbol.st_size % 4096;
+					symbol.st_size += align - symbol.st_size % align;
 				szglobal_init_new += symbol.st_size;
 				pglobal_init_new += symbol.st_size;
 
@@ -277,81 +277,12 @@ static void align(const char* cubin, size_t align, list<string>* names)
         }
 }
 
-kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream stream)
+kernel_func_t kernelgen::runtime::codegen(int runmode, string source, string name, CUstream stream)
 {
-	// Dump generated kernel object to first temporary file.
-	cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
-	{
-		fstream tmp_stream;
-		tmp_stream.open(tmp1.getFilename().c_str(),
-			fstream::binary | fstream::out | fstream::trunc);
-		tmp_stream << source;
-		tmp_stream.close();
-	}
-
-	// Compile CUDA code in temporary file to PTX.
-	cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
-	{
-		string nvopencc = "nvopencc";
-		std::list<string> nvopencc_args;
-		nvopencc_args.push_back("-D__CUDA_DEVICE_FUNC__");
-		nvopencc_args.push_back("-U_FORTIFY_SOURCE");
-		nvopencc_args.push_back("-I/opt/kernelgen/include");
-		nvopencc_args.push_back("-include");
-		nvopencc_args.push_back("kernelgen_runtime.h");
-		nvopencc_args.push_back("-x");
-		nvopencc_args.push_back("c");
-		nvopencc_args.push_back("-TARG:compute_20");
-		nvopencc_args.push_back("-m64");
-		if (debug)
-		{
-			nvopencc_args.push_back("-g");
-			nvopencc_args.push_back("-O0");
-			nvopencc_args.push_back("-OPT:ftz=0");
-			nvopencc_args.push_back("-CG:ftz=0");
-		}
-		else
-		{
-			nvopencc_args.push_back("-OPT:ftz=1");
-			nvopencc_args.push_back("-CG:ftz=1");
-		}
-		nvopencc_args.push_back("-CG:prec_div=0");
-		nvopencc_args.push_back("-CG:prec_sqrt=0");
-
-		// Since the main kernel may need to pass its data to other
-		// kernels or host, all symbols must be globally available.
-		if (name == "__kernelgen_main")
-			nvopencc_args.push_back("-CG:auto_as_static=0");
-
-		// Disable load/store vectorization (very buggy).
-		//nvopencc_args.push_back("-CG:vector_loadstore=0");
-
-		nvopencc_args.push_back(tmp1.getFilename());
-		nvopencc_args.push_back("-o");
-		nvopencc_args.push_back(tmp2.getFilename());
-		if (verbose)
-		{
-			cout << nvopencc;
-                        for (std::list<string>::iterator it = nvopencc_args.begin();
-                                it != nvopencc_args.end(); it++)
-                                cout << " " << *it;
-                        cout << endl;
-                }
-                execute(nvopencc, nvopencc_args, "", NULL, NULL);
-	}
+	// TODO: codegen LLVM IR into PTX or host, depending on the runmode.
 
 	// Load PTX into string.
 	string ptx;
-	{
-		std::ifstream tmp_stream(tmp2.getFilename().c_str());
-		tmp_stream.seekg(0, std::ios::end);
-		ptx.reserve(tmp_stream.tellg());
-		tmp_stream.seekg(0, std::ios::beg);
-
-		ptx.assign((std::istreambuf_iterator<char>(tmp_stream)),
-			std::istreambuf_iterator<char>());
-		tmp_stream.close();
-	}
 	
 	if (verbose & KERNELGEN_VERBOSE_SOURCES) cout << ptx;
 
@@ -363,7 +294,7 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 		if (verbose) ptxas_args.push_back("-v");
 		ptxas_args.push_back("-arch=sm_20");
 		ptxas_args.push_back("-m64");
-		ptxas_args.push_back(tmp2.getFilename());
+		//ptxas_args.push_back(tmp2.getFilename());
 		ptxas_args.push_back("-o");
 		ptxas_args.push_back(tmp3.getFilename());
 		if (debug)
@@ -386,7 +317,7 @@ kernel_func_t kernelgen::runtime::nvopencc(string source, string name, CUstream 
 	// Align cubin global data to the virtual memory page boundary.
 	std::list<string> names;
 	if (name == "__kernelgen_main")
-		align(tmp3.getFilename().c_str(), 4096, &names);
+		cubin_align_data(tmp3.getFilename().c_str(), 4096, &names);
 
 	// Dump Fermi assembly from CUBIN.
 	if (verbose & KERNELGEN_VERBOSE_ISA)

@@ -693,7 +693,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) cout << bin_string;
 
-		return nvopencc(bin_string, kernel->name,
+		return codegen(runmode, bin_string, kernel->name,
 			kernel->target[runmode].monitor_kernel_stream);
 
 		break;

@@ -113,6 +113,9 @@ extern int runmode;
 // Verbose output.
 extern int verbose;
 
+// Debug mode.
+extern bool debug;
+
 #define KERNELGEN_VERBOSE_DISABLE	0
 #define KERNELGEN_VERBOSE_SUMMARY	1 << 0
 #define KERNELGEN_VERBOSE_SOURCES	1 << 1
@@ -212,7 +215,7 @@ kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL
 
 // Compile C source to PTX using NVISA-enabled
 // Open64 compiler variant.
-kernel_func_t nvopencc(std::string source, std::string name, CUstream stream);
+kernel_func_t codegen(int runmode, std::string source, std::string name, CUstream stream);
 
 // CUDA runtime context.
 extern kernelgen::bind::cuda::context* cuda_context;
