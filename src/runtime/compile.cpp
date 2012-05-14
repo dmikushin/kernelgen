@@ -30,20 +30,15 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/IRReader.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
@@ -83,9 +78,6 @@ static string kernelgen_intrinsics[] = {
 #include "kernelgen_intrinsics.h"
 };
 static set<string> kernelgen_intrinsics_set, cuda_intrinsics_set;
-
-// Target machines for runmodes.
-auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
 
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL);
@@ -265,7 +257,7 @@ kernel_func_t kernelgen::runtime::compile(
 		if (!m)
 			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
 			      diag.getLineContents() << ": " << diag.getMessage());
-		m->setModuleIdentifier(kernel->name + "_module");
+		m->setModuleIdentifier(kernel->name);
 		kernel->module = m;
 
 		if (szdatai != 0) {
@@ -315,100 +307,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		// Create target machine for NATIVE target and get its target data.
-		if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
-			InitializeAllTargets();
-			InitializeAllTargetMCs();
-			InitializeAllAsmPrinters();
-			InitializeAllAsmParsers();
-
-			Triple triple(m->getTargetTriple());
-			if (triple.getTriple().empty())
-				triple.setTriple(sys::getDefaultTargetTriple());
-			string err;
-			TargetOptions options;
-			const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
-			if (!target)
-				THROW("Error auto-selecting target for module '" << err << "'." << endl <<
-				      "Please use the -march option to explicitly pick a target.");
-			targets[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
-			        triple.getTriple(), "", "", options, Reloc::PIC_, CodeModel::Default));
-			if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
-				THROW("Could not allocate target machine");
-
-			// Override default to generate verbose assembly.
-			targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
-		}
-
-		const TargetData* tdata =
-		    targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
-		PassManager manager;
-		manager.add(new TargetData(*tdata));
-
-		// Setup output stream.
-		string bin_string;
-		raw_string_ostream bin_stream(bin_string);
-		formatted_raw_ostream stream(bin_stream);
-
-		// Ask the target to add backend passes as necessary.
-		if (targets[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(manager, stream,
-		        TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
-			THROW("Target does not support generation of this file type");
-
-		manager.run(*m);
-
-		// Flush the resulting object binary to the
-		// underlying string.
-		stream.flush();
-
-		//cout << bin_string;
-
-		// Dump generated kernel object to first temporary file.
-		cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
-		{
-			fstream tmp_stream;
-			tmp_stream.open(tmp1.getFilename().c_str(),
-			                fstream::binary | fstream::out | fstream::trunc);
-			tmp_stream << bin_string;
-			tmp_stream.close();
-		}
-
-		// Link first and second objects together into third one.
-		cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
-		{
-			string linker = "ld";
-			std::list<string> linker_args;
-			linker_args.push_back("-shared");
-			linker_args.push_back("-o");
-			linker_args.push_back(tmp2.getFilename());
-			linker_args.push_back(tmp1.getFilename());
-			if (verbose) {
-				cout << linker;
-				for (std::list<string>::iterator it = linker_args.begin();
-				     it != linker_args.end(); it++)
-					cout << " " << *it;
-				cout << endl;
-			}
-			execute(linker, linker_args, "", NULL, NULL);
-		}
-
-		// Do not return anything if module is explicitly specified.
-		if (module) return NULL;
-
-		// Load linked image and extract kernel entry point.
-		void* handle = dlopen(tmp2.getFilename().c_str(),
-		                      RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
-		if (!handle)
-			THROW("Cannot dlopen " << dlerror());
-
-		kernel_func_t kernel_func = (kernel_func_t)dlsym(handle, kernel->name.c_str());
-		if (!kernel_func)
-			THROW("Cannot dlsym " << dlerror());
-
-		if (verbose)
-			cout << "Loaded '" << kernel->name << "' at: " << (void*)kernel_func << endl;
-
-		return kernel_func;
+		return codegen(runmode, m, 0);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 		dim3 blockDim(1,1,1);
@@ -642,59 +541,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		// Create target machine for CUDA target and get its target data.
-		if (!targets[KERNELGEN_RUNMODE_CUDA].get()) {
-			InitializeAllTargets();
-			InitializeAllTargetMCs();
-			InitializeAllAsmPrinters();
-			InitializeAllAsmParsers();
-
-			const Target* target = NULL;
-			Triple triple(m->getTargetTriple());
-			if (triple.getTriple().empty())
-				triple.setTriple(sys::getDefaultTargetTriple());
-			for (TargetRegistry::iterator it = TargetRegistry::begin(),
-			     ie = TargetRegistry::end(); it != ie; ++it) {
-				if (!strcmp(it->getName(), "c")) {
-					target = &*it;
-					break;
-				}
-			}
-
-			if (!target)
-				THROW("LLVM is built without C Backend support");
-
-			targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
-			        triple.getTriple(), "", "", TargetOptions(), Reloc::PIC_, CodeModel::Default));
-			if (!targets[KERNELGEN_RUNMODE_CUDA].get())
-				THROW("Could not allocate target machine");
-
-			// Override default to generate verbose assembly.
-			targets[KERNELGEN_RUNMODE_CUDA].get()->setAsmVerbosityDefault(true);
-		}
-
-		PassManager manager;
-
-		// Setup output stream.
-		string bin_string;
-		raw_string_ostream bin_stream(bin_string);
-		formatted_raw_ostream stream(bin_stream);
-
-		// Ask the target to add backend passes as necessary.
-		if (targets[KERNELGEN_RUNMODE_CUDA].get()->addPassesToEmitFile(manager, stream,
-		        TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Aggressive))
-			THROW("Target does not support generation of this file type");
-
-		manager.run(*m);
-
-		// Flush the resulting object binary to the
-		// underlying string.
-		stream.flush();
-
-		if (verbose & KERNELGEN_VERBOSE_SOURCES) cout << bin_string;
-
-		return codegen(runmode, bin_string, kernel->name,
-			kernel->target[runmode].monitor_kernel_stream);
+		return codegen(runmode, m, kernel->target[runmode].monitor_kernel_stream);
 
 		break;
 	}

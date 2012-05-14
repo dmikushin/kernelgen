@@ -277,7 +277,7 @@ int main(int argc, char* argv[], char* envp[])
 				if (err) THROW("Error in cuStreamCreate " << err);
 				
 				// Compile GPU monitoring kernel.
-				string kernelgen_monitor_source = "";
+				Module* kernelgen_monitor_module = NULL;
 				{
 					int fd;
 					string tmp_mask = "%%%%%%%%";
@@ -343,6 +343,7 @@ int main(int argc, char* argv[], char* envp[])
 					}
 
 					// Load LLVM IR to string.
+					string kernelgen_monitor_source = "";
 					std::ifstream tmp_stream(gcc_output.c_str());
 					tmp_stream.seekg(0, std::ios::end);
 					kernelgen_monitor_source.reserve(tmp_stream.tellg());
@@ -352,10 +353,15 @@ int main(int argc, char* argv[], char* envp[])
 						std::istreambuf_iterator<char>(tmp_stream),
 						std::istreambuf_iterator<char>());
 					tmp_stream.close();
+
+				        SMDiagnostic diag;
+				        MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
+						kernelgen_monitor_source);
+				        kernelgen_monitor_module = ParseIR(buffer1, diag, context);
 				}
 				kernel->target[runmode].monitor_kernel_func =
 					kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
-						kernelgen_monitor_source, "kernelgen_monitor", 0);
+						kernelgen_monitor_module, 0);
 
 				// Initialize callback structure.
 				// Initial lock state is "locked". It will be dropped
