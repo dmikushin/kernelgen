@@ -1,4 +1,4 @@
-void kernelgen_monitor(int* callback)
+extern "C" __attribute__((global)) void kernelgen_monitor(int* callback)
 {
 	// Unlock blocked gpu kernel associated with lock.
 	// It simply waits for lock to be dropped to zero.

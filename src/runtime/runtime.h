@@ -213,9 +213,9 @@ namespace runtime {
 // and return its handle.
 kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL, void * data = NULL, int szdatai = 0);
 
-// Compile C source to PTX using NVISA-enabled
-// Open64 compiler variant.
-kernel_func_t codegen(int runmode, llvm::Module* module, CUstream stream);
+// Compile C source to x86 binary or PTX assembly,
+// using the corresponding LLVM backends.
+kernel_func_t codegen(int runmode, llvm::Module* module, std::string name, CUstream stream);
 
 // CUDA runtime context.
 extern kernelgen::bind::cuda::context* cuda_context;

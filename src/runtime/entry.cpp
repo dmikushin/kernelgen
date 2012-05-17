@@ -361,7 +361,7 @@ int main(int argc, char* argv[], char* envp[])
 				}
 				kernel->target[runmode].monitor_kernel_func =
 					kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
-						kernelgen_monitor_module, 0);
+						kernelgen_monitor_module, "kernelgen_monitor", 0);
 
 				// Initialize callback structure.
 				// Initial lock state is "locked". It will be dropped

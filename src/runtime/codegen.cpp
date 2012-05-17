@@ -291,7 +291,9 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
         }
 }
 
-kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, CUstream stream)
+// Compile C source to x86 binary or PTX assembly,
+// using the corresponding LLVM backends.
+kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, string name, CUstream stream)
 {
 	// TODO: codegen LLVM IR into PTX or host, depending on the runmode.
 	switch (runmode) {
@@ -371,9 +373,6 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, CUstream strea
 				execute(linker, linker_args, "", NULL, NULL);
 			}
 
-			// Do not return anything if module is explicitly specified.
-			if (m) return NULL;
-
 			// Load linked image and extract kernel entry point.
 			void* handle = dlopen(tmp2.getFilename().c_str(),
 				RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
@@ -381,7 +380,6 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, CUstream strea
 			if (!handle)
 				THROW("Cannot dlopen " << dlerror());
 
-			string name = m->getModuleIdentifier();
 			kernel_func_t kernel_func = (kernel_func_t)dlsym(handle, name.c_str());
 			if (!kernel_func)
 				THROW("Cannot dlsym " << dlerror());
@@ -407,7 +405,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, CUstream strea
 					triple.setTriple(sys::getDefaultTargetTriple());
 				for (TargetRegistry::iterator it = TargetRegistry::begin(),
 					ie = TargetRegistry::end(); it != ie; ++it) {
-					if (!strcmp(it->getName(), "nvptx")) {
+					if (!strcmp(it->getName(), "nvptx64")) {
 						target = &*it;
 						break;
 					}
@@ -417,7 +415,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, CUstream strea
 					THROW("LLVM is built without NVPTX Backend support");
 
 				targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
-					triple.getTriple(), "", "", TargetOptions(), Reloc::PIC_, CodeModel::Default));
+					triple.getTriple(), "sm_20", "", TargetOptions(), Reloc::PIC_, CodeModel::Default));
 				if (!targets[KERNELGEN_RUNMODE_CUDA].get())
 					THROW("Could not allocate target machine");
 
@@ -433,7 +431,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, CUstream strea
 	                // Ask the target to add backend passes as necessary.
 			PassManager manager;
 			const TargetData* tdata =
-				targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
+				targets[KERNELGEN_RUNMODE_CUDA].get()->getTargetData();
 			manager.add(new TargetData(*tdata));
 			if (targets[KERNELGEN_RUNMODE_CUDA].get()->addPassesToEmitFile(manager, ptx_raw_stream,
 				TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Aggressive))
@@ -486,7 +484,6 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, CUstream strea
 
 			// Align cubin global data to the virtual memory page boundary.
 			std::list<string> names;
-			string name = m->getModuleIdentifier();
 			if (name == "__kernelgen_main")
 				cubin_align_data(tmp3.getFilename().c_str(), 4096, &names);
 

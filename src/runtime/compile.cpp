@@ -257,7 +257,7 @@ kernel_func_t kernelgen::runtime::compile(
 		if (!m)
 			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
 			      diag.getLineContents() << ": " << diag.getMessage());
-		m->setModuleIdentifier(kernel->name);
+		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
 
 		if (szdatai != 0) {
@@ -307,7 +307,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		return codegen(runmode, m, 0);
+		return codegen(runmode, m, kernel->name, 0);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 		dim3 blockDim(1,1,1);
@@ -541,7 +541,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		return codegen(runmode, m, kernel->target[runmode].monitor_kernel_stream);
+		return codegen(runmode, m, kernel->name, kernel->target[runmode].monitor_kernel_stream);
 
 		break;
 	}
