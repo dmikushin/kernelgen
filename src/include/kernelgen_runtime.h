@@ -22,17 +22,11 @@
 #ifndef KERNELGEN_RUNTIME_H
 #define KERNELGEN_RUNTIME_H
 
-#define static_inline static __inline__ __attribute__((always_inline))
-
-static_inline __attribute__((device)) int __iAtomicCAS(int *p, int compare, int val)
-{
-        int *global, result;
-        asm(
-		"cvta.to.global.u64 %0, %1;\n\t"
-		"atom.global.cas.b32 %2, [%0], %3, %4;"
-                :: "l"(global), "l"(p), "r"(result), "r"(compare), "r"(val));
-        return result;
-}
+#ifdef __cplusplus
+#define static_inline extern "C" __attribute__((always_inline)) __attribute__((used))
+#else
+#define static_inline __attribute__((always_inline)) __attribute__((used))
+#endif
 
 extern unsigned int* __attribute__((device)) __kernelgen_callback;
 
@@ -40,11 +34,6 @@ extern unsigned int* __attribute__((device)) __kernelgen_memory;
 
 #include "kernelgen_interop.h"
 #include "kernelgen_memory.h"
-
-typedef struct { unsigned int x, y, z; } uint3;
-
-uint3 extern const threadIdx, blockIdx, blockDim, gridDim;
-int extern const warpSize;
 
 static_inline __attribute__((device)) void kernelgen_hostcall(unsigned char* kernel,
 	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
@@ -54,7 +43,11 @@ static_inline __attribute__((device)) void kernelgen_hostcall(unsigned char* ker
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_HOSTCALL;
+#ifdef __cplusplus
 	callback->kernel = (kernelgen::kernel_t*)kernel;
+#else
+	callback->kernel = (struct kernel_t*)kernel;
+#endif 
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
 	callback->data = (struct kernelgen_callback_data_t*)data;
@@ -73,7 +66,11 @@ static_inline __attribute__((device)) int kernelgen_launch(unsigned char* kernel
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_LOOPCALL;
+#ifdef __cplusplus
 	callback->kernel = (kernelgen::kernel_t*)kernel;
+#else
+	callback->kernel = (struct kernel_t*)kernel;
+#endif
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
 	callback->data = (struct kernelgen_callback_data_t*)data;
@@ -94,22 +91,6 @@ static_inline __attribute__((device)) void kernelgen_finish()
 	callback->state = KERNELGEN_STATE_INACTIVE;
 	__iAtomicCAS(&callback->lock, 0, 1);
 }
-
-static_inline __attribute__((device)) int kernelgen_threadIdx_x() { return threadIdx.x; }
-static_inline __attribute__((device)) int kernelgen_threadIdx_y() { return threadIdx.y; }
-static_inline __attribute__((device)) int kernelgen_threadIdx_z() { return threadIdx.z; }
-
-static_inline __attribute__((device)) int kernelgen_blockIdx_x() { return blockIdx.x; }
-static_inline __attribute__((device)) int kernelgen_blockIdx_y() { return blockIdx.y; }
-static_inline __attribute__((device)) int kernelgen_blockIdx_z() { return blockIdx.z; }
-
-static_inline __attribute__((device)) int kernelgen_blockDim_x() { return blockDim.x; }
-static_inline __attribute__((device)) int kernelgen_blockDim_y() { return blockDim.y; }
-static_inline __attribute__((device)) int kernelgen_blockDim_z() { return blockDim.z; }
-
-static_inline __attribute__((device)) int kernelgen_gridDim_x() { return gridDim.x; }
-static_inline __attribute__((device)) int kernelgen_gridDim_y() { return gridDim.y; }
-static_inline __attribute__((device)) int kernelgen_gridDim_z() { return gridDim.z; }
 
 #endif // KERNELGEN_RUNTIME_H
 

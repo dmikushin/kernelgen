@@ -52,6 +52,10 @@ using namespace kernelgen::bind::cuda;
 // number is a must.
 #define LOADER_REGCOUNT	7
 
+// An extra offset between loaded dynamic kernels codes to
+// force no caching/prefetching.
+#define EXTRA_OFFSET	512
+
 namespace kernelgen
 {
 	// Verbose output.
@@ -632,8 +636,7 @@ struct CUDYloader_t
 		function->offset = offset;
 
 		// Increment pool offset by the size of kernel binary.
-		// XXX: 512 - an extra offset to force no caching/prefetching.
-		offset += function->szbinary + 512;
+		offset += function->szbinary + EXTRA_OFFSET;
 		
 		// Track function for disposal.
 		functions.push_back(function);

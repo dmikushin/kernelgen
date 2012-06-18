@@ -25,6 +25,7 @@
 #include "llvm/Constants.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Instructions.h"
+#include "llvm/Linker.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
@@ -379,10 +380,30 @@ kernel_func_t kernelgen::runtime::compile(
 			    sizeof(cuda_intrinsics) / sizeof(string));
 		}
 
+		// Change the target triple for entire module to be the same
+		// as for KernelGen device runtime module.
+		m->setTargetTriple(runtime_module->getTargetTriple());
+
+		// Mark all global values residing the GPU global address space.
+		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
+		{
+			GV->getType()->setAddressSpace(1);
+		}
+
+		// Mark kernel as GPU global function.
+		Function* f = m->getFunction(kernel->name);
+		f->setCallingConv(CallingConv::PTX_Kernel);
+
+		// Link entire module with the KernelGen device runtime module.
+		string err;
+		if (Linker::LinkModules(m, runtime_module, Linker::DestroySource, &err))
+		{
+			THROW("Error linking runtime with kernel " << kernel->name << " : " << err);
+		}
+
 		// Convert external functions CallInst-s into
 		// host callback form. Do not convert CallInst-s
 		// to device-resolvable intrinsics (syscalls and math).
-		Function* f = m->getFunction(kernel->name);
 		if (kernel->name == "__kernelgen_main") {
 			vector<CallInst*> erase_calls;
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
@@ -462,6 +483,13 @@ kernel_func_t kernelgen::runtime::compile(
 			for (vector<CallInst*>::iterator i = erase_calls.begin(),
 			     ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
+
+			// TODO: Mark constant globals as unnamed address space.
+			for (Module::global_iterator i = m->global_begin(), ie = m->global_end(); i != ie; i++)
+			{
+				GlobalVariable& GV = *i;
+				GV.setUnnamedAddr(true);
+			}
 		} else {
 			// If the target kernel is loop, do not allow host calls in it.
 			// Also do not allow malloc/free, probably support them later.

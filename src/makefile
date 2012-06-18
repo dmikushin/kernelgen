@@ -33,9 +33,12 @@ OPT ?= 0
 RPATH ?= /opt/kernelgen
 PREFIX = $(ROOT)/$(RPATH)
 
-.PHONY: frontend runtime asfermi bindings
+.PHONY: include frontend runtime asfermi bindings
 
-all: frontend runtime
+all: include frontend runtime
+
+include:
+	cd include && $(MAKE)
 
 frontend:
 	cd frontend && $(MAKE)
@@ -50,6 +53,7 @@ bindings:
 	cd bindings && $(MAKE)
 
 clean:
+	cd include && $(MAKE) clean
 	cd frontend && $(MAKE) clean
 	cd runtime && $(MAKE) clean
 	cd libasfermi && $(MAKE) clean

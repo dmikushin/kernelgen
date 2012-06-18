@@ -174,9 +174,6 @@ struct kernel_t
 		// any kernel arguments.
 		kernel_func_t binary;
 		
-		// Monitoring kernel (applicable for some targets).
-		kernel_func_t monitor_kernel_func;
-		
 		// Kernel callback structure.
 		kernelgen_callback_t* callback;
 		
@@ -225,6 +222,13 @@ kernelgen_memory_t* init_memory_pool(size_t szpool);
 
 // Wrap call instruction into host function call wrapper.
 llvm::CallInst* wrapCallIntoHostcall(llvm::CallInst* call, kernel_t* kernel);
+
+// Monitoring module and kernel (applicable for some targets).
+extern llvm::Module* monitor_module;
+extern kernel_func_t monitor_kernel;
+
+// Runtime module (applicable for some targets).
+extern llvm::Module* runtime_module;
 
 } }
 

@@ -51,10 +51,8 @@ foreach $binary (@binaries)
 # Copy includes to install path.
 #
 my(@includes) = (
-	"include/kernelgen_runtime.h",
-	"include/kernelgen_interop.h",
-	"include/kernelgen_memory.h",
-	"include/kernelgen_monitor.cu");
+	"include/kernelgen_runtime.bc",
+	"include/kernelgen_monitor.bc");
 foreach $include (@includes)
 {
 	`cp $include $PREFIX\/include\/`;

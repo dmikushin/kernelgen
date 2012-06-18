@@ -222,7 +222,7 @@ int kernelgen_launch(kernel_t* kernel,
 				char args[256];
 				memcpy(args, &kernel->target[runmode].callback, sizeof(void*));
 				int err = cudyLaunch(
-					(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
+					(CUDYfunction)monitor_kernel,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem, args,
 					kernel->target[runmode].monitor_kernel_stream, NULL);
@@ -360,7 +360,7 @@ int kernelgen_launch(kernel_t* kernel,
 					char args[256];
 					memcpy(args, &kernel->target[runmode].callback, sizeof(void*));
 					int err = cudyLaunch(
-						(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
+						(CUDYfunction)monitor_kernel,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem, args,
 						kernel->target[runmode].monitor_kernel_stream, NULL);

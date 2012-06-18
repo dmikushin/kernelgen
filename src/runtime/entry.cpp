@@ -71,6 +71,13 @@ std::map<string, kernel_t*> kernelgen::kernels;
 // TODO: sort out how to turn it into auto_ptr.
 kernelgen::bind::cuda::context* kernelgen::runtime::cuda_context = NULL;
 
+// Monitoring module and kernel (applicable for some targets).
+Module* kernelgen::runtime::monitor_module = NULL;
+kernel_func_t kernelgen::runtime::monitor_kernel;
+
+// Runtime module (applicable for some targets).
+Module* kernelgen::runtime::runtime_module;
+
 int main(int argc, char* argv[], char* envp[])
 {
 	LLVMContext& context = getGlobalContext();
@@ -276,92 +283,64 @@ int main(int argc, char* argv[], char* envp[])
 					&kernel->target[runmode].kernel_stream, 0);
 				if (err) THROW("Error in cuStreamCreate " << err);
 				
-				// Compile GPU monitoring kernel.
-				Module* kernelgen_monitor_module = NULL;
+				// Load LLVM IR for kernel monitor, if not yet loaded.
+				if (!monitor_module)
 				{
-					int fd;
-					string tmp_mask = "%%%%%%%%";
-					SmallString<128> gcc_output_vector;
-					if (unique_file(tmp_mask, fd, gcc_output_vector))
-					{
-						cout << "Cannot generate gcc output file name" << endl;
-						return 1;
-					}
-					string gcc_output = (StringRef)gcc_output_vector;
-					close(fd);
-					string err;
-					tool_output_file object(gcc_output.c_str(), err, raw_fd_ostream::F_Binary);
-					if (!err.empty())
-					{
-						cerr << "Cannot open output file" << gcc_output << endl;
-						return 1;
-					}
-
-					// Use clang frontend to compile CUDA code into LLVM IR.
-					char* compiler = "clang";
-					vector<const char*> args;
-					args.push_back(compiler);
-                			args.push_back("-cc1");
-					args.push_back("/opt/kernelgen/include/kernelgen_monitor.cu");
-					args.push_back("-triple");
-					args.push_back("ptx64-unknown-unknown");
-					args.push_back("-fcuda-is-device");
-					args.push_back("-emit-llvm");
-					args.push_back("-D__CUDA_DEVICE_FUNC__");
-					args.push_back("-U_FORTIFY_SOURCE");
-					args.push_back("-I/opt/kernelgen/include");
-					args.push_back("-include");
-					args.push_back("kernelgen_runtime.h");
-
-					if (kernelgen::debug)
-					{
-						args.push_back("-g");
-						args.push_back("-O0");
-					}
-					else
-						args.push_back("-O3");
-
-					args.push_back("-o");
-					args.push_back(gcc_output.c_str());
-                
-					args.push_back(NULL);
-					if (verbose)
-					{
-						cout << args[0];
-						for (int i = 1; args[i]; i++)
-							cout << " " << args[i];
-						cout << endl;
-					}
-
-					int status = Program::ExecuteAndWait(
-						Program::FindProgramByName(compiler), &args[0],
-						NULL, NULL, 0, 0, &err);
-					if (status)
-					{
-						cerr << err;
-						return status;
-					}
-
-					// Load LLVM IR to string.
-					string kernelgen_monitor_source = "";
-					std::ifstream tmp_stream(gcc_output.c_str());
+					string monitor_source = "";
+					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_monitor.bc");
 					tmp_stream.seekg(0, std::ios::end);
-					kernelgen_monitor_source.reserve(tmp_stream.tellg());
+					monitor_source.reserve(tmp_stream.tellg());
 					tmp_stream.seekg(0, std::ios::beg);
 
-					kernelgen_monitor_source.assign(
+					monitor_source.assign(
 						std::istreambuf_iterator<char>(tmp_stream),
 						std::istreambuf_iterator<char>());
 					tmp_stream.close();
 
 				        SMDiagnostic diag;
 				        MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
-						kernelgen_monitor_source);
-				        kernelgen_monitor_module = ParseIR(buffer1, diag, context);
+						monitor_source);
+				        monitor_module = ParseIR(buffer1, diag, context);
+
+					if (verbose & KERNELGEN_VERBOSE_SOURCES)
+						monitor_module->dump();
+
+					// Mark all global values residing the GPU global address space.
+					for (Module::global_iterator GV = monitor_module->global_begin(),
+						GVE = monitor_module->global_end(); GV != GVE; GV++)
+						GV->getType()->setAddressSpace(1);
+
+					monitor_kernel = kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
+						monitor_module, "kernelgen_monitor", 0);
 				}
-				kernel->target[runmode].monitor_kernel_func =
-					kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
-						kernelgen_monitor_module, "kernelgen_monitor", 0);
+
+				// Load LLVM IR for additional runtime functions, if not yet loaded.
+				if (!runtime_module)
+				{
+					string runtime_source = "";
+					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_runtime.bc");
+					tmp_stream.seekg(0, std::ios::end);
+					runtime_source.reserve(tmp_stream.tellg());
+					tmp_stream.seekg(0, std::ios::beg);
+
+					runtime_source.assign(
+						std::istreambuf_iterator<char>(tmp_stream),
+						std::istreambuf_iterator<char>());
+					tmp_stream.close();
+
+					SMDiagnostic diag;
+					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
+						runtime_source);
+					runtime_module = ParseIR(buffer1, diag, context);
+
+					// Mark all global values residing the GPU global address space.
+					for (Module::global_iterator GV = runtime_module->global_begin(),
+						GVE = runtime_module->global_end(); GV != GVE; GV++)
+						GV->getType()->setAddressSpace(1);
+
+					if (verbose & KERNELGEN_VERBOSE_SOURCES)
+						runtime_module->dump();
+                                }
 
 				// Initialize callback structure.
 				// Initial lock state is "locked". It will be dropped
