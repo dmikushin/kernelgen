@@ -50,7 +50,7 @@ typedef struct
 }
 kerelgen_memory_chunk_t;
 
-static_inline __attribute__((device)) void* kernelgen_malloc(size_t size)
+__attribute__((device)) __attribute__((always_inline)) void* kernelgen_malloc(size_t size)
 {
 	// Align size.
 	if (size % 4096) size += 4096 - size % 4096;
@@ -102,7 +102,7 @@ static_inline __attribute__((device)) void* kernelgen_malloc(size_t size)
 	return NULL;
 }
 
-static_inline __attribute__((device)) int kernelgen_posix_memalign(void** ptr, size_t alignment, size_t size)
+__attribute__((device)) __attribute__((always_inline)) int kernelgen_posix_memalign(void** ptr, size_t alignment, size_t size)
 {
 	// TODO: Do actual alignment somehow, currently
 	// memory is always aligned to 4096 bytes.
@@ -110,7 +110,7 @@ static_inline __attribute__((device)) int kernelgen_posix_memalign(void** ptr, s
 	return 0;
 }
 
-static_inline __attribute__((device)) void kernelgen_free(void* p)
+__attribute__((device)) __attribute__((always_inline)) void kernelgen_free(void* p)
 {
 	kernelgen_memory_t* km = (kernelgen_memory_t*)__kernelgen_memory;
 

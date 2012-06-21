@@ -23,19 +23,19 @@
 #define KERNELGEN_RUNTIME_H
 
 #ifdef __cplusplus
-#define static_inline extern "C" __attribute__((always_inline)) __attribute__((used))
-#else
-#define static_inline __attribute__((always_inline)) __attribute__((used))
+extern "C"
+{
 #endif
 
 extern unsigned int* __attribute__((device)) __kernelgen_callback;
-
 extern unsigned int* __attribute__((device)) __kernelgen_memory;
 
 #include "kernelgen_interop.h"
 #include "kernelgen_memory.h"
 
-static_inline __attribute__((device)) void kernelgen_hostcall(unsigned char* kernel,
+__attribute__((device)) int __iAtomicCAS(int *p, int compare, int val);
+
+__attribute__((device)) __attribute__((always_inline)) void kernelgen_hostcall(unsigned char* kernel,
 	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
 {
 	// Unblock the monitor kernel and wait for being
@@ -55,7 +55,7 @@ static_inline __attribute__((device)) void kernelgen_hostcall(unsigned char* ker
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
 
-static_inline __attribute__((device)) int kernelgen_launch(unsigned char* kernel,
+__attribute__((device)) __attribute((always_inline)) int kernelgen_launch(unsigned char* kernel,
 	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
 {
 	// Client passes NULL for name/entry argument to indicate
@@ -83,7 +83,7 @@ static_inline __attribute__((device)) int kernelgen_launch(unsigned char* kernel
 	return callback->state;
 }
 
-static_inline __attribute__((device)) void kernelgen_finish()
+__attribute__((device)) __attribute__((always_inline)) void kernelgen_finish()
 {
 	// Unblock the monitor kernel.
 	struct kernelgen_callback_t* callback =
@@ -91,6 +91,10 @@ static_inline __attribute__((device)) void kernelgen_finish()
 	callback->state = KERNELGEN_STATE_INACTIVE;
 	__iAtomicCAS(&callback->lock, 0, 1);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // KERNELGEN_RUNTIME_H
 
