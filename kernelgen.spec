@@ -55,8 +55,9 @@ Patch5:		llvm.statistic.patch
 Patch6:		llvm.opts.patch
 Patch7:		llvm.addrspace.patch
 Patch8:		clang.inline.patch
-Patch9:		gcc-multiarch.patch
-Patch10:	gcc.patch
+Patch9:		nvptx.stack.patch
+Patch10:	gcc-multiarch.patch
+Patch11:	gcc.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -111,8 +112,9 @@ sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
-%if (%target == debian)
 %patch9 -p1
+%if (%target == debian)
+%patch10 -p1
 %endif
 %endif
 

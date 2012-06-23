@@ -380,30 +380,10 @@ kernel_func_t kernelgen::runtime::compile(
 			    sizeof(cuda_intrinsics) / sizeof(string));
 		}
 
-		// Change the target triple for entire module to be the same
-		// as for KernelGen device runtime module.
-		m->setTargetTriple(runtime_module->getTargetTriple());
-
-		// Mark all global values residing the GPU global address space.
-		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
-		{
-			GV->getType()->setAddressSpace(1);
-		}
-
-		// Mark kernel as GPU global function.
-		Function* f = m->getFunction(kernel->name);
-		f->setCallingConv(CallingConv::PTX_Kernel);
-
-		// Link entire module with the KernelGen device runtime module.
-		string err;
-		if (Linker::LinkModules(m, runtime_module, Linker::DestroySource, &err))
-		{
-			THROW("Error linking runtime with kernel " << kernel->name << " : " << err);
-		}
-
 		// Convert external functions CallInst-s into
 		// host callback form. Do not convert CallInst-s
 		// to device-resolvable intrinsics (syscalls and math).
+		Function* f = m->getFunction(kernel->name);
 		if (kernel->name == "__kernelgen_main") {
 			vector<CallInst*> erase_calls;
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
@@ -536,6 +516,49 @@ kernel_func_t kernelgen::runtime::compile(
 			// hostcalls on each individual iteration, which will be terribly slow.
 			if (sizeOfLoops.x == -1) return NULL;
 		}
+
+		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
+
+		// Change the target triple for entire module to be the same
+		// as for KernelGen device runtime module.
+		m->setTargetTriple(runtime_module->getTargetTriple());
+		m->setDataLayout(runtime_module->getDataLayout());
+
+		// Mark all global values residing the GPU global address space.
+		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
+			GV->getType()->setAddressSpace(1);
+
+		// Mark all module functions as device functions.
+		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+			F->setCallingConv(CallingConv::PTX_Device);
+
+		// Mark kernel as GPU global function.
+		f->setCallingConv(CallingConv::PTX_Kernel);
+
+		// Mark all calls as calls to device functions.
+		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+				// Check if instruction in focus is a call.
+				CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+				if (!call) continue;
+
+				// Check if function is called (needs -instcombine pass).
+				Function* callee = call->getCalledFunction();
+				if (!callee) continue;
+				if (!callee->isDeclaration()) continue;
+				if (callee->isIntrinsic()) continue;
+
+				call->setCallingConv(CallingConv::PTX_Device);
+		}
+
+		// Link entire module with the KernelGen device runtime module.
+		string err;
+		if (Linker::LinkModules(m, runtime_module, Linker::DestroySource, &err))
+		{
+			THROW("Error linking runtime with kernel " << kernel->name << " : " << err);
+		}
+
+		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 		// Optimize module.
 		{
