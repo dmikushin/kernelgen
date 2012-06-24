@@ -1,0 +1,11 @@
+in loop: counter = 0
+in loop: counter = 1
+in loop: counter = 2
+in loop: counter = 3
+in loop: counter = 4
+in loop: counter = 5
+in loop: counter = 6
+in loop: counter = 7
+in loop: counter = 8
+in loop: counter = 9
+outside loop: counter = 10

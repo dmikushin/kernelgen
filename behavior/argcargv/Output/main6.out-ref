@@ -1,0 +1,4 @@
+void main(int argc, char* argv[])
+argc = 1
+argv[0] = "./main6"
+HOME=/RHM/users/work/dmikushin
