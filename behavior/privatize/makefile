@@ -28,7 +28,7 @@ LEVEL = ../..
 include ../../makefile.in
 
 privatize: privatize.o
-	kernelgen-gcc $< -o $@
+	$(VERBOSE)kernelgen-gcc $< -o $@
 
 privatize.o: privatize.c
-	kernelgen-gcc -c $< -o $@
+	$(VERBOSE)kernelgen-gcc -c $< -o $@
