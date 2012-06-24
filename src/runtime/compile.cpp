@@ -528,11 +528,13 @@ kernel_func_t kernelgen::runtime::compile(
 		m->setDataLayout(runtime_module->getDataLayout());
 
 		// Mark all global values residing the GPU global address space.
+		// Note this is an illegal hack, because it changes *types*, that are
+		// unique instanses in LLVM. We used just for simplicity, to avoid
+		// creating new types and instructions replacement.
+		// For LLVM state consistency, after codegen the modified types
+		// are reset back.
 		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
-		{
-			Type* type1 = PointerType::get(GV->getType(), 1);
 			GV->getType()->setAddressSpace(1);
-		}
 
 		// Mark all module functions as device functions.
 		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
@@ -598,7 +600,14 @@ kernel_func_t kernelgen::runtime::compile(
 
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		return codegen(runmode, m, kernel->name, kernel->target[runmode].monitor_kernel_stream);
+		kernel_func_t result = codegen(
+			runmode, m, kernel->name, kernel->target[runmode].monitor_kernel_stream);
+
+		// Reset to default address space.
+		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
+			GV->getType()->setAddressSpace(0);
+
+		return result;
 
 		break;
 	}
