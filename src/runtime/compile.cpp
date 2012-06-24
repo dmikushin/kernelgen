@@ -241,11 +241,14 @@ kernel_func_t kernelgen::runtime::compile(
 	if (kernel->source == "")
 		return kernel->target[runmode].binary;
 
-        if(verbose)
+        if (verbose)
 	{
 		outs().changeColor(raw_ostream::BLUE);
 		outs() << "\n<------------------ "<< kernel->name << ": compile started --------------------->\n";
 		outs().resetColor();
+		
+		outs() << kernel->source;
+		outs() << "\n";
 	}
 		
 	Module* m = module;
@@ -526,7 +529,10 @@ kernel_func_t kernelgen::runtime::compile(
 
 		// Mark all global values residing the GPU global address space.
 		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
+		{
+			Type* type1 = PointerType::get(GV->getType(), 1);
 			GV->getType()->setAddressSpace(1);
+		}
 
 		// Mark all module functions as device functions.
 		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)

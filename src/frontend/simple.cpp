@@ -309,16 +309,26 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 	// Apply optimization passes to the resulting common module.
 	//
 	{
+		int optLevel = 3;
+		
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = 0;
+		builder.OptLevel = optLevel;
 		builder.DisableSimplifyLibCalls = true;
-		builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-			addKernelgenPasses);
+		
 		TrackedPassManager manager(tracker);
+		
+		if (optLevel == 0)
+			addKernelgenPasses(builder,manager);
+		else
+			builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
+				addKernelgenPasses);
+		
 		builder.populateModulePassManager(manager);
-		manager.run(*m.get());
+		manager.run(*m);
 	}
+
+	if (verbose) m->dump();
 
 	//
 	// 5) Emit the resulting LLVM IR module into temporary
@@ -1414,7 +1424,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Enable or disable verbose output.
-	char* cverbose = getenv("KERNELGEN_VERBOSE");
+	char* cverbose = getenv("kernelgen_verbose");
 	if (cverbose) verbose = atoi(cverbose);
 
 	// Supported source code files extensions.
