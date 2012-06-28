@@ -56,7 +56,7 @@
 #include <vector>
 
 #include "BranchedLoopExtractor.h"
-#include "tracker.h"
+#include "TrackedPassManager.h"
  
 extern "C"
 {

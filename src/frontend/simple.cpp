@@ -65,7 +65,7 @@
 #include "llvm/LinkAllPasses.h"
 
 #include "BranchedLoopExtractor.h"
-#include "tracker.h"
+#include "TrackedPassManager.h"
 
 using namespace llvm;
 using namespace llvm::sys;
@@ -938,7 +938,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		manager.add(createInstructionCombiningPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = 0;
+		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
 		manager.run(composite);
