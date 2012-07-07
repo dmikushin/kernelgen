@@ -30,13 +30,13 @@ OBJECTS_KS := $(addsuffix .o, $(OBJECTS_KS))
 CXXFLAGS = -g -fPIC -O$(OPT)
 
 libkernelgen-ct.so: $(OBJECTS_CT) libkernelgen-opt.so
-	$(CXX) -g -shared $(OBJECTS_CT) -o $@ $(LLVM_LIB) -L. -lkernelgen-opt
+	$(CXX) -g -shared $(OBJECTS_CT) -o $@ -L. -lkernelgen-opt $(BUGPOINT_LIBS) $(LLVM_LIB)
 
 libkernelgen-opt.so: $(OBJECTS_OPT)
-	$(CXX) -g -shared $^ -o $@ $(BUGPOINT_LIBS) $(LLVM_LIB)
+	$(CXX) -g -shared $^ -o $@ $(LLVM_LIB)
 
 kernelgen-simple: $(OBJECTS_KS) libkernelgen-opt.so
-	$(CXX) -g $(OBJECTS_KS) -o $@ -lelf $(BUGPOINT_LIBS) $(LLVM_LIB) -L. -lkernelgen-opt
+	$(CXX) -g $(OBJECTS_KS) -o $@ -lelf -L. -lkernelgen-opt $(BUGPOINT_LIBS) $(LLVM_LIB)
 
 kernelgen-ct.o: compile.cpp $(BUGPOINT_INC)/TrackedPassManager.h
 	$(CXX) $(CXXFLAGS) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@

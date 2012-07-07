@@ -22,6 +22,7 @@
 #include "polly/LinkAllPasses.h" // must include before "llvm/Transforms/Scalar.h"
 #include "polly/RegisterPasses.h"
 
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Constants.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Instructions.h"
@@ -464,15 +465,8 @@ kernel_func_t kernelgen::runtime::compile(
 				}
 
 			for (vector<CallInst*>::iterator i = erase_calls.begin(),
-			     ie = erase_calls.end(); i != ie; i++)
+				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
-
-			// TODO: Mark constant globals as unnamed address space.
-			for (Module::global_iterator i = m->global_begin(), ie = m->global_end(); i != ie; i++)
-			{
-				GlobalVariable& GV = *i;
-				GV.setUnnamedAddr(true);
-			}
 		} else {
 			// If the target kernel is loop, do not allow host calls in it.
 			// Also do not allow malloc/free, probably support them later.
@@ -526,15 +520,6 @@ kernel_func_t kernelgen::runtime::compile(
 		// as for KernelGen device runtime module.
 		m->setTargetTriple(runtime_module->getTargetTriple());
 		m->setDataLayout(runtime_module->getDataLayout());
-
-		// Mark all global values residing the GPU global address space.
-		// Note this is an illegal hack, because it changes *types*, that are
-		// unique instanses in LLVM. We used just for simplicity, to avoid
-		// creating new types and instructions replacement.
-		// For LLVM state consistency, after codegen the modified types
-		// are reset back.
-		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
-			GV->getType()->setAddressSpace(1);
 
 		// Mark all module functions as device functions.
 		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
@@ -598,14 +583,74 @@ kernel_func_t kernelgen::runtime::compile(
 			manager.run(*m);
 		}
 
+		/*// Replace alloca-s with global variables.
+		vector<AllocaInst*> erase_allocas;
+		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+				// Check if instruction in focus is an alloca.
+				AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
+				if (!alloca) continue;
+				
+				// Replace alloca with global variable.
+				GlobalVariable* GV = new GlobalVariable(
+					*m, alloca->getAllocatedType(), false, GlobalValue::PrivateLinkage,
+					Constant::getNullValue(alloca->getAllocatedType()), "");
+				GV->setAlignment(alloca->getAlignment());
+				alloca->replaceAllUsesWith(GV);
+				erase_allocas.push_back(alloca);
+			}
+		for (vector<AllocaInst*>::iterator i = erase_allocas.begin(),
+			ie = erase_allocas.end(); i != ie; i++)
+			(*i)->eraseFromParent();*/
+
+		// Mark all pointer types referring to the GPU global address space.
+		// Note this is an illegal hack, because it changes *types*, that are
+		// unique instanses in LLVM. We used just for simplicity, to avoid
+		// creating new types and instructions replacement.
+		// For LLVM state consistency, after codegen the modified types
+		// are reset back.
+		/*for (LLVMContext::PointerTypesMap::iterator i = context.beginPointerTypes(),
+			ie = context.endPointerTypes(); i != ie; i++)
+		{
+			std::pair<Type*, PointerType*>& type = *i;
+			type.second->setAddressSpace(1);
+		}*/
+		
+		/*// Change llvm.memset.p0i8.i64 into llvm.memset.p1i8.i64.
+		Function* llvm_memset = m->getFunction("llvm.memset.p0i8.i64");
+		llvm_memset->setName("llvm.memset.p1i8.i64");
+		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {	
+				// Check if instruction in focus is a call.
+				CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+				if (!call) continue;
+
+				// Check if function is called (needs -instcombine pass).
+				Function* callee = call->getCalledFunction();
+				if (!callee) continue;
+				if (!callee->isDeclaration()) continue;
+				if (callee->isIntrinsic())
+				{
+					if (callee->getName() == "llvm.memset.p0i8.i64")
+						callee->setName("llvm.memset.p1i8.i64");
+				}
+			}*/
+		
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
+
+		verifyModule(*m);
 
 		kernel_func_t result = codegen(
 			runmode, m, kernel->name, kernel->target[runmode].monitor_kernel_stream);
 
-		// Reset to default address space.
-		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
-			GV->getType()->setAddressSpace(0);
+		/*// Reset to default address space.
+		for (LLVMContext::PointerTypesMap::iterator i = context.beginPointerTypes(),
+			ie = context.endPointerTypes(); i != ie; i++)
+		{
+			std::pair<Type*, PointerType*>& type = *i;
+			type.second->setAddressSpace(0);
+		}*/
+
 
 		return result;
 

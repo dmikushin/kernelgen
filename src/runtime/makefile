@@ -41,6 +41,10 @@ LLVM_LIB = \
 
 ELF_INC = /usr/include/libelf
 
+BUGPOINT_ROOT ?= $(LLVM_ROOT)/tools/bugpoint
+BUGPOINT_INC = ../bugpoint
+BUGPOINT_LIBS = -L../bugpoint -lbugpoint
+
 CXXFLAGS = \
 	-g -fPIC -O$(OPT) -I../include -I../bindings \
 	-I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
@@ -55,12 +59,12 @@ OBJECTS := $(addsuffix .o, $(OBJECTS))
 all: libkernelgen-rt.so
 
 libkernelgen-rt.so: $(OBJECTS)
-	$(CXX) -shared $(OBJECTS) -o $@ $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
+	$(CXX) -shared $(OBJECTS) -o $@ $(BUGPOINT_LIBS) $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
 		-L../libasfermi/ -L../libasfermi/tests/dyloader -ldyloader -lasfermi \
 		-lelf -lrt -lgmp -lmhash -ldl -lffi
 
-entry.o: entry.cpp
-	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
+entry.o: entry.cpp $(BUGPOINT_INC)/TrackedPassManager.h
+	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) -c $< -o $@
 
 compile.o: compile.cpp runtime.h
 	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
@@ -83,8 +87,8 @@ elf.o: elf.cpp elf.h
 execute.o: execute.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-codegen.o: codegen.cpp
-	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
+codegen.o: codegen.cpp $(BUGPOINT_INC)/TrackedPassManager.h
+	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) -c $< -o $@
 
 memory.o: memory.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@

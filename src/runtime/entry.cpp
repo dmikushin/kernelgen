@@ -41,6 +41,8 @@
 #include <iostream>
 #include <cstdlib>
 
+#include "TrackedPassManager.h"
+
 // Regular main entry.
 extern "C" int __regular_main(int argc, char* argv[]);
 
@@ -80,6 +82,8 @@ Module* kernelgen::runtime::runtime_module;
 
 int main(int argc, char* argv[], char* envp[])
 {
+	tracker = new PassTracker("codegen", NULL, NULL);
+
 	LLVMContext& context = getGlobalContext();
 
 	// Retrieve the regular main entry function prototype out of
@@ -305,11 +309,6 @@ int main(int argc, char* argv[], char* envp[])
 					if (verbose & KERNELGEN_VERBOSE_SOURCES)
 						monitor_module->dump();
 
-					// Mark all global values residing the GPU global address space.
-					for (Module::global_iterator GV = monitor_module->global_begin(),
-						GVE = monitor_module->global_end(); GV != GVE; GV++)
-						GV->getType()->setAddressSpace(1);
-
 					monitor_kernel = kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
 						monitor_module, "kernelgen_monitor", 0);
 				}
@@ -332,11 +331,6 @@ int main(int argc, char* argv[], char* envp[])
 					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
 						runtime_source);
 					runtime_module = ParseIR(buffer1, diag, context);
-
-					// Mark all global values residing the GPU global address space.
-					for (Module::global_iterator GV = runtime_module->global_begin(),
-						GVE = runtime_module->global_end(); GV != GVE; GV++)
-						GV->getType()->setAddressSpace(1);
 
 					if (verbose & KERNELGEN_VERBOSE_SOURCES)
 						runtime_module->dump();

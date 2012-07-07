@@ -46,6 +46,8 @@
 #include <sstream>
 #include <vector>
 
+#include "TrackedPassManager.h"
+
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;
@@ -428,8 +430,8 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, string name, C
 	                raw_string_ostream ptx_stream(ptx_string);
         	        formatted_raw_ostream ptx_raw_stream(ptx_stream);
 
-	                // Ask the target to add backend passes as necessary.
-			PassManager manager;
+			// Ask the target to add backend passes as necessary.
+			TrackedPassManager manager(tracker);
 			const TargetData* tdata =
 				targets[KERNELGEN_RUNMODE_CUDA].get()->getTargetData();
 			manager.add(new TargetData(*tdata));

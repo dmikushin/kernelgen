@@ -10,12 +10,17 @@ BUGPOINT := BugDriver CrashDebugger ExtractFunction Miscompilation ToolRunner \
 	bugpoint ExecutionDriver FindBugs OptimizerDriver
 BUGPOINT := $(addsuffix .bugpoint, $(BUGPOINT))
 
-OBJECTS := $(addsuffix .o, $(BUGPOINT))
+OBJECTS := $(addsuffix .o, $(BUGPOINT) TrackedPassManager)
+
+CXXFLAGS = -g -fPIC -O$(OPT)
 
 all: libbugpoint.a
 
 %.bugpoint.o: $(BUGPOINT_ROOT)/%.cpp
 	$(CXX) -Dmain=bugpoint $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
+
+TrackedPassManager.o: TrackedPassManager.cpp TrackedPassManager.h
+	$(CXX) -I$(LLVM_ROOT)/tools/bugpoint $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
 
 libbugpoint.a: $(OBJECTS)
 	$(AR) rcs $@ $?

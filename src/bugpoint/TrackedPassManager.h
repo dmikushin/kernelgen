@@ -19,7 +19,19 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#ifndef TRACKED_PASS_MANAGER
+#define TRACKED_PASS_MANAGER
+
+#include "llvm/LLVMContext.h"
+#include "llvm/Module.h"
+#include "llvm/PassManager.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+
 #include "BugDriver.h"
+
+#include <iostream>
+#include <list>
 
 using namespace llvm;
 using namespace std;
@@ -69,14 +81,16 @@ class PassTracker
 				e = tracker->passes.end(); i != e; i++)
 			{
 				const void *ID = (*i)->getPassID();
+				if (!ID) continue;
 				const PassInfo *PI = PassRegistry::getPassRegistry()->getPassInfo(ID);
-				if (PI)
-					D.addPass(PI->getPassArgument());
-				else
-				{
-					cerr << "Cannot get pass info by ID for this pass: " << (*i)->getPassName();
-					break;
-				}
+				if (!PI) continue;
+				const char* arg = PI->getPassArgument();
+				if (!arg) continue;
+				if (!strcmp(arg, "targetdata")) continue;
+				if (!strcmp(arg, "targetpassconfig")) continue;
+				if (!strcmp(arg, "machinemoduleinfo")) continue;
+				D.addPass(arg);
+				
 			}
 
 			// We don't delete module here, since it could get
@@ -129,8 +143,9 @@ public:
 	{
 		module = CloneModule(M);
 	}
-}
-*tracker;
+};
+
+extern PassTracker* tracker;
 
 
 class TrackedPassManager : public PassManager
@@ -158,3 +173,6 @@ public:
 		tracker->reset();
 	}
 };
+
+#endif // TRACKED_PASS_MANAGER
+
