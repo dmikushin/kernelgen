@@ -27,10 +27,8 @@ extern "C"
 {
 #endif
 
-//extern unsigned int* __attribute__((device)) __kernelgen_callback;
-//extern unsigned int* __attribute__((device)) __kernelgen_memory;
-extern unsigned int* __kernelgen_callback;
-extern unsigned int* __kernelgen_memory;
+extern unsigned int* __attribute__((device)) __kernelgen_callback;
+extern unsigned int* __attribute__((device)) __kernelgen_memory;
 
 #include "kernelgen_interop.h"
 #include "kernelgen_memory.h"
