@@ -227,14 +227,6 @@ void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 		}
 }
 
-// Loop unrolling with runtime part enabled
-// (currently not used, final unrollment gives better
-// result by some reason).
-static void addRuntimeLoopUnrollPass(const PassManagerBuilder &Builder, PassManagerBase &PM)
-{
-	PM.add(createLoopUnrollPass(128, -1, 1));
-}
-
 kernel_func_t kernelgen::runtime::compile(
     int runmode, kernel_t* kernel, Module* module, void * data, int szdatai)
 {
@@ -247,9 +239,6 @@ kernel_func_t kernelgen::runtime::compile(
 		outs().changeColor(raw_ostream::BLUE);
 		outs() << "\n<------------------ "<< kernel->name << ": compile started --------------------->\n";
 		outs().resetColor();
-		
-		outs() << kernel->source;
-		outs() << "\n";
 	}
 		
 	Module* m = module;
@@ -264,20 +253,11 @@ kernel_func_t kernelgen::runtime::compile(
 			      diag.getLineContents() << ": " << diag.getMessage());
 		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
-
-		if (szdatai != 0) {
-			Function* f = m->getFunction(kernel->name);
-			if (kernel->name != "__kernelgen_main")
-			{
-				ConstantSubstitution(f, data);
-			}
-		}
 	}
 
-   	if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
-    
 	// Emit target assembly and binary image, depending
 	// on runmode.
+	Function* f = m->getFunction(kernel->name);
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
 		if (kernel->name != "__kernelgen_main") {
@@ -287,14 +267,13 @@ kernel_func_t kernelgen::runtime::compile(
 			// non-portable GPU kernel or hostcall.
 			if (runmode == kernelgen::runmode)
 			{
+				// Substitute integer and pointer arguments.
+				if (szdatai != 0) ConstantSubstitution(f, data);
+
 				Size3 sizeOfLoops;
 				runPollyNATIVE(kernel, &sizeOfLoops);
 
 				// Do not compile the loop kernel if no grid detected.
-				// Important to place this condition *after* hostcalls check
-				// above to generate full host kernel in case hostcalls are around
-				// (.supported flag), rather than running kernel on device and invoke
-				// hostcalls on each individual iteration, which will be terribly slow.
 				if (sizeOfLoops.x == -1) return NULL;
 			}
 
@@ -310,26 +289,86 @@ kernel_func_t kernelgen::runtime::compile(
 			}
 		}
 
+		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 		return codegen(runmode, m, kernel->name, 0);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
-		dim3 blockDim(1,1,1);
-		dim3 gridDim(1,1,1);
-#define BLOCK_SIZE 1024
-#define BLOCK_DIM_X 32
-		// Apply the Polly codegen for native target.
-		Size3 sizeOfLoops;
+		// Initially, fill intrinsics tables.
+		if (kernelgen_intrinsics_set.empty()) {
+			kernelgen_intrinsics_set.insert(
+			    kernelgen_intrinsics, kernelgen_intrinsics +
+			    sizeof(kernelgen_intrinsics) / sizeof(string));
+			cuda_intrinsics_set.insert(
+			    cuda_intrinsics, cuda_intrinsics +
+			    sizeof(cuda_intrinsics) / sizeof(string));
+		}
+
+		dim3 blockDim(1, 1, 1);
+		dim3 gridDim(1, 1, 1);
 		if (kernel->name != "__kernelgen_main")  {
+			// If the target kernel is loop, do not allow host calls in it.
+			// Also do not allow malloc/free, probably support them later.
+			// TODO: kernel *may* have kernelgen_launch called, but it must
+			// always evaluate to -1.
+			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+					// Check if instruction in focus is a call.
+					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+					if (!call) continue;
+
+					// Check if function is called (needs -instcombine pass).
+					Function* callee = call->getCalledFunction();
+					if (!callee) continue;
+					if (!callee->isDeclaration()) continue;
+					if (callee->isIntrinsic()) continue;
+
+					// Check function is natively supported.
+					set<string>::iterator i1 =
+					    kernelgen_intrinsics_set.find(callee->getName());
+					if (i1 != kernelgen_intrinsics_set.end()) {
+						if (verbose)
+							cout << "KernelGen native: " << callee->getName().data() << endl;
+						continue;
+					}
+					set<string>::iterator i2 =
+					    cuda_intrinsics_set.find(callee->getName());
+					if (i2 != cuda_intrinsics_set.end()) {
+						if (verbose)
+							cout << "CUDA native: " << callee->getName().data() << endl;
+						continue;
+					}
+
+					// Loop contains non-native calls, and therefore
+					// cannot be executed on GPU.
+					if (verbose)
+						cout << "Hostcall: " << callee->getName().data()<< endl;
+					kernel->target[runmode].supported = false;
+					return NULL;
+				}
+
+			// Substitute integer and pointer arguments.
+			if (szdatai != 0) ConstantSubstitution(f, data);
+
+			// Apply the Polly codegen for CUDA target.
+			Size3 sizeOfLoops;
 			runPollyCUDA(kernel, &sizeOfLoops);
+
+			// Do not compile the loop kernel if no grid detected.
+			// Important to place this condition *after* hostcalls check
+			// above to generate full host kernel in case hostcalls are around
+			// (.supported flag), rather than running kernel on device and invoke
+			// hostcalls on each individual iteration, which will be terribly slow.
+			if (sizeOfLoops.x == -1) return NULL;
 
 			//   x   y     z       x     y  z
 			//  123 13640   -1  ->  13640 123 1     two loops
 			//  123 13640 2134  ->  2134 13640 123   three loops
 			//  123   -1    -1  ->  123 1 1        one loop
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
-			
+#define BLOCK_SIZE 1024
+#define BLOCK_DIM_X 32
 			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
 			if (launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
 			switch(numberOfLoops)
@@ -374,20 +413,9 @@ kernel_func_t kernelgen::runtime::compile(
 		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
 		kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
 
-		// Initially, fill intrinsics tables.
-		if (kernelgen_intrinsics_set.empty()) {
-			kernelgen_intrinsics_set.insert(
-			    kernelgen_intrinsics, kernelgen_intrinsics +
-			    sizeof(kernelgen_intrinsics) / sizeof(string));
-			cuda_intrinsics_set.insert(
-			    cuda_intrinsics, cuda_intrinsics +
-			    sizeof(cuda_intrinsics) / sizeof(string));
-		}
-
 		// Convert external functions CallInst-s into
 		// host callback form. Do not convert CallInst-s
 		// to device-resolvable intrinsics (syscalls and math).
-		Function* f = m->getFunction(kernel->name);
 		if (kernel->name == "__kernelgen_main") {
 			vector<CallInst*> erase_calls;
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
@@ -429,7 +457,7 @@ kernel_func_t kernelgen::runtime::compile(
 						Function* replacement = m->getFunction(rename);
 						if (!replacement) {
 							replacement = Function::Create(callee->getFunctionType(),
-							                               GlobalValue::ExternalLinkage, rename, m);
+								GlobalValue::ExternalLinkage, rename, m);
 						}
 						call->setCalledFunction(replacement);
 						if (verbose)
@@ -467,54 +495,7 @@ kernel_func_t kernelgen::runtime::compile(
 			for (vector<CallInst*>::iterator i = erase_calls.begin(),
 				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
-		} else {
-			// If the target kernel is loop, do not allow host calls in it.
-			// Also do not allow malloc/free, probably support them later.
-			// TODO: kernel *may* have kernelgen_launch called, but it must
-			// always evaluate to -1.
-			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-					// Check if instruction in focus is a call.
-					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-					if (!call) continue;
-
-					// Check if function is called (needs -instcombine pass).
-					Function* callee = call->getCalledFunction();
-					if (!callee) continue;
-					if (!callee->isDeclaration()) continue;
-					if (callee->isIntrinsic()) continue;
-
-					// Check function is natively supported.
-					set<string>::iterator i1 =
-					    kernelgen_intrinsics_set.find(callee->getName());
-					if (i1 != kernelgen_intrinsics_set.end()) {
-						if (verbose)
-							cout << "KernelGen native: " << callee->getName().data() << endl;
-						continue;
-					}
-					set<string>::iterator i2 =
-					    cuda_intrinsics_set.find(callee->getName());
-					if (i2 != cuda_intrinsics_set.end()) {
-						if (verbose)
-							cout << "CUDA native: " << callee->getName().data() << endl;
-						continue;
-					}
-
-					// Loop contains non-native calls, and therefore
-					// cannot be executed on GPU.
-					kernel->target[runmode].supported = false;
-					return NULL;
-				}
-
-			// Do not compile the loop kernel if no grid detected.
-			// Important to place this condition *after* hostcalls check
-			// above to generate full host kernel in case hostcalls are around
-			// (.supported flag), rather than running kernel on device and invoke
-			// hostcalls on each individual iteration, which will be terribly slow.
-			if (sizeOfLoops.x == -1) return NULL;
 		}
-
-		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 		// Change the target triple for entire module to be the same
 		// as for KernelGen device runtime module.
@@ -544,46 +525,7 @@ kernel_func_t kernelgen::runtime::compile(
 				call->setCallingConv(CallingConv::PTX_Device);
 		}
 
-		// Link entire module with the KernelGen device runtime module.
-		string err;
-		if (Linker::LinkModules(m, runtime_module, Linker::DestroySource, &err))
-		{
-			THROW("Error linking runtime with kernel " << kernel->name << " : " << err);
-		}
-
-		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
-
-		// Optimize module.
-		{
-			PassManager manager;
-			PassManagerBuilder builder;
-			builder.Inliner = createFunctionInliningPass();
-			builder.OptLevel = 3;
-			builder.DisableSimplifyLibCalls = true;
-			builder.Vectorize = false;
-			if (sizeOfLoops.x == -1) {
-				// Single-threaded kernels performance could be
-				// significantly improved by unrolling.
-				manager.add(createLoopUnrollPass(512, -1, 1));
-			}
-			
-
-			/*if (sizeOfLoops.x == -1)
-			{
-				// Use runtime unrolling (disabpled by default).
-				builder.DisableUnrollLoops = true;
-				builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-					addRuntimeLoopUnrollPass);
-			}*/
-			builder.populateModulePassManager(manager);
-			/*if (sizeOfLoops.x == -1)
-			{
-				manager.add(createLoopUnrollPass(2048, -1, 1));
-			}*/
-			manager.run(*m);
-		}
-
-		/*// Replace alloca-s with global variables.
+		// Replace alloca-s with global variables.
 		vector<AllocaInst*> erase_allocas;
 		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
@@ -601,60 +543,37 @@ kernel_func_t kernelgen::runtime::compile(
 			}
 		for (vector<AllocaInst*>::iterator i = erase_allocas.begin(),
 			ie = erase_allocas.end(); i != ie; i++)
-			(*i)->eraseFromParent();*/
+			(*i)->eraseFromParent();
+		
+		// Align all globals to 4096.
+		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
+			GV->setAlignment(4096);
 
-		// Mark all pointer types referring to the GPU global address space.
-		// Note this is an illegal hack, because it changes *types*, that are
-		// unique instanses in LLVM. We used just for simplicity, to avoid
-		// creating new types and instructions replacement.
-		// For LLVM state consistency, after codegen the modified types
-		// are reset back.
-		/*for (LLVMContext::PointerTypesMap::iterator i = context.beginPointerTypes(),
-			ie = context.endPointerTypes(); i != ie; i++)
+		// Link entire module with the KernelGen device runtime module.
+		string err;
+		if (Linker::LinkModules(m, runtime_module, Linker::DestroySource, &err))
 		{
-			std::pair<Type*, PointerType*>& type = *i;
-			type.second->setAddressSpace(1);
-		}*/
+			THROW("Error linking runtime with kernel " << kernel->name << " : " << err);
+		}
 		
-		/*// Change llvm.memset.p0i8.i64 into llvm.memset.p1i8.i64.
-		Function* llvm_memset = m->getFunction("llvm.memset.p0i8.i64");
-		llvm_memset->setName("llvm.memset.p1i8.i64");
-		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {	
-				// Check if instruction in focus is a call.
-				CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-				if (!call) continue;
+		// TODO: link with CUDA device runtime module.
 
-				// Check if function is called (needs -instcombine pass).
-				Function* callee = call->getCalledFunction();
-				if (!callee) continue;
-				if (!callee->isDeclaration()) continue;
-				if (callee->isIntrinsic())
-				{
-					if (callee->getName() == "llvm.memset.p0i8.i64")
-						callee->setName("llvm.memset.p1i8.i64");
-				}
-			}*/
-		
-		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
+		// Optimize module.
+		{
+			PassManager manager;
+			PassManagerBuilder builder;
+			builder.Inliner = createFunctionInliningPass();
+			builder.OptLevel = 3;
+			builder.DisableSimplifyLibCalls = true;
+			builder.Vectorize = false;
+			builder.populateModulePassManager(manager);
+			manager.run(*m);
+		}
 
 		verifyModule(*m);
+		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		kernel_func_t result = codegen(
-			runmode, m, kernel->name, kernel->target[runmode].monitor_kernel_stream);
-
-		/*// Reset to default address space.
-		for (LLVMContext::PointerTypesMap::iterator i = context.beginPointerTypes(),
-			ie = context.endPointerTypes(); i != ie; i++)
-		{
-			std::pair<Type*, PointerType*>& type = *i;
-			type.second->setAddressSpace(0);
-		}*/
-
-
-		return result;
-
-		break;
+		return codegen(runmode, m, kernel->name, kernel->target[runmode].monitor_kernel_stream);
 	}
 	case KERNELGEN_RUNMODE_OPENCL : {
 		THROW("Unsupported runmode" << runmode);

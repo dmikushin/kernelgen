@@ -1,0 +1,79 @@
+--- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(revision 157736)
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(working copy)
+@@ -369,9 +369,19 @@
+   SmallString<128> Str;
+   raw_svector_ostream O(Str);
+ 
++  // Emit the global Fake Stack Object
++  const MachineFrameInfo *MFI = MF->getFrameInfo();
++  int NumBytes = (int) MFI->getStackSize();
++  if (NumBytes) {
++    O << ".visible .global .align " << MFI->getMaxAlignment() << " .b8 \t"
++        << DEPOTNAME
++        << getFunctionNumber() << "[" << NumBytes << "];\n\n";
++  }
++
+   // Set up
+   MRI = &MF->getRegInfo();
+   F = MF->getFunction();
++
+   emitLinkageDirective(F,O);
+   if (llvm::isKernelFunction(*F))
+     O << ".entry ";
+@@ -1143,6 +1153,7 @@
+     // Ptx allows variable initilization only for constant and global state
+     // spaces.
+     if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
++        (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
+         (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
+         (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST))
+         && GVar->hasInitializer()) {
+@@ -1167,6 +1178,7 @@
+       // Ptx allows variable initilization only for constant and
+       // global state spaces.
+       if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
++          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
+           (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
+           (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST))
+           && GVar->hasInitializer()) {
+@@ -1239,6 +1251,7 @@
+   case llvm::ADDRESS_SPACE_LOCAL:
+     O << "local" ;
+     break;
++  case llvm::ADDRESS_SPACE_GENERIC:
+   case llvm::ADDRESS_SPACE_GLOBAL:
+     O << "global" ;
+     break;
+@@ -1588,9 +1601,6 @@
+   const MachineFrameInfo *MFI = MF.getFrameInfo();
+   int NumBytes = (int) MFI->getStackSize();
+   if (NumBytes) {
+-    O << "\t.local .align " << MFI->getMaxAlignment() << " .b8 \t"
+-        << DEPOTNAME
+-        << getFunctionNumber() << "[" << NumBytes << "];\n";
+     if (nvptxSubtarget.is64Bit()) {
+       O << "\t.reg .b64 \t%SP;\n";
+       O << "\t.reg .b64 \t%SPL;\n";
+--- a/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(revision 157736)
++++ b/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(working copy)
+@@ -40,17 +40,17 @@
+ 
+     if (tm.getSubtargetImpl()->hasGenericLdSt()) {
+       // mov %SPL, %depot;
+-      // cvta.local %SP, %SPL;
++      // cvta.global %SP, %SPL;
+       if (is64bit) {
+         MachineInstr *MI = BuildMI(MBB, MBBI, dl,
+-                               tm.getInstrInfo()->get(NVPTX::cvta_local_yes_64),
++                               tm.getInstrInfo()->get(NVPTX::cvta_global_yes_64),
+                                    NVPTX::VRFrame).addReg(NVPTX::VRFrameLocal);
+         BuildMI(MBB, MI, dl,
+                 tm.getInstrInfo()->get(NVPTX::IMOV64rr), NVPTX::VRFrameLocal)
+         .addReg(NVPTX::VRDepot);
+       } else {
+         MachineInstr *MI = BuildMI(MBB, MBBI, dl,
+-                                  tm.getInstrInfo()->get(NVPTX::cvta_local_yes),
++                                  tm.getInstrInfo()->get(NVPTX::cvta_global_yes),
+                                    NVPTX::VRFrame).addReg(NVPTX::VRFrameLocal);
+         BuildMI(MBB, MI, dl,
+                 tm.getInstrInfo()->get(NVPTX::IMOV32rr), NVPTX::VRFrameLocal)
