@@ -52,7 +52,8 @@ foreach $binary (@binaries)
 #
 my(@includes) = (
 	"include/kernelgen_runtime.bc",
-	"include/kernelgen_monitor.bc");
+	"include/kernelgen_monitor.bc",
+	"include/kernelgen_cuda.bc");
 foreach $include (@includes)
 {
 	`cp $include $PREFIX\/include\/`;

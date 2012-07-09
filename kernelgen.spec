@@ -54,7 +54,7 @@ Patch4:		llvm.scev.patch
 Patch5:		llvm.statistic.patch
 Patch6:		llvm.opts.patch
 Patch7:		llvm.nvptx.patch
-Patch8:		clang.inline.patch
+Patch8:		clang.patch
 Patch9:		gcc-multiarch.patch
 Patch10:	gcc.patch
 
