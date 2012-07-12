@@ -230,6 +230,9 @@ extern kernel_func_t monitor_kernel;
 // Runtime module (applicable for some targets).
 extern llvm::Module* runtime_module;
 
+// CUDA module (applicable for some targets).
+extern llvm::Module* cuda_module;
+
 } }
 
 // Launch the specified kernel.

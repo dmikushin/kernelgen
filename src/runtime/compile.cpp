@@ -295,19 +295,70 @@ kernel_func_t kernelgen::runtime::compile(
 		return codegen(runmode, m, kernel->name, 0);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
-		// Initially, fill intrinsics tables.
-		if (kernelgen_intrinsics_set.empty()) {
-			kernelgen_intrinsics_set.insert(
-			    kernelgen_intrinsics, kernelgen_intrinsics +
-			    sizeof(kernelgen_intrinsics) / sizeof(string));
-			cuda_intrinsics_set.insert(
-			    cuda_intrinsics, cuda_intrinsics +
-			    sizeof(cuda_intrinsics) / sizeof(string));
+
+		// Change the target triple for entire module to be the same
+		// as for KernelGen device runtime module.
+		m->setTargetTriple(runtime_module->getTargetTriple());
+		m->setDataLayout(runtime_module->getDataLayout());
+
+		// Mark all module functions as device functions.
+		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+			F->setCallingConv(CallingConv::PTX_Device);
+
+		// Mark kernel as GPU global function.
+		f->setCallingConv(CallingConv::PTX_Kernel);
+
+		// Mark all calls as calls to device functions.
+		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+				// Check if instruction in focus is a call.
+				CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+				if (!call) continue;
+
+				// Check if function is called (needs -instcombine pass).
+				Function* callee = call->getCalledFunction();
+				if (!callee) continue;
+
+				call->setCallingConv(CallingConv::PTX_Device);
+				
+				// If function is only declared, then try to find and
+				// insert its implementation either from KernelGen or CUDA
+				// runtime module.
+				if (callee->isDeclaration())
+		}
+
+		// Link entire module with the CUDA device runtime module.
+		string linker_err;
+		if (Linker::LinkModules(m, cuda_module, Linker::PreserveSource, &linker_err))
+		{
+			THROW("Error linking CUDA with kernel " << kernel->name << " : " << linker_err);
+		}
+
+		// Optimize module.
+		{
+			PassManager manager;
+			PassManagerBuilder builder;
+			builder.Inliner = createFunctionInliningPass();
+			builder.OptLevel = 3;
+			builder.DisableSimplifyLibCalls = true;
+			builder.Vectorize = false;
+			builder.populateModulePassManager(manager);
+			manager.run(*m);
 		}
 
 		dim3 blockDim(1, 1, 1);
 		dim3 gridDim(1, 1, 1);
 		if (kernel->name != "__kernelgen_main")  {
+		
+			// Erase all defined functions, except the kernel.
+			vector<Function*> erase_funcs;
+			for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+				if (!F->isDeclaration() && (F->getName() != kernel->name))
+					erase_funcs.push_back(F);
+			for (vector<Function*>::iterator i = erase_funcs.begin(),
+		                ie = erase_funcs.end(); i != ie; i++)
+		                (*i)->eraseFromParent();
+		
 			// If the target kernel is loop, do not allow host calls in it.
 			// Also do not allow malloc/free, probably support them later.
 			// TODO: kernel *may* have kernelgen_launch called, but it must
@@ -350,6 +401,8 @@ kernel_func_t kernelgen::runtime::compile(
 
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
+			
+			if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 			// Apply the Polly codegen for CUDA target.
 			Size3 sizeOfLoops;
@@ -360,6 +413,7 @@ kernel_func_t kernelgen::runtime::compile(
 			// above to generate full host kernel in case hostcalls are around
 			// (.supported flag), rather than running kernel on device and invoke
 			// hostcalls on each individual iteration, which will be terribly slow.
+			kernel->target[runmode].supported = false;
 			if (sizeOfLoops.x == -1) return NULL;
 
 			//   x   y     z       x     y  z
@@ -415,8 +469,15 @@ kernel_func_t kernelgen::runtime::compile(
 
 		// Convert external functions CallInst-s into
 		// host callback form. Do not convert CallInst-s
-		// to device-resolvable intrinsics (syscalls and math).
+		// to intrinsics and calls linked from the CUDA device runtime module.
 		if (kernel->name == "__kernelgen_main") {
+
+			// Link entire module with the KernelGen device runtime module.
+			if (Linker::LinkModules(m, runtime_module, Linker::PreserveSource, &linker_err))
+			{
+				THROW("Error linking runtime with kernel " << kernel->name << " : " << linker_err);
+			}
+
 			vector<CallInst*> erase_calls;
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
@@ -491,72 +552,34 @@ kernel_func_t kernelgen::runtime::compile(
 					wrapCallIntoHostcall(call, hostcall);
 					erase_calls.push_back(call);
 				}
-
 			for (vector<CallInst*>::iterator i = erase_calls.begin(),
 				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
-		}
 
-		// Change the target triple for entire module to be the same
-		// as for KernelGen device runtime module.
-		m->setTargetTriple(runtime_module->getTargetTriple());
-		m->setDataLayout(runtime_module->getDataLayout());
-
-		// Mark all module functions as device functions.
-		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
-			F->setCallingConv(CallingConv::PTX_Device);
-
-		// Mark kernel as GPU global function.
-		f->setCallingConv(CallingConv::PTX_Kernel);
-
-		// Mark all calls as calls to device functions.
-		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-				// Check if instruction in focus is a call.
-				CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-				if (!call) continue;
-
-				// Check if function is called (needs -instcombine pass).
-				Function* callee = call->getCalledFunction();
-				if (!callee) continue;
-				if (!callee->isDeclaration()) continue;
-				if (callee->isIntrinsic()) continue;
-
-				call->setCallingConv(CallingConv::PTX_Device);
-		}
-
-		// Replace alloca-s with global variables.
-		vector<AllocaInst*> erase_allocas;
-		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-				// Check if instruction in focus is an alloca.
-				AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
-				if (!alloca) continue;
+			// Replace alloca-s with global variables.
+			vector<AllocaInst*> erase_allocas;
+			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+					// Check if instruction in focus is an alloca.
+					AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
+					if (!alloca) continue;
 				
-				// Replace alloca with global variable.
-				GlobalVariable* GV = new GlobalVariable(
-					*m, alloca->getAllocatedType(), false, GlobalValue::PrivateLinkage,
-					Constant::getNullValue(alloca->getAllocatedType()), "");
-				GV->setAlignment(alloca->getAlignment());
-				alloca->replaceAllUsesWith(GV);
-				erase_allocas.push_back(alloca);
-			}
-		for (vector<AllocaInst*>::iterator i = erase_allocas.begin(),
-			ie = erase_allocas.end(); i != ie; i++)
-			(*i)->eraseFromParent();
+					// Replace alloca with global variable.
+					GlobalVariable* GV = new GlobalVariable(
+						*m, alloca->getAllocatedType(), false, GlobalValue::PrivateLinkage,
+						Constant::getNullValue(alloca->getAllocatedType()), "");
+					GV->setAlignment(alloca->getAlignment());
+					alloca->replaceAllUsesWith(GV);
+					erase_allocas.push_back(alloca);
+				}
+			for (vector<AllocaInst*>::iterator i = erase_allocas.begin(),
+				ie = erase_allocas.end(); i != ie; i++)
+				(*i)->eraseFromParent();
 		
-		// Align all globals to 4096.
-		for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
-			GV->setAlignment(4096);
-
-		// Link entire module with the KernelGen device runtime module.
-		string err;
-		if (Linker::LinkModules(m, runtime_module, Linker::DestroySource, &err))
-		{
-			THROW("Error linking runtime with kernel " << kernel->name << " : " << err);
+			// Align all globals to 4096.
+			for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
+				GV->setAlignment(4096);
 		}
-		
-		// TODO: link with CUDA device runtime module.
 
 		// Optimize module.
 		{
@@ -569,6 +592,15 @@ kernel_func_t kernelgen::runtime::compile(
 			builder.populateModulePassManager(manager);
 			manager.run(*m);
 		}
+
+		// Erase all defined functions, except the kernel.
+		vector<Function*> erase_funcs;
+		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+			if (!F->isDeclaration() && (F->getName() != kernel->name))
+				erase_funcs.push_back(F);
+		for (vector<Function*>::iterator i = erase_funcs.begin(),
+                        ie = erase_funcs.end(); i != ie; i++)
+                        (*i)->eraseFromParent();
 
 		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();

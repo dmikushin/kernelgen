@@ -33,15 +33,7 @@ extern unsigned int* __attribute__((device)) __kernelgen_memory;
 #include "kernelgen_interop.h"
 #include "kernelgen_memory.h"
 
-__attribute__((device)) __attribute__((always_inline)) int __iAtomicCAS(int *p, int compare, int val)
-{
-        int ret;
-        asm volatile (
-                "atom.cas.b32    %0, [%1], %2, %3; \n\t"
-                : "=r"(ret) : "l"(p), "r"(compare), "r"(val)
-        );
-        return ret;
-}
+__attribute__((device)) int __iAtomicCAS(volatile int *p, int compare, int val);
 
 __attribute__((device)) __attribute__((always_inline)) void kernelgen_hostcall(unsigned char* kernel,
 	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)

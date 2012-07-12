@@ -78,7 +78,10 @@ Module* kernelgen::runtime::monitor_module = NULL;
 kernel_func_t kernelgen::runtime::monitor_kernel;
 
 // Runtime module (applicable for some targets).
-Module* kernelgen::runtime::runtime_module;
+Module* kernelgen::runtime::runtime_module = NULL;
+
+// CUDA module (applicable for some targets).
+Module* kernelgen::runtime::cuda_module = NULL;
 
 int main(int argc, char* argv[], char* envp[])
 {
@@ -306,14 +309,11 @@ int main(int argc, char* argv[], char* envp[])
 						monitor_source);
 				        monitor_module = ParseIR(buffer1, diag, context);
 
-					if (verbose & KERNELGEN_VERBOSE_SOURCES)
-						monitor_module->dump();
-
 					monitor_kernel = kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
 						monitor_module, "kernelgen_monitor", 0);
 				}
 
-				// Load LLVM IR for additional runtime functions, if not yet loaded.
+				// Load LLVM IR for KernelGen runtime functions, if not yet loaded.
 				if (!runtime_module)
 				{
 					string runtime_source = "";
@@ -331,9 +331,30 @@ int main(int argc, char* argv[], char* envp[])
 					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
 						runtime_source);
 					runtime_module = ParseIR(buffer1, diag, context);
+                                }
 
-					if (verbose & KERNELGEN_VERBOSE_SOURCES)
-						runtime_module->dump();
+				// Load LLVM IR for CUDA runtime functions, if not yet loaded.
+				if (!cuda_module)
+				{
+					string cuda_source = "";
+					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_cuda.bc");
+					tmp_stream.seekg(0, std::ios::end);
+					cuda_source.reserve(tmp_stream.tellg());
+					tmp_stream.seekg(0, std::ios::beg);
+
+					cuda_source.assign(
+						std::istreambuf_iterator<char>(tmp_stream),
+						std::istreambuf_iterator<char>());
+					tmp_stream.close();
+
+					SMDiagnostic diag;
+					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
+						cuda_source);
+					cuda_module = ParseIR(buffer1, diag, context);
+
+					// Mark all module functions as device functions.
+			                for (Module::iterator F = cuda_module->begin(), FE = cuda_module->end(); F != FE; F++)
+                        			F->setCallingConv(CallingConv::PTX_Device);
                                 }
 
 				// Initialize callback structure.
