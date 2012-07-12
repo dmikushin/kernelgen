@@ -309,9 +309,8 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, string name, C
 				InitializeAllAsmPrinters();
 				InitializeAllAsmParsers();
 
-				Triple triple(m->getTargetTriple());
-				if (triple.getTriple().empty())
-					triple.setTriple(sys::getDefaultTargetTriple());
+				Triple triple;
+				triple.setTriple(sys::getDefaultTargetTriple());
 				string err;
 				TargetOptions options;
 				const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);

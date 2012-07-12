@@ -34,6 +34,7 @@
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -45,6 +46,9 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
 
 #include "io.h"
 #include "util.h"
@@ -72,14 +76,6 @@ namespace llvm
 	void RemoveStatistics();
 }
 extern cl::opt<bool>  IgnoreAliasing;
-// Arrays and sets of KernelGen and CUDA intrinsics.
-static string cuda_intrinsics[] = {
-#include "cuda_intrinsics.h"
-};
-static string kernelgen_intrinsics[] = {
-#include "kernelgen_intrinsics.h"
-};
-static set<string> kernelgen_intrinsics_set, cuda_intrinsics_set;
 
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL);
@@ -325,9 +321,13 @@ kernel_func_t kernelgen::runtime::compile(
 				// insert its implementation either from KernelGen or CUDA
 				// runtime module.
 				if (callee->isDeclaration())
+				{
+					// TODO:
+				}
 		}
 
 		// Link entire module with the CUDA device runtime module.
+		// TODO: remove
 		string linker_err;
 		if (Linker::LinkModules(m, cuda_module, Linker::PreserveSource, &linker_err))
 		{
@@ -375,22 +375,6 @@ kernel_func_t kernelgen::runtime::compile(
 					if (!callee->isDeclaration()) continue;
 					if (callee->isIntrinsic()) continue;
 
-					// Check function is natively supported.
-					set<string>::iterator i1 =
-					    kernelgen_intrinsics_set.find(callee->getName());
-					if (i1 != kernelgen_intrinsics_set.end()) {
-						if (verbose)
-							cout << "KernelGen native: " << callee->getName().data() << endl;
-						continue;
-					}
-					set<string>::iterator i2 =
-					    cuda_intrinsics_set.find(callee->getName());
-					if (i2 != cuda_intrinsics_set.end()) {
-						if (verbose)
-							cout << "CUDA native: " << callee->getName().data() << endl;
-						continue;
-					}
-
 					// Loop contains non-native calls, and therefore
 					// cannot be executed on GPU.
 					if (verbose)
@@ -401,8 +385,6 @@ kernel_func_t kernelgen::runtime::compile(
 
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
-			
-			if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
 			// Apply the Polly codegen for CUDA target.
 			Size3 sizeOfLoops;
@@ -413,8 +395,78 @@ kernel_func_t kernelgen::runtime::compile(
 			// above to generate full host kernel in case hostcalls are around
 			// (.supported flag), rather than running kernel on device and invoke
 			// hostcalls on each individual iteration, which will be terribly slow.
-			kernel->target[runmode].supported = false;
-			if (sizeOfLoops.x == -1) return NULL;
+			if (sizeOfLoops.x == -1)
+			{
+				// Dump the LLVM IR Polly has failed to create
+				// gird in for futher analysis with kernelgen-polly.
+				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				{
+					// Put the resulting module into LLVM output file
+					// as object binary. Method: create another module
+					// with a global variable incorporating the contents
+					// of entire module and emit it for X86_64 target.
+					string ir_string;
+					raw_string_ostream ir(ir_string);
+					ir << *m;
+					Module obj_m(kernel->name + "_module", context);
+					Constant* source = ConstantDataArray::getString(context, ir_string, true);
+					GlobalVariable* GV1 = new GlobalVariable(obj_m, source->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, source,
+						kernel->name, 0, false);
+					
+					// Create target machine for NATIVE target and get its target data.
+					if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
+						InitializeAllTargets();
+						InitializeAllTargetMCs();
+						InitializeAllAsmPrinters();
+						InitializeAllAsmParsers();
+
+						Triple triple;
+						triple.setTriple(sys::getDefaultTargetTriple());
+						string err;
+						TargetOptions options;
+						const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
+						if (!target)
+							THROW("Error auto-selecting target for module '" << err << "'." << endl <<
+								"Please use the -march option to explicitly pick a target.");
+						targets[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
+							triple.getTriple(), "", "", options, Reloc::PIC_, CodeModel::Default));
+						if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
+							THROW("Could not allocate target machine");
+
+						// Override default to generate verbose assembly.
+						targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
+					}
+
+					// Setup output stream.
+					string bin_string;
+					raw_string_ostream bin_stream(bin_string);
+					formatted_raw_ostream bin_raw_stream(bin_stream);
+
+					// Ask the target to add backend passes as necessary.
+					PassManager manager;
+					const TargetData* tdata =
+						targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
+					manager.add(new TargetData(*tdata));
+					if (targets[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(manager, bin_raw_stream,
+						TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
+						THROW("Target does not support generation of this file type");
+					manager.run(obj_m);
+
+					// Flush the resulting object binary to the underlying string.
+					bin_raw_stream.flush();
+
+					// Dump the generated kernel object to file.
+					fstream stream;
+					string filename = kernel->name + ".ll";
+					stream.open(filename.c_str(),
+						fstream::binary | fstream::out | fstream::trunc);
+					stream << bin_string;
+					stream.close();
+				}
+			
+				return NULL;
+			}
 
 			//   x   y     z       x     y  z
 			//  123 13640   -1  ->  13640 123 1     two loops
@@ -492,23 +544,6 @@ kernel_func_t kernelgen::runtime::compile(
 					if (callee->isIntrinsic()) continue;
 
 					string name = callee->getName();
-
-					// Check function is natively supported.
-					bool native = false;
-					set<string>::iterator i1 =
-					    kernelgen_intrinsics_set.find(callee->getName());
-					if (i1 != kernelgen_intrinsics_set.end()) {
-						if (verbose)
-							cout << "KernelGen native: " << name << endl;
-						continue;
-					}
-					set<string>::iterator i2 =
-					    cuda_intrinsics_set.find(callee->getName());
-					if (i2 != cuda_intrinsics_set.end()) {
-						if (verbose)
-							cout << "CUDA native: " << name << endl;
-						continue;
-					}
 
 					// Check if function is malloc or free.
 					// In case it is, replace it with kernelgen_* variant.
