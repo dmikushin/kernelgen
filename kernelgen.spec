@@ -48,15 +48,14 @@ Source4:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.bz2
 Source5:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
 Patch0:		dragonegg.ptx.patch
 Patch1:		dragonegg.patch
-Patch2:		dragonegg.noalias.patch
-Patch3:		llvm.polly.patch
-Patch4:		llvm.scev.patch
-Patch5:		llvm.statistic.patch
-Patch6:		llvm.opts.patch
-Patch7:		llvm.nvptx.patch
-Patch8:		llvm.clang.patch
-Patch9:		gcc-multiarch.patch
-Patch10:	gcc.patch
+Patch2:		llvm.polly.patch
+Patch3:		llvm.scev.patch
+Patch4:		llvm.statistic.patch
+Patch5:		llvm.opts.patch
+Patch6:		llvm.nvptx.patch
+Patch7:		llvm.clang.patch
+Patch8:		gcc-multiarch.patch
+Patch9:		gcc.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -110,9 +109,8 @@ sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 %patch5 -p1
 %patch6 -p1
 %patch7 -p1
-%patch8 -p1
 %if (%target == debian)
-%patch9 -p1
+%patch8 -p1
 %endif
 %endif
 

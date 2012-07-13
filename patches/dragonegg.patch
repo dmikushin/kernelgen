@@ -6,8 +6,8 @@
  
 +extern std::string dragonegg_result;
 +
- // TODO: In GCC, add targhooks.h to the list of plugin headers and remove this.
- extern "C" tree default_mangle_decl_assembler_name (tree, tree);
+ // Non-zero if libcalls should not be simplified.
+ int flag_no_simplify_libcalls;
  
 @@ -116,6 +118,7 @@
  static bool EnableGCCOptimizations;
