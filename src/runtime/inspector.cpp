@@ -198,29 +198,6 @@ int main(int argc, char* argv[])
 				&kernel->target[runmode].kernel_stream, 0);
 			if (err) THROW("Error in cuStreamCreate " << err);
 			
-			// Load LLVM IR for kernel monitor, if not yet loaded.
-			if (!monitor_module)
-			{
-				string monitor_source = "";
-				std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_monitor.bc");
-				tmp_stream.seekg(0, std::ios::end);
-				monitor_source.reserve(tmp_stream.tellg());
-				tmp_stream.seekg(0, std::ios::beg);
-
-				monitor_source.assign(
-					std::istreambuf_iterator<char>(tmp_stream),
-					std::istreambuf_iterator<char>());
-				tmp_stream.close();
-
-			        SMDiagnostic diag;
-			        MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
-					monitor_source);
-			        monitor_module = ParseIR(buffer1, diag, context);
-
-				monitor_kernel = kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
-					monitor_module, "kernelgen_monitor", 0);
-			}
-
 			// Load LLVM IR for KernelGen runtime functions, if not yet loaded.
 			if (!runtime_module)
 			{
