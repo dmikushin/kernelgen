@@ -114,6 +114,39 @@ void printSpecifiedStatistics(vector<string> statisticsNames)
 	}
 	outs().resetColor();
 }
+
+static void registerPollyPreoptPasses(llvm::PassManagerBase &PM) {
+  // A standard set of optimization passes partially taken/copied from the
+  // set of default optimization passes. It is used to bring the code into
+  // a canonical form that can than be analyzed by Polly. This set of passes is
+  // most probably not yet optimal. TODO: Investigate optimal set of passes.
+  PM.add(llvm::createPromoteMemoryToRegisterPass());
+  PM.add(llvm::createInstructionCombiningPass());  // Clean up after IPCP & DAE
+  PM.add(llvm::createCFGSimplificationPass());     // Clean up after IPCP & DAE
+  PM.add(llvm::createTailCallEliminationPass());   // Eliminate tail calls
+  PM.add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
+  PM.add(llvm::createReassociatePass());           // Reassociate expressions
+  PM.add(llvm::createLoopRotatePass());            // Rotate Loop
+  PM.add(llvm::createInstructionCombiningPass());
+  PM.add(polly::createIndVarSimplifyPass());        // Canonicalize indvars
+
+  PM.add(polly::createCodePreparationPass());
+  PM.add(polly::createRegionSimplifyPass());
+  // FIXME: The next two passes should not be necessary here. They are currently
+  //        because of two problems:
+  //
+  //        1. The RegionSimplifyPass destroys the canonical form of induction
+  //           variables,as it produces PHI nodes with incorrectly ordered
+  //           operands. To fix this we run IndVarSimplify.
+  //
+  //        2. IndVarSimplify does not preserve the region information and
+  //           the regioninfo pass does currently not recover simple regions.
+  //           As a result we need to run the RegionSimplify pass again to
+  //           recover them
+  PM.add(polly::createIndVarSimplifyPass());
+  PM.add(polly::createRegionSimplifyPass());
+}
+
 static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 {
 	IgnoreAliasing.setValue(true);
@@ -128,8 +161,9 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 	{
 		PassManager polly;
 		polly.add(new TargetData(kernel->module));
-		//registerPollyPreoptPasses(polly);
-		if(kernel->name != "__kernelgen_main") {
+		registerPollyPreoptPasses(polly);
+		polly.add(polly::createIslScheduleOptimizerPass());
+		if (kernel->name != "__kernelgen_main") {
 			polly.add(createRuntimeAliasAnalysisPass());
 			polly.add(createSizeOfLoopsPass(&sizes));
 		}
@@ -187,7 +221,7 @@ static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops)
 {
 	return runPolly(kernel, sizeOfLoops, true);
 }
-void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
+void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
 	Module * m = kernel-> module;
 	vector<string> dimensions, parameters;
