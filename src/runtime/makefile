@@ -56,7 +56,7 @@ OBJECTS := \
 
 OBJECTS := $(addsuffix .o, $(OBJECTS))
 
-all: libkernelgen-rt.so
+all: libkernelgen-rt.so kernelgen-inspector
 
 libkernelgen-rt.so: $(OBJECTS)
 	$(CXX) -shared $(OBJECTS) -o $@ $(BUGPOINT_LIBS) $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
@@ -108,6 +108,13 @@ SizeOfLoops.o: SizeOfLoops.cpp
 RuntimeAliasAnalysis.o : RuntimeAliasAnalysis.cpp
 	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@  
 
+kernelgen-inspector: inspector.cpp libkernelgen-rt.so
+	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) $< -o $@ \
+	-L. -lkernelgen-rt $(BUGPOINT_LIBS) $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
+	-L../libasfermi/ -L../libasfermi/tests/dyloader -ldyloader -lasfermi -lelf -lrt \
+	-lgmp -lmhash -ldl -lffi -L/RHM/users/work/dmikushin/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
+	-L/RHM/users/work/dmikushin/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl
+
 clean:
-	rm -rf *.o libkernelgen-rt.so
+	rm -rf *.o libkernelgen-rt.so kernelgen-inspector
 

@@ -208,7 +208,7 @@ namespace runtime {
 
 // Compile kernel with the specified arguments,
 // and return its handle.
-kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL, void * data = NULL, int szdatai = 0);
+kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL, void* data = NULL, int szdata = 0, int szdatai = 0);
 
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.

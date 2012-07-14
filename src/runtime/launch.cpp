@@ -122,7 +122,7 @@ int kernelgen_launch(kernel_t* kernel,
 			// Function may return NULL in case the kernel is
 			// unexpected to be non-parallel - this must be
 			// recorded to cache as well.
-			kernel_func = compile(runmode, kernel, NULL, args, szdatai);
+			kernel_func = compile(runmode, kernel, NULL, args, szdata, szdatai);
 			binaries[strhash] = kernel_func;
 		}
 		else

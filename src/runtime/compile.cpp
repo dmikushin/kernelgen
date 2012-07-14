@@ -224,7 +224,7 @@ void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 }
 
 kernel_func_t kernelgen::runtime::compile(
-    int runmode, kernel_t* kernel, Module* module, void * data, int szdatai)
+    int runmode, kernel_t* kernel, Module* module, void * data, int szdata, int szdatai)
 {
 	// Do not compile, if no source.
 	if (kernel->source == "")
@@ -408,11 +408,26 @@ kernel_func_t kernelgen::runtime::compile(
 					string ir_string;
 					raw_string_ostream ir(ir_string);
 					ir << *m;
-					Module obj_m(kernel->name + "_module", context);
-					Constant* source = ConstantDataArray::getString(context, ir_string, true);
-					GlobalVariable* GV1 = new GlobalVariable(obj_m, source->getType(),
-						true, GlobalValue::LinkerPrivateLinkage, source,
+					Module obj_m("module" + kernel->name, context);
+					Constant* C1 = ConstantDataArray::getString(context, ir_string, true);
+					GlobalVariable* GV1 = new GlobalVariable(obj_m, C1->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, C1,
 						kernel->name, 0, false);
+					SmallVector<uint8_t, 16> adata((char*)data, (char*)data + szdata);
+					Constant* C2 = ConstantDataArray::get(context, adata);
+					GlobalVariable* GV2 = new GlobalVariable(obj_m, C2->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, C2,
+						"args" + kernel->name, 0, false);
+					APInt aszdata(8 * sizeof(int), szdata);
+					Constant* C3 = Constant::getIntegerValue(Type::getInt32Ty(context), aszdata);
+					GlobalVariable* GV3 = new GlobalVariable(obj_m, C3->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, C3,
+						"szargs" + kernel->name, 0, false);
+					APInt aszdatai(8 * sizeof(int), szdatai);
+					Constant* C4 = Constant::getIntegerValue(Type::getInt32Ty(context), aszdatai);
+					GlobalVariable* GV4 = new GlobalVariable(obj_m, C4->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, C4,
+						"szargsi" + kernel->name, 0, false);
 					
 					// Create target machine for NATIVE target and get its target data.
 					if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
@@ -458,7 +473,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 					// Dump the generated kernel object to file.
 					fstream stream;
-					string filename = kernel->name + ".ll";
+					string filename = kernel->name + ".kernelgen.o";
 					stream.open(filename.c_str(),
 						fstream::binary | fstream::out | fstream::trunc);
 					stream << bin_string;
