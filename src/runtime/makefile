@@ -52,7 +52,7 @@ CXXFLAGS = \
 OBJECTS := \
 	entry compile launch finish timer io elf execute codegen \
 	memory hostcall wrappers \
-        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis
+        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody
 
 OBJECTS := $(addsuffix .o, $(OBJECTS))
 
@@ -105,8 +105,11 @@ ConstantSubstitution.o: ConstantSubstitution.cpp
 SizeOfLoops.o: SizeOfLoops.cpp
 	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
-RuntimeAliasAnalysis.o : RuntimeAliasAnalysis.cpp
-	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@  
+RuntimeAliasAnalysis.o: RuntimeAliasAnalysis.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+
+LinkFunctionBody.o: LinkFunctionBody.cpp LinkFunctionBody.h
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
 kernelgen-inspector: inspector.cpp libkernelgen-rt.so
 	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) $< -o $@ \

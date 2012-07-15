@@ -42,6 +42,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
@@ -62,6 +63,8 @@
 #include <set>
 #include <stdio.h>
 
+#include "LinkFunctionBody.h"
+
 using namespace kernelgen;
 using namespace util::io;
 using namespace llvm;
@@ -75,7 +78,7 @@ namespace llvm
 {
 	void RemoveStatistics();
 }
-extern cl::opt<bool>  IgnoreAliasing;
+extern cl::opt<bool> IgnoreAliasing;
 
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL);
@@ -149,6 +152,14 @@ static void registerPollyPreoptPasses(llvm::PassManagerBase &PM) {
 
 static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 {
+	{
+		PassManager polly;
+		polly.add(new TargetData(kernel->module));
+		registerPollyPreoptPasses(polly);
+		polly.add(polly::createIslScheduleOptimizerPass());
+		polly.run(*kernel->module);
+	}
+
 	IgnoreAliasing.setValue(true);
 	polly::CUDA.setValue(mode);
 
@@ -161,8 +172,8 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 	{
 		PassManager polly;
 		polly.add(new TargetData(kernel->module));
-		registerPollyPreoptPasses(polly);
-		polly.add(polly::createIslScheduleOptimizerPass());
+		//registerPollyPreoptPasses(polly);
+		//polly.add(polly::createIslScheduleOptimizerPass());
 		if (kernel->name != "__kernelgen_main") {
 			polly.add(createRuntimeAliasAnalysisPass());
 			polly.add(createSizeOfLoopsPass(&sizes));
@@ -338,61 +349,9 @@ kernel_func_t kernelgen::runtime::compile(
 		// Mark kernel as GPU global function.
 		f->setCallingConv(CallingConv::PTX_Kernel);
 
-		// Mark all calls as calls to device functions.
-		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-				// Check if instruction in focus is a call.
-				CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-				if (!call) continue;
-
-				// Check if function is called (needs -instcombine pass).
-				Function* callee = call->getCalledFunction();
-				if (!callee) continue;
-
-				call->setCallingConv(CallingConv::PTX_Device);
-				
-				// If function is only declared, then try to find and
-				// insert its implementation either from KernelGen or CUDA
-				// runtime module.
-				if (callee->isDeclaration())
-				{
-					// TODO:
-				}
-		}
-
-		// Link entire module with the CUDA device runtime module.
-		// TODO: remove
-		string linker_err;
-		if (Linker::LinkModules(m, cuda_module, Linker::PreserveSource, &linker_err))
-		{
-			THROW("Error linking CUDA with kernel " << kernel->name << " : " << linker_err);
-		}
-
-		// Optimize module.
-		{
-			PassManager manager;
-			PassManagerBuilder builder;
-			builder.Inliner = createFunctionInliningPass();
-			builder.OptLevel = 3;
-			builder.DisableSimplifyLibCalls = true;
-			builder.Vectorize = false;
-			builder.populateModulePassManager(manager);
-			manager.run(*m);
-		}
-
 		dim3 blockDim(1, 1, 1);
 		dim3 gridDim(1, 1, 1);
-		if (kernel->name != "__kernelgen_main")  {
-		
-			// Erase all defined functions, except the kernel.
-			vector<Function*> erase_funcs;
-			for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
-				if (!F->isDeclaration() && (F->getName() != kernel->name))
-					erase_funcs.push_back(F);
-			for (vector<Function*>::iterator i = erase_funcs.begin(),
-		                ie = erase_funcs.end(); i != ie; i++)
-		                (*i)->eraseFromParent();
-		
+		if (kernel->name != "__kernelgen_main")  {	
 			// If the target kernel is loop, do not allow host calls in it.
 			// Also do not allow malloc/free, probably support them later.
 			// TODO: kernel *may* have kernelgen_launch called, but it must
@@ -407,12 +366,26 @@ kernel_func_t kernelgen::runtime::compile(
 					Function* callee = call->getCalledFunction();
 					if (!callee) continue;
 					if (!callee->isDeclaration()) continue;
+				
+					// If function is only declared, then try to find and
+					// insert its implementation from the CUDA runtime module.
+					Function* Dst = callee;
+					Function* Src = cuda_module->getFunction(callee->getName());
+					if (Src)
+					{
+						if (verbose)
+							cout << "Device call: " << callee->getName().data()<< endl;
+						call->setCallingConv(CallingConv::PTX_Device);					
+						LinkFunctionBody(Dst, Src);
+						continue;
+					}
+
 					if (callee->isIntrinsic()) continue;
 
-					// Loop contains non-native calls, and therefore
+					// Loop kernel contains non-native calls, and therefore
 					// cannot be executed on GPU.
 					if (verbose)
-						cout << "Hostcall: " << callee->getName().data()<< endl;
+						cout << "Host call: " << callee->getName().data()<< endl;
 					kernel->target[runmode].supported = false;
 					return NULL;
 				}
@@ -433,7 +406,7 @@ kernel_func_t kernelgen::runtime::compile(
 			{
 				// Dump the LLVM IR Polly has failed to create
 				// gird in for futher analysis with kernelgen-polly.
-				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				/*if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
 				{
 					// Put the resulting module into LLVM output file
 					// as object binary. Method: create another module
@@ -512,7 +485,7 @@ kernel_func_t kernelgen::runtime::compile(
 						fstream::binary | fstream::out | fstream::trunc);
 					stream << bin_string;
 					stream.close();
-				}
+				}*/
 			
 				return NULL;
 			}
@@ -572,8 +545,22 @@ kernel_func_t kernelgen::runtime::compile(
 		// host callback form. Do not convert CallInst-s
 		// to intrinsics and calls linked from the CUDA device runtime module.
 		if (kernel->name == "__kernelgen_main") {
+			// Mark all calls as calls to device functions.
+			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+					// Check if instruction in focus is a call.
+					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+					if (!call) continue;
+
+					// Check if function is called (needs -instcombine pass).
+					Function* callee = call->getCalledFunction();
+					if (!callee) continue;
+
+					call->setCallingConv(CallingConv::PTX_Device);
+				}
 
 			// Link entire module with the KernelGen device runtime module.
+			string linker_err;
 			if (Linker::LinkModules(m, runtime_module, Linker::PreserveSource, &linker_err))
 			{
 				THROW("Error linking runtime with kernel " << kernel->name << " : " << linker_err);
@@ -590,9 +577,23 @@ kernel_func_t kernelgen::runtime::compile(
 					Function* callee = call->getCalledFunction();
 					if (!callee) continue;
 					if (!callee->isDeclaration()) continue;
-					if (callee->isIntrinsic()) continue;
 
 					string name = callee->getName();
+
+					// If function is only declared, then try to find and
+					// insert its implementation from the CUDA runtime module.
+					Function* Dst = callee;
+					Function* Src = cuda_module->getFunction(callee->getName());
+					if (Src)
+					{
+						if (verbose)
+							cout << "Device call: " << callee->getName().data()<< endl;
+						call->setCallingConv(CallingConv::PTX_Device);					
+						LinkFunctionBody(Dst, Src);
+						continue;
+					}
+
+					if (callee->isIntrinsic()) continue;
 
 					// Check if function is malloc or free.
 					// In case it is, replace it with kernelgen_* variant.
