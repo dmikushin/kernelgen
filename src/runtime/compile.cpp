@@ -488,6 +488,9 @@ kernel_func_t kernelgen::runtime::compile(
 					stream.close();
 				}*/
 			
+				// XXX Turn off multiple kernel analysis, if it has been detected as
+				// unparallel at least once.
+				kernel->target[runmode].supported = false;
 				return NULL;
 			}
 

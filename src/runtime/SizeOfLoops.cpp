@@ -11,10 +11,11 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-using namespace std;
 
+using namespace kernelgen;
 using namespace polly;
 using namespace std;
+
 typedef std::map<const char*, int64_t>::iterator NameIterator;
 
 class ClastExpCalculator
@@ -225,16 +226,18 @@ public:
 		cout << "<--------------------------------------------------------->" << endl;
 	}
 	void printSizeOfLoops(Size3 &size3, int numberOfLoops) {
-		outs().changeColor(raw_ostream::GREEN);
-		cout << "\n    Number of good nested parallel loops: " << numberOfLoops << endl;
-		if(numberOfLoops) {
-			cout << "    Average size of loops: " << size3.x;
-			if(numberOfLoops >=2) cout << " " << size3.y;
-			if(numberOfLoops >=3) cout << " " << size3.z;
-			cout << endl;
+		if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		{
+			outs().changeColor(raw_ostream::GREEN);
+			cout << "\n    Number of good nested parallel loops: " << numberOfLoops << endl;
+			if(numberOfLoops) {
+				cout << "    Average size of loops: " << size3.x;
+				if(numberOfLoops >=2) cout << " " << size3.y;
+				if(numberOfLoops >=3) cout << " " << size3.z;
+				cout << endl;
+			}
+			outs().resetColor();
 		}
-		outs().resetColor();
-
 	}
 	void setMemoryForSizes(vector<Size3> *memForSizes) {
 		sizeOfLoops = memForSizes;
@@ -345,7 +348,8 @@ bool SizeOfLoops::runOnScop(Scop &scop)
     
 	printSizeOfLoops( (*sizeOfLoops)[0], goodLoopsCount);
     //printCloogAST(C);
-	outs() << "\n<------------------------------ Scop: end ----------------------------------->\n";
+        if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		outs() << "\n<------------------------------ Scop: end ----------------------------------->\n";
 	return true;
 }
 

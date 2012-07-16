@@ -417,7 +417,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 					THROW("LLVM is built without NVPTX Backend support");
 
 				targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
-					triple.getTriple(), "sm_20", "nvptx-sched4reg", TargetOptions(),
+					triple.getTriple(), "sm_20", "", TargetOptions(),
 						Reloc::PIC_, CodeModel::Default, CodeGenOpt::Aggressive));
 				if (!targets[KERNELGEN_RUNMODE_CUDA].get())
 					THROW("Could not allocate target machine");
@@ -496,6 +496,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 
 					dim3 blockDim = kernel->target[runmode].blockDim;
 					int maxregcount = props.regsPerBlock / (blockDim.x * blockDim.y * blockDim.z) - 4;
+					if (maxregcount > 63) maxregcount = 63;
 					ptxas_args.push_back("--maxrregcount");
 					std::ostringstream smaxregcount;
 					smaxregcount << maxregcount;
