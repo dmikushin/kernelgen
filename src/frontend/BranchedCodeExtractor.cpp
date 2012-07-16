@@ -293,11 +293,15 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 					std::cout << "Seen global variable or constant: " << endl;
 					(*O)->dump();
 					if ((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy())
+					{
 						if(!setOfIntegerInputs.count(*O))
 							setOfIntegerInputs.insert(*O);
+					}
 					else
+					{
 						if(!setOfNonIntegerInputs.count(*O))
 							setOfNonIntegerInputs.insert(*O);
+					}
 				}
 				if (isa<GlobalVariable>(*O))
 				{				
