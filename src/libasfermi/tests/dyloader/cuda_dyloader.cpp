@@ -360,17 +360,6 @@ struct CUDYloader_t
 				throw curesult;
 			}
 
-			// Get the kernel regcount.
-			int regcount = 0;
-			curesult = cuFuncGetAttribute(&regcount, CU_FUNC_ATTRIBUTE_NUM_REGS, loader);
-			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot get the uberkern loader regcount" << endl;
-			}
-			if (verbose)
-				cout << "regcount = " << regcount << endl;
-
 			// Load uberkernel entry points from module.
 			for (int i = 0; i < MAX_REGCOUNT + 1; i++)
 			{

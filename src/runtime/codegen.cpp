@@ -295,9 +295,10 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
 
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.
-kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, string name, CUstream stream)
+kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module* m)
 {
-	// TODO: codegen LLVM IR into PTX or host, depending on the runmode.
+	// Codegen LLVM IR into PTX or host, depending on the runmode.
+	string name = kernel->name;
 	switch (runmode) {
 
 		case KERNELGEN_RUNMODE_NATIVE :	{
@@ -467,6 +468,39 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, string name, C
 				ptxas_args.push_back(tmp2.getFilename());
 				ptxas_args.push_back("-o");
 				ptxas_args.push_back(tmp3.getFilename());
+				if (name != "__kernelgen_main")
+				{
+					int device;
+					CUresult err = cuDeviceGet(&device, 0);
+					if (err)
+						THROW("Error in cuDeviceGet " << err);
+
+					typedef struct
+					{
+						int maxThreadsPerBlock;
+						int maxThreadsDim[3];
+						int maxGridSize[3];
+						int sharedMemPerBlock;
+						int totalConstantMemory;
+						int SIMDWidth;
+						int memPitch;
+						int regsPerBlock;
+						int clockRate;
+						int textureAlign;
+					} CUdevprop;
+			
+					CUdevprop props;			
+					err = cuDeviceGetProperties((void*)&props, device);
+					if (err)
+						THROW("Error in cuDeviceGetProperties " << err);
+
+					dim3 blockDim = kernel->target[runmode].blockDim;
+					int maxregcount = props.regsPerBlock / (blockDim.x * blockDim.y * blockDim.z) - 4;
+					ptxas_args.push_back("--maxrregcount");
+					std::ostringstream smaxregcount;
+					smaxregcount << maxregcount;
+					ptxas_args.push_back(smaxregcount.str().c_str());
+				}
 				if (debug)
 				{
 					ptxas_args.push_back("-g");
@@ -537,6 +571,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, string name, C
 			else
 			{
 				// Load kernel function from the binary opcodes.
+				CUstream stream = kernel->target[runmode].monitor_kernel_stream;
 				CUresult err = cudyLoadCubin((CUDYfunction*)&kernel_func,
 					cuda_context->loader, (char*)tmp3.getFilename().c_str(),
 					name.c_str(), stream);

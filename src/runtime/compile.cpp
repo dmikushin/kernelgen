@@ -334,7 +334,7 @@ kernel_func_t kernelgen::runtime::compile(
 		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		return codegen(runmode, m, kernel->name, 0);
+		return codegen(runmode, kernel, m);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 
@@ -515,45 +515,42 @@ kernel_func_t kernelgen::runtime::compile(
 			if (err)
 				THROW("Error in cuDeviceGetProperties " << err);
 
-			//   x   y     z       x     y  z
-			//  123 13640   -1  ->  13640 123 1     two loops
-			//  123 13640 2134  ->  2134 13640 123   three loops
-			//  123   -1    -1  ->  123 1 1        one loop
+			// x   y     z         x     y     z
+			// 123 13640   -1  ->  13640 123   1     two loops
+			// 123 13640 2134  ->  2134  13640 123   three loops
+			// 123   -1    -1  ->  123   1     1     one loop
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
-#define BLOCK_SIZE 1024
 #define BLOCK_DIM_X 32
 			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
-			if (launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
-			switch(numberOfLoops)
+			if (launchParameters.x * launchParameters.y * launchParameters.z > props.maxThreadsPerBlock)
+			switch (numberOfLoops)
 			{
-				    case 0: blockDim = dim3(1,1,1);
-					        assert(false);
-						break;
-				    case 1: blockDim = dim3(BLOCK_SIZE,1,1);
-				        break;
-				    case 2: blockDim = dim3(BLOCK_DIM_X,BLOCK_SIZE / BLOCK_DIM_X, 1);
-				        break;
-				    case 3: 
-				    {
-					    double remainder = BLOCK_SIZE / BLOCK_DIM_X;
-					    double coefficient = (double)launchParameters.z / (double)launchParameters.y;
-					    double yPow2 = remainder / coefficient;
-					    double y = sqrt(yPow2); 	
-					    blockDim =  dim3(BLOCK_DIM_X, y , coefficient*y);
-					    assert(blockDim.x * blockDim.y * blockDim.z <= BLOCK_SIZE);
-				    }
-				    break;
+			case 0:	blockDim = dim3(1, 1, 1);
+				assert(false);
+				break;
+			case 1: blockDim = dim3(props.maxThreadsPerBlock, 1, 1);
+				break;
+			case 2: blockDim = dim3(BLOCK_DIM_X, props.maxThreadsPerBlock / BLOCK_DIM_X, 1);
+				break;
+			case 3:
+				{
+					double remainder = props.maxThreadsPerBlock / BLOCK_DIM_X;
+					double coefficient = (double)launchParameters.z / (double)launchParameters.y;
+					double yPow2 = remainder / coefficient;
+					double y = sqrt(yPow2);
+					blockDim = dim3(BLOCK_DIM_X, y , coefficient * y);
+					assert(blockDim.x * blockDim.y * blockDim.z <= props.maxThreadsPerBlock);
+				}
+				break;
 			}
 			else
 			{ 
-				//?????????????
 				// Number of all iterations lower that number of threads in block
-				blockDim = dim3(launchParameters.x,launchParameters.y,launchParameters.z);
+				blockDim = dim3(launchParameters.x, launchParameters.y, launchParameters.z);
 			}
 			
+			// Compute grid parameters from specified blockDim and desired iterationsPerThread.
 			dim3 iterationsPerThread(1,1,1);
-			// Compute grid parameters from specified blockDim and desired
-			//iterationsPerThread.
 			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
 			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
 			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
@@ -716,7 +713,7 @@ kernel_func_t kernelgen::runtime::compile(
 		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		return codegen(runmode, m, kernel->name, kernel->target[runmode].monitor_kernel_stream);
+		return codegen(runmode, kernel, m);
 	}
 	case KERNELGEN_RUNMODE_OPENCL : {
 		THROW("Unsupported runmode" << runmode);

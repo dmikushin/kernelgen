@@ -309,8 +309,11 @@ int main(int argc, char* argv[], char* envp[])
 						monitor_source);
 				        monitor_module = ParseIR(buffer1, diag, context);
 
-					monitor_kernel = kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
-						monitor_module, "kernelgen_monitor", 0);
+					kernel_t kernel;
+					kernel.name = "kernelgen_monitor";
+					kernel.target[KERNELGEN_RUNMODE_CUDA].monitor_kernel_stream = NULL;
+					monitor_kernel = kernelgen::runtime::codegen(
+						KERNELGEN_RUNMODE_CUDA, &kernel, monitor_module);
 				}
 
 				// Load LLVM IR for KernelGen runtime functions, if not yet loaded.

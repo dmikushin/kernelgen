@@ -197,6 +197,10 @@ int kernelgen_launch(kernel_t* kernel,
 					kernel->target[runmode].monitor_kernel_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
 
+				outs().changeColor(raw_ostream::CYAN);
+				outs() << "Finishing kernel " << kernel->name << "\n";
+				outs().resetColor();
+
 				if (verbose & KERNELGEN_VERBOSE_TIMEPERF)
 				{
 					cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
