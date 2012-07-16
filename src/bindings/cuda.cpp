@@ -62,7 +62,7 @@ cuEventDestroy_t cuEventDestroy;
 cuEventElapsedTime_t cuEventElapsedTime;
 cuEventRecord_t cuEventRecord;
 cuEventSynchronize_t cuEventSynchronize;
-
+cuFuncGetAttribute_t cuFuncGetAttribute;
 
 CUresult cuMemAlloc(void** ptr, size_t size)
 {
@@ -207,6 +207,9 @@ handle(handle)
 		cuEventSynchronize = (cuEventSynchronize_t)dlsym(handle, "cuEventSynchronize");
 		if (!cuEventSynchronize)
 			THROW("Cannot dlsym cuEventSynchronize " << dlerror());
+		cuFuncGetAttribute = (cuFuncGetAttribute_t)dlsym(handle, "cuFuncGetAttribute");
+		if (!cuFuncGetAttribute)
+			THROW("Cannot dlsym cuFuncGetAttribute " << dlerror());
 	}
 
 	CUresult err = cuInit(0);
