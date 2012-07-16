@@ -66,6 +66,7 @@
 #include "LinkFunctionBody.h"
 
 using namespace kernelgen;
+using namespace kernelgen::bind::cuda;
 using namespace util::io;
 using namespace llvm;
 using namespace polly;
@@ -489,6 +490,30 @@ kernel_func_t kernelgen::runtime::compile(
 			
 				return NULL;
 			}
+
+			int device;
+			CUresult err = cuDeviceGet(&device, 0);
+			if (err)
+				THROW("Error in cuDeviceGet " << err);
+
+			typedef struct
+			{
+				int maxThreadsPerBlock;
+				int maxThreadsDim[3];
+				int maxGridSize[3];
+				int sharedMemPerBlock;
+				int totalConstantMemory;
+				int SIMDWidth;
+				int memPitch;
+				int regsPerBlock;
+				int clockRate;
+				int textureAlign;
+			} CUdevprop;
+			
+			CUdevprop props;			
+			err = cuDeviceGetProperties((void*)&props, device);
+			if (err)
+				THROW("Error in cuDeviceGetProperties " << err);
 
 			//   x   y     z       x     y  z
 			//  123 13640   -1  ->  13640 123 1     two loops
