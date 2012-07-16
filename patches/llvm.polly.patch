@@ -272,7 +272,7 @@
 +    BasicBlock * CountBoundsBB = Builder.GetInsertBlock();
 +    CountBoundsBB->setName(string("CUDA.CountBounds.") + dimensionName);
 +
-+    IntegerType * IntType = getIntPtrTy();
++    IntegerType * IntType = Type::getInt32Ty(Builder.getContext());
 +
 +    // Lower and Upper Bounds of Loop
 +    Value *lowerBound = ExpGen.codegen(f->LB,IntType);
@@ -469,9 +469,9 @@
 +  void addCUDADeclarations(Module *M) {
 +    IRBuilder<> Builder(M->getContext());
 +    LLVMContext &Context = Builder.getContext();
-+    IntegerType *intType = Type::getInt64Ty(Context);
++    IntegerType *intType = Type::getInt32Ty(Context);
 +
-+    if (!M->getFunction("kernelgen_threadIdx_x")) {
++    if (!M->getFunction("llvm.nvvm.read.ptx.sreg.tid.x")) {
 +      //  Define all dimensions, that can be used while code generation.
 +      dimensions.push_back("x");
 +      dimensions.push_back("y");
@@ -479,13 +479,13 @@
 +
 +      // Define parameters of dimensions.
 +      vector<string> parameters;
-+      parameters.push_back("threadIdx");
-+      parameters.push_back("blockIdx");
-+      parameters.push_back("blockDim");
-+      parameters.push_back("gridDim");
++      parameters.push_back("tid");
++      parameters.push_back("ctaid");
++      parameters.push_back("ntid");
++      parameters.push_back("nctaid");
 +
-+      string prefix1("kernelgen_");
-+      string prefix2("_");
++      string prefix1("llvm.nvvm.read.ptx.sreg.");
++      string prefix2(".");
 +      string prefix3(".");
 +
 +      for(unsigned int i = 0; i < dimensions.size(); i++)

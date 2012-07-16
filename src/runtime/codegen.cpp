@@ -416,7 +416,8 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, Module* m, string name, C
 					THROW("LLVM is built without NVPTX Backend support");
 
 				targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
-					triple.getTriple(), "sm_20", "", TargetOptions(), Reloc::PIC_, CodeModel::Default));
+					triple.getTriple(), "sm_20", "nvptx-sched4reg", TargetOptions(),
+						Reloc::PIC_, CodeModel::Default, CodeGenOpt::Aggressive));
 				if (!targets[KERNELGEN_RUNMODE_CUDA].get())
 					THROW("Could not allocate target machine");
 

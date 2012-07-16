@@ -673,6 +673,7 @@ kernel_func_t kernelgen::runtime::compile(
 			builder.Inliner = createFunctionInliningPass();
 			builder.OptLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
+			builder.DisableUnrollLoops = true;
 			builder.Vectorize = false;
 			builder.populateModulePassManager(manager);
 			manager.run(*m);
