@@ -605,17 +605,13 @@ kernel_func_t kernelgen::runtime::compile(
 					if (!call) continue;
 
 					// Check if function is called (needs -instcombine pass).
-					Function* callee = call->getCalledFunction();
-					if (!callee)
-					{
-						// Could be also a function called inside a bitcast.
-						// So try to extract function from the underlying constant expression.
-						// Required to workaround GCC/DragonEGG issue:
-						// http://lists.cs.uiuc.edu/pipermail/llvmdev/2012-July/051786.html
-						ConstantExpr* expr = dyn_cast<ConstantExpr>(call->getCalledValue());
-						if (!expr) continue;
-						callee = dyn_cast<Function>(expr->getOperand(0));
-					}
+					// Could be also a function called inside a bitcast.
+					// So try to extract function from the underlying constant expression.
+					// Required to workaround GCC/DragonEGG issue:
+					// http://lists.cs.uiuc.edu/pipermail/llvmdev/2012-July/051786.html
+					Function* callee = dyn_cast<Function>(
+						call->getCalledValue()->stripPointerCasts());
+					if (!callee) continue;
 					if (!callee->isDeclaration()) continue;
 
 					string name = callee->getName();

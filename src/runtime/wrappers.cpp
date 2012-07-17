@@ -39,12 +39,8 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 {
 	LLVMContext &context = getGlobalContext();
 
-	Function* callee = call->getCalledFunction();
-	if (!callee)
-	{
-		ConstantExpr* expr = dyn_cast<ConstantExpr>(call->getCalledValue());
-		callee = dyn_cast<Function>(expr->getOperand(0));
-	}
+	Function* callee = dyn_cast<Function>(
+		call->getCalledValue()->stripPointerCasts());
 
 	if (verbose)
 		cout << "Host call: " << callee->getName().data() << endl;
