@@ -316,7 +316,13 @@ kernel_func_t kernelgen::runtime::compile(
 				runPollyNATIVE(kernel, &sizeOfLoops);
 
 				// Do not compile the loop kernel if no grid detected.
-				if (sizeOfLoops.x == -1) return NULL;
+				if (sizeOfLoops.x == -1)
+				{
+					// XXX Turn off future kernel analysis, if it has been detected as
+					// non-parallel at least once. This behavior is subject for change in future.
+					kernel->target[runmode].supported = false;
+					return NULL;
+				}
 			}
 
 			// Optimize module.
@@ -488,8 +494,8 @@ kernel_func_t kernelgen::runtime::compile(
 					stream.close();
 				}*/
 			
-				// XXX Turn off multiple kernel analysis, if it has been detected as
-				// unparallel at least once.
+				// XXX Turn off future kernel analysis, if it has been detected as
+				// non-parallel at least once. This behavior is subject for change in future.
 				kernel->target[runmode].supported = false;
 				return NULL;
 			}
@@ -600,7 +606,16 @@ kernel_func_t kernelgen::runtime::compile(
 
 					// Check if function is called (needs -instcombine pass).
 					Function* callee = call->getCalledFunction();
-					if (!callee) continue;
+					if (!callee)
+					{
+						// Could be also a function called inside a bitcast.
+						// So try to extract function from the underlying constant expression.
+						// Required to workaround GCC/DragonEGG issue:
+						// http://lists.cs.uiuc.edu/pipermail/llvmdev/2012-July/051786.html
+						ConstantExpr* expr = dyn_cast<ConstantExpr>(call->getCalledValue());
+						if (!expr) continue;
+						callee = dyn_cast<Function>(expr->getOperand(0));
+					}
 					if (!callee->isDeclaration()) continue;
 
 					string name = callee->getName();
