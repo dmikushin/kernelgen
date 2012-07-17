@@ -51,6 +51,7 @@ do k = 1, nz
 enddo
 
 print *, sum(xy), maxval(xy), minval(xy)
+call flush()
 
 end subroutine sincos
 

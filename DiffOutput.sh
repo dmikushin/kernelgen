@@ -30,7 +30,7 @@ DIFFOUTPUT=Output/${PROG}.diff-${WHICHOUTPUT}
 # Input filenames:
 TESTOUTPUT=Output/${PROG}.out-${WHICHOUTPUT}
 GOODOUTPUT=Output/${PROG}.out-${GOODOUTPUT}
-
+echo $DIFF $GOODOUTPUT $TESTOUTPUT
 # Diff the two files.
 $DIFF $GOODOUTPUT $TESTOUTPUT > $DIFFOUTPUT 2>&1 || (
   # They are different!

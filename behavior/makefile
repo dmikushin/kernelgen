@@ -5,12 +5,14 @@ test0: $(TESTS)
 	@cd hello_c && $(MAKE) test0
 	@cd hello_f && $(MAKE) test0
 	@cd privatize && $(MAKE) test0
+	@cd sincos && $(MAKE) test0
 
 test1: $(TESTS)
 	@cd argcargv && $(MAKE) test1
 	@cd hello_c && $(MAKE) test1
 	@cd hello_f && $(MAKE) test1
 	@cd privatize && $(MAKE) test1
+	@cd sincos && $(MAKE) test1
 
 clean:
 	@cd argcargv && $(MAKE) clean

@@ -1,9 +1,12 @@
 VERBOSE = @
 
+ARGS0 ?=
+ARGS1 ?=
+
 RUN = $(LEVEL)/RunToolSafely.sh
 DIFF = $(LEVEL)/DiffOutput.sh
 
-TIMEOUT = 500
+TIMEOUT ?= 500
 
 APPS0 = $(addsuffix .0, $(APPS))
 APPS1 = $(addsuffix .1, $(APPS))
@@ -12,12 +15,12 @@ test0: $(APPS0)
 test1: $(APPS1)
 
 %.0: %
-	$(VERBOSE)kernelgen_runmode=0 $(RUN) $(TIMEOUT) ./$< > Output/$<.out-0
-	$(VERBOSE)$(DIFF) diff 0 $< ref
+	$(VERBOSE)kernelgen_runmode=0 $(RUN) $(TIMEOUT) ./$< $(ARGS0) > Output/$<.out-0
+	$(VERBOSE)$(DIFF) diff 0 $< 0-ref
 
 %.1: %
-	$(VERBOSE)kernelgen_runmode=1 $(RUN) $(TIMEOUT) ./$< > Output/$<.out-1
-	$(VERBOSE)$(DIFF) diff 1 $< ref
+	$(VERBOSE)kernelgen_runmode=1 $(RUN) $(TIMEOUT) ./$< $(ARGS1) > Output/$<.out-1
+	$(VERBOSE)$(DIFF) diff 1 $< 1-ref
 
 clean:
 	$(VERBOSE)rm -rf *.o $(APPS)

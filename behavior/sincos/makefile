@@ -19,7 +19,16 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
-all: sincos
+APPS = sincos
+
+ARGS0 = 16 16 16
+ARGS1 = 16 16 16
+
+all: $(APPS)
+
+LEVEL = ../..
+
+include ../../makefile.in
 
 sincos: sincos.o main.o
 	kernelgen-gfortran $^ -o $@
@@ -30,5 +39,3 @@ main.o: main.c
 sincos.o: sincos.f90
 	kernelgen-gfortran -c $< -o $@
 
-clean:
-	rm -rf *.o sincos
