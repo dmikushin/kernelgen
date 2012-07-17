@@ -122,7 +122,7 @@ int kernelgen_launch(kernel_t* kernel,
 			// Function may return NULL in case the kernel is
 			// unexpected to be non-parallel - this must be
 			// recorded to cache as well.
-			kernel_func = compile(runmode, kernel, NULL, args, szdatai);
+			kernel_func = compile(runmode, kernel, NULL, args, szdata, szdatai);
 			binaries[strhash] = kernel_func;
 		}
 		else
@@ -197,6 +197,10 @@ int kernelgen_launch(kernel_t* kernel,
 					kernel->target[runmode].monitor_kernel_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
 
+				outs().changeColor(raw_ostream::CYAN);
+				outs() << "Finishing kernel " << kernel->name << "\n";
+				outs().resetColor();
+
 				if (verbose & KERNELGEN_VERBOSE_TIMEPERF)
 				{
 					cout << kernel->name << " time = " << t.get_elapsed() << " sec" << endl;
@@ -222,7 +226,7 @@ int kernelgen_launch(kernel_t* kernel,
 				char args[256];
 				memcpy(args, &kernel->target[runmode].callback, sizeof(void*));
 				int err = cudyLaunch(
-					(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
+					(CUDYfunction)monitor_kernel,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem, args,
 					kernel->target[runmode].monitor_kernel_stream, NULL);
@@ -360,7 +364,7 @@ int kernelgen_launch(kernel_t* kernel,
 					char args[256];
 					memcpy(args, &kernel->target[runmode].callback, sizeof(void*));
 					int err = cudyLaunch(
-						(CUDYfunction)kernel->target[runmode].monitor_kernel_func,
+						(CUDYfunction)monitor_kernel,
 						gridDim.x, gridDim.y, gridDim.z,
 						blockDim.x, blockDim.y, blockDim.z, szshmem, args,
 						kernel->target[runmode].monitor_kernel_stream, NULL);

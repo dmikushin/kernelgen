@@ -33,27 +33,35 @@ OPT ?= 0
 RPATH ?= /opt/kernelgen
 PREFIX = $(ROOT)/$(RPATH)
 
-.PHONY: frontend runtime asfermi bindings
+.PHONY: include frontend runtime asfermi bindings bugpoint
 
-all: frontend runtime
+all: include frontend runtime
 
-frontend:
+include:
+	cd include && $(MAKE)
+
+frontend: bugpoint
 	cd frontend && $(MAKE)
 
 asfermi: bindings
 	cd libasfermi && $(MAKE)
 
-runtime: asfermi bindings
+runtime: asfermi bindings bugpoint
 	cd runtime && $(MAKE) RPATH=$(RPATH)
 
 bindings:
 	cd bindings && $(MAKE)
 
+bugpoint:
+	cd bugpoint && $(MAKE)
+
 clean:
+	cd include && $(MAKE) clean
 	cd frontend && $(MAKE) clean
 	cd runtime && $(MAKE) clean
 	cd libasfermi && $(MAKE) clean
 	cd bindings && $(MAKE) clean
+	cd bugpoint && $(MAKE) clean
 
 install: frontend runtime
 	perl install $(PREFIX) $(LIB32) $(LIB64)

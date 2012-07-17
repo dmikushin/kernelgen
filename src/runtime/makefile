@@ -23,6 +23,7 @@ OPT ?= 0
 
 LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm
 LLVM_MODE ?= Debug+Asserts
+LLVM_VERSION ?= 3.2
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = \
 	-I/usr/include/i686-linux-gnu \
@@ -35,31 +36,35 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 LLVM_LIB = \
 	-Wl,-rpath $(RPATH) -L../bindings -lkernelgen-gpu \
-	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-3.1svn \
+	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-$(LLVM_VERSION)svn \
 	-L$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib -lLLVMPolly
 
 ELF_INC = /usr/include/libelf
+
+BUGPOINT_ROOT ?= $(LLVM_ROOT)/tools/bugpoint
+BUGPOINT_INC = ../bugpoint
+BUGPOINT_LIBS = -L../bugpoint -lbugpoint
 
 CXXFLAGS = \
 	-g -fPIC -O$(OPT) -I../include -I../bindings \
 	-I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
 
 OBJECTS := \
-	entry compile launch finish timer io elf execute nvopencc \
+	entry compile launch finish timer io elf execute codegen \
 	memory hostcall wrappers \
-        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis
+        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody
 
 OBJECTS := $(addsuffix .o, $(OBJECTS))
 
-all: libkernelgen-rt.so
+all: libkernelgen-rt.so kernelgen-inspector
 
 libkernelgen-rt.so: $(OBJECTS)
-	$(CXX) -shared $(OBJECTS) -o $@ $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
+	$(CXX) -shared $(OBJECTS) -o $@ $(BUGPOINT_LIBS) $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
 		-L../libasfermi/ -L../libasfermi/tests/dyloader -ldyloader -lasfermi \
 		-lelf -lrt -lgmp -lmhash -ldl -lffi
 
-entry.o: entry.cpp
-	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
+entry.o: entry.cpp $(BUGPOINT_INC)/TrackedPassManager.h
+	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) -c $< -o $@
 
 compile.o: compile.cpp runtime.h
 	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
@@ -82,8 +87,8 @@ elf.o: elf.cpp elf.h
 execute.o: execute.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-nvopencc.o: nvopencc.cpp
-	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
+codegen.o: codegen.cpp $(BUGPOINT_INC)/TrackedPassManager.h
+	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) -c $< -o $@
 
 memory.o: memory.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -100,9 +105,19 @@ ConstantSubstitution.o: ConstantSubstitution.cpp
 SizeOfLoops.o: SizeOfLoops.cpp
 	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
-RuntimeAliasAnalysis.o : RuntimeAliasAnalysis.cpp
-	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@  
+RuntimeAliasAnalysis.o: RuntimeAliasAnalysis.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+
+LinkFunctionBody.o: LinkFunctionBody.cpp LinkFunctionBody.h
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+
+kernelgen-inspector: inspector.cpp libkernelgen-rt.so
+	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) $< -o $@ \
+	-L. -lkernelgen-rt $(BUGPOINT_LIBS) $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
+	-L../libasfermi/ -L../libasfermi/tests/dyloader -ldyloader -lasfermi -lelf -lrt \
+	-lgmp -lmhash -ldl -lffi -L/RHM/users/work/dmikushin/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
+	-L/RHM/users/work/dmikushin/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl
 
 clean:
-	rm -rf *.o libkernelgen-rt.so
+	rm -rf *.o libkernelgen-rt.so kernelgen-inspector
 

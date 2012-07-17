@@ -35,14 +35,17 @@ typedef void*			CUdeviceptr;
 #define CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED	712
 #define CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED		713
 
-#define CU_LAUNCH_PARAM_BUFFER_POINTER	((void*)0x01)
-#define CU_LAUNCH_PARAM_BUFFER_SIZE	((void*)0x02)
-#define CU_LAUNCH_PARAM_END		((void*)0x00)
+#define CU_LAUNCH_PARAM_BUFFER_POINTER			((void*)0x01)
+#define CU_LAUNCH_PARAM_BUFFER_SIZE			((void*)0x02)
+#define CU_LAUNCH_PARAM_END				((void*)0x00)
+
+#define CU_FUNC_ATTRIBUTE_NUM_REGS			4
 
 #include "cuda_dyloader.h"
 
 namespace kernelgen { namespace bind { namespace cuda {
 
+typedef CUresult (*cuDeviceGetProperties_t)(void*, int);
 typedef CUresult (*cuInit_t)(unsigned int);
 typedef CUresult (*cuDeviceGet_t)(int*, int);
 typedef CUresult (*cuCtxCreate_t)(void**, unsigned int, int);
@@ -72,8 +75,9 @@ typedef CUresult (*cuEventDestroy_t)(CUevent);
 typedef CUresult (*cuEventElapsedTime_t)(float*, CUevent, CUevent);
 typedef CUresult (*cuEventRecord_t)(CUevent, CUstream);
 typedef CUresult (*cuEventSynchronize_t)(CUevent);
+typedef CUresult (*cuFuncGetAttribute_t)(int*, int, CUfunction);
 
-
+extern cuDeviceGetProperties_t cuDeviceGetProperties;
 extern cuInit_t cuInit;
 extern cuDeviceGet_t cuDeviceGet;
 extern cuCtxCreate_t cuCtxCreate;
@@ -105,6 +109,7 @@ extern cuEventDestroy_t cuEventDestroy;
 extern cuEventElapsedTime_t cuEventElapsedTime;
 extern cuEventRecord_t cuEventRecord;
 extern cuEventSynchronize_t cuEventSynchronize;
+extern cuFuncGetAttribute_t cuFuncGetAttribute;
 
 CUresult cuMemAlloc(void** ptr, size_t size);
 CUresult cuMemFree(void* ptr);

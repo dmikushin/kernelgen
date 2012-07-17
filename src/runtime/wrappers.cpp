@@ -38,10 +38,12 @@ using namespace std;
 CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* kernel)
 {
 	LLVMContext &context = getGlobalContext();
-	Function* callee = call->getCalledFunction();
+
+	Function* callee = dyn_cast<Function>(
+		call->getCalledValue()->stripPointerCasts());
 
 	if (verbose)
-		cout << "hostcall: " << callee->getName().data() << endl;
+		cout << "Host call: " << callee->getName().data() << endl;
 
 	// Locate entire hostcall in the native code.
 	void* host_func = (void*)dlsym(NULL, callee->getName().data());
@@ -188,6 +190,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 	}
 	callee->setVisibility(GlobalValue::DefaultVisibility);
 	callee->setLinkage(GlobalValue::ExternalLinkage);
+	newcall->setCallingConv(CallingConv::PTX_Device);
 	return newcall;
 }
 

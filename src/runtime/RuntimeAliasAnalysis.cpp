@@ -20,6 +20,8 @@
 #include <fstream>
 #include <vector>
 
+#include "runtime.h"
+
 #define DEBUG_TYPE "runtime-AA"
 
 STATISTIC(Readings,  "Number of readings");
@@ -28,11 +30,9 @@ STATISTIC(ReadWrite,   "FAIL: Number of read-write conflicts");
 STATISTIC(WriteWrite,  "FAIL: Number of write-write conflicts");
 STATISTIC(NoAAScops,   "RESULT: Number of good scops (with no memory aliasing)");
 
-using namespace std;
-
+using namespace kernelgen;
 using namespace polly;
 using namespace std;
-
 
 typedef pair<uint64_t, uint64_t> MemoryRange;
 bool isIntersect(MemoryRange &range1, MemoryRange &range2)
@@ -97,7 +97,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 	TD = &getAnalysis<TargetData>();
 	C = &getAnalysis<CloogInfo>();
 
-	if(print_flag)
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
     {
 		outs() << "\n<------------------------------ Scop: start --------------------------------->\n";
         printCloogAST(*C);
@@ -113,7 +113,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 		ScopStmt * stmt = *stmt_iterator;
 		if(strcmp(stmt -> getBaseName(),"FinalRead")) {
 			isl_set *stmtDomain = stmt->getDomain();
-			if(print_flag) {
+			if (verbose & KERNELGEN_VERBOSE_POLLYGEN) {
 
 				outs().indent(8) << stmt -> getBaseName() << " domain := "<<"\n";// print name of statement
 				outs().indent(12) << stmt -> getDomainStr() << "\n\n";           // print domain of statement
@@ -179,7 +179,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 				int storeSize = memoryAccess -> getElemTypeSize();//TD->getTypeStoreSize(type);
 
 				// print information
-				if(print_flag) {
+				if (verbose & KERNELGEN_VERBOSE_POLLYGEN) {
 					memoryAccess -> print(outs());
 					outs().indent(16) << "Base address  =  " << baseAddress << "   SizeOfElement = " << storeSize <<"\n";
 					outs().indent(20) << "Minimum offset = " << min << "  Maximum offset = " << max << "\n";
@@ -208,12 +208,12 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 	Writings += writingMemoryRanges.size();//,   "Number of writings");
 
 #define PRINT_TESTING_PAIR(first, second, stream, flag) \
-	if(print_flag) { \
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN) { \
 		(stream).indent(8) << "Testing pair : "; \
 		printRange((first),(stream)); \
 		(stream) << " vs ";	\
 		printRange((second),(stream)); \
-		if( !( flag = isIntersect( (first), ( second)) )) { (stream).changeColor(raw_ostream::GREEN); (stream) << " .... OK!\n"; (stream).resetColor(); }\
+		if( !( flag )) { (stream).changeColor(raw_ostream::GREEN); (stream) << " .... OK!\n"; (stream).resetColor(); }\
 		else  {(stream).changeColor(raw_ostream::RED); (stream) << " .... FAIL!\n"; (stream).resetColor();} \
 	}
 
@@ -224,6 +224,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 		//<test if there are read-write conflicts>
 		for(unsigned i = 0; i < readingMemoryRanges.size(); i++)
 			for(unsigned j = 0; j < writingMemoryRanges.size(); j++) {
+				localFlag = isIntersect(readingMemoryRanges[i], writingMemoryRanges[j]);
 				PRINT_TESTING_PAIR(readingMemoryRanges[i], writingMemoryRanges[j], outs(), localFlag)
 				flag = flag && !localFlag;
 				if(localFlag) ReadWrite++; //,   "Number of read-write conflicts"
@@ -232,6 +233,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 		//<test if there are write-write conflicts>
 		for(unsigned i = 0; i < writingMemoryRanges.size(); i++)
 			for(unsigned j = i+1; j < writingMemoryRanges.size(); j++) {
+				localFlag = isIntersect(writingMemoryRanges[i], writingMemoryRanges[j]);
 				PRINT_TESTING_PAIR(writingMemoryRanges[i], writingMemoryRanges[j], outs(), localFlag)
 				flag = flag && !localFlag;
 				if(localFlag) WriteWrite++; //,   "Number of write-write conflicts"

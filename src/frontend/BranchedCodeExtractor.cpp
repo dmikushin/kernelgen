@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/FunctionUtils.h"
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Instructions.h"
@@ -54,15 +53,15 @@ namespace
 {
 	class BranchedCodeExtractor
 	{
-			typedef SetVector<Value*> Values;
-			SetVector<BasicBlock*> BlocksToExtract;
+		typedef SetVector<Value*> Values;
+		SetVector<BasicBlock*> BlocksToExtract;
 
-			SetVector<BasicBlock*> OriginalLoopBlocks;
-			SetVector<BasicBlock*> ClonedLoopBlocks;
+		SetVector<BasicBlock*> OriginalLoopBlocks;
+		SetVector<BasicBlock*> ClonedLoopBlocks;
 
-			DominatorTree* DT;
-			unsigned NumExitBlocks;
-			Type *RetTy;
+		DominatorTree* DT;
+		unsigned NumExitBlocks;
+		Type *RetTy;
 
 		public:
 			BranchedCodeExtractor(DominatorTree* dt = 0)
@@ -294,11 +293,15 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 					std::cout << "Seen global variable or constant: " << endl;
 					(*O)->dump();
 					if ((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy())
+					{
 						if(!setOfIntegerInputs.count(*O))
 							setOfIntegerInputs.insert(*O);
+					}
 					else
+					{
 						if(!setOfNonIntegerInputs.count(*O))
 							setOfNonIntegerInputs.insert(*O);
+					}
 				}
 				if (isa<GlobalVariable>(*O))
 				{				
@@ -425,44 +428,68 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 	paramTy.push_back(Type::getInt8PtrTy(context));
 	paramTy.push_back(Type::getInt8PtrTy(context));
 
-	// Add the types of the input values to the function's argument list
-	for (Values::const_iterator i = inputs.begin(), e = inputs.end(); i != e; ++i)
-		paramTy.push_back((*i)->getType());
+	// Add the types of the input values to the function's argument list.
+	Type* i1Ty = Type::getInt1Ty(context);
+	Type* i8Ty = Type::getInt8Ty(context);
+	for (Values::const_iterator I = inputs.begin(), E = inputs.end(); I != E; ++I)
+	{
+		if ((*I)->getType() == i1Ty)
+		{
+			// Special case: store i1 type as i8.
+			paramTy.push_back(i8Ty);
+			continue;
+		}
+
+		paramTy.push_back((*I)->getType());
+	}
 
 	// Add the types of the output values to the function's argument list.
 	for (Values::const_iterator I = outputs.begin(), E = outputs.end(); I != E; ++I)
+	{
+		if ((*I)->getType() == i1Ty)
+		{
+			// Special case: store i1 type as i8.
+			paramTy.push_back(i8Ty);
+			continue;
+		}
+	
 		paramTy.push_back((*I)->getType());
+	}
 
 	// Aggregate args types into struct type
 	PointerType *StructPtrType;
 	Value* structArg = NULL;
 	if (inputs.size() + outputs.size() > 0) {
 		StructPtrType = PointerType::getUnqual(
-		                    StructType::get(context, paramTy, false /* isPacked */));
+			StructType::get(context, paramTy, false /* isPacked */));
 		structArg = CastInst::CreatePointerCast(AI, StructPtrType, "",
-		                                        FuncRoot->getTerminator());
+			FuncRoot->getTerminator());
 	}
 
 	// Rewrite all users of the inputs in the cloned region to use the
 	// arguments (or appropriate addressing into struct) instead.
+	TerminatorInst *TI = FuncRoot->getTerminator();
 	for (unsigned i = 0, e = inputs.size(); i != e; i++) {
-		Value* RewriteVal;
-
 		Value *Idx[2];
 		Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
 		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 2);
 
-		// Terminator of function root
-		TerminatorInst *TI = FuncRoot->getTerminator();
-
 		// Create instruction to take address of "inputs[i]" in struct,
 		// insert it before terminator.
 		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-		                             structArg, Idx, "load_ptr_" + inputs[i]->getName(), TI);
+			structArg, Idx, "load_ptr_" + inputs[i]->getName(), TI);
 
 		// create LoadInstruction from adress, which returned by instruction GEP
 		// inserted it before terminator
-		RewriteVal = new LoadInst(GEP, "load_" + inputs[i]->getName(), TI);
+		Value* RewriteVal;
+		if (inputs[i]->getType() == i1Ty)
+		{
+			// Special case: cast i8 to i1, if input type is i1.
+			LoadInst* LI = new LoadInst(GEP, "load_" + inputs[i]->getName(), TI);
+			RewriteVal = CastInst::CreateIntegerCast(LI, i1Ty, false, "", TI);
+		}
+		else
+			RewriteVal = new LoadInst(GEP, "load_" + inputs[i]->getName(), TI);
 
 		// users of argument "inputs[i]"
 		std::vector<User*> Users(inputs[i]->use_begin(), inputs[i]->use_end());
@@ -482,11 +509,9 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 				PN->setIncomingBlock(i, FuncRoot);
 	}
 
-
 	///////////////////////////////////////////////
 	// insert stores to outputs and return block //
 	///////////////////////////////////////////////
-
 
 	// Since there may be multiple exits from the original region, make the new
 	// function return an unsigned, switch on that number. This loop iterates
@@ -510,8 +535,7 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 					// destination, create one in the end of LoopFunction
 
 					NewTarget = BasicBlock::Create(context,
-					                               OldTarget->getName() + ".exitStub",
-					                               LoopFunction);
+						OldTarget->getName() + ".exitStub", LoopFunction);
 					unsigned SuccNum = switchVal++;
 					ExitBlocks.push_back(OldTarget);
 
@@ -532,9 +556,17 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 						Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
 						                          FirstOut + out);
 
-						GetElementPtrInst *GEP = GetElementPtrInst::Create(
-						                             structArg, Idx, "store_ptr_" + outputs[out]->getName(),
-						                             NTRet);
+						GetElementPtrInst *GEP = GetElementPtrInst::Create(structArg,
+							Idx, "store_ptr_" + outputs[out]->getName(), NTRet);
+
+						if (outputs[out]->getType() == i1Ty)
+						{
+							// Special case: cast i1 to i8, if output type is i1.
+							CastInst* CI = CastInst::CreateIntegerCast(
+								allToAllMap[outputs[out]], i8Ty, false, "", NTRet);
+							new StoreInst(CI, GEP, NTRet);
+							continue;
+						}
 
 						new StoreInst(allToAllMap[outputs[out]], GEP, NTRet);
 					}
@@ -567,37 +599,48 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	for (Values::iterator i = inputs.begin(), e = inputs.end(); i != e; ++i) {
 		StructValues.push_back(*i);
 
-		// Calculate the total size of integer inputs.
+		// Calculate the total count of integer and pointer inputs.
 		Type* type = (*i)->getType();
 		if (type->isIntegerTy() || type->isPointerTy()) numints++;
 	}
 
-	// Create allocas for the outputs
+	// Create a list of outputs
 	for (Values::iterator i = outputs.begin(), e = outputs.end(); i != e; ++i)
 		StructValues.push_back(*i);
 
 	// Fill the arguments types structure.
 	// First, place pointer to the function type.
 	// Second, place pointer to the structure itself.
+	Type* i1Ty = Type::getInt1Ty(context);
+	Type* i8Ty = Type::getInt8Ty(context);
 	std::vector<Type*> ArgTypes;
 	ArgTypes.push_back(Type::getInt8PtrTy(context));
 	ArgTypes.push_back(Type::getInt8PtrTy(context));
 	for (Values::iterator v = StructValues.begin(),
-	     ve = StructValues.end(); v != ve; ++v)
+		ve = StructValues.end(); v != ve; ++v)
+	{
+		if ((*v)->getType() == i1Ty)
+		{
+			// Special case: store i1 type as i8.
+			ArgTypes.push_back(i8Ty);
+			continue;
+		}
+
 		ArgTypes.push_back((*v)->getType());
+	}
 
 	// Allocate memory for the struct at the beginning of
 	// function, which contains the Loop.
 	StructType* StructArgTy = StructType::get(
-	                              context, ArgTypes, false /* isPacked */);
+		context, ArgTypes, false /* isPacked */);
 								  
-	IRBuilder<> Builder( callAndBranchBlock->getParent()->begin() -> getTerminator());
+	IRBuilder<> Builder(callAndBranchBlock->getParent()->begin()->getTerminator());
 	Struct = Builder.CreateAlloca(StructArgTy, 0, "");
 
 	// Initially, fill struct with zeros.
 	CallInst* MI = Builder.CreateMemSet(Struct,
-	                                    Constant::getNullValue(Type::getInt8Ty(context)),
-	                                    ConstantExpr::getSizeOf(StructArgTy), 1);
+		Constant::getNullValue(Type::getInt8Ty(context)),
+		ConstantExpr::getSizeOf(StructArgTy), 1);
 
 	Value* Idx[2];
 	Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
@@ -606,24 +649,32 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	for (unsigned i = 0, e = inputs.size(); i != e; ++i) {
 		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 2);
 		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-		                             Struct, Idx, "" + StructValues[i]->getName(),
-		                             callAndBranchBlock);
-		StoreInst *SI = new StoreInst(StructValues[i], GEP, false,
-		                              callAndBranchBlock);
+			Struct, Idx, "" + StructValues[i]->getName(), callAndBranchBlock);
+		
+		if (StructValues[i]->getType() == i1Ty)
+		{
+			// Special case: cast i1 to i8, if input type is i1.
+			CastInst* CI = CastInst::CreateIntegerCast(
+				StructValues[i], i8Ty, false, "", callAndBranchBlock);
+			new StoreInst(CI, GEP, false, callAndBranchBlock);
+			continue;
+		}
+
+		new StoreInst(StructValues[i], GEP, false, callAndBranchBlock);
 	}
 
 
 	// Create a metadata node holding a constant array
 	// with original called function name.
 	Value* name[] = { ConstantDataArray::getString(
-	                      context, KernelFunc->getName(), true)
-	                };
+		context, KernelFunc->getName(), true)
+	};
 	MDNode* nameMD = MDNode::get(context, name);
 
 	// Add pointer to the original function string name
 	// (to be set later on).
 	params.push_back(
-	    Constant::getNullValue(Type::getInt8PtrTy(context)));
+		Constant::getNullValue(Type::getInt8PtrTy(context)));
 
 	// Store the size of the aggregated arguments struct
 	// to the new call arguments list.
@@ -635,31 +686,31 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	    Constant::getNullValue(Type::getInt64Ty(context));
 	if (numints) {
 		size = ConstantExpr::getSub(
-		           // The offset of the last integer argument.
-		           ConstantExpr::getAdd(ConstantExpr::getOffsetOf(StructArgTy, (numints - 1) + 2),
-		                                // The size of the last integer argument.
-		                                ConstantExpr::getSizeOf(ArgTypes[(numints - 1) + 2])),
-		           // The offset of the first argument.
-		           ConstantExpr::getOffsetOf(StructArgTy, 2));
+			// The offset of the last integer argument.
+			ConstantExpr::getAdd(ConstantExpr::getOffsetOf(StructArgTy, (numints - 1) + 2),
+				// The size of the last integer argument.
+				ConstantExpr::getSizeOf(ArgTypes[(numints - 1) + 2])),
+				// The offset of the first argument.
+				ConstantExpr::getOffsetOf(StructArgTy, 2));
 	}
 	params.push_back(size);
 
 	// Store the pointer to the aggregated arguments struct
 	// to the new call args list.
 	Instruction* IntPtrToStruct = CastInst::CreatePointerCast(
-	                                  Struct, PointerType::getInt32PtrTy(context), "", callAndBranchBlock);
+		Struct, PointerType::getInt32PtrTy(context), "", callAndBranchBlock);
 	params.push_back(IntPtrToStruct);
 
 	// Emit the call to the function
 	CallInst* call = CallInst::Create(
-	                     LaunchFunc, params, NumExitBlocks > 1 ? "targetBlock" : "");
+		LaunchFunc, params, NumExitBlocks > 1 ? "targetBlock" : "");
 	callAndBranchBlock->getInstList().push_back(call);
 
 	// Attach metadata node with the called function name.
 	call->setMetadata("kernelgen_launch", nameMD);
 
 	Value* Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
-	                           call, ConstantInt::get(Type::getInt32Ty(context), -1));
+		call, ConstantInt::get(Type::getInt32Ty(context), -1));
 	BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
 #ifdef KERNELGEN_PRIVATIZE
 	// Restore output values just after the exit
@@ -675,6 +726,15 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 		GetElementPtrInst *GEP = GetElementPtrInst::Create(
 			Struct, Idx, "store_ptr_" + outputs[out]->getName(),
 			loadAndSwitchExitBlock);
+
+		if (outputs[out]->getType() == i1Ty)
+		{
+			// Special case: cast i1 to i8, if input type is i1.
+			CastInst* CI = CastInst::CreateIntegerCast(GEP, i8Ty, false, "", loadAndSwitchExitBlock);
+			new StoreInst(allToAllMap[outputs[out]], CI, loadAndSwitchExitBlock);
+			continue;
+		}
+
 		new StoreInst(allToAllMap[outputs[out]], GEP, loadAndSwitchExitBlock);
 	}
 #endif
@@ -693,9 +753,9 @@ void BranchedCodeExtractor::createLoadsAndSwitch(
 	unsigned FirstOut = inputs.size() + 2;
 
 	// Reload the outputs passed in by reference
+	Type* i1Ty = Type::getInt1Ty(Context);
+	Type* i8Ty = Type::getInt8Ty(Context);
 	for (unsigned i = 0, e = outputs.size(); i != e; ++i) {
-		Value *Output = 0;
-
 		Value *Idx[2];
 		Idx[0] = Constant::getNullValue(Type::getInt32Ty(Context));
 		Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), FirstOut + i);
@@ -703,10 +763,21 @@ void BranchedCodeExtractor::createLoadsAndSwitch(
 		GetElementPtrInst *GEP = GetElementPtrInst::Create(
 		                             Struct, Idx,"gep_reload_" + outputs[i]->getName());
 		loadAndSwitchExitBlock->getInstList().push_back(GEP);
-		Output = GEP;
 
-		// create LoadInst to load value of "outputs[i]" from specified address
-		LoadInst *load = new LoadInst(Output, outputs[i]->getName()+".reload");
+		// create LoadInst to load value of "outputs[i]" from specified address		
+		Instruction *load;
+		if (outputs[i]->getType() == i1Ty)
+		{
+			// Special case: cast i1 to i8, if input type is i1.
+			LoadInst* LI = new LoadInst(GEP, outputs[i]->getName()+".reload");
+			loadAndSwitchExitBlock->getInstList().push_back(LI);
+			load = CastInst::CreateIntegerCast(LI, i1Ty, false, "");
+		}
+		else
+		{
+			load = new LoadInst(GEP, outputs[i]->getName()+".reload");
+		}
+		
 		loadAndSwitchExitBlock->getInstList().push_back(load);
 
 		// map outputs[i] to created load instruction
@@ -715,10 +786,9 @@ void BranchedCodeExtractor::createLoadsAndSwitch(
 	}
 
 	// Now we can emit a switch statement using the call as a value.
-	SwitchInst *TheSwitch =
-	    SwitchInst::Create(callLoopFuncInst,
-	                       loadAndSwitchExitBlock, // заменить на блок, который выдавал бы ошибку
-	                       NumExitBlocks?NumExitBlocks:1 , loadAndSwitchExitBlock);
+	SwitchInst *TheSwitch = SwitchInst::Create(callLoopFuncInst,
+		loadAndSwitchExitBlock, // заменить на блок, который выдавал бы ошибку
+		NumExitBlocks?NumExitBlocks:1 , loadAndSwitchExitBlock);
 
 	Type *OldFnRetTy = loadAndSwitchExitBlock->getParent()->getReturnType();
 	switch (NumExitBlocks) {
@@ -1044,3 +1114,4 @@ namespace llvm
 }
 
 }
+

@@ -1,5 +1,9 @@
 #define kernelgen revision
 %define kgen_rev 827
+
+#define llvm revision
+%define llvm_rev 156703
+
 # Release name
 %define release accurate
 
@@ -36,26 +40,22 @@ Name:           kernelgen
 Version:        0.2
 Release:        %{release}
 Summary:        Compiler with automatic generation of GPU kernels from the regular source code 
-Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r151057.tar.gz
-Source1:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
-Source2:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r151057.tar.gz
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.bz2
-Source4:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r151057.tar.gz
-Source5:	ftp://upload.hpcforge.org/pub/kernelgen/nvopencc-r12003483.tar.gz
-Patch0:		llvm.varargs.patch
-Patch1:		llvm.patch
-Patch2:		llvm.gpu.patch
-Patch3:		dragonegg.ptx.patch
-Patch4:		dragonegg.patch
-Patch5:		dragonegg.noalias.patch
-Patch6: 	nvopencc.patch
-Patch7:		llvm.polly.patch
-Patch8:		llvm.scev.patch
-Patch9:		llvm.bugpoint.patch
-Patch10:	llvm.statistic.patch
-Patch11:	llvm.opts.patch
-Patch12:	gcc-multiarch.patch
-Patch13:	gcc.patch
+Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r%{llvm_rev}.tar.gz
+Source1:        ftp://upload.hpcforge.org/pub/kernelgen/clang-r%{llvm_rev}.tar.gz
+Source2:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
+Source3:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r%{llvm_rev}.tar.gz
+Source4:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.bz2
+Source5:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
+Patch0:		dragonegg.ptx.patch
+Patch1:		dragonegg.patch
+Patch2:		llvm.polly.patch
+Patch3:		llvm.scev.patch
+Patch4:		llvm.statistic.patch
+Patch5:		llvm.opts.patch
+Patch6:		llvm.nvptx.patch
+Patch7:		llvm.clang.patch
+Patch8:		gcc-multiarch.patch
+Patch9:		gcc.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -81,20 +81,19 @@ A tool for automatic generation of GPU kernels from CPU-targeted source code. Fr
 %prep
 %if %fullrepack
 rm -rf $RPM_BUILD_DIR/llvm
-tar -xf $RPM_SOURCE_DIR/llvm-r151057.tar.gz
+tar -xf $RPM_SOURCE_DIR/llvm-r%{llvm_rev}.tar.gz
 cd $RPM_BUILD_DIR/llvm/tools
-tar -xf $RPM_SOURCE_DIR/polly-r151057.tar.gz
+tar -xf $RPM_SOURCE_DIR/clang-r%{llvm_rev}.tar.gz
+tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
 cd $RPM_BUILD_DIR
 rm -rf $RPM_BUILD_DIR/gcc-4.6.3
 tar -xjf $RPM_SOURCE_DIR/gcc-4.6.3.tar.bz2
 rm -rf $RPM_BUILD_DIR/dragonegg
-tar -xf $RPM_SOURCE_DIR/dragonegg-r151057.tar.gz
+tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
 mkdir -p $RPM_BUILD_DIR/cloog
 sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 #tar -xf $RPM_SOURCE_DIR/cloog-0.17.tar.gz
-rm -rf $RPM_BUILD_DIR/nvopencc
-tar -xf $RPM_SOURCE_DIR/nvopencc-r12003483.tar.gz
 %endif
 
 
@@ -110,12 +109,8 @@ tar -xf $RPM_SOURCE_DIR/nvopencc-r12003483.tar.gz
 %patch5 -p1
 %patch6 -p1
 %patch7 -p1
-%patch8 -p1
-%patch9 -p1
-%patch10 -p1
-%patch11 -p1
 %if (%target == debian)
-%patch12 -p1
+%patch8 -p1
 %endif
 %endif
 
@@ -139,9 +134,9 @@ mkdir build
 cp -rf include/ build/include/
 cd build
 %if %debug
-../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,cbe,ptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
+../configure CC=gcc CXX=g++ --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
 %else
-../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,cbe,ptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
+../configure CC=gcc CXX=g++ --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
 %endif
 #
 # Configure GCC
@@ -162,16 +157,6 @@ cd $RPM_BUILD_DIR
 # Build parts of the system
 #
 %if %fullrepack
-#
-# Build NVOPENCC (Open64 compiler with NVIDIA's PTX backend)
-#
-%if %debug
-cd $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa
-make
-%else
-cd $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel
-make BUILD_OPTIMIZE=-Ofast
-%endif
 #
 # Build LLVM.
 #
@@ -231,20 +216,6 @@ mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/%{lib64}/
 cd $RPM_BUILD_DIR/cloog
 make install
 #
-# Install NVOPENCC.
-#
-%if %debug
-cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa/bin/nvopencc $RPM_BUILD_ROOT/opt/kernelgen/bin/nvopencc
-cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa/lib/be $RPM_BUILD_ROOT/opt/kernelgen/lib/be
-cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa/lib/gfec $RPM_BUILD_ROOT/opt/kernelgen/lib/gfec
-cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa/lib/inline $RPM_BUILD_ROOT/opt/kernelgen/lib/inline
-%else
-cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/bin/nvopencc $RPM_BUILD_ROOT/opt/kernelgen/bin/nvopencc
-cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/lib/be $RPM_BUILD_ROOT/opt/kernelgen/lib/be
-cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/lib/gfec $RPM_BUILD_ROOT/opt/kernelgen/lib/gfec
-cp $RPM_BUILD_DIR/nvopencc/open64/src/targia3264_nvisa_rel/lib/inline $RPM_BUILD_ROOT/opt/kernelgen/lib/inline
-%endif
-#
 # Install LLVM.
 #
 cd $RPM_BUILD_DIR/llvm/build
@@ -297,13 +268,6 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 # Files included into binary distribution.
 #
 %files
-#
-# NVOPENCC files.
-#
-/opt/kernelgen/bin/nvopencc
-/opt/kernelgen/lib/be
-/opt/kernelgen/lib/gfec
-/opt/kernelgen/lib/inline
 #
 # KernelGen files.
 #
@@ -404,6 +368,10 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 # LLVM files.
 #
 /opt/kernelgen/bin/bugpoint
+/opt/kernelgen/bin/c-index-test
+/opt/kernelgen/bin/clang
+/opt/kernelgen/bin/clang++
+/opt/kernelgen/bin/clang-tblgen
 /opt/kernelgen/bin/llc
 /opt/kernelgen/bin/lli
 /opt/kernelgen/bin/llvm-ar
@@ -415,56 +383,36 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/bin/llvm-dis
 /opt/kernelgen/bin/llvm-dwarfdump
 /opt/kernelgen/bin/llvm-extract
-/opt/kernelgen/bin/llvm-ld
 /opt/kernelgen/bin/llvm-link
 /opt/kernelgen/bin/llvm-mc
 /opt/kernelgen/bin/llvm-nm
 /opt/kernelgen/bin/llvm-objdump
 /opt/kernelgen/bin/llvm-prof
 /opt/kernelgen/bin/llvm-ranlib
+/opt/kernelgen/bin/llvm-readobj
 /opt/kernelgen/bin/llvm-rtdyld
 /opt/kernelgen/bin/llvm-size
-/opt/kernelgen/bin/llvm-stub
+/opt/kernelgen/bin/llvm-stress
 /opt/kernelgen/bin/llvm-tblgen
 /opt/kernelgen/bin/macho-dump
 /opt/kernelgen/bin/opt
 /opt/kernelgen/docs/llvm/html.tar.gz
+/opt/kernelgen/docs/llvm/html/AddressSanitizer.html
 /opt/kernelgen/docs/llvm/html/AliasAnalysis.html
+/opt/kernelgen/docs/llvm/html/AnalyzerRegions.html
 /opt/kernelgen/docs/llvm/html/Atomics.html
+/opt/kernelgen/docs/llvm/html/AutomaticReferenceCounting.html
 /opt/kernelgen/docs/llvm/html/BitCodeFormat.html
 /opt/kernelgen/docs/llvm/html/BranchWeightMetadata.html
 /opt/kernelgen/docs/llvm/html/Bugpoint.html
-/opt/kernelgen/docs/llvm/html/CFEBuildInstrs.html
 /opt/kernelgen/docs/llvm/html/CMake.html
 /opt/kernelgen/docs/llvm/html/CodeGenerator.html
 /opt/kernelgen/docs/llvm/html/CodingStandards.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/FileCheck.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/bugpoint.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/index.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/lit.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llc.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/lli.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-ar.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-as.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-bcanalyzer.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-build.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-config.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-cov.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-diff.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-dis.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-extract.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-ld.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-link.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-nm.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-prof.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/llvm-ranlib.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/manpage.css
-/opt/kernelgen/docs/llvm/html/CommandGuide/opt.html
-/opt/kernelgen/docs/llvm/html/CommandGuide/tblgen.html
 /opt/kernelgen/docs/llvm/html/CommandLine.html
 /opt/kernelgen/docs/llvm/html/CompilerWriterInfo.html
 /opt/kernelgen/docs/llvm/html/DebuggingJITedCode.html
 /opt/kernelgen/docs/llvm/html/DeveloperPolicy.html
+/opt/kernelgen/docs/llvm/html/DriverInternals.html
 /opt/kernelgen/docs/llvm/html/ExceptionHandling.html
 /opt/kernelgen/docs/llvm/html/ExtendingLLVM.html
 /opt/kernelgen/docs/llvm/html/FAQ.html
@@ -477,70 +425,381 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/docs/llvm/html/HowToAddABuilder.html
 /opt/kernelgen/docs/llvm/html/HowToReleaseLLVM.html
 /opt/kernelgen/docs/llvm/html/HowToSubmitABug.html
+/opt/kernelgen/docs/llvm/html/InternalsManual.html
 /opt/kernelgen/docs/llvm/html/LLVMBuild.html
 /opt/kernelgen/docs/llvm/html/LangRef.html
+/opt/kernelgen/docs/llvm/html/LanguageExtensions.html
 /opt/kernelgen/docs/llvm/html/Lexicon.html
+/opt/kernelgen/docs/llvm/html/LibTooling.html
 /opt/kernelgen/docs/llvm/html/LinkTimeOptimization.html
 /opt/kernelgen/docs/llvm/html/MakefileGuide.html
+/opt/kernelgen/docs/llvm/html/ObjectiveCLiterals.html
+/opt/kernelgen/docs/llvm/html/PCHInternals.html
+/opt/kernelgen/docs/llvm/html/PTHInternals.html
 /opt/kernelgen/docs/llvm/html/Packaging.html
 /opt/kernelgen/docs/llvm/html/Passes.html
 /opt/kernelgen/docs/llvm/html/ProgrammersManual.html
 /opt/kernelgen/docs/llvm/html/Projects.html
+/opt/kernelgen/docs/llvm/html/RAVFrontendAction.html
 /opt/kernelgen/docs/llvm/html/ReleaseNotes.html
 /opt/kernelgen/docs/llvm/html/SegmentedStacks.html
 /opt/kernelgen/docs/llvm/html/SourceLevelDebugging.html
 /opt/kernelgen/docs/llvm/html/SystemLibrary.html
 /opt/kernelgen/docs/llvm/html/TableGenFundamentals.html
+/opt/kernelgen/docs/llvm/html/TestSuiteMakefileGuide.html
 /opt/kernelgen/docs/llvm/html/TestingGuide.html
+/opt/kernelgen/docs/llvm/html/Tooling.html
+/opt/kernelgen/docs/llvm/html/UsersManual.html
 /opt/kernelgen/docs/llvm/html/WritingAnLLVMBackend.html
 /opt/kernelgen/docs/llvm/html/WritingAnLLVMPass.html
+/opt/kernelgen/docs/llvm/html/clang/clang.html
+/opt/kernelgen/docs/llvm/html/clang/manpage.css
 /opt/kernelgen/docs/llvm/html/doxygen.css
-/opt/kernelgen/docs/llvm/html/img/Debugging.gif
-/opt/kernelgen/docs/llvm/html/img/libdeps.gif
-/opt/kernelgen/docs/llvm/html/img/lines.gif
-/opt/kernelgen/docs/llvm/html/img/objdeps.gif
-/opt/kernelgen/docs/llvm/html/img/venusflytrap.jpg
-/opt/kernelgen/docs/llvm/html/index.html
-/opt/kernelgen/docs/llvm/html/llvm.css
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl1.html
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl2.html
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl3.html
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl4.html
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl5-cfg.png
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl5.html
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl6.html
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl7.html
-/opt/kernelgen/docs/llvm/html/tutorial/LangImpl8.html
-/opt/kernelgen/docs/llvm/html/tutorial/OCamlLangImpl1.html
-/opt/kernelgen/docs/llvm/html/tutorial/OCamlLangImpl2.html
-/opt/kernelgen/docs/llvm/html/tutorial/OCamlLangImpl3.html
-/opt/kernelgen/docs/llvm/html/tutorial/OCamlLangImpl4.html
-/opt/kernelgen/docs/llvm/html/tutorial/OCamlLangImpl5.html
-/opt/kernelgen/docs/llvm/html/tutorial/OCamlLangImpl6.html
-/opt/kernelgen/docs/llvm/html/tutorial/OCamlLangImpl7.html
-/opt/kernelgen/docs/llvm/html/tutorial/OCamlLangImpl8.html
-/opt/kernelgen/docs/llvm/html/tutorial/index.html
-/opt/kernelgen/docs/llvm/ps/FileCheck.ps
-/opt/kernelgen/docs/llvm/ps/bugpoint.ps
-/opt/kernelgen/docs/llvm/ps/lit.ps
-/opt/kernelgen/docs/llvm/ps/llc.ps
-/opt/kernelgen/docs/llvm/ps/lli.ps
-/opt/kernelgen/docs/llvm/ps/llvm-ar.ps
-/opt/kernelgen/docs/llvm/ps/llvm-as.ps
-/opt/kernelgen/docs/llvm/ps/llvm-bcanalyzer.ps
-/opt/kernelgen/docs/llvm/ps/llvm-build.ps
-/opt/kernelgen/docs/llvm/ps/llvm-config.ps
-/opt/kernelgen/docs/llvm/ps/llvm-cov.ps
-/opt/kernelgen/docs/llvm/ps/llvm-diff.ps
-/opt/kernelgen/docs/llvm/ps/llvm-dis.ps
-/opt/kernelgen/docs/llvm/ps/llvm-extract.ps
-/opt/kernelgen/docs/llvm/ps/llvm-ld.ps
-/opt/kernelgen/docs/llvm/ps/llvm-link.ps
-/opt/kernelgen/docs/llvm/ps/llvm-nm.ps
-/opt/kernelgen/docs/llvm/ps/llvm-prof.ps
-/opt/kernelgen/docs/llvm/ps/llvm-ranlib.ps
-/opt/kernelgen/docs/llvm/ps/opt.ps
-/opt/kernelgen/docs/llvm/ps/tblgen.ps
+/opt/kernelgen/docs/llvm/ps/clang.ps
+/opt/kernelgen/include/clang-c/Index.h
+/opt/kernelgen/include/clang/ARCMigrate/ARCMT.h
+/opt/kernelgen/include/clang/ARCMigrate/ARCMTActions.h
+/opt/kernelgen/include/clang/ARCMigrate/FileRemapper.h
+/opt/kernelgen/include/clang/AST/APValue.h
+/opt/kernelgen/include/clang/AST/AST.h
+/opt/kernelgen/include/clang/AST/ASTConsumer.h
+/opt/kernelgen/include/clang/AST/ASTContext.h
+/opt/kernelgen/include/clang/AST/ASTDiagnostic.h
+/opt/kernelgen/include/clang/AST/ASTImporter.h
+/opt/kernelgen/include/clang/AST/ASTMutationListener.h
+/opt/kernelgen/include/clang/AST/ASTVector.h
+/opt/kernelgen/include/clang/AST/Attr.h
+/opt/kernelgen/include/clang/AST/AttrImpl.inc
+/opt/kernelgen/include/clang/AST/Attrs.inc
+/opt/kernelgen/include/clang/AST/BaseSubobject.h
+/opt/kernelgen/include/clang/AST/BuiltinTypes.def
+/opt/kernelgen/include/clang/AST/CXXInheritance.h
+/opt/kernelgen/include/clang/AST/CanonicalType.h
+/opt/kernelgen/include/clang/AST/CharUnits.h
+/opt/kernelgen/include/clang/AST/Decl.h
+/opt/kernelgen/include/clang/AST/DeclAccessPair.h
+/opt/kernelgen/include/clang/AST/DeclBase.h
+/opt/kernelgen/include/clang/AST/DeclCXX.h
+/opt/kernelgen/include/clang/AST/DeclContextInternals.h
+/opt/kernelgen/include/clang/AST/DeclFriend.h
+/opt/kernelgen/include/clang/AST/DeclGroup.h
+/opt/kernelgen/include/clang/AST/DeclLookups.h
+/opt/kernelgen/include/clang/AST/DeclNodes.inc
+/opt/kernelgen/include/clang/AST/DeclObjC.h
+/opt/kernelgen/include/clang/AST/DeclTemplate.h
+/opt/kernelgen/include/clang/AST/DeclVisitor.h
+/opt/kernelgen/include/clang/AST/DeclarationName.h
+/opt/kernelgen/include/clang/AST/DependentDiagnostic.h
+/opt/kernelgen/include/clang/AST/EvaluatedExprVisitor.h
+/opt/kernelgen/include/clang/AST/Expr.h
+/opt/kernelgen/include/clang/AST/ExprCXX.h
+/opt/kernelgen/include/clang/AST/ExprObjC.h
+/opt/kernelgen/include/clang/AST/ExternalASTSource.h
+/opt/kernelgen/include/clang/AST/GlobalDecl.h
+/opt/kernelgen/include/clang/AST/LambdaMangleContext.h
+/opt/kernelgen/include/clang/AST/Mangle.h
+/opt/kernelgen/include/clang/AST/NSAPI.h
+/opt/kernelgen/include/clang/AST/NestedNameSpecifier.h
+/opt/kernelgen/include/clang/AST/OperationKinds.h
+/opt/kernelgen/include/clang/AST/ParentMap.h
+/opt/kernelgen/include/clang/AST/PrettyPrinter.h
+/opt/kernelgen/include/clang/AST/RecordLayout.h
+/opt/kernelgen/include/clang/AST/RecursiveASTVisitor.h
+/opt/kernelgen/include/clang/AST/Redeclarable.h
+/opt/kernelgen/include/clang/AST/SelectorLocationsKind.h
+/opt/kernelgen/include/clang/AST/Stmt.h
+/opt/kernelgen/include/clang/AST/StmtCXX.h
+/opt/kernelgen/include/clang/AST/StmtGraphTraits.h
+/opt/kernelgen/include/clang/AST/StmtIterator.h
+/opt/kernelgen/include/clang/AST/StmtNodes.inc
+/opt/kernelgen/include/clang/AST/StmtObjC.h
+/opt/kernelgen/include/clang/AST/StmtVisitor.h
+/opt/kernelgen/include/clang/AST/TemplateBase.h
+/opt/kernelgen/include/clang/AST/TemplateName.h
+/opt/kernelgen/include/clang/AST/Type.h
+/opt/kernelgen/include/clang/AST/TypeLoc.h
+/opt/kernelgen/include/clang/AST/TypeLocNodes.def
+/opt/kernelgen/include/clang/AST/TypeLocVisitor.h
+/opt/kernelgen/include/clang/AST/TypeNodes.def
+/opt/kernelgen/include/clang/AST/TypeOrdering.h
+/opt/kernelgen/include/clang/AST/TypeVisitor.h
+/opt/kernelgen/include/clang/AST/UnresolvedSet.h
+/opt/kernelgen/include/clang/AST/VTTBuilder.h
+/opt/kernelgen/include/clang/AST/VTableBuilder.h
+/opt/kernelgen/include/clang/Analysis/Analyses/CFGReachabilityAnalysis.h
+/opt/kernelgen/include/clang/Analysis/Analyses/Dominators.h
+/opt/kernelgen/include/clang/Analysis/Analyses/FormatString.h
+/opt/kernelgen/include/clang/Analysis/Analyses/LiveVariables.h
+/opt/kernelgen/include/clang/Analysis/Analyses/PostOrderCFGView.h
+/opt/kernelgen/include/clang/Analysis/Analyses/PseudoConstantAnalysis.h
+/opt/kernelgen/include/clang/Analysis/Analyses/ReachableCode.h
+/opt/kernelgen/include/clang/Analysis/Analyses/ThreadSafety.h
+/opt/kernelgen/include/clang/Analysis/Analyses/UninitializedValues.h
+/opt/kernelgen/include/clang/Analysis/AnalysisContext.h
+/opt/kernelgen/include/clang/Analysis/AnalysisDiagnostic.h
+/opt/kernelgen/include/clang/Analysis/CFG.h
+/opt/kernelgen/include/clang/Analysis/CFGStmtMap.h
+/opt/kernelgen/include/clang/Analysis/CallGraph.h
+/opt/kernelgen/include/clang/Analysis/DomainSpecific/CocoaConventions.h
+/opt/kernelgen/include/clang/Analysis/FlowSensitive/DataflowSolver.h
+/opt/kernelgen/include/clang/Analysis/FlowSensitive/DataflowValues.h
+/opt/kernelgen/include/clang/Analysis/ProgramPoint.h
+/opt/kernelgen/include/clang/Analysis/Support/BlkExprDeclBitVector.h
+/opt/kernelgen/include/clang/Analysis/Support/BumpVector.h
+/opt/kernelgen/include/clang/Analysis/Visitors/CFGRecStmtDeclVisitor.h
+/opt/kernelgen/include/clang/Analysis/Visitors/CFGRecStmtVisitor.h
+/opt/kernelgen/include/clang/Analysis/Visitors/CFGStmtVisitor.h
+/opt/kernelgen/include/clang/Basic/ABI.h
+/opt/kernelgen/include/clang/Basic/AddressSpaces.h
+/opt/kernelgen/include/clang/Basic/AllDiagnostics.h
+/opt/kernelgen/include/clang/Basic/AttrKinds.h
+/opt/kernelgen/include/clang/Basic/AttrList.inc
+/opt/kernelgen/include/clang/Basic/Builtins.def
+/opt/kernelgen/include/clang/Basic/Builtins.h
+/opt/kernelgen/include/clang/Basic/BuiltinsARM.def
+/opt/kernelgen/include/clang/Basic/BuiltinsHexagon.def
+/opt/kernelgen/include/clang/Basic/BuiltinsPPC.def
+/opt/kernelgen/include/clang/Basic/BuiltinsPTX.def
+/opt/kernelgen/include/clang/Basic/BuiltinsX86.def
+/opt/kernelgen/include/clang/Basic/ConvertUTF.h
+/opt/kernelgen/include/clang/Basic/Diagnostic.h
+/opt/kernelgen/include/clang/Basic/DiagnosticASTKinds.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticAnalysisKinds.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticCategories.h
+/opt/kernelgen/include/clang/Basic/DiagnosticCommonKinds.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticDriverKinds.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticFrontendKinds.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticGroups.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticIDs.h
+/opt/kernelgen/include/clang/Basic/DiagnosticIndexName.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticLexKinds.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticParseKinds.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticSemaKinds.inc
+/opt/kernelgen/include/clang/Basic/DiagnosticSerializationKinds.inc
+/opt/kernelgen/include/clang/Basic/ExceptionSpecificationType.h
+/opt/kernelgen/include/clang/Basic/ExpressionTraits.h
+/opt/kernelgen/include/clang/Basic/FileManager.h
+/opt/kernelgen/include/clang/Basic/FileSystemOptions.h
+/opt/kernelgen/include/clang/Basic/FileSystemStatCache.h
+/opt/kernelgen/include/clang/Basic/IdentifierTable.h
+/opt/kernelgen/include/clang/Basic/LLVM.h
+/opt/kernelgen/include/clang/Basic/Lambda.h
+/opt/kernelgen/include/clang/Basic/LangOptions.def
+/opt/kernelgen/include/clang/Basic/LangOptions.h
+/opt/kernelgen/include/clang/Basic/Linkage.h
+/opt/kernelgen/include/clang/Basic/MacroBuilder.h
+/opt/kernelgen/include/clang/Basic/Module.h
+/opt/kernelgen/include/clang/Basic/OnDiskHashTable.h
+/opt/kernelgen/include/clang/Basic/OpenCL.h
+/opt/kernelgen/include/clang/Basic/OpenCLExtensions.def
+/opt/kernelgen/include/clang/Basic/OperatorKinds.def
+/opt/kernelgen/include/clang/Basic/OperatorKinds.h
+/opt/kernelgen/include/clang/Basic/PartialDiagnostic.h
+/opt/kernelgen/include/clang/Basic/PrettyStackTrace.h
+/opt/kernelgen/include/clang/Basic/SourceLocation.h
+/opt/kernelgen/include/clang/Basic/SourceManager.h
+/opt/kernelgen/include/clang/Basic/SourceManagerInternals.h
+/opt/kernelgen/include/clang/Basic/Specifiers.h
+/opt/kernelgen/include/clang/Basic/TargetBuiltins.h
+/opt/kernelgen/include/clang/Basic/TargetInfo.h
+/opt/kernelgen/include/clang/Basic/TargetOptions.h
+/opt/kernelgen/include/clang/Basic/TemplateKinds.h
+/opt/kernelgen/include/clang/Basic/TokenKinds.def
+/opt/kernelgen/include/clang/Basic/TokenKinds.h
+/opt/kernelgen/include/clang/Basic/TypeTraits.h
+/opt/kernelgen/include/clang/Basic/Version.h
+/opt/kernelgen/include/clang/Basic/Version.inc
+/opt/kernelgen/include/clang/Basic/VersionTuple.h
+/opt/kernelgen/include/clang/Basic/Visibility.h
+/opt/kernelgen/include/clang/Basic/arm_neon.inc
+/opt/kernelgen/include/clang/CodeGen/BackendUtil.h
+/opt/kernelgen/include/clang/CodeGen/CodeGenAction.h
+/opt/kernelgen/include/clang/CodeGen/ModuleBuilder.h
+/opt/kernelgen/include/clang/Config/config.h
+/opt/kernelgen/include/clang/Driver/Action.h
+/opt/kernelgen/include/clang/Driver/Arg.h
+/opt/kernelgen/include/clang/Driver/ArgList.h
+/opt/kernelgen/include/clang/Driver/CC1AsOptions.h
+/opt/kernelgen/include/clang/Driver/CC1AsOptions.inc
+/opt/kernelgen/include/clang/Driver/CC1Options.h
+/opt/kernelgen/include/clang/Driver/Compilation.h
+/opt/kernelgen/include/clang/Driver/Driver.h
+/opt/kernelgen/include/clang/Driver/DriverDiagnostic.h
+/opt/kernelgen/include/clang/Driver/Job.h
+/opt/kernelgen/include/clang/Driver/ObjCRuntime.h
+/opt/kernelgen/include/clang/Driver/OptSpecifier.h
+/opt/kernelgen/include/clang/Driver/OptTable.h
+/opt/kernelgen/include/clang/Driver/Option.h
+/opt/kernelgen/include/clang/Driver/Options.h
+/opt/kernelgen/include/clang/Driver/Options.inc
+/opt/kernelgen/include/clang/Driver/Phases.h
+/opt/kernelgen/include/clang/Driver/Tool.h
+/opt/kernelgen/include/clang/Driver/ToolChain.h
+/opt/kernelgen/include/clang/Driver/Types.def
+/opt/kernelgen/include/clang/Driver/Types.h
+/opt/kernelgen/include/clang/Driver/Util.h
+/opt/kernelgen/include/clang/Edit/Commit.h
+/opt/kernelgen/include/clang/Edit/EditedSource.h
+/opt/kernelgen/include/clang/Edit/EditsReceiver.h
+/opt/kernelgen/include/clang/Edit/FileOffset.h
+/opt/kernelgen/include/clang/Edit/Rewriters.h
+/opt/kernelgen/include/clang/Frontend/ASTConsumers.h
+/opt/kernelgen/include/clang/Frontend/ASTUnit.h
+/opt/kernelgen/include/clang/Frontend/Analyses.def
+/opt/kernelgen/include/clang/Frontend/AnalyzerOptions.h
+/opt/kernelgen/include/clang/Frontend/ChainedDiagnosticConsumer.h
+/opt/kernelgen/include/clang/Frontend/ChainedIncludesSource.h
+/opt/kernelgen/include/clang/Frontend/CodeGenOptions.h
+/opt/kernelgen/include/clang/Frontend/CommandLineSourceLoc.h
+/opt/kernelgen/include/clang/Frontend/CompilerInstance.h
+/opt/kernelgen/include/clang/Frontend/CompilerInvocation.h
+/opt/kernelgen/include/clang/Frontend/DependencyOutputOptions.h
+/opt/kernelgen/include/clang/Frontend/DiagnosticOptions.h
+/opt/kernelgen/include/clang/Frontend/DiagnosticRenderer.h
+/opt/kernelgen/include/clang/Frontend/FrontendAction.h
+/opt/kernelgen/include/clang/Frontend/FrontendActions.h
+/opt/kernelgen/include/clang/Frontend/FrontendDiagnostic.h
+/opt/kernelgen/include/clang/Frontend/FrontendOptions.h
+/opt/kernelgen/include/clang/Frontend/FrontendPluginRegistry.h
+/opt/kernelgen/include/clang/Frontend/HeaderSearchOptions.h
+/opt/kernelgen/include/clang/Frontend/LangStandard.h
+/opt/kernelgen/include/clang/Frontend/LangStandards.def
+/opt/kernelgen/include/clang/Frontend/LayoutOverrideSource.h
+/opt/kernelgen/include/clang/Frontend/LogDiagnosticPrinter.h
+/opt/kernelgen/include/clang/Frontend/MigratorOptions.h
+/opt/kernelgen/include/clang/Frontend/MultiplexConsumer.h
+/opt/kernelgen/include/clang/Frontend/PreprocessorOptions.h
+/opt/kernelgen/include/clang/Frontend/PreprocessorOutputOptions.h
+/opt/kernelgen/include/clang/Frontend/SerializedDiagnosticPrinter.h
+/opt/kernelgen/include/clang/Frontend/TextDiagnostic.h
+/opt/kernelgen/include/clang/Frontend/TextDiagnosticBuffer.h
+/opt/kernelgen/include/clang/Frontend/TextDiagnosticPrinter.h
+/opt/kernelgen/include/clang/Frontend/Utils.h
+/opt/kernelgen/include/clang/Frontend/VerifyDiagnosticConsumer.h
+/opt/kernelgen/include/clang/FrontendTool/Utils.h
+/opt/kernelgen/include/clang/Lex/AttrSpellings.inc
+/opt/kernelgen/include/clang/Lex/CodeCompletionHandler.h
+/opt/kernelgen/include/clang/Lex/DirectoryLookup.h
+/opt/kernelgen/include/clang/Lex/ExternalPreprocessorSource.h
+/opt/kernelgen/include/clang/Lex/HeaderMap.h
+/opt/kernelgen/include/clang/Lex/HeaderSearch.h
+/opt/kernelgen/include/clang/Lex/LexDiagnostic.h
+/opt/kernelgen/include/clang/Lex/Lexer.h
+/opt/kernelgen/include/clang/Lex/LiteralSupport.h
+/opt/kernelgen/include/clang/Lex/MacroInfo.h
+/opt/kernelgen/include/clang/Lex/ModuleLoader.h
+/opt/kernelgen/include/clang/Lex/ModuleMap.h
+/opt/kernelgen/include/clang/Lex/MultipleIncludeOpt.h
+/opt/kernelgen/include/clang/Lex/PPCallbacks.h
+/opt/kernelgen/include/clang/Lex/PTHLexer.h
+/opt/kernelgen/include/clang/Lex/PTHManager.h
+/opt/kernelgen/include/clang/Lex/Pragma.h
+/opt/kernelgen/include/clang/Lex/PreprocessingRecord.h
+/opt/kernelgen/include/clang/Lex/Preprocessor.h
+/opt/kernelgen/include/clang/Lex/PreprocessorLexer.h
+/opt/kernelgen/include/clang/Lex/ScratchBuffer.h
+/opt/kernelgen/include/clang/Lex/Token.h
+/opt/kernelgen/include/clang/Lex/TokenConcatenation.h
+/opt/kernelgen/include/clang/Lex/TokenLexer.h
+/opt/kernelgen/include/clang/Parse/AttrLateParsed.inc
+/opt/kernelgen/include/clang/Parse/ParseAST.h
+/opt/kernelgen/include/clang/Parse/ParseDiagnostic.h
+/opt/kernelgen/include/clang/Parse/Parser.h
+/opt/kernelgen/include/clang/Rewrite/ASTConsumers.h
+/opt/kernelgen/include/clang/Rewrite/DeltaTree.h
+/opt/kernelgen/include/clang/Rewrite/FixItRewriter.h
+/opt/kernelgen/include/clang/Rewrite/FrontendActions.h
+/opt/kernelgen/include/clang/Rewrite/HTMLRewrite.h
+/opt/kernelgen/include/clang/Rewrite/RewriteRope.h
+/opt/kernelgen/include/clang/Rewrite/Rewriter.h
+/opt/kernelgen/include/clang/Rewrite/Rewriters.h
+/opt/kernelgen/include/clang/Rewrite/TokenRewriter.h
+/opt/kernelgen/include/clang/Sema/AnalysisBasedWarnings.h
+/opt/kernelgen/include/clang/Sema/AttrParsedAttrKinds.inc
+/opt/kernelgen/include/clang/Sema/AttrParsedAttrList.inc
+/opt/kernelgen/include/clang/Sema/AttrTemplateInstantiate.inc
+/opt/kernelgen/include/clang/Sema/AttributeList.h
+/opt/kernelgen/include/clang/Sema/CXXFieldCollector.h
+/opt/kernelgen/include/clang/Sema/CodeCompleteConsumer.h
+/opt/kernelgen/include/clang/Sema/DeclSpec.h
+/opt/kernelgen/include/clang/Sema/DelayedDiagnostic.h
+/opt/kernelgen/include/clang/Sema/Designator.h
+/opt/kernelgen/include/clang/Sema/ExternalSemaSource.h
+/opt/kernelgen/include/clang/Sema/IdentifierResolver.h
+/opt/kernelgen/include/clang/Sema/Initialization.h
+/opt/kernelgen/include/clang/Sema/LocInfoType.h
+/opt/kernelgen/include/clang/Sema/Lookup.h
+/opt/kernelgen/include/clang/Sema/ObjCMethodList.h
+/opt/kernelgen/include/clang/Sema/Overload.h
+/opt/kernelgen/include/clang/Sema/Ownership.h
+/opt/kernelgen/include/clang/Sema/ParsedTemplate.h
+/opt/kernelgen/include/clang/Sema/PrettyDeclStackTrace.h
+/opt/kernelgen/include/clang/Sema/Scope.h
+/opt/kernelgen/include/clang/Sema/ScopeInfo.h
+/opt/kernelgen/include/clang/Sema/Sema.h
+/opt/kernelgen/include/clang/Sema/SemaConsumer.h
+/opt/kernelgen/include/clang/Sema/SemaDiagnostic.h
+/opt/kernelgen/include/clang/Sema/SemaFixItUtils.h
+/opt/kernelgen/include/clang/Sema/SemaInternal.h
+/opt/kernelgen/include/clang/Sema/Template.h
+/opt/kernelgen/include/clang/Sema/TemplateDeduction.h
+/opt/kernelgen/include/clang/Sema/TypoCorrection.h
+/opt/kernelgen/include/clang/Sema/Weak.h
+/opt/kernelgen/include/clang/Serialization/ASTBitCodes.h
+/opt/kernelgen/include/clang/Serialization/ASTDeserializationListener.h
+/opt/kernelgen/include/clang/Serialization/ASTReader.h
+/opt/kernelgen/include/clang/Serialization/ASTWriter.h
+/opt/kernelgen/include/clang/Serialization/AttrPCHRead.inc
+/opt/kernelgen/include/clang/Serialization/AttrPCHWrite.inc
+/opt/kernelgen/include/clang/Serialization/ContinuousRangeMap.h
+/opt/kernelgen/include/clang/Serialization/Module.h
+/opt/kernelgen/include/clang/Serialization/ModuleManager.h
+/opt/kernelgen/include/clang/Serialization/SerializationDiagnostic.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Checkers/ClangCheckers.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Checkers/CommonBugCategories.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Checkers/DereferenceChecker.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Checkers/LocalCheckers.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/BugReporter/BugReporter.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/BugReporter/BugReporterVisitor.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/BugReporter/BugType.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/BugReporter/PathDiagnostic.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/Checker.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/CheckerManager.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/CheckerOptInfo.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/CheckerRegistry.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathDiagnosticConsumers.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/APSIntType.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/BasicValueFactory.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/BlockCounter.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/CheckerHelpers.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/ConstraintManager.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/CoreEngine.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/Environment.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/ExplodedGraph.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/FunctionSummary.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/MemRegion.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/ObjCMessage.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/ProgramStateTrait.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/ProgramState_Fwd.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/SValBuilder.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/SVals.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/Store.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/StoreRef.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/SubEngine.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/SummaryManager.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/SymbolManager.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/TaintManager.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/TaintTag.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Core/PathSensitive/WorkList.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Frontend/CheckerRegistration.h
+/opt/kernelgen/include/clang/StaticAnalyzer/Frontend/FrontendActions.h
+/opt/kernelgen/include/clang/Tooling/ArgumentsAdjusters.h
+/opt/kernelgen/include/clang/Tooling/CompilationDatabase.h
+/opt/kernelgen/include/clang/Tooling/Tooling.h
 /opt/kernelgen/include/llvm-c/Analysis.h
 /opt/kernelgen/include/llvm-c/BitReader.h
 /opt/kernelgen/include/llvm-c/BitWriter.h
@@ -550,8 +809,10 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm-c/ExecutionEngine.h
 /opt/kernelgen/include/llvm-c/Initialization.h
 /opt/kernelgen/include/llvm-c/LinkTimeOptimizer.h
+/opt/kernelgen/include/llvm-c/Linker.h
 /opt/kernelgen/include/llvm-c/Object.h
 /opt/kernelgen/include/llvm-c/Target.h
+/opt/kernelgen/include/llvm-c/TargetMachine.h
 /opt/kernelgen/include/llvm-c/Transforms/IPO.h
 /opt/kernelgen/include/llvm-c/Transforms/PassManagerBuilder.h
 /opt/kernelgen/include/llvm-c/Transforms/Scalar.h
@@ -569,6 +830,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/ADT/DenseSet.h
 /opt/kernelgen/include/llvm/ADT/DepthFirstIterator.h
 /opt/kernelgen/include/llvm/ADT/EquivalenceClasses.h
+/opt/kernelgen/include/llvm/ADT/FlatArrayMap.h
 /opt/kernelgen/include/llvm/ADT/FoldingSet.h
 /opt/kernelgen/include/llvm/ADT/GraphTraits.h
 /opt/kernelgen/include/llvm/ADT/Hashing.h
@@ -581,6 +843,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/ADT/IntEqClasses.h
 /opt/kernelgen/include/llvm/ADT/IntervalMap.h
 /opt/kernelgen/include/llvm/ADT/IntrusiveRefCntPtr.h
+/opt/kernelgen/include/llvm/ADT/MultiImplMap.h
 /opt/kernelgen/include/llvm/ADT/NullablePtr.h
 /opt/kernelgen/include/llvm/ADT/Optional.h
 /opt/kernelgen/include/llvm/ADT/OwningPtr.h
@@ -595,11 +858,13 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/ADT/SetOperations.h
 /opt/kernelgen/include/llvm/ADT/SetVector.h
 /opt/kernelgen/include/llvm/ADT/SmallBitVector.h
+/opt/kernelgen/include/llvm/ADT/SmallMap.h
 /opt/kernelgen/include/llvm/ADT/SmallPtrSet.h
 /opt/kernelgen/include/llvm/ADT/SmallSet.h
 /opt/kernelgen/include/llvm/ADT/SmallString.h
 /opt/kernelgen/include/llvm/ADT/SmallVector.h
 /opt/kernelgen/include/llvm/ADT/SparseBitVector.h
+/opt/kernelgen/include/llvm/ADT/SparseSet.h
 /opt/kernelgen/include/llvm/ADT/Statistic.h
 /opt/kernelgen/include/llvm/ADT/StringExtras.h
 /opt/kernelgen/include/llvm/ADT/StringMap.h
@@ -709,6 +974,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/CodeGen/LinkAllCodegenComponents.h
 /opt/kernelgen/include/llvm/CodeGen/LiveInterval.h
 /opt/kernelgen/include/llvm/CodeGen/LiveIntervalAnalysis.h
+/opt/kernelgen/include/llvm/CodeGen/LiveRangeEdit.h
 /opt/kernelgen/include/llvm/CodeGen/LiveStackAnalysis.h
 /opt/kernelgen/include/llvm/CodeGen/LiveVariables.h
 /opt/kernelgen/include/llvm/CodeGen/MachORelocation.h
@@ -737,6 +1003,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/CodeGen/MachineRegisterInfo.h
 /opt/kernelgen/include/llvm/CodeGen/MachineRelocation.h
 /opt/kernelgen/include/llvm/CodeGen/MachineSSAUpdater.h
+/opt/kernelgen/include/llvm/CodeGen/MachineScheduler.h
 /opt/kernelgen/include/llvm/CodeGen/PBQP/Graph.h
 /opt/kernelgen/include/llvm/CodeGen/PBQP/HeuristicBase.h
 /opt/kernelgen/include/llvm/CodeGen/PBQP/HeuristicSolver.h
@@ -752,6 +1019,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/CodeGen/ResourcePriorityQueue.h
 /opt/kernelgen/include/llvm/CodeGen/RuntimeLibcalls.h
 /opt/kernelgen/include/llvm/CodeGen/ScheduleDAG.h
+/opt/kernelgen/include/llvm/CodeGen/ScheduleDAGInstrs.h
 /opt/kernelgen/include/llvm/CodeGen/ScheduleHazardRecognizer.h
 /opt/kernelgen/include/llvm/CodeGen/SchedulerRegistry.h
 /opt/kernelgen/include/llvm/CodeGen/ScoreboardHazardRecognizer.h
@@ -771,16 +1039,17 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/Constant.h
 /opt/kernelgen/include/llvm/Constants.h
 /opt/kernelgen/include/llvm/DebugInfo/DIContext.h
-/opt/kernelgen/include/llvm/DebugInfoProbe.h
 /opt/kernelgen/include/llvm/DefaultPasses.h
 /opt/kernelgen/include/llvm/DerivedTypes.h
 /opt/kernelgen/include/llvm/ExecutionEngine/ExecutionEngine.h
 /opt/kernelgen/include/llvm/ExecutionEngine/GenericValue.h
+/opt/kernelgen/include/llvm/ExecutionEngine/IntelJITEventsWrapper.h
 /opt/kernelgen/include/llvm/ExecutionEngine/Interpreter.h
 /opt/kernelgen/include/llvm/ExecutionEngine/JIT.h
 /opt/kernelgen/include/llvm/ExecutionEngine/JITEventListener.h
 /opt/kernelgen/include/llvm/ExecutionEngine/JITMemoryManager.h
 /opt/kernelgen/include/llvm/ExecutionEngine/MCJIT.h
+/opt/kernelgen/include/llvm/ExecutionEngine/OProfileWrapper.h
 /opt/kernelgen/include/llvm/ExecutionEngine/RuntimeDyld.h
 /opt/kernelgen/include/llvm/Function.h
 /opt/kernelgen/include/llvm/GVMaterializer.h
@@ -800,6 +1069,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/IntrinsicsARM.td
 /opt/kernelgen/include/llvm/IntrinsicsCellSPU.td
 /opt/kernelgen/include/llvm/IntrinsicsHexagon.td
+/opt/kernelgen/include/llvm/IntrinsicsNVVM.td
 /opt/kernelgen/include/llvm/IntrinsicsPTX.td
 /opt/kernelgen/include/llvm/IntrinsicsPowerPC.td
 /opt/kernelgen/include/llvm/IntrinsicsX86.td
@@ -889,6 +1159,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/Support/BranchProbability.h
 /opt/kernelgen/include/llvm/Support/CFG.h
 /opt/kernelgen/include/llvm/Support/COFF.h
+/opt/kernelgen/include/llvm/Support/CRSBuilder.h
 /opt/kernelgen/include/llvm/Support/CallSite.h
 /opt/kernelgen/include/llvm/Support/Capacity.h
 /opt/kernelgen/include/llvm/Support/Casting.h
@@ -897,6 +1168,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/Support/Compiler.h
 /opt/kernelgen/include/llvm/Support/ConstantFolder.h
 /opt/kernelgen/include/llvm/Support/ConstantRange.h
+/opt/kernelgen/include/llvm/Support/ConstantRangesSet.h
 /opt/kernelgen/include/llvm/Support/CrashRecoveryContext.h
 /opt/kernelgen/include/llvm/Support/DOTGraphTraits.h
 /opt/kernelgen/include/llvm/Support/DataExtractor.h
@@ -926,10 +1198,11 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/Support/IncludeFile.h
 /opt/kernelgen/include/llvm/Support/InstIterator.h
 /opt/kernelgen/include/llvm/Support/InstVisitor.h
-/opt/kernelgen/include/llvm/Support/JSONParser.h
 /opt/kernelgen/include/llvm/Support/LICENSE.TXT
 /opt/kernelgen/include/llvm/Support/LeakDetector.h
+/opt/kernelgen/include/llvm/Support/Locale.h
 /opt/kernelgen/include/llvm/Support/LockFileManager.h
+/opt/kernelgen/include/llvm/Support/MDBuilder.h
 /opt/kernelgen/include/llvm/Support/MachO.h
 /opt/kernelgen/include/llvm/Support/ManagedStatic.h
 /opt/kernelgen/include/llvm/Support/MathExtras.h
@@ -958,6 +1231,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/Support/Registry.h
 /opt/kernelgen/include/llvm/Support/RegistryParser.h
 /opt/kernelgen/include/llvm/Support/SMLoc.h
+/opt/kernelgen/include/llvm/Support/SaveAndRestore.h
 /opt/kernelgen/include/llvm/Support/Signals.h
 /opt/kernelgen/include/llvm/Support/Solaris.h
 /opt/kernelgen/include/llvm/Support/SourceMgr.h
@@ -977,6 +1251,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/Support/Valgrind.h
 /opt/kernelgen/include/llvm/Support/ValueHandle.h
 /opt/kernelgen/include/llvm/Support/Win64EH.h
+/opt/kernelgen/include/llvm/Support/YAMLParser.h
 /opt/kernelgen/include/llvm/Support/circular_raw_ostream.h
 /opt/kernelgen/include/llvm/Support/raw_os_ostream.h
 /opt/kernelgen/include/llvm/Support/raw_ostream.h
@@ -986,6 +1261,7 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/TableGen/Error.h
 /opt/kernelgen/include/llvm/TableGen/Main.h
 /opt/kernelgen/include/llvm/TableGen/Record.h
+/opt/kernelgen/include/llvm/TableGen/StringMatcher.h
 /opt/kernelgen/include/llvm/TableGen/TableGenAction.h
 /opt/kernelgen/include/llvm/TableGen/TableGenBackend.h
 /opt/kernelgen/include/llvm/Target/Mangler.h
@@ -1016,11 +1292,10 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/Transforms/Scalar.h
 /opt/kernelgen/include/llvm/Transforms/Utils/AddrModeMatcher.h
 /opt/kernelgen/include/llvm/Transforms/Utils/BasicBlockUtils.h
-/opt/kernelgen/include/llvm/Transforms/Utils/BasicInliner.h
 /opt/kernelgen/include/llvm/Transforms/Utils/BuildLibCalls.h
 /opt/kernelgen/include/llvm/Transforms/Utils/Cloning.h
 /opt/kernelgen/include/llvm/Transforms/Utils/CmpInstAnalysis.h
-/opt/kernelgen/include/llvm/Transforms/Utils/FunctionUtils.h
+/opt/kernelgen/include/llvm/Transforms/Utils/CodeExtractor.h
 /opt/kernelgen/include/llvm/Transforms/Utils/Local.h
 /opt/kernelgen/include/llvm/Transforms/Utils/ModuleUtils.h
 /opt/kernelgen/include/llvm/Transforms/Utils/PromoteMemToReg.h
@@ -1037,7 +1312,9 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/llvm/Value.h
 /opt/kernelgen/include/llvm/ValueSymbolTable.h
 /opt/kernelgen/include/polly/Cloog.h
-/opt/kernelgen/include/polly/CodeGeneration.h
+/opt/kernelgen/include/polly/CodeGen/BlockGenerators.h
+/opt/kernelgen/include/polly/CodeGen/CodeGeneration.h
+/opt/kernelgen/include/polly/CodeGen/LoopGenerators.h
 /opt/kernelgen/include/polly/Config/config.h
 /opt/kernelgen/include/polly/Dependences.h
 /opt/kernelgen/include/polly/LinkAllPasses.h
@@ -1054,16 +1331,47 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/include/polly/TempScopInfo.h
 /opt/kernelgen/lib/BugpointPasses.so
 /opt/kernelgen/lib/LLVMHello.so
-/opt/kernelgen/lib/libLLVMPolly.so
-/opt/kernelgen/lib/libLLVM-3.1svn.so
+/opt/kernelgen/lib/clang/3.2/include/altivec.h
+/opt/kernelgen/lib/clang/3.2/include/arm_neon.h
+/opt/kernelgen/lib/clang/3.2/include/avx2intrin.h
+/opt/kernelgen/lib/clang/3.2/include/avxintrin.h
+/opt/kernelgen/lib/clang/3.2/include/bmi2intrin.h
+/opt/kernelgen/lib/clang/3.2/include/bmiintrin.h
+/opt/kernelgen/lib/clang/3.2/include/cpuid.h
+/opt/kernelgen/lib/clang/3.2/include/emmintrin.h
+/opt/kernelgen/lib/clang/3.2/include/float.h
+/opt/kernelgen/lib/clang/3.2/include/fma4intrin.h
+/opt/kernelgen/lib/clang/3.2/include/immintrin.h
+/opt/kernelgen/lib/clang/3.2/include/iso646.h
+/opt/kernelgen/lib/clang/3.2/include/limits.h
+/opt/kernelgen/lib/clang/3.2/include/lzcntintrin.h
+/opt/kernelgen/lib/clang/3.2/include/mm3dnow.h
+/opt/kernelgen/lib/clang/3.2/include/mm_malloc.h
+/opt/kernelgen/lib/clang/3.2/include/mmintrin.h
+/opt/kernelgen/lib/clang/3.2/include/module.map
+/opt/kernelgen/lib/clang/3.2/include/nmmintrin.h
+/opt/kernelgen/lib/clang/3.2/include/pmmintrin.h
+/opt/kernelgen/lib/clang/3.2/include/popcntintrin.h
+/opt/kernelgen/lib/clang/3.2/include/smmintrin.h
+/opt/kernelgen/lib/clang/3.2/include/stdalign.h
+/opt/kernelgen/lib/clang/3.2/include/stdarg.h
+/opt/kernelgen/lib/clang/3.2/include/stdbool.h
+/opt/kernelgen/lib/clang/3.2/include/stddef.h
+/opt/kernelgen/lib/clang/3.2/include/stdint.h
+/opt/kernelgen/lib/clang/3.2/include/tgmath.h
+/opt/kernelgen/lib/clang/3.2/include/tmmintrin.h
+/opt/kernelgen/lib/clang/3.2/include/unwind.h
+/opt/kernelgen/lib/clang/3.2/include/varargs.h
+/opt/kernelgen/lib/clang/3.2/include/wmmintrin.h
+/opt/kernelgen/lib/clang/3.2/include/x86intrin.h
+/opt/kernelgen/lib/clang/3.2/include/xmmintrin.h
+/opt/kernelgen/lib/libLLVM-3.2svn.so
 /opt/kernelgen/lib/libLLVMAnalysis.a
 /opt/kernelgen/lib/libLLVMArchive.a
 /opt/kernelgen/lib/libLLVMAsmParser.a
 /opt/kernelgen/lib/libLLVMAsmPrinter.a
 /opt/kernelgen/lib/libLLVMBitReader.a
 /opt/kernelgen/lib/libLLVMBitWriter.a
-/opt/kernelgen/lib/libLLVMCBackendCodeGen.a
-/opt/kernelgen/lib/libLLVMCBackendInfo.a
 /opt/kernelgen/lib/libLLVMCodeGen.a
 /opt/kernelgen/lib/libLLVMCore.a
 /opt/kernelgen/lib/libLLVMDebugInfo.a
@@ -1077,11 +1385,12 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/lib/libLLVMMCDisassembler.a
 /opt/kernelgen/lib/libLLVMMCJIT.a
 /opt/kernelgen/lib/libLLVMMCParser.a
+/opt/kernelgen/lib/libLLVMNVPTXAsmPrinter.a
+/opt/kernelgen/lib/libLLVMNVPTXCodeGen.a
+/opt/kernelgen/lib/libLLVMNVPTXDesc.a
+/opt/kernelgen/lib/libLLVMNVPTXInfo.a
 /opt/kernelgen/lib/libLLVMObject.a
-/opt/kernelgen/lib/libLLVMPTXAsmPrinter.a
-/opt/kernelgen/lib/libLLVMPTXCodeGen.a
-/opt/kernelgen/lib/libLLVMPTXDesc.a
-/opt/kernelgen/lib/libLLVMPTXInfo.a
+/opt/kernelgen/lib/libLLVMPolly.so
 /opt/kernelgen/lib/libLLVMRuntimeDyld.a
 /opt/kernelgen/lib/libLLVMScalarOpts.a
 /opt/kernelgen/lib/libLLVMSelectionDAG.a
@@ -1101,31 +1410,34 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/incl
 /opt/kernelgen/lib/libLLVMipo.a
 /opt/kernelgen/lib/libLTO.a
 /opt/kernelgen/lib/libLTO.so
+/opt/kernelgen/lib/libclang.a
+/opt/kernelgen/lib/libclang.so
+/opt/kernelgen/lib/libclangARCMigrate.a
+/opt/kernelgen/lib/libclangAST.a
+/opt/kernelgen/lib/libclangAnalysis.a
+/opt/kernelgen/lib/libclangBasic.a
+/opt/kernelgen/lib/libclangCodeGen.a
+/opt/kernelgen/lib/libclangDriver.a
+/opt/kernelgen/lib/libclangEdit.a
+/opt/kernelgen/lib/libclangFrontend.a
+/opt/kernelgen/lib/libclangFrontendTool.a
+/opt/kernelgen/lib/libclangLex.a
+/opt/kernelgen/lib/libclangParse.a
+/opt/kernelgen/lib/libclangRewrite.a
+/opt/kernelgen/lib/libclangSema.a
+/opt/kernelgen/lib/libclangSerialization.a
+/opt/kernelgen/lib/libclangStaticAnalyzerCheckers.a
+/opt/kernelgen/lib/libclangStaticAnalyzerCore.a
+/opt/kernelgen/lib/libclangStaticAnalyzerFrontend.a
+/opt/kernelgen/lib/libclangTooling.a
 /opt/kernelgen/lib/libpollyanalysis.a
+/opt/kernelgen/lib/libpollycodegen.a
 /opt/kernelgen/lib/libpollyexchange.a
 /opt/kernelgen/lib/libpollyjson.a
 /opt/kernelgen/lib/libpollysupport.a
 /opt/kernelgen/lib/libprofile_rt.a
 /opt/kernelgen/lib/libprofile_rt.so
-/opt/kernelgen/share/man/man1/bugpoint.1
-/opt/kernelgen/share/man/man1/lit.1
-/opt/kernelgen/share/man/man1/llc.1
-/opt/kernelgen/share/man/man1/lli.1
-/opt/kernelgen/share/man/man1/llvm-ar.1
-/opt/kernelgen/share/man/man1/llvm-as.1
-/opt/kernelgen/share/man/man1/llvm-bcanalyzer.1
-/opt/kernelgen/share/man/man1/llvm-config.1
-/opt/kernelgen/share/man/man1/llvm-cov.1
-/opt/kernelgen/share/man/man1/llvm-diff.1
-/opt/kernelgen/share/man/man1/llvm-dis.1
-/opt/kernelgen/share/man/man1/llvm-extract.1
-/opt/kernelgen/share/man/man1/llvm-ld.1
-/opt/kernelgen/share/man/man1/llvm-link.1
-/opt/kernelgen/share/man/man1/llvm-nm.1
-/opt/kernelgen/share/man/man1/llvm-prof.1
-/opt/kernelgen/share/man/man1/llvm-ranlib.1
-/opt/kernelgen/share/man/man1/opt.1
-/opt/kernelgen/share/man/man1/tblgen.1
+/opt/kernelgen/share/man/man1/clang.1
 #
 # GCC files.
 #

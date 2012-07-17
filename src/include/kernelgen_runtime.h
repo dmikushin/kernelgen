@@ -22,24 +22,28 @@
 #ifndef KERNELGEN_RUNTIME_H
 #define KERNELGEN_RUNTIME_H
 
-#define __device__ static __inline__ __attribute__((always_inline))
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-extern __attribute__((device)) int __iAtomicCAS(
-	int *address, int compare, int val);
-
-extern __attribute__((__used__)) __attribute__((device)) unsigned int* __kernelgen_callback;
-
-extern __attribute__((__used__)) __attribute__((device)) unsigned int* __kernelgen_memory;
+extern unsigned int* __attribute__((device)) __kernelgen_callback;
+extern unsigned int* __attribute__((device)) __kernelgen_memory;
 
 #include "kernelgen_interop.h"
 #include "kernelgen_memory.h"
 
-typedef struct { unsigned int x, y, z; } uint3;
+__attribute__((device)) int __iAtomicCAS(volatile int *p, int compare, int val)
+{
+	int ret;
+	asm volatile (
+		"atom.cas.b32    %0, [%1], %2, %3; \n\t"
+		: "=r"(ret) : "l"(p), "r"(compare), "r"(val)
+	);
+	return ret;
+}
 
-uint3 extern const threadIdx, blockIdx, blockDim, gridDim;
-int extern const warpSize;
-
-__device__ void kernelgen_hostcall(unsigned char* kernel,
+__attribute__((device)) __attribute__((always_inline)) void kernelgen_hostcall(unsigned char* kernel,
 	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
 {
 	// Unblock the monitor kernel and wait for being
@@ -47,15 +51,19 @@ __device__ void kernelgen_hostcall(unsigned char* kernel,
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_HOSTCALL;
+#ifdef __cplusplus
+	callback->kernel = (kernelgen::kernel_t*)kernel;
+#else
 	callback->kernel = (struct kernel_t*)kernel;
+#endif 
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
-	callback->data = data;
+	callback->data = (struct kernelgen_callback_data_t*)data;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
 
-__device__ int kernelgen_launch(unsigned char* kernel,
+__attribute__((device)) __attribute((always_inline)) int kernelgen_launch(unsigned char* kernel,
 	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
 {
 	// Client passes NULL for name/entry argument to indicate
@@ -66,10 +74,14 @@ __device__ int kernelgen_launch(unsigned char* kernel,
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_LOOPCALL;
+#ifdef __cplusplus
+	callback->kernel = (kernelgen::kernel_t*)kernel;
+#else
 	callback->kernel = (struct kernel_t*)kernel;
+#endif
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
-	callback->data = data;
+	callback->data = (struct kernelgen_callback_data_t*)data;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 
@@ -79,7 +91,7 @@ __device__ int kernelgen_launch(unsigned char* kernel,
 	return callback->state;
 }
 
-__device__ void kernelgen_finish()
+__attribute__((device)) __attribute__((always_inline)) void kernelgen_finish()
 {
 	// Unblock the monitor kernel.
 	struct kernelgen_callback_t* callback =
@@ -88,21 +100,9 @@ __device__ void kernelgen_finish()
 	__iAtomicCAS(&callback->lock, 0, 1);
 }
 
-__device__ int kernelgen_threadIdx_x() { return threadIdx.x; }
-__device__ int kernelgen_threadIdx_y() { return threadIdx.y; }
-__device__ int kernelgen_threadIdx_z() { return threadIdx.z; }
-
-__device__ int kernelgen_blockIdx_x() { return blockIdx.x; }
-__device__ int kernelgen_blockIdx_y() { return blockIdx.y; }
-__device__ int kernelgen_blockIdx_z() { return blockIdx.z; }
-
-__device__ int kernelgen_blockDim_x() { return blockDim.x; }
-__device__ int kernelgen_blockDim_y() { return blockDim.y; }
-__device__ int kernelgen_blockDim_z() { return blockDim.z; }
-
-__device__ int kernelgen_gridDim_x() { return gridDim.x; }
-__device__ int kernelgen_gridDim_y() { return gridDim.y; }
-__device__ int kernelgen_gridDim_z() { return gridDim.z; }
+#ifdef __cplusplus
+}
+#endif
 
 #endif // KERNELGEN_RUNTIME_H
 

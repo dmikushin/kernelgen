@@ -113,6 +113,9 @@ extern int runmode;
 // Verbose output.
 extern int verbose;
 
+// Debug mode.
+extern bool debug;
+
 #define KERNELGEN_VERBOSE_DISABLE	0
 #define KERNELGEN_VERBOSE_SUMMARY	1 << 0
 #define KERNELGEN_VERBOSE_SOURCES	1 << 1
@@ -171,9 +174,6 @@ struct kernel_t
 		// any kernel arguments.
 		kernel_func_t binary;
 		
-		// Monitoring kernel (applicable for some targets).
-		kernel_func_t monitor_kernel_func;
-		
 		// Kernel callback structure.
 		kernelgen_callback_t* callback;
 		
@@ -208,11 +208,11 @@ namespace runtime {
 
 // Compile kernel with the specified arguments,
 // and return its handle.
-kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL, void * data = NULL, int szdatai = 0);
+kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL, void* data = NULL, int szdata = 0, int szdatai = 0);
 
-// Compile C source to PTX using NVISA-enabled
-// Open64 compiler variant.
-kernel_func_t nvopencc(std::string source, std::string name, CUstream stream);
+// Compile C source to x86 binary or PTX assembly,
+// using the corresponding LLVM backends.
+kernel_func_t codegen(int runmode, kernel_t* kernel, llvm::Module* module);
 
 // CUDA runtime context.
 extern kernelgen::bind::cuda::context* cuda_context;
@@ -222,6 +222,16 @@ kernelgen_memory_t* init_memory_pool(size_t szpool);
 
 // Wrap call instruction into host function call wrapper.
 llvm::CallInst* wrapCallIntoHostcall(llvm::CallInst* call, kernel_t* kernel);
+
+// Monitoring module and kernel (applicable for some targets).
+extern llvm::Module* monitor_module;
+extern kernel_func_t monitor_kernel;
+
+// Runtime module (applicable for some targets).
+extern llvm::Module* runtime_module;
+
+// CUDA module (applicable for some targets).
+extern llvm::Module* cuda_module;
 
 } }
 

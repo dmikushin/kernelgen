@@ -4,9 +4,9 @@
  * Copyright (c) 2011 Dmitry Mikushin
  *
  * This software is provided 'as-is', without any express or implied warranty.
- * In no event will the authors be held liable for any damages arising 
+ * In no event will the authors be held liable for any damages arising
  * from the use of this software.
- * Permission is granted to anyone to use this software for any purpose, 
+ * Permission is granted to anyone to use this software for any purpose,
  * including commercial applications, and to alter it and redistribute it freely,
  * subject to the following restrictions:
  *
@@ -19,12 +19,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-// KernelGen functions that could be directly resolved on the GPU,
-// without host callback.
+#include "TrackedPassManager.h"
 
-"kernelgen_threadIdx_x", "kernelgen_threadIdx_y", "kernelgen_threadIdx_z",
-"kernelgen_blockIdx_x", "kernelgen_blockIdx_y", "kernelgen_blockIdx_z",
-"kernelgen_blockDim_x", "kernelgen_blockDim_y", "kernelgen_blockDim_z",
-"kernelgen_gridDim_x", "kernelgen_gridDim_y", "kernelgen_gridDim_z",
-"kernelgen_launch", "kernelgen_finish"
+PassTracker* tracker = NULL;
 

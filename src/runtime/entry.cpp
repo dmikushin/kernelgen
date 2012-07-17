@@ -24,9 +24,12 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 #include "elf.h"
 #include "util.h"
@@ -34,8 +37,11 @@
 #include "kernelgen_interop.h"
 
 #include <ffi.h>
+#include <fstream>
 #include <iostream>
 #include <cstdlib>
+
+#include "TrackedPassManager.h"
 
 // Regular main entry.
 extern "C" int __regular_main(int argc, char* argv[]);
@@ -44,31 +50,19 @@ using namespace kernelgen;
 using namespace kernelgen::runtime;
 using namespace kernelgen::bind::cuda;
 using namespace llvm;
+using namespace llvm::sys;
+using namespace llvm::sys::fs;
 using namespace std;
 using namespace util::elf;
-
-// GPU monitoring kernel source.
-string kernelgen_monitor_source =
-	"__attribute__((global)) __attribute__((used)) __attribute__((launch_bounds(1, 1)))\n"
-	"void kernelgen_monitor(int* callback)\n"
-	"{\n"
-	"	// Unlock blocked gpu kernel associated\n"
-	"	// with lock. It simply waits for lock\n"
-	"	// to be dropped to zero.\n"
-	"	__iAtomicCAS(&((struct kernelgen_callback_t*)callback)->lock, 1, 0);\n"
-	"\n"
-	"	// Wait for lock to be set.\n"
-	"	// When lock is set this thread exits,\n"
-	"	// and CPU monitor thread gets notified\n"
-	"	// by synchronization.\n"
-	"	while (!__iAtomicCAS(&((struct kernelgen_callback_t*)callback)->lock, 1, 1)) continue;\n"
-	"}\n";
 
 // Kernels runmode (target).
 int kernelgen::runmode = -1;
 
 // Verbose output.
 int kernelgen::verbose = 0;
+
+// Debug mode.
+bool kernelgen::debug = true;
 
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
@@ -79,8 +73,20 @@ std::map<string, kernel_t*> kernelgen::kernels;
 // TODO: sort out how to turn it into auto_ptr.
 kernelgen::bind::cuda::context* kernelgen::runtime::cuda_context = NULL;
 
+// Monitoring module and kernel (applicable for some targets).
+Module* kernelgen::runtime::monitor_module = NULL;
+kernel_func_t kernelgen::runtime::monitor_kernel;
+
+// Runtime module (applicable for some targets).
+Module* kernelgen::runtime::runtime_module = NULL;
+
+// CUDA module (applicable for some targets).
+Module* kernelgen::runtime::cuda_module = NULL;
+
 int main(int argc, char* argv[], char* envp[])
 {
+	tracker = new PassTracker("codegen", NULL, NULL);
+
 	LLVMContext& context = getGlobalContext();
 
 	// Retrieve the regular main entry function prototype out of
@@ -284,10 +290,75 @@ int main(int argc, char* argv[], char* envp[])
 					&kernel->target[runmode].kernel_stream, 0);
 				if (err) THROW("Error in cuStreamCreate " << err);
 				
-				// Compile GPU monitoring kernel.
-				kernel->target[runmode].monitor_kernel_func =
-					kernelgen::runtime::nvopencc(kernelgen_monitor_source,
-					"kernelgen_monitor", 0);
+				// Load LLVM IR for kernel monitor, if not yet loaded.
+				if (!monitor_module)
+				{
+					string monitor_source = "";
+					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_monitor.bc");
+					tmp_stream.seekg(0, std::ios::end);
+					monitor_source.reserve(tmp_stream.tellg());
+					tmp_stream.seekg(0, std::ios::beg);
+
+					monitor_source.assign(
+						std::istreambuf_iterator<char>(tmp_stream),
+						std::istreambuf_iterator<char>());
+					tmp_stream.close();
+
+				        SMDiagnostic diag;
+				        MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
+						monitor_source);
+				        monitor_module = ParseIR(buffer1, diag, context);
+
+					kernel_t kernel;
+					kernel.name = "kernelgen_monitor";
+					kernel.target[KERNELGEN_RUNMODE_CUDA].monitor_kernel_stream = NULL;
+					monitor_kernel = kernelgen::runtime::codegen(
+						KERNELGEN_RUNMODE_CUDA, &kernel, monitor_module);
+				}
+
+				// Load LLVM IR for KernelGen runtime functions, if not yet loaded.
+				if (!runtime_module)
+				{
+					string runtime_source = "";
+					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_runtime.bc");
+					tmp_stream.seekg(0, std::ios::end);
+					runtime_source.reserve(tmp_stream.tellg());
+					tmp_stream.seekg(0, std::ios::beg);
+
+					runtime_source.assign(
+						std::istreambuf_iterator<char>(tmp_stream),
+						std::istreambuf_iterator<char>());
+					tmp_stream.close();
+
+					SMDiagnostic diag;
+					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
+						runtime_source);
+					runtime_module = ParseIR(buffer1, diag, context);
+                                }
+
+				// Load LLVM IR for CUDA runtime functions, if not yet loaded.
+				if (!cuda_module)
+				{
+					string cuda_source = "";
+					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_cuda.bc");
+					tmp_stream.seekg(0, std::ios::end);
+					cuda_source.reserve(tmp_stream.tellg());
+					tmp_stream.seekg(0, std::ios::beg);
+
+					cuda_source.assign(
+						std::istreambuf_iterator<char>(tmp_stream),
+						std::istreambuf_iterator<char>());
+					tmp_stream.close();
+
+					SMDiagnostic diag;
+					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
+						cuda_source);
+					cuda_module = ParseIR(buffer1, diag, context);
+
+					// Mark all module functions as device functions.
+			                for (Module::iterator F = cuda_module->begin(), FE = cuda_module->end(); F != FE; F++)
+                        			F->setCallingConv(CallingConv::PTX_Device);
+                                }
 
 				// Initialize callback structure.
 				// Initial lock state is "locked". It will be dropped

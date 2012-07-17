@@ -19,36 +19,37 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "polly/LinkAllPasses.h" // must include before "llvm/Transforms/Scalar.h"
+#include "polly/RegisterPasses.h"
+
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Constants.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Instructions.h"
+#include "llvm/Linker.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/IRReader.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/FunctionUtils.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
-
-#include "polly/LinkAllPasses.h"
-#include "polly/RegisterPasses.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
 
 #include "io.h"
 #include "util.h"
@@ -62,7 +63,10 @@
 #include <set>
 #include <stdio.h>
 
+#include "LinkFunctionBody.h"
+
 using namespace kernelgen;
+using namespace kernelgen::bind::cuda;
 using namespace util::io;
 using namespace llvm;
 using namespace polly;
@@ -75,27 +79,7 @@ namespace llvm
 {
 	void RemoveStatistics();
 }
-extern cl::opt<bool>  IgnoreAliasing;
-// Arrays and sets of KernelGen and CUDA intrinsics.
-static string cuda_intrinsics[] = {
-#include "cuda_intrinsics.h"
-};
-static string kernelgen_intrinsics[] = {
-#include "kernelgen_intrinsics.h"
-};
-static set<string> kernelgen_intrinsics_set, cuda_intrinsics_set;
-
-// Target machines for runmodes.
-auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
-
-static PassManager getPollyPassManager(Module* m)
-{
-	PassManager polly;
-	polly.add(new TargetData(m));
-	registerPollyPreoptPasses(polly);
-	polly.add(polly::createIslScheduleOptimizerPass());
-	return polly;
-}
+extern cl::opt<bool> IgnoreAliasing;
 
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL);
@@ -134,13 +118,49 @@ void printSpecifiedStatistics(vector<string> statisticsNames)
 	}
 	outs().resetColor();
 }
+
+static void registerPollyPreoptPasses(llvm::PassManagerBase &PM) {
+  // A standard set of optimization passes partially taken/copied from the
+  // set of default optimization passes. It is used to bring the code into
+  // a canonical form that can than be analyzed by Polly. This set of passes is
+  // most probably not yet optimal. TODO: Investigate optimal set of passes.
+  PM.add(llvm::createPromoteMemoryToRegisterPass());
+  PM.add(llvm::createInstructionCombiningPass());  // Clean up after IPCP & DAE
+  PM.add(llvm::createCFGSimplificationPass());     // Clean up after IPCP & DAE
+  PM.add(llvm::createTailCallEliminationPass());   // Eliminate tail calls
+  PM.add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
+  PM.add(llvm::createReassociatePass());           // Reassociate expressions
+  PM.add(llvm::createLoopRotatePass());            // Rotate Loop
+  PM.add(llvm::createInstructionCombiningPass());
+  PM.add(polly::createIndVarSimplifyPass());        // Canonicalize indvars
+
+  PM.add(polly::createCodePreparationPass());
+  PM.add(polly::createRegionSimplifyPass());
+  // FIXME: The next two passes should not be necessary here. They are currently
+  //        because of two problems:
+  //
+  //        1. The RegionSimplifyPass destroys the canonical form of induction
+  //           variables,as it produces PHI nodes with incorrectly ordered
+  //           operands. To fix this we run IndVarSimplify.
+  //
+  //        2. IndVarSimplify does not preserve the region information and
+  //           the regioninfo pass does currently not recover simple regions.
+  //           As a result we need to run the RegionSimplify pass again to
+  //           recover them
+  PM.add(polly::createIndVarSimplifyPass());
+  PM.add(polly::createRegionSimplifyPass());
+}
+
 static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 {
-	llvm::EnableStatistics();
-	PassManager polly = getPollyPassManager(kernel->module);
-	polly.run(*kernel->module);
-	llvm::RemoveStatistics();
-	
+	{
+		PassManager polly;
+		polly.add(new TargetData(kernel->module));
+		registerPollyPreoptPasses(polly);
+		polly.add(polly::createIslScheduleOptimizerPass());
+		polly.run(*kernel->module);
+	}
+
 	IgnoreAliasing.setValue(true);
 	polly::CUDA.setValue(mode);
 
@@ -154,7 +174,8 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		PassManager polly;
 		polly.add(new TargetData(kernel->module));
 		//registerPollyPreoptPasses(polly);
-		if(kernel->name != "__kernelgen_main") {
+		//polly.add(polly::createIslScheduleOptimizerPass());
+		if (kernel->name != "__kernelgen_main") {
 			polly.add(createRuntimeAliasAnalysisPass());
 			polly.add(createSizeOfLoopsPass(&sizes));
 		}
@@ -212,7 +233,7 @@ static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops)
 {
 	return runPolly(kernel, sizeOfLoops, true);
 }
-void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
+void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
 	Module * m = kernel-> module;
 	vector<string> dimensions, parameters;
@@ -248,22 +269,14 @@ void substituteGridParams( kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 		}
 }
 
-// Loop unrolling with runtime part enabled
-// (currently not used, final unrollment gives better
-// result by some reason).
-static void addRuntimeLoopUnrollPass(const PassManagerBuilder &Builder, PassManagerBase &PM)
-{
-	PM.add(createLoopUnrollPass(128, -1, 1));
-}
-
 kernel_func_t kernelgen::runtime::compile(
-    int runmode, kernel_t* kernel, Module* module, void * data, int szdatai)
+    int runmode, kernel_t* kernel, Module* module, void * data, int szdata, int szdatai)
 {
 	// Do not compile, if no source.
 	if (kernel->source == "")
 		return kernel->target[runmode].binary;
 
-        if(verbose)
+        if (verbose)
 	{
 		outs().changeColor(raw_ostream::BLUE);
 		outs() << "\n<------------------ "<< kernel->name << ": compile started --------------------->\n";
@@ -282,22 +295,11 @@ kernel_func_t kernelgen::runtime::compile(
 			      diag.getLineContents() << ": " << diag.getMessage());
 		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
-
-		if (szdatai != 0) {
-			Function* f = m->getFunction(kernel->name);
-			if (kernel->name != "__kernelgen_main")
-			{
-				ConstantSubstitution(f, data);
-			}
-		}
 	}
-
-   	if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
-    
-	PassManager polly = getPollyPassManager(m);
 
 	// Emit target assembly and binary image, depending
 	// on runmode.
+	Function* f = m->getFunction(kernel->name);
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
 		if (kernel->name != "__kernelgen_main") {
@@ -307,15 +309,20 @@ kernel_func_t kernelgen::runtime::compile(
 			// non-portable GPU kernel or hostcall.
 			if (runmode == kernelgen::runmode)
 			{
+				// Substitute integer and pointer arguments.
+				if (szdatai != 0) ConstantSubstitution(f, data);
+
 				Size3 sizeOfLoops;
 				runPollyNATIVE(kernel, &sizeOfLoops);
 
 				// Do not compile the loop kernel if no grid detected.
-				// Important to place this condition *after* hostcalls check
-				// above to generate full host kernel in case hostcalls are around
-				// (.supported flag), rather than running kernel on device and invoke
-				// hostcalls on each individual iteration, which will be terribly slow.
-				if (sizeOfLoops.x == -1) return NULL;
+				if (sizeOfLoops.x == -1)
+				{
+					// XXX Turn off future kernel analysis, if it has been detected as
+					// non-parallel at least once. This behavior is subject for change in future.
+					kernel->target[runmode].supported = false;
+					return NULL;
+				}
 			}
 
 			// Optimize module.
@@ -330,151 +337,229 @@ kernel_func_t kernelgen::runtime::compile(
 			}
 		}
 
+		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		// Create target machine for NATIVE target and get its target data.
-		if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
-			InitializeAllTargets();
-			InitializeAllTargetMCs();
-			InitializeAllAsmPrinters();
-			InitializeAllAsmParsers();
-
-			Triple triple(m->getTargetTriple());
-			if (triple.getTriple().empty())
-				triple.setTriple(sys::getDefaultTargetTriple());
-			string err;
-			TargetOptions options;
-			const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
-			if (!target)
-				THROW("Error auto-selecting target for module '" << err << "'." << endl <<
-				      "Please use the -march option to explicitly pick a target.");
-			targets[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
-			        triple.getTriple(), "", "", options, Reloc::PIC_, CodeModel::Default));
-			if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
-				THROW("Could not allocate target machine");
-
-			// Override default to generate verbose assembly.
-			targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
-		}
-
-		const TargetData* tdata =
-		    targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
-		PassManager manager;
-		manager.add(new TargetData(*tdata));
-
-		// Setup output stream.
-		string bin_string;
-		raw_string_ostream bin_stream(bin_string);
-		formatted_raw_ostream stream(bin_stream);
-
-		// Ask the target to add backend passes as necessary.
-		if (targets[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(manager, stream,
-		        TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
-			THROW("Target does not support generation of this file type");
-
-		manager.run(*m);
-
-		// Flush the resulting object binary to the
-		// underlying string.
-		stream.flush();
-
-		//cout << bin_string;
-
-		// Dump generated kernel object to first temporary file.
-		cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
-		{
-			fstream tmp_stream;
-			tmp_stream.open(tmp1.getFilename().c_str(),
-			                fstream::binary | fstream::out | fstream::trunc);
-			tmp_stream << bin_string;
-			tmp_stream.close();
-		}
-
-		// Link first and second objects together into third one.
-		cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
-		{
-			string linker = "ld";
-			std::list<string> linker_args;
-			linker_args.push_back("-shared");
-			linker_args.push_back("-o");
-			linker_args.push_back(tmp2.getFilename());
-			linker_args.push_back(tmp1.getFilename());
-			if (verbose) {
-				cout << linker;
-				for (std::list<string>::iterator it = linker_args.begin();
-				     it != linker_args.end(); it++)
-					cout << " " << *it;
-				cout << endl;
-			}
-			execute(linker, linker_args, "", NULL, NULL);
-		}
-
-		// Do not return anything if module is explicitly specified.
-		if (module) return NULL;
-
-		// Load linked image and extract kernel entry point.
-		void* handle = dlopen(tmp2.getFilename().c_str(),
-		                      RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
-		if (!handle)
-			THROW("Cannot dlopen " << dlerror());
-
-		kernel_func_t kernel_func = (kernel_func_t)dlsym(handle, kernel->name.c_str());
-		if (!kernel_func)
-			THROW("Cannot dlsym " << dlerror());
-
-		if (verbose)
-			cout << "Loaded '" << kernel->name << "' at: " << (void*)kernel_func << endl;
-
-		return kernel_func;
+		return codegen(runmode, kernel, m);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
-		dim3 blockDim(1,1,1);
-		dim3 gridDim(1,1,1);
-#define BLOCK_SIZE 1024
-#define BLOCK_DIM_X 32
-		// Apply the Polly codegen for native target.
-		Size3 sizeOfLoops;
-		if (kernel->name != "__kernelgen_main")  {
+
+		// Change the target triple for entire module to be the same
+		// as for KernelGen device runtime module.
+		m->setTargetTriple(runtime_module->getTargetTriple());
+		m->setDataLayout(runtime_module->getDataLayout());
+
+		// Mark all module functions as device functions.
+		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+			F->setCallingConv(CallingConv::PTX_Device);
+
+		// Mark kernel as GPU global function.
+		f->setCallingConv(CallingConv::PTX_Kernel);
+
+		dim3 blockDim(1, 1, 1);
+		dim3 gridDim(1, 1, 1);
+		if (kernel->name != "__kernelgen_main")  {	
+			// If the target kernel is loop, do not allow host calls in it.
+			// Also do not allow malloc/free, probably support them later.
+			// TODO: kernel *may* have kernelgen_launch called, but it must
+			// always evaluate to -1.
+			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+					// Check if instruction in focus is a call.
+					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+					if (!call) continue;
+
+					// Check if function is called (needs -instcombine pass).
+					Function* callee = call->getCalledFunction();
+					if (!callee) continue;
+					if (!callee->isDeclaration()) continue;
+				
+					// If function is only declared, then try to find and
+					// insert its implementation from the CUDA runtime module.
+					Function* Dst = callee;
+					Function* Src = cuda_module->getFunction(callee->getName());
+					if (Src)
+					{
+						if (verbose)
+							cout << "Device call: " << callee->getName().data()<< endl;
+						call->setCallingConv(CallingConv::PTX_Device);					
+						LinkFunctionBody(Dst, Src);
+						continue;
+					}
+
+					if (callee->isIntrinsic()) continue;
+
+					// Loop kernel contains non-native calls, and therefore
+					// cannot be executed on GPU.
+					if (verbose)
+						cout << "Host call: " << callee->getName().data()<< endl;
+					kernel->target[runmode].supported = false;
+					return NULL;
+				}
+
+			// Substitute integer and pointer arguments.
+			if (szdatai != 0) ConstantSubstitution(f, data);
+
+			// Apply the Polly codegen for CUDA target.
+			Size3 sizeOfLoops;
 			runPollyCUDA(kernel, &sizeOfLoops);
 
-			//   x   y     z       x     y  z
-			//  123 13640   -1  ->  13640 123 1     two loops
-			//  123 13640 2134  ->  2134 13640 123   three loops
-			//  123   -1    -1  ->  123 1 1        one loop
-			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
-			
-			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
-			if (launchParameters.x * launchParameters.y * launchParameters.z > BLOCK_SIZE)
-			switch(numberOfLoops)
+			// Do not compile the loop kernel if no grid detected.
+			// Important to place this condition *after* hostcalls check
+			// above to generate full host kernel in case hostcalls are around
+			// (.supported flag), rather than running kernel on device and invoke
+			// hostcalls on each individual iteration, which will be terribly slow.
+			if (sizeOfLoops.x == -1)
 			{
-				    case 0: blockDim = dim3(1,1,1);
-					        assert(false);
-						break;
-				    case 1: blockDim = dim3(BLOCK_SIZE,1,1);
-				        break;
-				    case 2: blockDim = dim3(BLOCK_DIM_X,BLOCK_SIZE / BLOCK_DIM_X, 1);
-				        break;
-				    case 3: 
-				    {
-					    double remainder = BLOCK_SIZE / BLOCK_DIM_X;
-					    double coefficient = (double)launchParameters.z / (double)launchParameters.y;
-					    double yPow2 = remainder / coefficient;
-					    double y = sqrt(yPow2); 	
-					    blockDim =  dim3(BLOCK_DIM_X, y , coefficient*y);
-					    assert(blockDim.x * blockDim.y * blockDim.z <= BLOCK_SIZE);
-				    }
-				    break;
+				// Dump the LLVM IR Polly has failed to create
+				// gird in for futher analysis with kernelgen-polly.
+				/*if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				{
+					// Put the resulting module into LLVM output file
+					// as object binary. Method: create another module
+					// with a global variable incorporating the contents
+					// of entire module and emit it for X86_64 target.
+					string ir_string;
+					raw_string_ostream ir(ir_string);
+					ir << *m;
+					Module obj_m("module" + kernel->name, context);
+					Constant* C1 = ConstantDataArray::getString(context, ir_string, true);
+					GlobalVariable* GV1 = new GlobalVariable(obj_m, C1->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, C1,
+						kernel->name, 0, false);
+					SmallVector<uint8_t, 16> adata((char*)data, (char*)data + szdata);
+					Constant* C2 = ConstantDataArray::get(context, adata);
+					GlobalVariable* GV2 = new GlobalVariable(obj_m, C2->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, C2,
+						"args" + kernel->name, 0, false);
+					APInt aszdata(8 * sizeof(int), szdata);
+					Constant* C3 = Constant::getIntegerValue(Type::getInt32Ty(context), aszdata);
+					GlobalVariable* GV3 = new GlobalVariable(obj_m, C3->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, C3,
+						"szargs" + kernel->name, 0, false);
+					APInt aszdatai(8 * sizeof(int), szdatai);
+					Constant* C4 = Constant::getIntegerValue(Type::getInt32Ty(context), aszdatai);
+					GlobalVariable* GV4 = new GlobalVariable(obj_m, C4->getType(),
+						true, GlobalValue::LinkerPrivateLinkage, C4,
+						"szargsi" + kernel->name, 0, false);
+					
+					// Create target machine for NATIVE target and get its target data.
+					if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
+						InitializeAllTargets();
+						InitializeAllTargetMCs();
+						InitializeAllAsmPrinters();
+						InitializeAllAsmParsers();
+
+						Triple triple;
+						triple.setTriple(sys::getDefaultTargetTriple());
+						string err;
+						TargetOptions options;
+						const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
+						if (!target)
+							THROW("Error auto-selecting target for module '" << err << "'." << endl <<
+								"Please use the -march option to explicitly pick a target.");
+						targets[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
+							triple.getTriple(), "", "", options, Reloc::PIC_, CodeModel::Default));
+						if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
+							THROW("Could not allocate target machine");
+
+						// Override default to generate verbose assembly.
+						targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
+					}
+
+					// Setup output stream.
+					string bin_string;
+					raw_string_ostream bin_stream(bin_string);
+					formatted_raw_ostream bin_raw_stream(bin_stream);
+
+					// Ask the target to add backend passes as necessary.
+					PassManager manager;
+					const TargetData* tdata =
+						targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
+					manager.add(new TargetData(*tdata));
+					if (targets[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(manager, bin_raw_stream,
+						TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
+						THROW("Target does not support generation of this file type");
+					manager.run(obj_m);
+
+					// Flush the resulting object binary to the underlying string.
+					bin_raw_stream.flush();
+
+					// Dump the generated kernel object to file.
+					fstream stream;
+					string filename = kernel->name + ".kernelgen.o";
+					stream.open(filename.c_str(),
+						fstream::binary | fstream::out | fstream::trunc);
+					stream << bin_string;
+					stream.close();
+				}*/
+			
+				// XXX Turn off future kernel analysis, if it has been detected as
+				// non-parallel at least once. This behavior is subject for change in future.
+				kernel->target[runmode].supported = false;
+				return NULL;
+			}
+
+			int device;
+			CUresult err = cuDeviceGet(&device, 0);
+			if (err)
+				THROW("Error in cuDeviceGet " << err);
+
+			typedef struct
+			{
+				int maxThreadsPerBlock;
+				int maxThreadsDim[3];
+				int maxGridSize[3];
+				int sharedMemPerBlock;
+				int totalConstantMemory;
+				int SIMDWidth;
+				int memPitch;
+				int regsPerBlock;
+				int clockRate;
+				int textureAlign;
+			} CUdevprop;
+			
+			CUdevprop props;			
+			err = cuDeviceGetProperties((void*)&props, device);
+			if (err)
+				THROW("Error in cuDeviceGetProperties " << err);
+
+			// x   y     z         x     y     z
+			// 123 13640   -1  ->  13640 123   1     two loops
+			// 123 13640 2134  ->  2134  13640 123   three loops
+			// 123   -1    -1  ->  123   1     1     one loop
+			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
+#define BLOCK_DIM_X 32
+			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
+			if (launchParameters.x * launchParameters.y * launchParameters.z > props.maxThreadsPerBlock)
+			switch (numberOfLoops)
+			{
+			case 0:	blockDim = dim3(1, 1, 1);
+				assert(false);
+				break;
+			case 1: blockDim = dim3(props.maxThreadsPerBlock, 1, 1);
+				break;
+			case 2: blockDim = dim3(BLOCK_DIM_X, props.maxThreadsPerBlock / BLOCK_DIM_X, 1);
+				break;
+			case 3:
+				{
+					double remainder = props.maxThreadsPerBlock / BLOCK_DIM_X;
+					double coefficient = (double)launchParameters.z / (double)launchParameters.y;
+					double yPow2 = remainder / coefficient;
+					double y = sqrt(yPow2);
+					blockDim = dim3(BLOCK_DIM_X, y , coefficient * y);
+					assert(blockDim.x * blockDim.y * blockDim.z <= props.maxThreadsPerBlock);
+				}
+				break;
 			}
 			else
 			{ 
-				//?????????????
 				// Number of all iterations lower that number of threads in block
-				blockDim = dim3(launchParameters.x,launchParameters.y,launchParameters.z);
+				blockDim = dim3(launchParameters.x, launchParameters.y, launchParameters.z);
 			}
 			
+			// Compute grid parameters from specified blockDim and desired iterationsPerThread.
 			dim3 iterationsPerThread(1,1,1);
-			// Compute grid parameters from specified blockDim and desired
-			//iterationsPerThread.
 			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
 			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
 			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
@@ -487,22 +572,11 @@ kernel_func_t kernelgen::runtime::compile(
 		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
 		kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
 
-		// Initially, fill intrinsics tables.
-		if (kernelgen_intrinsics_set.empty()) {
-			kernelgen_intrinsics_set.insert(
-			    kernelgen_intrinsics, kernelgen_intrinsics +
-			    sizeof(kernelgen_intrinsics) / sizeof(string));
-			cuda_intrinsics_set.insert(
-			    cuda_intrinsics, cuda_intrinsics +
-			    sizeof(cuda_intrinsics) / sizeof(string));
-		}
-
 		// Convert external functions CallInst-s into
 		// host callback form. Do not convert CallInst-s
-		// to device-resolvable intrinsics (syscalls and math).
-		Function* f = m->getFunction(kernel->name);
+		// to intrinsics and calls linked from the CUDA device runtime module.
 		if (kernel->name == "__kernelgen_main") {
-			vector<CallInst*> erase_calls;
+			// Mark all calls as calls to device functions.
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
 					// Check if instruction in focus is a call.
@@ -512,27 +586,50 @@ kernel_func_t kernelgen::runtime::compile(
 					// Check if function is called (needs -instcombine pass).
 					Function* callee = call->getCalledFunction();
 					if (!callee) continue;
+
+					call->setCallingConv(CallingConv::PTX_Device);
+				}
+
+			// Link entire module with the KernelGen device runtime module.
+			string linker_err;
+			if (Linker::LinkModules(m, runtime_module, Linker::PreserveSource, &linker_err))
+			{
+				THROW("Error linking runtime with kernel " << kernel->name << " : " << linker_err);
+			}
+
+			vector<CallInst*> erase_calls;
+			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+					// Check if instruction in focus is a call.
+					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+					if (!call) continue;
+
+					// Check if function is called (needs -instcombine pass).
+					// Could be also a function called inside a bitcast.
+					// So try to extract function from the underlying constant expression.
+					// Required to workaround GCC/DragonEGG issue:
+					// http://lists.cs.uiuc.edu/pipermail/llvmdev/2012-July/051786.html
+					Function* callee = dyn_cast<Function>(
+						call->getCalledValue()->stripPointerCasts());
+					if (!callee) continue;
 					if (!callee->isDeclaration()) continue;
-					if (callee->isIntrinsic()) continue;
 
 					string name = callee->getName();
 
-					// Check function is natively supported.
-					bool native = false;
-					set<string>::iterator i1 =
-					    kernelgen_intrinsics_set.find(callee->getName());
-					if (i1 != kernelgen_intrinsics_set.end()) {
+					// If function is only declared, then try to find and
+					// insert its implementation from the CUDA runtime module.
+					Function* Dst = callee;
+					Function* Src = cuda_module->getFunction(callee->getName());
+					if (Src)
+					{
 						if (verbose)
-							cout << "KernelGen native: " << name << endl;
+							cout << "Device call: " << callee->getName().data()<< endl;
+						call->setCallingConv(CallingConv::PTX_Device);					
+						LinkFunctionBody(Dst, Src);
 						continue;
 					}
-					set<string>::iterator i2 =
-					    cuda_intrinsics_set.find(callee->getName());
-					if (i2 != cuda_intrinsics_set.end()) {
-						if (verbose)
-							cout << "CUDA native: " << name << endl;
-						continue;
-					}
+
+					if (callee->isIntrinsic()) continue;
 
 					// Check if function is malloc or free.
 					// In case it is, replace it with kernelgen_* variant.
@@ -542,7 +639,7 @@ kernel_func_t kernelgen::runtime::compile(
 						Function* replacement = m->getFunction(rename);
 						if (!replacement) {
 							replacement = Function::Create(callee->getFunctionType(),
-							                               GlobalValue::ExternalLinkage, rename, m);
+								GlobalValue::ExternalLinkage, rename, m);
 						}
 						call->setCalledFunction(replacement);
 						if (verbose)
@@ -576,55 +673,33 @@ kernel_func_t kernelgen::runtime::compile(
 					wrapCallIntoHostcall(call, hostcall);
 					erase_calls.push_back(call);
 				}
-
 			for (vector<CallInst*>::iterator i = erase_calls.begin(),
-			     ie = erase_calls.end(); i != ie; i++)
+				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
-		} else {
-			// If the target kernel is loop, do not allow host calls in it.
-			// Also do not allow malloc/free, probably support them later.
-			// TODO: kernel *may* have kernelgen_launch called, but it must
-			// always evaluate to -1.
+
+			// Replace alloca-s with global variables.
+			vector<AllocaInst*> erase_allocas;
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-					// Check if instruction in focus is a call.
-					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-					if (!call) continue;
-
-					// Check if function is called (needs -instcombine pass).
-					Function* callee = call->getCalledFunction();
-					if (!callee) continue;
-					if (!callee->isDeclaration()) continue;
-					if (callee->isIntrinsic()) continue;
-
-					// Check function is natively supported.
-					set<string>::iterator i1 =
-					    kernelgen_intrinsics_set.find(callee->getName());
-					if (i1 != kernelgen_intrinsics_set.end()) {
-						if (verbose)
-							cout << "KernelGen native: " << callee->getName().data() << endl;
-						continue;
-					}
-					set<string>::iterator i2 =
-					    cuda_intrinsics_set.find(callee->getName());
-					if (i2 != cuda_intrinsics_set.end()) {
-						if (verbose)
-							cout << "CUDA native: " << callee->getName().data() << endl;
-						continue;
-					}
-
-					// Loop contains non-native calls, and therefore
-					// cannot be executed on GPU.
-					kernel->target[runmode].supported = false;
-					return NULL;
+					// Check if instruction in focus is an alloca.
+					AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
+					if (!alloca) continue;
+				
+					// Replace alloca with global variable.
+					GlobalVariable* GV = new GlobalVariable(
+						*m, alloca->getAllocatedType(), false, GlobalValue::PrivateLinkage,
+						Constant::getNullValue(alloca->getAllocatedType()), "");
+					GV->setAlignment(alloca->getAlignment());
+					alloca->replaceAllUsesWith(GV);
+					erase_allocas.push_back(alloca);
 				}
-
-			// Do not compile the loop kernel if no grid detected.
-			// Important to place this condition *after* hostcalls check
-			// above to generate full host kernel in case hostcalls are around
-			// (.supported flag), rather than running kernel on device and invoke
-			// hostcalls on each individual iteration, which will be terribly slow.
-			if (sizeOfLoops.x == -1) return NULL;
+			for (vector<AllocaInst*>::iterator i = erase_allocas.begin(),
+				ie = erase_allocas.end(); i != ie; i++)
+				(*i)->eraseFromParent();
+		
+			// Align all globals to 4096.
+			for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
+				GV->setAlignment(4096);
 		}
 
 		// Optimize module.
@@ -634,86 +709,25 @@ kernel_func_t kernelgen::runtime::compile(
 			builder.Inliner = createFunctionInliningPass();
 			builder.OptLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
+			builder.DisableUnrollLoops = true;
 			builder.Vectorize = false;
-			if (sizeOfLoops.x == -1) {
-				// Single-threaded kernels performance could be
-				// significantly improved by unrolling.
-				manager.add(createLoopUnrollPass(512, -1, 1));
-			}
-			
-
-			/*if (sizeOfLoops.x == -1)
-			{
-				// Use runtime unrolling (disabpled by default).
-				builder.DisableUnrollLoops = true;
-				builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-					addRuntimeLoopUnrollPass);
-			}*/
 			builder.populateModulePassManager(manager);
-			/*if (sizeOfLoops.x == -1)
-			{
-				manager.add(createLoopUnrollPass(2048, -1, 1));
-			}*/
 			manager.run(*m);
 		}
 
+		// Erase all defined functions, except the kernel.
+		vector<Function*> erase_funcs;
+		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+			if (!F->isDeclaration() && (F->getName() != kernel->name))
+				erase_funcs.push_back(F);
+		for (vector<Function*>::iterator i = erase_funcs.begin(),
+                        ie = erase_funcs.end(); i != ie; i++)
+                        (*i)->eraseFromParent();
+
+		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		// Create target machine for CUDA target and get its target data.
-		if (!targets[KERNELGEN_RUNMODE_CUDA].get()) {
-			InitializeAllTargets();
-			InitializeAllTargetMCs();
-			InitializeAllAsmPrinters();
-			InitializeAllAsmParsers();
-
-			const Target* target = NULL;
-			Triple triple(m->getTargetTriple());
-			if (triple.getTriple().empty())
-				triple.setTriple(sys::getDefaultTargetTriple());
-			for (TargetRegistry::iterator it = TargetRegistry::begin(),
-			     ie = TargetRegistry::end(); it != ie; ++it) {
-				if (!strcmp(it->getName(), "c")) {
-					target = &*it;
-					break;
-				}
-			}
-
-			if (!target)
-				THROW("LLVM is built without C Backend support");
-
-			targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
-			        triple.getTriple(), "", "", TargetOptions(), Reloc::PIC_, CodeModel::Default));
-			if (!targets[KERNELGEN_RUNMODE_CUDA].get())
-				THROW("Could not allocate target machine");
-
-			// Override default to generate verbose assembly.
-			targets[KERNELGEN_RUNMODE_CUDA].get()->setAsmVerbosityDefault(true);
-		}
-
-		PassManager manager;
-
-		// Setup output stream.
-		string bin_string;
-		raw_string_ostream bin_stream(bin_string);
-		formatted_raw_ostream stream(bin_stream);
-
-		// Ask the target to add backend passes as necessary.
-		if (targets[KERNELGEN_RUNMODE_CUDA].get()->addPassesToEmitFile(manager, stream,
-		        TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Aggressive))
-			THROW("Target does not support generation of this file type");
-
-		manager.run(*m);
-
-		// Flush the resulting object binary to the
-		// underlying string.
-		stream.flush();
-
-		if (verbose & KERNELGEN_VERBOSE_SOURCES) cout << bin_string;
-
-		return nvopencc(bin_string, kernel->name,
-			kernel->target[runmode].monitor_kernel_stream);
-
-		break;
+		return codegen(runmode, kernel, m);
 	}
 	case KERNELGEN_RUNMODE_OPENCL : {
 		THROW("Unsupported runmode" << runmode);

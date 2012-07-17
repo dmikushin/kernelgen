@@ -56,7 +56,7 @@
 #include <vector>
 
 #include "BranchedLoopExtractor.h"
-#include "tracker.h"
+#include "TrackedPassManager.h"
  
 extern "C"
 {
@@ -70,6 +70,8 @@ using namespace llvm;
 using namespace std;
 
 int plugin_is_GPL_compatible;
+
+static int verbose = 0;
 
 Pass* createFixPointersPass();
 Pass* createMoveUpCastsPass();
@@ -158,6 +160,8 @@ extern "C" void callback (void*, void*)
 		manager.run(*m);
 	}
 
+	if (verbose) m->dump();
+
 	//
 	// 3) Embed the resulting module into object file.
 	//
@@ -212,6 +216,10 @@ extern "C" int plugin_init (
 
 	// Register callback.
 	register_callback (info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
+	
+	// Enable or disable verbose output.
+	char* cverbose = getenv("kernelgen_verbose");
+	if (cverbose) verbose = atoi(cverbose);
 
 	return 0;
 }

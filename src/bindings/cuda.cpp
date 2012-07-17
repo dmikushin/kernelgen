@@ -30,6 +30,7 @@ using namespace std;
 
 namespace kernelgen { namespace bind { namespace cuda {
 
+cuDeviceGetProperties_t cuDeviceGetProperties;
 cuInit_t cuInit;
 cuDeviceGet_t cuDeviceGet;
 cuCtxCreate_t cuCtxCreate;
@@ -61,7 +62,7 @@ cuEventDestroy_t cuEventDestroy;
 cuEventElapsedTime_t cuEventElapsedTime;
 cuEventRecord_t cuEventRecord;
 cuEventSynchronize_t cuEventSynchronize;
-
+cuFuncGetAttribute_t cuFuncGetAttribute;
 
 CUresult cuMemAlloc(void** ptr, size_t size)
 {
@@ -104,6 +105,9 @@ handle(handle)
 {
 	if (handle)
 	{
+		cuDeviceGetProperties = (cuDeviceGetProperties_t)dlsym(handle, "cuDeviceGetProperties");
+		if (!cuDeviceGetProperties)
+			THROW("Cannot dlsym cuDeviceGetProperties " << dlerror());
 		cuInit = (cuInit_t)dlsym(handle, "cuInit");
 		if (!cuInit)
 			THROW("Cannot dlsym cuInit " << dlerror());
@@ -203,6 +207,9 @@ handle(handle)
 		cuEventSynchronize = (cuEventSynchronize_t)dlsym(handle, "cuEventSynchronize");
 		if (!cuEventSynchronize)
 			THROW("Cannot dlsym cuEventSynchronize " << dlerror());
+		cuFuncGetAttribute = (cuFuncGetAttribute_t)dlsym(handle, "cuFuncGetAttribute");
+		if (!cuFuncGetAttribute)
+			THROW("Cannot dlsym cuFuncGetAttribute " << dlerror());
 	}
 
 	CUresult err = cuInit(0);
