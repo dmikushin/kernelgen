@@ -1176,6 +1176,88 @@ static int link(int argc, char** argv, const char* input, const char* output)
 
 		//composite.dump();
 
+		// replace all allocas by one collective alloca
+		{
+			Module *module = &composite;
+			Function* f = composite.getFunction("kernelgen_launch");
+			
+			//maximum size of aggregated structure with parameters
+			unsigned long long maximumSizeOfData=0;
+			
+			//list of allocas for aggregated structures with parameters
+			list<AllocaInst *> allocasForArgs;
+			Value * tmpArg=NULL;
+			
+			//walk on all kernelgen_launch's users
+		    for (Value::use_iterator UI = f->use_begin(), UE = f->use_end(); UI != UE; UI++)
+			{
+				
+				CallInst* call = dyn_cast<CallInst>(*UI);
+				if (!call) continue;
+				
+				assert(call->getParent() -> getParent() == kernelgen_main_ &&
+				  "by this time, after deleting of all plain functions, "
+                  "kernelgen_launch's calls can be only on kernelgen_main");
+				
+				
+				//retrive size of data
+				tmpArg = call -> getArgOperand(1);
+				assert( isa<ConstantInt>(*tmpArg) && "by this time, after optimization,"
+													 "second parameter of kernelgen_launch "
+													 "must be ConstantInt");
+				
+				//get maximum size of data
+				uint64_t sizeOfData = ((ConstantInt*)tmpArg)->getZExtValue();
+				if(maximumSizeOfData < sizeOfData)
+				    maximumSizeOfData=sizeOfData;
+				
+				//retrive allocas from kernelgen_launches
+                tmpArg = call -> getArgOperand(3);
+				assert(isa<BitCastInst>(*tmpArg) &&  "4th parameter of kernelgen_launch "
+													 "must be BitCast for int32 *");
+				BitCastInst *castStructToPtr = (BitCastInst *)tmpArg;
+				
+				tmpArg = castStructToPtr->getOperand(0);
+				assert(isa<AllocaInst>(*tmpArg) && "must be cast of AllocaInst's result");
+				AllocaInst *allocaForArgs = (AllocaInst*)tmpArg;
+
+				assert(allocaForArgs->getAllocatedType()->isStructTy() && "must be allocation of structure for args");
+				
+				//store alloca
+				allocasForArgs.push_back(allocaForArgs);
+			}
+			// allocate maximumSizeOfData of i8
+			//AllocaInst *collectiveAlloca = new AllocaInst(Type::getInt8Ty(module->getContext()), 
+			//                           ConstantInt::get(Type::getInt64Ty(module->getContext()),maximumSizeOfData),
+			//						   8, "collectiveAllocaForArgs",
+			//						   kernelgen_main_->begin()->getFirstNonPHI());
+									   
+			// allocate array [i8 x maximumSizeOfData]
+			AllocaInst *collectiveAlloca = new AllocaInst(ArrayType::get(Type::getInt8Ty(module->getContext()),maximumSizeOfData),
+			          "collectiveAllocaForArgs",
+					  kernelgen_main_->begin()->begin());
+			
+			// walk on all stored allocas
+			for(list<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
+                  iter!=iter_end;iter++ )
+				  {
+					 AllocaInst * allocaInst=*iter;
+					 
+					 //get type of old alloca
+					 Type * structPtrType = allocaInst -> getType();
+					 
+					 //create bit cast of created alloca for specified type
+					 BitCastInst * bitcast=new BitCastInst(collectiveAlloca,structPtrType,"ptrToArgsStructure");
+					 //insert after old alloca
+					 bitcast->insertAfter(allocaInst);
+					 //replace uses of old alloca with create bit cast
+					 allocaInst -> replaceAllUsesWith(bitcast);
+					 //erase old alloca from parent basic block
+					 allocaInst -> eraseFromParent();
+				  }
+		
+		}
+
 		// Embed "main" module into main_output.
 		{
 			// Put the resulting module into LLVM output file

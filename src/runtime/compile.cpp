@@ -392,7 +392,7 @@ kernel_func_t kernelgen::runtime::compile(
 					// Loop kernel contains non-native calls, and therefore
 					// cannot be executed on GPU.
 					if (verbose)
-						cout << "Host call: " << callee->getName().data()<< endl;
+						cout << "Not allowed host call: " << callee->getName().data()<< endl;
 					kernel->target[runmode].supported = false;
 					return NULL;
 				}

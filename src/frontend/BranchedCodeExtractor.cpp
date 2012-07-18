@@ -634,7 +634,7 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	StructType* StructArgTy = StructType::get(
 		context, ArgTypes, false /* isPacked */);
 								  
-	IRBuilder<> Builder(callAndBranchBlock->getParent()->begin()->getTerminator());
+	IRBuilder<> Builder(callAndBranchBlock->getParent()->begin()->begin());
 	Struct = Builder.CreateAlloca(StructArgTy, 0, "");
 
 	// Initially, fill struct with zeros.

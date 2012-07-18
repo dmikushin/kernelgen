@@ -115,8 +115,8 @@ kernelgen-inspector: inspector.cpp libkernelgen-rt.so
 	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) $< -o $@ \
 	-L. -lkernelgen-rt $(BUGPOINT_LIBS) $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
 	-L../libasfermi/ -L../libasfermi/tests/dyloader -ldyloader -lasfermi -lelf -lrt \
-	-lgmp -lmhash -ldl -lffi -L/RHM/users/work/dmikushin/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
-	-L/RHM/users/work/dmikushin/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl
+	-lgmp -lmhash -ldl -lffi -L${HOME}/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
+	-L${HOME}/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl
 
 clean:
 	rm -rf *.o libkernelgen-rt.so kernelgen-inspector
