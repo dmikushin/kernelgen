@@ -1186,7 +1186,10 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			unsigned long long maximumSizeOfData=0;
 			
 			//list of allocas for aggregated structures with parameters
-			list<AllocaInst *> allocasForArgs;
+			//list<AllocaInst *> allocasForArgs;
+            set<AllocaInst *> allocasForArgs;
+			
+            allocasForArgs.clear();
 			Value * tmpArg=NULL;
 			
 			//walk on all kernelgen_launch's users
@@ -1225,7 +1228,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				assert(allocaForArgs->getAllocatedType()->isStructTy() && "must be allocation of structure for args");
 				
 				//store alloca
-				allocasForArgs.push_back(allocaForArgs);
+				//allocasForArgs.push_back(allocaForArgs);   
+                allocasForArgs.insert(allocaForArgs);
 			}
 			// allocate maximumSizeOfData of i8
 			//AllocaInst *collectiveAlloca = new AllocaInst(Type::getInt8Ty(module->getContext()), 
@@ -1239,7 +1243,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					  kernelgen_main_->begin()->begin());
 			
 			// walk on all stored allocas
-			for(list<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
+			//for(list<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
+            for(set<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
                   iter!=iter_end;iter++ )
 				  {
 					 AllocaInst * allocaInst=*iter;
