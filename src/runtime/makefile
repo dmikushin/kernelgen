@@ -66,8 +66,10 @@ libkernelgen-rt.so: $(OBJECTS)
 entry.o: entry.cpp $(BUGPOINT_INC)/TrackedPassManager.h
 	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) -c $< -o $@
 
+KERNELGEN_VERSION = $(shell perl kernelgen-version.pl)
+
 compile.o: compile.cpp runtime.h
-	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -DKERNELGEN_VERSION=\"$(KERNELGEN_VERSION)\" -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
 
 launch.o: launch.cpp runtime.h
 	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@

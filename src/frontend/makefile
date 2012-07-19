@@ -16,7 +16,7 @@ BUGPOINT_ROOT ?= $(LLVM_ROOT)/tools/bugpoint
 BUGPOINT_INC = ../bugpoint
 BUGPOINT_LIBS = -L../bugpoint -lbugpoint
 
-all: libkernelgen-ct.so libkernelgen-opt.so kernelgen-simple
+all: libkernelgen-ct.so libkernelgen-opt.so kernelgen-simple kernelgen-version
 
 OBJECTS_CT := kernelgen-ct
 OBJECTS_CT := $(addsuffix .o, $(OBJECTS_CT))
@@ -52,6 +52,12 @@ BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
 
 FixPointers.o: FixPointers.cpp
 	$(CXX) $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
+
+kernelgen-version.c:
+	perl kernelgen-version.pl > $@
+
+kernelgen-version: kernelgen-version.c
+	gcc $< -o $@
 
 clean:
 	rm -rf kernelgen-simple libkernelgen-ct.so libkernelgen-opt.so *.o

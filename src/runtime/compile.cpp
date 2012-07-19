@@ -297,6 +297,11 @@ kernel_func_t kernelgen::runtime::compile(
 		kernel->module = m;
 	}
 
+	// Add signature record.
+	Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
+	GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),
+		true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version", 0, false);
+
 	// Emit target assembly and binary image, depending
 	// on runmode.
 	Function* f = m->getFunction(kernel->name);
