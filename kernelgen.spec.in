@@ -1,14 +1,14 @@
 #define kernelgen revision
-%define kgen_rev 827
+%define kgen_rev KERNELGEN_REV
 
 #define llvm revision
-%define llvm_rev 156703
+%define llvm_rev KERNELGEN_LLVM_REV
 
 # Release name
 %define release accurate
 
 # Target operating system
-%define target fedora
+%define target KERNELGEN_TARGET
 
 %if (%target == "fedora")
 %define lib32 lib
@@ -24,10 +24,10 @@
 %define debug 1
 
 # Rebuild everything or only kernelgen
-%define fullrepack 1
+%define fullrepack KERNELGEN_FULLREPACK
 
 # The number of parallel compilation jobs
-%define njobs 24
+%define njobs KERNELGEN_NJOBS
 
 # Don't strip anything from binaries in case of debug
 %if %debug
@@ -39,27 +39,27 @@ AutoReq: 0
 Name:           kernelgen
 Version:        0.2
 Release:        %{release}
-Summary:        Compiler with automatic generation of GPU kernels from the regular source code 
-Source0:	ftp://upload.hpcforge.org/pub/kernelgen/llvm-r%{llvm_rev}.tar.gz
+Summary:        Compiler with automatic generation of GPU kernels from the regular source code
+Source0:        ftp://upload.hpcforge.org/pub/kernelgen/llvm-r%{llvm_rev}.tar.gz
 Source1:        ftp://upload.hpcforge.org/pub/kernelgen/clang-r%{llvm_rev}.tar.gz
-Source2:	ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
-Source3:	ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r%{llvm_rev}.tar.gz
-Source4:	ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.bz2
-Source5:	ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
-Patch0:		dragonegg.ptx.patch
-Patch1:		dragonegg.patch
-Patch2:		llvm.polly.patch
-Patch3:		llvm.scev.patch
-Patch4:		llvm.statistic.patch
-Patch5:		llvm.opts.patch
-Patch6:		llvm.nvptx.patch
-Patch7:		llvm.clang.patch
-Patch8:		gcc-multiarch.patch
-Patch9:		gcc.patch
+Source2:        ftp://upload.hpcforge.org/pub/kernelgen/gcc-4.6.3.tar.bz2
+Source3:        ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r%{llvm_rev}.tar.gz
+Source4:        ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.bz2
+Source5:        ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
+Patch0:         dragonegg.ptx.patch
+Patch1:         dragonegg.patch
+Patch2:         llvm.polly.patch
+Patch3:         llvm.scev.patch
+Patch4:         llvm.statistic.patch
+Patch5:         llvm.opts.patch
+Patch6:         llvm.nvptx.patch
+Patch7:         llvm.clang.patch
+Patch8:         gcc-multiarch.patch
+Patch9:         gcc.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
-URL:            https://hpcforge.org/projects/kernelgen/
+URL:            http://kernelgen.org/
 
 %if (%target == fedora)
 #BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
