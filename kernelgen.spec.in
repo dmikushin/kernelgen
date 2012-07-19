@@ -44,7 +44,7 @@ Source0:        ftp://upload.hpcforge.org/pub/kernelgen/llvm-r%{llvm_rev}.tar.gz
 Source1:        ftp://upload.hpcforge.org/pub/kernelgen/clang-r%{llvm_rev}.tar.gz
 Source2:        ftp://upload.hpcforge.org/pub/kernelgen/KERNELGEN_GCC_SNAP.tar.bz2
 Source3:        ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r%{llvm_rev}.tar.gz
-Source4:        ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.bz2
+Source4:        ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.gz
 Source5:        ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
 Patch0:         dragonegg.ptx.patch
 Patch1:         dragonegg.patch
@@ -151,7 +151,7 @@ cd build/
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xjf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.bz2
+tar -xjf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.gz
 cd $RPM_BUILD_DIR
 #
 # Build parts of the system
