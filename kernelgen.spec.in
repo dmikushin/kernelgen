@@ -151,7 +151,7 @@ cd build/
 #
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
-tar -xjf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.gz
+tar -xf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.gz
 cd $RPM_BUILD_DIR
 #
 # Build parts of the system
