@@ -19,6 +19,8 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
+.PHONY: compile.o
+
 OPT ?= 0
 
 LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm

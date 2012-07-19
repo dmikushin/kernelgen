@@ -1,3 +1,5 @@
+.PHONY: kernelgen-version.c
+
 OPT ?= 0
 
 GCC_ROOT ?= ${HOME}/rpmbuild/BUILD/gcc-4.6.3
