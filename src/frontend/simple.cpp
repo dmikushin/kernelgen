@@ -1176,10 +1176,11 @@ static int link(int argc, char** argv, const char* input, const char* output)
 
 		//composite.dump();
 
-		// replace all allocas by one collective alloca
+		// Replace all allocas by one collective alloca
+		Function* f = composite.getFunction("kernelgen_launch");
+		if (f)
 		{
 			Module *module = &composite;
-			Function* f = composite.getFunction("kernelgen_launch");
 			
 			//maximum size of aggregated structure with parameters
 			unsigned long long maximumSizeOfData=0;
