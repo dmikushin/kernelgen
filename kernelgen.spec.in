@@ -87,7 +87,9 @@ tar -xf $RPM_SOURCE_DIR/clang-r%{llvm_rev}.tar.gz
 tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
 cd $RPM_BUILD_DIR
 rm -rf $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
+rm -rf $RPM_BUILD_DIR/gcc-4.6.3
 tar -xjf $RPM_SOURCE_DIR/KERNELGEN_GCC_SNAP.tar.bz2
+ln -s $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP $RPM_BUILD_DIR/gcc-4.6.3
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
