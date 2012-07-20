@@ -22,7 +22,7 @@
          BuildMI(MBB, MI, dl,
                  tm.getInstrInfo()->get(NVPTX::IMOV32rr), NVPTX::VRFrameLocal)
 --- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-07-19 23:56:25.000000000 +0400
-+++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-07-19 21:48:01.000000000 +0400
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-07-20 14:52:35.000000000 +0400
 @@ -369,9 +369,19 @@
    SmallString<128> Str;
    raw_svector_ostream O(Str);
@@ -55,7 +55,7 @@
  
    OS2 << '\n';
  
-@@ -1018,7 +1029,66 @@
+@@ -1018,7 +1029,61 @@
  
  
  void NVPTXAsmPrinter::printModuleLevelGV(GlobalVariable* GVar, raw_ostream &O,
@@ -67,63 +67,58 @@
 +  // to take care about the GVs ordering. First check if the
 +  // current GVar is already emitted and if not - emit its used GVs
 +  // before emitting itself.
-+ if (emitted)
-+  {
-+    for (SmallVector<GlobalVariable*, 16>::iterator I = emitted->begin(),
-+      IE = emitted->end(); I != IE; I++)
-+      if (*I == GVar) return;
-+      emitted->push_back(GVar);
-+    // XXX:
-+      for(User::op_iterator iter = GVar->op_begin(), iter_end = GVar->op_end();
-+		    iter != iter_end; iter++)
-+			{
-+				assert(isa<Constant>(**iter));
-+				Constant *operand = cast<Constant>(*iter);
-+				
-+				if(isa<GlobalVariable>(*operand) && operand != GVar)
-+					printModuleLevelGV(cast<GlobalVariable>(operand), O, processDemoted, emitted);
-+				else
-+				if(operand != GVar)
-+				{
-+					//that is some Constant
-+					//walk round it's operands tree and save all globals
-+					
-+					//save globals here
-+					list<GlobalVariable*> globals; 
-+					//save not handled operands in tree here
-+					stack<Constant*> notHandled;
-+					notHandled.push(operand);
-+					while(!notHandled.empty())
-+					{
-+						//get next operand and remove it from stack
-+						Constant *current = notHandled.top();
-+					    notHandled.pop();
-+						// walk on it's operands
-+					    for(User::op_iterator iter = current->op_begin(), iter_end = current->op_end();
-+					        iter != iter_end; iter++)
-+							{
-+							  // if it is a global - save it, else save operand
-+						       if(isa<GlobalVariable>(*iter->get()))
-+							      globals.push_back(cast<GlobalVariable>(iter->get()));
-+						       else notHandled.push(cast<Constant>(iter->get()));
-+							}
++  	if (emitted) {
++		for (SmallVector<GlobalVariable*, 16>::iterator I = emitted->begin(),
++		IE = emitted->end(); I != IE; I++)
++			if (*I == GVar) return;
++		emitted->push_back(GVar);
++		// XXX:
++		int numOfGVarOperands = GVar->getNumOperands();
++		for(int operandIndex = 0; operandIndex < numOfGVarOperands; operandIndex++) {
++			Value * operand = GVar->getOperand(operandIndex);
++			if(operand == GVar) continue;
++			if(isa<GlobalVariable>(*operand))
++				printModuleLevelGV(cast<GlobalVariable>(operand), O, processDemoted, emitted);
++			else if(isa<User>(*operand)) {
++				//that is some User, that can has operands
++				//walk round it's operands tree and save all globals
++
++				//save globals here
++				set<GlobalVariable*> globals;
++
++				//save not handled operands in tree here
++				stack<User*> notHandled;
++				notHandled.push(cast<User>(operand));
++				while(!notHandled.empty()) {
++					//get next operand and remove it from stack
++					User *current = notHandled.top();
++					notHandled.pop();
++					// walk on it's operands
++					int numOfCurrentOperands = current->getNumOperands();
++					for(int operandIndex = 0; operandIndex < numOfCurrentOperands; operandIndex++) {
++						// if it is a global - save it, else save operand
++						Value * operandVal = current->getOperand(operandIndex);
++						if(isa<GlobalVariable>(*operandVal))
++							globals.insert(cast<GlobalVariable>(operandVal));
++						else if(isa<User>(*operandVal))
++							notHandled.push(cast<User>(operandVal));
 +					}
-+					for(list<GlobalVariable*>::iterator iter = globals.begin(), iter_end = globals.end();
-+					    iter != iter_end; iter++)
-+							if(*iter!=GVar) 
-+								printModuleLevelGV(*iter, O, processDemoted, emitted);
-+							
 +				}
-+				
++				for(set<GlobalVariable*>::iterator iter = globals.begin(), iter_end = globals.end();
++				    iter != iter_end; iter++)
++					if(*iter!=GVar)
++						printModuleLevelGV(*iter, O, processDemoted, emitted);
++
 +			}
++
 +		}
-+        
++	}
 +    
 +
  
    // Skip meta data
    if (GVar->hasSection()) {
-@@ -1143,6 +1213,7 @@
+@@ -1143,6 +1208,7 @@
      // Ptx allows variable initilization only for constant and global state
      // spaces.
      if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
@@ -131,7 +126,7 @@
          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST))
          && GVar->hasInitializer()) {
-@@ -1167,6 +1238,7 @@
+@@ -1167,6 +1233,7 @@
        // Ptx allows variable initilization only for constant and
        // global state spaces.
        if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
@@ -139,7 +134,7 @@
            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST))
            && GVar->hasInitializer()) {
-@@ -1239,6 +1311,7 @@
+@@ -1239,6 +1306,7 @@
    case llvm::ADDRESS_SPACE_LOCAL:
      O << "local" ;
      break;
@@ -147,7 +142,7 @@
    case llvm::ADDRESS_SPACE_GLOBAL:
      O << "global" ;
      break;
-@@ -1588,9 +1661,6 @@
+@@ -1588,9 +1656,6 @@
    const MachineFrameInfo *MFI = MF.getFrameInfo();
    int NumBytes = (int) MFI->getStackSize();
    if (NumBytes) {
@@ -157,7 +152,7 @@
      if (nvptxSubtarget.is64Bit()) {
        O << "\t.reg .b64 \t%SP;\n";
        O << "\t.reg .b64 \t%SPL;\n";
-@@ -2066,3 +2136,4 @@
+@@ -2066,3 +2131,4 @@
    RegisterAsmPrinter<NVPTXAsmPrinter> X(TheNVPTXTarget32);
    RegisterAsmPrinter<NVPTXAsmPrinter> Y(TheNVPTXTarget64);
  }
