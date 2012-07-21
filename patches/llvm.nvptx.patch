@@ -21,6 +21,39 @@
                                     NVPTX::VRFrame).addReg(NVPTX::VRFrameLocal);
          BuildMI(MBB, MI, dl,
                  tm.getInstrInfo()->get(NVPTX::IMOV32rr), NVPTX::VRFrameLocal)
+--- a/llvm/lib/Target/NVPTX/NVPTXISelLowering.cpp	(revision 156703)
++++ b/llvm/lib/Target/NVPTX/NVPTXISelLowering.cpp	(working copy)
+@@ -5,7 +5,7 @@
+ // License. See LICENSE.TXT for details.
+ //
+ //===----------------------------------------------------------------------===//
+-//
++//  
+ // This file defines the interfaces that NVPTX uses to lower LLVM code into a
+ // selection DAG.
+ //
+@@ -131,6 +131,11 @@
+   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8 , Expand);
+   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1 , Expand);
+ 
++
++  setOperationAction(ISD::STACKSAVE, MVT::Other , Custom);
++  setOperationAction(ISD::STACKRESTORE, MVT::Other , Custom);
++  
++
+   if (nvptxSubtarget.hasROT64()) {
+     setOperationAction(ISD::ROTL , MVT::i64, Legal);
+     setOperationAction(ISD::ROTR , MVT::i64, Legal);
+@@ -859,6 +864,9 @@
+   case ISD::EXTRACT_SUBVECTOR:
+     return Op;
+   case ISD::CONCAT_VECTORS: return LowerCONCAT_VECTORS(Op, DAG);
++  case ISD::STACKSAVE:
++  case ISD::STACKRESTORE:
++    return SDValue();
+   default:
+     llvm_unreachable("Custom lowering not defined for operation");
+   }
 --- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-07-19 23:56:25.000000000 +0400
 +++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-07-20 14:52:35.000000000 +0400
 @@ -369,9 +369,19 @@

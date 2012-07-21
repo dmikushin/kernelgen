@@ -50,6 +50,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/IRBuilder.h"
 
 #include "io.h"
 #include "util.h"
@@ -370,6 +371,21 @@ kernel_func_t kernelgen::runtime::compile(
 			// always evaluate to -1.
 			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+					
+										//Check if instruction in focus is a AllocaInst
+					AllocaInst *alloca = dyn_cast<AllocaInst>(ii);
+					if(alloca)
+					  if(alloca->isArrayAllocation())
+					    if(!isa<Constant>(*alloca->getArraySize())) {
+							if (verbose) {
+							    outs().changeColor(raw_ostream::RED);
+	                            outs() << "Not allowed dynamic alloca: " << *alloca << "\n";
+	                            outs().resetColor();
+						    }
+					    kernel->target[runmode].supported = false;
+					    return NULL;
+						}
+						
 					// Check if instruction in focus is a call.
 					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
 					if (!call) continue;
@@ -682,25 +698,88 @@ kernel_func_t kernelgen::runtime::compile(
 				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
 
-			// Replace alloca-s with global variables.
-			vector<AllocaInst*> erase_allocas;
-			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-					// Check if instruction in focus is an alloca.
-					AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
-					if (!alloca) continue;
-				
-					// Replace alloca with global variable.
-					GlobalVariable* GV = new GlobalVariable(
-						*m, alloca->getAllocatedType(), false, GlobalValue::PrivateLinkage,
-						Constant::getNullValue(alloca->getAllocatedType()), "");
-					GV->setAlignment(alloca->getAlignment());
-					alloca->replaceAllUsesWith(GV);
-					erase_allocas.push_back(alloca);
+        // Replace static alloca-s with global variables.
+        // Replace dynamic alloca-s with kernelgen_malloc
+		vector<AllocaInst*> allocas;
+
+		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+				// Check if instruction in focus is an alloca.
+				AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
+				if (!alloca) continue;
+				else allocas.push_back(alloca);
+			}
+		for (vector<AllocaInst*>::iterator i = allocas.begin(),
+		ie = allocas.end(); i != ie; i++) {
+			AllocaInst *alloca = *i;
+
+			if(!alloca->isArrayAllocation()) {
+				//allocation of single element
+				// Replace "alloca type" with "@a=type".
+				GlobalVariable* GV = new GlobalVariable(
+				    *m, alloca->getAllocatedType(), false, GlobalValue::PrivateLinkage,
+				    Constant::getNullValue(alloca->getAllocatedType()), "replacementOfAlloca");
+				GV->setAlignment(alloca->getAlignment());
+				alloca->replaceAllUsesWith(GV);
+				if (verbose) {
+					outs().changeColor(raw_ostream::RED);
+					outs() << "Replace \"" << *alloca << "\" with \n  " << *GV;
+					outs().resetColor();
 				}
-			for (vector<AllocaInst*>::iterator i = erase_allocas.begin(),
-				ie = erase_allocas.end(); i != ie; i++)
-				(*i)->eraseFromParent();
+			} else //allocation of array of elements
+				if(isa<ConstantInt>(*alloca->getArraySize())) {
+					// simple case: array size is the ConstantInt and we can retrive actual size as uint64_t
+					// Replace "alloca type, 10" with "@a=[type x 10]; bitcast [type x 10]* @a to type*"
+					uint64_t numElements = cast<ConstantInt>(alloca->getArraySize())->getZExtValue();
+					ArrayType *arrayType = ArrayType::get(alloca->getAllocatedType(),numElements);
+					GlobalVariable* GV = new GlobalVariable(
+					    *m, arrayType, false, GlobalValue::PrivateLinkage,
+					    Constant::getNullValue(arrayType), "memoryForAlloca");
+					GV->setAlignment(alloca->getAlignment());
+					BitCastInst * bitcast=new BitCastInst(GV,alloca->getType(),"replacementOfAlloca",alloca);
+					alloca->replaceAllUsesWith(bitcast);
+
+					if (verbose) {
+						outs().changeColor(raw_ostream::GREEN);
+						outs() << "Replace \"" << *alloca << "\" with \n  " << *GV << *bitcast << "\n";
+						outs().resetColor();
+					}
+				} else {
+					// more complex case: array size is a common value and unknown at compile-time
+					// Replace "alloca type, count" with "%0=call i8* kernelgen_malloc(sizeof(type)*count)
+					//%1=bitcast i8* %0 to type*"
+
+					IRBuilder<> Builder(alloca);
+					Constant *sizeOfElement = ConstantExpr::getSizeOf(alloca->getAllocatedType());
+					Value *sizeOfAllocation = Builder.CreateMul(alloca->getArraySize(),sizeOfElement,"allocationSize");
+					Function *kernelgenMalloc =  m->getFunction("kernelgen_malloc");
+					assert(kernelgenMalloc && sizeOfAllocation->getType()->isIntegerTy());
+					CallInst *callOfMalloc = (CallInst *)Builder.CreateCall(kernelgenMalloc,sizeOfAllocation,"memoryForAlloca");
+					callOfMalloc->setCallingConv(llvm::CallingConv::PTX_Device);
+
+
+					if(callOfMalloc->getType() == alloca->getType()) {
+						callOfMalloc->setName((string)"replacementOfAlloca");
+						alloca->replaceAllUsesWith(callOfMalloc);
+						if (verbose) {
+							outs().changeColor(raw_ostream::GREEN);
+							outs() << "Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n";
+							outs().resetColor();
+						}
+					} else {
+						Value * bitcast = Builder.CreateBitCast(callOfMalloc, alloca->getType(),"replacementOfAlloca");
+						alloca->replaceAllUsesWith(bitcast);
+						if (verbose) {
+							outs().changeColor(raw_ostream::GREEN);
+							outs() << "Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n" << *bitcast << "\"\n";
+							outs().resetColor();
+						}
+					}
+
+				}
+
+			alloca->eraseFromParent();
+		}
 		
 			// Align all globals to 4096.
 			for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
