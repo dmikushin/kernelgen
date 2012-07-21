@@ -2,7 +2,7 @@
 
 OPT ?= 0
 
-GCC_ROOT ?= ${HOME}/rpmbuild/BUILD/gcc-4.6.3
+GCC_ROOT ?= ${HOME}/rpmbuild/BUILD/gcc-snapshot
 PLUGIN_INC = -I$(GCC_ROOT)/gcc/ -I$(GCC_ROOT)/build/gcc/ -I$(GCC_ROOT)/include/ -I$(GCC_ROOT)/libcpp/include/
 
 LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm

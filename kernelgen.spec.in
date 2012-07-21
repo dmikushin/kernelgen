@@ -42,10 +42,11 @@ Release:        %{release}
 Summary:        Compiler with automatic generation of GPU kernels from the regular source code
 Source0:        ftp://upload.hpcforge.org/pub/kernelgen/llvm-r%{llvm_rev}.tar.gz
 Source1:        ftp://upload.hpcforge.org/pub/kernelgen/clang-r%{llvm_rev}.tar.gz
-Source2:        ftp://upload.hpcforge.org/pub/kernelgen/KERNELGEN_GCC_SNAP.tar.bz2
-Source3:        ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r%{llvm_rev}.tar.gz
-Source4:        ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.gz
-Source5:        ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
+Source2:	ftp://upload.hpcforge.org/pub/kernelgen/KERNELGEN_BINUTILS_SNAP.tar.bz2
+Source3:        ftp://upload.hpcforge.org/pub/kernelgen/KERNELGEN_GCC_SNAP.tar.bz2
+Source4:        ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r%{llvm_rev}.tar.gz
+Source5:        ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.gz
+Source6:        ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
 Patch0:         dragonegg.ptx.patch
 Patch1:         dragonegg.patch
 Patch2:         llvm.polly.patch
@@ -86,10 +87,13 @@ cd $RPM_BUILD_DIR/llvm/tools
 tar -xf $RPM_SOURCE_DIR/clang-r%{llvm_rev}.tar.gz
 tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
 cd $RPM_BUILD_DIR
+rm -rf $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
+rm -rf $RPM_BUILD_DIR/binutils-snapshot
+tar -xjf $RPM_SOURCE_DIR/KERNELGEN_BINUTILS_SNAP.tar.bz2
 rm -rf $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
-rm -rf $RPM_BUILD_DIR/gcc-4.6.3
+rm -rf $RPM_BUILD_DIR/gcc-snapshot
 tar -xjf $RPM_SOURCE_DIR/KERNELGEN_GCC_SNAP.tar.bz2
-ln -s $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP $RPM_BUILD_DIR/gcc-4.6.3
+ln -s $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP $RPM_BUILD_DIR/gcc-snapshot
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
@@ -141,12 +145,20 @@ cd build
 ../configure CC=gcc CXX=g++ --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
 %endif
 #
+# Configure BinUtils
+#
+cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
+mkdir build
+cd build
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-gold=default --disable-ld
+#
+#
 # Configure GCC
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
 mkdir build
 cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin --enable-gold=default --disable-ld --with-ld=/opt/kernelgen/bin/kernelgen-ld
 %endif
 #
 # Configure KernelGen
@@ -165,6 +177,15 @@ cd $RPM_BUILD_DIR
 cd $RPM_BUILD_DIR/llvm/build
 %if %debug
 make -j%{njobs} CXXFLAGS=-O0
+%else
+make -j%{njobs}
+%endif
+#
+# Build BinUtils
+#
+cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
+%if %debug
+make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
 make -j%{njobs}
 %endif
@@ -232,6 +253,11 @@ cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
 cd $RPM_BUILD_DIR/kernelgen
 ROOT=$RPM_BUILD_ROOT LIB32=lib LIB64=lib make install
 #
+# Install BinUtils
+cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
+make install
+#
+#
 # Install GCC.
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
@@ -242,12 +268,6 @@ CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install
 # Final cleanup (off for fast repack).
 #
 %clean
-#rm -rf $RPM_BUILD_DIR/cloog
-#rm -rf $RPM_BUILD_DIR/scoplib-0.2.0
-#rm -rf $RPM_BUILD_DIR/llvm
-#rm -rf $RPM_BUILD_DIR/gcc
-#rm -rf $RPM_BUILD_DIR/dragonegg
-#rm -rf $RPM_BUILD_DIR/kernelgen
 
 
 #
@@ -267,7 +287,9 @@ echo "/opt/kernelgen/lib64" >>/etc/ld.so.conf.d/kernelgen.conf
 
 
 %changelog
-* Thu Jul 20 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
+* Sat Jul 21 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
+- added locally installed binutils with gold for default linker
+* Thu Jul 19 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
 - adopted 0.2 spec to use nvptx backend and automatic build bot
 * Tue Sep 13 2011 Dmitry Mikushin <maemarcus@gmail.com> 0.2
 - started preparing 0.2 "accurate" release
