@@ -55,8 +55,8 @@ Patch4:         llvm.statistic.patch
 Patch5:         llvm.opts.patch
 Patch6:         llvm.nvptx.patch
 Patch7:         llvm.clang.patch
-Patch8:         gcc-multiarch.patch
-Patch9:         gcc.patch
+Patch8:		gcc.patch
+Patch9:         gcc-multiarch.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -115,8 +115,9 @@ sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 %patch5 -p1
 %patch6 -p1
 %patch7 -p1
-%if (%target == debian)
 %patch8 -p1
+%if (%target == debian)
+%patch9 -p1
 %endif
 %endif
 
@@ -208,8 +209,6 @@ CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELG
 GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make clean
 CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make
 %endif
-cd $RPM_BUILD_DIR
-patch -p1 <$RPM_SOURCE_DIR/gcc.patch
 %endif
 #
 # Build KernelGen
