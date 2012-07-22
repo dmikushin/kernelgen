@@ -475,18 +475,25 @@
     hosthooks.h $(HOSTHOOKS_DEF_H)
 --- a/gcc-snapshot/gcc/gcc.c
 +++ b/gcc-snapshot/gcc/gcc.c
-@@ -3925,6 +3925,15 @@
+@@ -3925,6 +3925,22 @@
        add_infile ("help-dummy", "c");
      }
  
-+  /* For KernelGen always add -fuse-linker-plugin.  */
-+  alloc_switch ();
-+  switches[n_switches].part1 = "fuse-linker-plugin";
-+  switches[n_switches].args = 0;
-+  switches[n_switches].live_cond = 0;
-+  switches[n_switches].validated = 0;
-+  switches[n_switches].ordering = 0;
-+  n_switches++;
++  /* For KernelGen without fallback always add -fuse-linker-plugin.  */
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  int fallback = 0;
++  if (cfallback) {
++    fallback = atoi(cfallback);
++  }
++  if (!fallback) {
++    alloc_switch ();
++    switches[n_switches].part1 = "fuse-linker-plugin";
++    switches[n_switches].args = 0;
++    switches[n_switches].live_cond = 0;
++    switches[n_switches].validated = 0;
++    switches[n_switches].ordering = 0;
++    n_switches++;
++  }
 +
    alloc_switch ();
    switches[n_switches].part1 = 0;
