@@ -150,8 +150,7 @@ cd build
 cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
 mkdir build
 cd build
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-gold=default --disable-ld
-#
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-gold=default --disable-ld --enable-plugins --enable-lto
 #
 # Configure GCC
 #
