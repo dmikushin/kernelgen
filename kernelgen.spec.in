@@ -57,6 +57,7 @@ Patch6:         llvm.nvptx.patch
 Patch7:         llvm.clang.patch
 Patch8:		gcc.patch
 Patch9:         gcc-multiarch.patch
+Patch10:        gcc.build.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -194,9 +195,9 @@ make -j%{njobs}
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
 %if %debug
-CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs}
+KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
 #
 # Build DragonEgg
@@ -209,6 +210,8 @@ CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELG
 GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make clean
 CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make
 %endif
+cd $RPM_BUILD_DIR
+patch -p1 <$RPM_SOURCE_DIR/gcc.build.patch
 %endif
 #
 # Build KernelGen
@@ -259,11 +262,7 @@ make install
 # Install GCC.
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
-%if %debug
-CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install CFLAGS="-g -O0" CXXFLAGS="-g -O0"
-%else
 CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install
-%endif
 
 
 #
