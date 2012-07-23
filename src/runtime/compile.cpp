@@ -152,6 +152,35 @@ static void registerPollyPreoptPasses(llvm::PassManagerBase &PM) {
   PM.add(polly::createRegionSimplifyPass());
 }
 
+void getAllocasAndMaximumSize(Function *f,set<AllocaInst *> *allocasForArgs, unsigned long long * maximumSizeOfData )
+{
+	Value *tmpArg=NULL;
+	if (f && allocasForArgs && maximumSizeOfData) {
+		for (Value::use_iterator UI = f->use_begin(), UE = f->use_end(); UI != UE; UI++) {
+			CallInst* call = dyn_cast<CallInst>(*UI);
+			if(!call) continue;
+
+			//retrive size of data
+			tmpArg = call -> getArgOperand(1);
+			assert( isa<ConstantInt>(*tmpArg) && "by this time, after targetData,"
+			        "second parameter of kernelgen functions "
+			        "must be ConstantInt");
+
+			//get maximum size of data
+			uint64_t sizeOfData = ((ConstantInt*)tmpArg)->getZExtValue();
+			if(*maximumSizeOfData < sizeOfData)
+				*maximumSizeOfData=sizeOfData;
+
+			tmpArg = call -> getArgOperand(3);
+			while(!isa<AllocaInst>(*tmpArg)) {
+				assert(isa<BitCastInst>(*tmpArg));
+				tmpArg=cast<BitCastInst>(tmpArg)->getOperand(0);
+			}
+			allocasForArgs->insert(cast<AllocaInst>(tmpArg));
+		}
+	}
+}
+
 static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 {
 	{
@@ -697,6 +726,64 @@ kernel_func_t kernelgen::runtime::compile(
 			for (vector<CallInst*>::iterator i = erase_calls.begin(),
 				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
+
+			//evaluate ConstantExpr::SizeOf to integer number ConstantInt
+			PassManager manager;
+			manager.add(new TargetData(m));
+			manager.add(createInstructionCombiningPass());
+			manager.run(*m);
+			
+			{
+				Function* kernelgenFunction = NULL;
+				Value * tmpArg = NULL;
+				AllocaInst* oldCollectiveAlloca = NULL;
+				unsigned long long maximumSizeOfData=0;
+				
+				//set of allocas we want to collect together
+				set<AllocaInst *> allocasForArgs;
+				allocasForArgs.clear();
+
+				// collect alloca-s for kernelgen_launch-s
+				kernelgenFunction = m->getFunction("kernelgen_launch");
+				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
+				
+				// there must be one collective alloca for all kernelgen_launch-s, it was made in link-step
+				// if it is
+				assert(allocasForArgs.size() <= 1);
+				if(allocasForArgs.size() == 1) {
+					oldCollectiveAlloca=*allocasForArgs.begin();
+					assert((oldCollectiveAlloca->getAllocatedType()->isStructTy() || oldCollectiveAlloca->getAllocatedType()->isArrayTy())
+					       && "must be allocation of array or struct");
+					oldCollectiveAlloca->setName("oldCollectiveAllocaForArgs");
+				}
+
+                // collect allocas for kernelgen_hostcall-s
+				kernelgenFunction = m->getFunction("kernelgen_hostcall");
+				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
+
+				// Replace all allocas by one collective alloca
+				// allocate array [i8 x maximumSizeOfData]
+				AllocaInst *collectiveAlloca = new AllocaInst(ArrayType::get(Type::getInt8Ty(m->getContext()),maximumSizeOfData),
+				        "collectiveAllocaForArgs",
+				        f->begin()->begin());
+
+				for(set<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
+				    iter!=iter_end; iter++ ) {
+					AllocaInst * allocaInst=*iter;
+
+					//get type of old alloca
+					Type * structPtrType = allocaInst -> getType();
+
+					//create bit cast of created alloca for specified type
+					BitCastInst * bitcast=new BitCastInst(collectiveAlloca,structPtrType,"ptrToArgsStructure");
+					//insert after old alloca
+					bitcast->insertAfter(allocaInst);
+					//replace uses of old alloca with created bit cast
+					allocaInst -> replaceAllUsesWith(bitcast);
+					//erase old alloca from parent basic block
+					allocaInst -> eraseFromParent();
+				}
+			}
 
         // Replace static alloca-s with global variables.
         // Replace dynamic alloca-s with kernelgen_malloc
