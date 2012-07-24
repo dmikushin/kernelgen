@@ -288,7 +288,9 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 #ifdef KERNELGEN_PRIVATIZE			
 			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
 			{
-				if (isa<GlobalVariable>(*O) || (isa<Constant>(*O) && !isa<Function>(*O)))
+				if (isa<GlobalVariable>(*O) || (isa<Constant>(*O) && !isa<Function>(*O)) 
+				    && !isa<ConstantInt>(*O) && !isa<ConstantFP>(*O)
+				 )
 				{
 					std::cout << "Seen global variable or constant: " << endl;
 					(*O)->dump();
