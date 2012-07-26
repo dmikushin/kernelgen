@@ -80,9 +80,9 @@ void hpUsage()
 	puts("  -o outputfile: Output cubin to the specified file.");
 	puts("  -r target_cubin kernel_name offset: Replace the opcodes in specified locati-");
 	puts("     on of a kernel in a specified cubin file with the assembled opcodes.");
-	puts("  -sm_20: output cubin for architecture sm_20. This is the default architectu-");
-	puts("     re assumed by asfermi.");
+	puts("  -sm_20: output cubin for architecture sm_20 (default)");
 	puts("  -sm_21: output cubin for architecture sm_21");
+	puts("  -sm_30: output cubin for architecture sm_30");
 	puts("  -32: output 32-bit cubin. This is the default behaviour.");
 	puts("  -64: output 64-bit cubin.");
 	puts("  -SelfDebug: throw unhandled exception when things go wrong. For debugging o-");

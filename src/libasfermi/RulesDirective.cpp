@@ -491,6 +491,10 @@ struct DirectiveRuleArch: DirectiveRule
 		{
 			cubinArchitecture = sm_21;
 		}
+		else if(strcmp("sm_30", part->Start)==0)
+		{
+			cubinArchitecture = sm_30;
+		}
 		else
 			throw 1021;// unsupported argument
 	}
