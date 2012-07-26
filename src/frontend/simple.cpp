@@ -1053,8 +1053,10 @@ static int link(int argc, char** argv, const char* input, const char* output)
 						CallInst* CI = dyn_cast<CallInst>(i);
 						if (!CI) continue;
 				
+						// FIXME: explicitly detect the known special cases here:
+						// inline asm, bitcast, call by pointer.
 						Function* f = CI->getCalledFunction();
-						loop.getOrInsertFunction(f->getName(), f->getFunctionType());
+						if (f) loop.getOrInsertFunction(f->getName(), f->getFunctionType());
 					}
 
 				// Embed "loop" module into object.
