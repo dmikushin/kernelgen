@@ -377,15 +377,15 @@
  	  p++;
          }
 +
-+      /* For KernelGen without fallback always add -rdynamic to use
-+         executable global symbols for resolving dependencies of
++      /* For KernelGen without fallback always add --export-dynamic to
++         use executable global symbols for resolving dependencies of
 +         subsequently loaded kernel objects.  */
 +      const char* cfallback = getenv("KERNELGEN_FALLBACK");
 +      int fallback = 0;
 +      if (cfallback)
 +        fallback = atoi(cfallback);
 +      if (!fallback) {
-+        out_lto_ld_argv[out_lto_ld_argv_size++] = "-rdynamic";
++        out_lto_ld_argv[out_lto_ld_argv_size++] = "--export-dynamic";
 +        out_lto_ld_argv[out_lto_ld_argv_size++] = "/opt/kernelgen/lib/libkernelgen-rt.so";
 +      }
 +
