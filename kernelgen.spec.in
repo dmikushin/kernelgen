@@ -67,7 +67,7 @@ URL:            http://kernelgen.org/
 #BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
 #Requires:       elfutils-libelf libffi gmp mpfr libmpc
 %else
-#BuildRequires:	gcc g++ gfortran perl libelf-dev libffi-dev libgmp3-dev libmpfr-dev libmpc-dev flex libc6-dev libc6-dev-i386 gcc-multiliblib git autoconf automake libtool
+#BuildRequires:	gcc g++ gfortran perl libelf-dev libffi-dev libgmp3-dev libmpfr-dev libmpc-dev flex libc6-dev libc6-dev-i386 gcc-multilib git autoconf automake libtool
 #Requires:	libelf ffi libgmp3 libmpfr libmpc g++-4.6-multilib
 %endif
 
