@@ -938,7 +938,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		manager.add(createInstructionCombiningPass());
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = 3;
+		builder.OptLevel = 0;
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
 		manager.run(composite);
