@@ -1,15 +1,15 @@
 .PHONY: ../../libasfermi.so
 
-all: constant2
+all: constant3
 
 ../../libasfermi.so:
 	cd ../.. && $(MAKE) asfermi libasfermi.so
 
-constant2: constant2.cu constant2.cubin
+constant3: constant3.cu constant3.cubin
 	nvcc -g $< -o $@ -lcuda
 
-constant2.cubin: constant2.s ../../libasfermi.so
+constant3.cubin: constant3.s ../../libasfermi.so
 	../../asfermi $< -sm_30 -64 -o $@
 
 clean:
-	rm -rf constant2 constant2.cubin
+	rm -rf constant3 constant3.cubin

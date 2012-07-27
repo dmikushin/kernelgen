@@ -1,7 +1,7 @@
 .PHONY: constant2 dyloader sum_kernel
 
-#all: constant2 dyloader sum_kernel
-all: dyloader
+all: constant2 dyloader sum_kernel
+#all: dyloader
 
 consant2:
 	cd $@ && $(MAKE)

@@ -332,8 +332,24 @@ struct CUDYloader_t
 
 		try
 		{
-			// Emit cubin.
-			cubin = asfermi_encode_cubin(csource, 20, 0, NULL);
+			// Emit cubin for the current device architecture.
+                        int device;
+                        CUresult curesult = cuDeviceGet(&device, 0);
+                        if (curesult != CUDA_SUCCESS)
+			{
+				if (verbose)
+					cerr << "Cannot get the CUDA device" << endl;
+				throw curesult;
+			}
+			int major = 2, minor = 0;
+			curesult = cuDeviceComputeCapability(&major, &minor, device);
+			if (curesult != CUDA_SUCCESS)
+			{
+				if (verbose)
+					cerr << "Cannot get the CUDA device compute capability" << endl;
+				throw curesult;
+			}
+			cubin = asfermi_encode_cubin(csource, major * 10 + minor, 0, NULL);
 			if (!cubin)
 			{
 				if (verbose)
@@ -342,7 +358,7 @@ struct CUDYloader_t
 			}
 
 			// Load binary containing uberkernel to deivce memory.
-			CUresult curesult = cuModuleLoadData(&module, cubin);
+			curesult = cuModuleLoadData(&module, cubin);
 			if (curesult != CUDA_SUCCESS)
 			{
 				if (verbose)
