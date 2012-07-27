@@ -30,6 +30,7 @@ using namespace std;
 
 namespace kernelgen { namespace bind { namespace cuda {
 
+cuDeviceComputeCapability_t cuDeviceComputeCapability;
 cuDeviceGetProperties_t cuDeviceGetProperties;
 cuInit_t cuInit;
 cuDeviceGet_t cuDeviceGet;
@@ -105,6 +106,9 @@ handle(handle)
 {
 	if (handle)
 	{
+		cuDeviceComputeCapability = (cuDeviceComputeCapability_t)dlsym(handle, "cuDeviceComputeCapability");
+		if (!cuDeviceComputeCapability)
+			THROW("Cannot dlsym cuDeviceComputeCapability " << dlerror());
 		cuDeviceGetProperties = (cuDeviceGetProperties_t)dlsym(handle, "cuDeviceGetProperties");
 		if (!cuDeviceGetProperties)
 			THROW("Cannot dlsym cuDeviceGetProperties " << dlerror());
