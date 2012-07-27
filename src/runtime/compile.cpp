@@ -727,7 +727,7 @@ kernel_func_t kernelgen::runtime::compile(
 				ie = erase_calls.end(); i != ie; i++)
 				(*i)->eraseFromParent();
 
-			//evaluate ConstantExpr::SizeOf to integer number ConstantInt
+			// Evaluate ConstantExpr::SizeOf to integer number ConstantInt
 			PassManager manager;
 			manager.add(new TargetData(m));
 			manager.add(createInstructionCombiningPass());
@@ -757,7 +757,7 @@ kernel_func_t kernelgen::runtime::compile(
 					oldCollectiveAlloca->setName("oldCollectiveAllocaForArgs");
 				}
 
-                // collect allocas for kernelgen_hostcall-s
+				// Collect allocas for kernelgen_hostcall-s
 				kernelgenFunction = m->getFunction("kernelgen_hostcall");
 				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
 
@@ -785,10 +785,9 @@ kernel_func_t kernelgen::runtime::compile(
 				}
 			}
 
-        // Replace static alloca-s with global variables.
-        // Replace dynamic alloca-s with kernelgen_malloc
+		// Replace static alloca-s with global variables.
+		// Replace dynamic alloca-s with kernelgen_malloc
 		vector<AllocaInst*> allocas;
-
 		for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 			for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
 				// Check if instruction in focus is an alloca.
