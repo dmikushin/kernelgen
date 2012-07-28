@@ -306,7 +306,7 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 						for(int operandIndex = 0; operandIndex < numOfCurrentOperands; operandIndex++) {
 							// if it is a global - break, else save operand
 							Value * operandVal = current->getOperand(operandIndex);
-							if(isa<GlobalValue>(*operandVal)) {
+							if(isa<GlobalValue>(*operandVal) && !isa<Function>(*operandVal)) {
 								needToPrivatize=true;
 								break;
 							} else if(isa<User>(*operandVal))
