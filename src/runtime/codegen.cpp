@@ -511,11 +511,14 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 					smaxregcount << maxregcount;
 					ptxas_args.push_back(smaxregcount.str().c_str());
 				}
+
+				// The -g option by some reason is needed even w/o debug.
+				// Otherwise some tests are failing.
+				ptxas_args.push_back("-g");
 				if (::debug)
 				{
-					ptxas_args.push_back("-g");
-					ptxas_args.push_back("--dont-merge-basicblocks");
 					ptxas_args.push_back("--return-at-end");
+					ptxas_args.push_back("--dont-merge-basicblocks");
 				}
 				if (verbose)
 				{
