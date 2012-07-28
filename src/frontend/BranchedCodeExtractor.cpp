@@ -37,6 +37,7 @@
 
 #include "BranchedLoopExtractor.h"
 
+#include <stack>
 #include <algorithm>
 #include <set>
 #include <fstream>
@@ -286,30 +287,43 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 					break;
 				}
 #ifdef KERNELGEN_PRIVATIZE			
-			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
-			{
-				if (isa<GlobalVariable>(*O) || (isa<Constant>(*O) && !isa<Function>(*O)) 
-				    && !isa<ConstantInt>(*O) && !isa<ConstantFP>(*O)
-				 )
-				{
-					std::cout << "Seen global variable or constant: " << endl;
-					(*O)->dump();
-					if ((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy())
-					{
-						if(!setOfIntegerInputs.count(*O))
-							setOfIntegerInputs.insert(*O);
+	        for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O) {
+				Value *operand = O->get();
+				bool needToPrivatize;
+
+				needToPrivatize = false;
+				if (isa<GlobalValue>(*operand) && !isa<Function>(*operand))
+					needToPrivatize=true;
+				else if(isa<Constant>(*operand)) {
+					stack<User*> notHandled;
+					notHandled.push(cast<User>(operand));
+					while(!notHandled.empty() && !needToPrivatize) {
+						//get next operand and remove it from stack
+						User *current = notHandled.top();
+						notHandled.pop();
+						// walk on it's operands
+						int numOfCurrentOperands = current->getNumOperands();
+						for(int operandIndex = 0; operandIndex < numOfCurrentOperands; operandIndex++) {
+							// if it is a global - break, else save operand
+							Value * operandVal = current->getOperand(operandIndex);
+							if(isa<GlobalValue>(*operandVal)) {
+								needToPrivatize=true;
+								break;
+							} else if(isa<User>(*operandVal))
+								notHandled.push(cast<User>(operandVal));
+						}
 					}
+				}
+				if(needToPrivatize) {
+					outs() << "Seen global variable or constant: \n";
+					outs().indent(4) << *operand << "\n";
+					if (operand->getType()->isIntegerTy() || operand->getType()->isPointerTy())
+						setOfIntegerInputs.insert(operand);
 					else
-					{
-						if(!setOfNonIntegerInputs.count(*O))
-							setOfNonIntegerInputs.insert(*O);
-					}
+						setOfNonIntegerInputs.insert(operand);
 				}
-				if (isa<GlobalVariable>(*O))
-				{				
-					if (!outputs.count(*O))
-						outputs.insert(*O);
-				}
+				if (isa<GlobalVariable>(*operand))
+					outputs.insert(operand);
 			}
 #endif
 		} // for: insts
