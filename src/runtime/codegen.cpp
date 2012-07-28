@@ -394,6 +394,16 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 	
 		case KERNELGEN_RUNMODE_CUDA : {
 
+			int device;
+			CUresult err = cuDeviceGet(&device, 0);
+			if (err)
+				THROW("Error in cuDeviceGet " << err);
+
+			int major = 2, minor = 0;
+			err = cuDeviceComputeCapability(&major, &minor, device);
+			if (err)
+				THROW("Cannot get the CUDA device compute capability" << err);
+
 			// Create target machine for CUDA target and get its target data.
 			if (!targets[KERNELGEN_RUNMODE_CUDA].get()) {
 				InitializeAllTargets();
@@ -416,8 +426,10 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 				if (!target)
 					THROW("LLVM is built without NVPTX Backend support");
 
+				stringstream sarch;
+				sarch << "sm_" << (major * 10 + minor);
 				targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
-					triple.getTriple(), "sm_20", "", TargetOptions(),
+					triple.getTriple(), sarch.str(), "", TargetOptions(),
 						Reloc::PIC_, CodeModel::Default, CodeGenOpt::Aggressive));
 				if (!targets[KERNELGEN_RUNMODE_CUDA].get())
 					THROW("Could not allocate target machine");
@@ -463,18 +475,15 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 				string ptxas = "ptxas";
 				std::list<string> ptxas_args;
 				if (verbose) ptxas_args.push_back("-v");
-				ptxas_args.push_back("-arch=sm_20");
+                                stringstream sarch;
+                                sarch << "-arch=sm_" << (major * 10 + minor);
+                                ptxas_args.push_back(sarch.str().c_str());
 				ptxas_args.push_back("-m64");
 				ptxas_args.push_back(tmp2.getFilename());
 				ptxas_args.push_back("-o");
 				ptxas_args.push_back(tmp3.getFilename());
 				if (name != "__kernelgen_main")
 				{
-					int device;
-					CUresult err = cuDeviceGet(&device, 0);
-					if (err)
-						THROW("Error in cuDeviceGet " << err);
-
 					typedef struct
 					{
 						int maxThreadsPerBlock;
