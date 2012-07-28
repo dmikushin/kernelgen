@@ -170,7 +170,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
 mkdir build
 cd build/
-KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disable-netcdf-4
 %endif
 #
 # Configure KernelGen
