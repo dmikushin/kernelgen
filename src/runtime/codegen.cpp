@@ -511,7 +511,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 					smaxregcount << maxregcount;
 					ptxas_args.push_back(smaxregcount.str().c_str());
 				}
-				if (debug)
+				if (::debug)
 				{
 					ptxas_args.push_back("-g");
 					ptxas_args.push_back("--dont-merge-basicblocks");

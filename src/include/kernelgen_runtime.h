@@ -37,7 +37,7 @@ __attribute__((device)) int __iAtomicCAS(volatile int *p, int compare, int val)
 {
 	int ret;
 	asm volatile (
-		"atom.cas.b32    %0, [%1], %2, %3; \n\t"
+		"atom.global.cas.b32    %0, [%1], %2, %3; \n\t"
 		: "=r"(ret) : "l"(p), "r"(compare), "r"(val)
 	);
 	return ret;
