@@ -178,6 +178,7 @@ int kernelgen_launch(kernel_t* kernel,
                         		"    blockDim = " << blockDim << "\n" <<
 					"    gridDim = " << gridDim << "\n";
 				outs().resetColor();
+				outs().flush();
 				timer t;
 				float kernel_time;
 				{
@@ -200,6 +201,7 @@ int kernelgen_launch(kernel_t* kernel,
 				outs().changeColor(raw_ostream::CYAN);
 				outs() << "Finishing kernel " << kernel->name << "\n";
 				outs().resetColor();
+				outs().flush();
 
 				if (verbose & KERNELGEN_VERBOSE_TIMEPERF)
 				{

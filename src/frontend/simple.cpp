@@ -1050,13 +1050,12 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				for (Function::iterator bb = func->begin(), be = func->end(); bb != be; bb++)
 					for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
 					{
-						CallInst* CI = dyn_cast<CallInst>(i);
-						if (!CI) continue;
+						CallInst* call = dyn_cast<CallInst>(i);
+						if (!call) continue;
 				
-						// FIXME: explicitly detect the known special cases here:
-						// inline asm, bitcast, call by pointer.
-						Function* f = CI->getCalledFunction();
-						if (f) loop.getOrInsertFunction(f->getName(), f->getFunctionType());
+						Function* callee = dyn_cast<Function>(
+							call->getCalledValue()->stripPointerCasts());
+						if (callee) loop.getOrInsertFunction(callee->getName(), callee->getFunctionType());
 					}
 
 				// Embed "loop" module into object.
