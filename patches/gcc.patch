@@ -28,8 +28,8 @@
    alloc_switch ();
    switches[n_switches].part1 = 0;
    alloc_infile ();
---- a/gcc-snapshot/tlink.c	2010-11-29 17:09:41.000000000 +0300
-+++ a/gcc-snapshot/tlink.c	2015-10-01 18:47:58.000000000 +0400
+--- a/gcc-snapshot/gcc/tlink.c	2010-11-29 17:09:41.000000000 +0300
++++ a/gcc-snapshot/gcc/tlink.c	2015-10-01 18:47:58.000000000 +0400
 @@ -765,6 +765,18 @@
  void
  do_tlink (char **ld_argv, char **object_lst ATTRIBUTE_UNUSED)
