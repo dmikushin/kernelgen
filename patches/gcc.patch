@@ -28,3 +28,24 @@
    alloc_switch ();
    switches[n_switches].part1 = 0;
    alloc_infile ();
+--- a/gcc-snapshot/tlink.c	2010-11-29 17:09:41.000000000 +0300
++++ a/gcc-snapshot/tlink.c	2015-10-01 18:47:58.000000000 +0400
+@@ -765,6 +765,18 @@
+ void
+ do_tlink (char **ld_argv, char **object_lst ATTRIBUTE_UNUSED)
+ {
++  if (tlink_verbose && ld_argv)
++  {
++    fprintf(stderr, _("ld command: "));
++    int i = 0;
++    while (ld_argv[i])
++    {
++      fprintf(stderr, "%s ", ld_argv[i]);
++      i++;
++    }
++    fprintf(stderr, "\n");
++  }
++
+   int exit = tlink_execute ("ld", ld_argv, ldout, lderrout);
+ 
+   tlink_init ();
