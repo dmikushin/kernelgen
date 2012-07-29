@@ -175,7 +175,9 @@ int main(int argc, char* argv[], char* envp[])
 			kernel_t* kernel =  new kernel_t();
 			kernel->name = name;
 			kernel->source = data;
-
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+			kernel->loaded = false;
+#endif
 			// Initially, all targets are supported.
 			for (int ii = 0; ii < KERNELGEN_RUNMODE_COUNT; ii++)
 			{
@@ -194,7 +196,7 @@ int main(int argc, char* argv[], char* envp[])
 		{
 			THROW("Cannot find the __kernelgen_main symbol");
 		}
-
+#ifndef KERNELGEN_LOAD_KERNELS_LAZILY
 		// Walk through kernel index and replace
 		// all names with kernel structure addresses
 		// for each kernelgen_launch call.
@@ -260,7 +262,7 @@ int main(int argc, char* argv[], char* envp[])
 			
 			//m->dump();
 		}
-		
+#endif		
 		// Load arguments, depending on the target runmode
 		// and invoke the entry point kernel.
 		switch (runmode)

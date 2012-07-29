@@ -24,8 +24,11 @@
 
 #include <mhash.h>
 
+#include "llvm/Constants.h"
 #include "llvm/Function.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/Support/IRReader.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Support/raw_os_ostream.h"
@@ -36,11 +39,80 @@ using namespace kernelgen::runtime;
 using namespace llvm;
 using namespace std;
 
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+// Read source into LLVM module for the specified kernel.
+static void load_kernel(kernel_t* kernel)
+{
+	LLVMContext& context = getGlobalContext();
+
+	SMDiagnostic diag;
+	if (!kernel) THROW("Invalid kernel item");
+			
+	// Load IR from source.
+	MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
+	Module* m = ParseIR(buffer, diag, context);
+	if (!m)
+		THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
+			diag.getLineContents() << ": " << diag.getMessage());
+	m->setModuleIdentifier(kernel->name + "_module");
+		
+	for (Module::iterator fi = m->begin(), fe = m->end(); fi != fe; fi++)
+		for (Function::iterator bi = fi->begin(), be = fi->end(); bi != be; bi++)
+			for (BasicBlock::iterator ii = bi->begin(), ie = bi->end(); ii != ie; ii++)
+			{
+				// Check if instruction in focus is a call.
+				CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+				if (!call) continue;
+					
+				// Check if function is called (needs -instcombine pass).
+				Function* callee = call->getCalledFunction();
+				if (!callee) continue;
+				if (!callee->isDeclaration()) continue;
+				if (callee->getName() != "kernelgen_launch") continue;
+
+				// Get the called function name from the metadata node.
+				MDNode* nameMD = call->getMetadata("kernelgen_launch");
+				if (!nameMD)
+					THROW("Cannot find kernelgen_launch metadata");
+				if (nameMD->getNumOperands() != 1)
+					THROW("Unexpected kernelgen_launch metadata number of operands");
+				ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
+					nameMD->getOperand(0));
+				if (!nameArray)
+					THROW("Invalid kernelgen_launch metadata operand");
+				if (!nameArray->isCString())
+					THROW("Invalid kernelgen_launch metadata operand");
+				string name = "__kernelgen_" + (string)nameArray->getAsCString();
+				if (verbose)
+					cout << "Launcher invokes kernel " << name << endl;
+						
+				// Permanently assign launcher first argument with the address
+				// of the called kernel function structure (for fast access).
+				kernel_t* kernel = kernels[name];
+				if (!kernel)
+					THROW("Cannot get the name of kernel invoked by kernelgen_launch");
+				call->setArgOperand(0, ConstantExpr::getIntToPtr(
+					ConstantInt::get(Type::getInt64Ty(context), (uint64_t)kernel),
+					Type::getInt8PtrTy(context)));
+			}
+
+	kernel->source = "";
+	raw_string_ostream ir(kernel->source);
+	ir << (*m);
+	
+	//m->dump();
+}
+#endif
+
 // Launch the specified kernel.
 int kernelgen_launch(kernel_t* kernel,
 	unsigned long long szdata, unsigned long long szdatai,
 	kernelgen_callback_data_t* data)
 {
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+	// Load kernel source, of lazy load is enabled.
+	if (!kernel->loaded) load_kernel(kernel);
+#endif
 	if (!kernel->target[runmode].supported)
 		return -1;
 

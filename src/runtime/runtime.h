@@ -125,6 +125,11 @@ extern bool debug;
 #define KERNELGEN_VERBOSE_POLLYGEN	1 << 5
 #define KERNELGEN_VERBOSE_TIMEPERF	1 << 6
 
+// Define to load kernels lazily. Means instead of reading and verifying
+// modules during application startup, they are instead loaded in the place
+// of first use.
+#define KERNELGEN_LOAD_KERNELS_LAZILY
+
 // The prototype of kernel function.
 // Thanks to arguments aggregation, all
 // kernels could have the same prototype.
@@ -150,7 +155,10 @@ struct kernel_t
 
 	// Kernel LLVM IR source code.
 	std::string source;
-
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+	// Kernel loaded marker (for lazy processing).
+	bool loaded;
+#endif
 	// Target-specific configuration.
 	struct
 	{
