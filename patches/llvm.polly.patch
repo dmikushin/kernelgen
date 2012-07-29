@@ -116,7 +116,7 @@
  
 +void  MemoryAccess::setCurrentRelationType(MemoryAccess::RelationType relationType)
 +{
-+	if(currentRelationType == RelationType_polly)
++	if(relationType == RelationType_polly)
 +	   assert(pollyAccessRelation && "set pollyAccessRelation before setCurrentRelationType");
 +    else
 +	   assert(generalAccessRelation && "set generalAccessRelation before setCurrentRelationType");

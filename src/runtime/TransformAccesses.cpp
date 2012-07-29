@@ -118,6 +118,10 @@ bool TransformAccesses::runOnScop(Scop &scop)
 				outs().indent(4) << memoryAccess->getAccessRelationStr() << "\n";
 				outs().indent(8) << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n";
 				//continue;
+				memoryAccess->setGeneralAccessRelation(accessRelation);
+				memoryAccess->setCurrentRelationType(MemoryAccess::RelationType_general);
+				isl_space_free(space);
+				isl_map_free(accessRelation);
 			} else {
 
 				outs() << "MemoryAccess to pointer: " << *baseAddressValue <<"\n";
@@ -180,7 +184,6 @@ bool TransformAccesses::runOnScop(Scop &scop)
 					two = isl_constraint_set_coefficient_si(two, isl_dim_out,0,-1);
 				}
 				newMap = isl_map_add_constraint(newMap,two);
-
 				newMap = isl_map_set_tuple_name(newMap, isl_dim_out,"NULL");
 				memoryAccess->setGeneralAccessRelation(newMap);
 				memoryAccess->setCurrentRelationType(MemoryAccess::RelationType_general);
