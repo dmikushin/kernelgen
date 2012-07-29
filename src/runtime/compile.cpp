@@ -51,6 +51,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/IRBuilder.h"
+#include "polly/ScopInfo.h"
 
 #include "io.h"
 #include "util.h"
@@ -85,6 +86,12 @@ extern cl::opt<bool> IgnoreAliasing;
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL);
 Pass* createRuntimeAliasAnalysisPass();
+
+Pass* createTransformAccessesPass();
+Pass* createInspectDependencesPass();
+Pass* createScopDescriptionPass();
+Pass* createSetRelationTypePass(MemoryAccess::RelationType relationType = MemoryAccess::RelationType_polly);
+
 Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 {
 	int64_t sizes[3];
@@ -187,7 +194,7 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		PassManager polly;
 		polly.add(new TargetData(kernel->module));
 		registerPollyPreoptPasses(polly);
-		polly.add(polly::createIslScheduleOptimizerPass());
+		//polly.add(polly::createIslScheduleOptimizerPass());
 		polly.run(*kernel->module);
 	}
 
@@ -206,10 +213,21 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		//registerPollyPreoptPasses(polly);
 		//polly.add(polly::createIslScheduleOptimizerPass());
 		if (kernel->name != "__kernelgen_main") {
-			polly.add(createRuntimeAliasAnalysisPass());
-			polly.add(createSizeOfLoopsPass(&sizes));
+			//polly.add(createRuntimeAliasAnalysisPass());
+		    polly.add(createScopDescriptionPass());   // print scop description
+		    polly.add(createTransformAccessesPass()); // create General Form for each scop's memory Access
+			                                          // set their current relation types to RelationType_general
+		    //polly.add(createScopDescriptionPass());
+		    polly.add(createInspectDependencesPass()); // Dependences run and compute dependences 
+			                                           // before InspectDependences, but after TransformAccesses
+                                                       // and use general form of memory accesses
+			polly.add(createSizeOfLoopsPass(&sizes));  // compute size of loops
+		    polly.add(createSetRelationTypePass()); // set current relation types in scop's memory Accesses back to 
+			                                        // RelationType_polly
+		    //polly.add(createScopDescriptionPass());
 		}
 		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
+													  // is use polly's representation of Memory Accesses
 		polly.add(createCFGSimplificationPass());
 		polly.run(*kernel->module);
 	}
