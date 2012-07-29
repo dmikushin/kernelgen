@@ -422,16 +422,16 @@ kernel_func_t kernelgen::runtime::compile(
 										//Check if instruction in focus is a AllocaInst
 					AllocaInst *alloca = dyn_cast<AllocaInst>(ii);
 					if(alloca)
-					  if(alloca->isArrayAllocation())
-					    if(!isa<Constant>(*alloca->getArraySize())) {
-							if (verbose) {
-							    outs().changeColor(raw_ostream::RED);
-	                            outs() << "Not allowed dynamic alloca: " << *alloca << "\n";
-	                            outs().resetColor();
-						    }
-					    kernel->target[runmode].supported = false;
-					    return NULL;
-						}
+						if(alloca->isArrayAllocation())
+							if(!isa<Constant>(*alloca->getArraySize())) {
+								if (verbose) {
+									outs().changeColor(raw_ostream::RED);
+									outs() << "Not allowed dynamic alloca: " << *alloca << "\n";
+									outs().resetColor();
+								}
+								kernel->target[runmode].supported = false;
+								return NULL;
+							}
 						
 					// Check if instruction in focus is a call.
 					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));

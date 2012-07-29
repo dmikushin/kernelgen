@@ -21,14 +21,17 @@
 #include <vector>
 #include "polly/Dependences.h"
 
-//#include "runtime.h"
+#include "runtime.h"
+
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "access-general-form"
 
 //!!!STATISTIC(Readings,  "Number of readings");
 
+using namespace kernelgen;
 using namespace polly;
 using namespace std;
+
 namespace llvm
 {
 class PassRegistry;
@@ -65,13 +68,20 @@ public:
 void InspectDependences::checkLoopBodyes(const clast_for *for_loop,int indent)
 {
 	if(DP->isParallelFor(for_loop)) {
-		outs().changeColor(raw_ostream::GREEN);
-		outs().indent(indent) << "loop is parallel \n" ;
+		if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		{
+			outs().changeColor(raw_ostream::GREEN);
+			outs().indent(indent) << "loop is parallel \n";
+			outs().resetColor();
+		}
 	} else {
-		outs().changeColor(raw_ostream::RED);
-		outs().indent(indent) << "loop is not parallel \n" ;
+		if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		{
+			outs().changeColor(raw_ostream::RED);
+			outs().indent(indent) << "loop is not parallel \n";
+			outs().resetColor();
+		}
 	}
-	outs().resetColor();
 	const clast_stmt *stmt=for_loop->body;
 	while(stmt!=NULL) {
 		if(CLAST_STMT_IS_A(stmt, stmt_for))
@@ -100,18 +110,24 @@ bool InspectDependences::runOnScop(Scop &scop)
 	       "After Constant Substitution number of scop's global parameters must be zero"
 	       "if there are parameters then outer loop does not parsed");
 
-	outs() << "<------------------------------ Scop: dependences --------------------------->\n";
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	{
+		outs() << "<------------------------------ Scop: dependences --------------------------->\n";
 
-	printDependences("Write after read dependences: ", Dependences::TYPE_WAR);
-	printDependences("Read after write dependences: ", Dependences::TYPE_RAW);
-	printDependences("Write after write dependences: ", Dependences::TYPE_WAW);
+		printDependences("Write after read dependences: ", Dependences::TYPE_WAR);
+		printDependences("Read after write dependences: ", Dependences::TYPE_RAW);
+		printDependences("Write after write dependences: ", Dependences::TYPE_WAW);
+	}
 
 	const clast_root *root = C->getClast();
 	assert(CLAST_STMT_IS_A(((clast_stmt *)root)->next,stmt_for));
 	const clast_for *for_loop =  (clast_for *)((clast_stmt *)root)->next;
 	checkLoopBodyes(for_loop,4);
 
-	outs() << "<------------------------------ Scop: dependences end ----------------------->\n";
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	{
+		outs() << "<------------------------------ Scop: dependences end ----------------------->\n";
+	}
 
 	return false;
 }
@@ -157,9 +173,12 @@ public:
 		AU.setPreservesAll();
 	}
 	static void printCloogAST(CloogInfo &C) {
-		outs() << "<------------------- Cloog AST of Scop ------------------->\n";
-		C.pprint(outs());
-		outs() << "<--------------------------------------------------------->\n";
+		if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		{
+			outs() << "<------------------- Cloog AST of Scop ------------------->\n";
+			C.pprint(outs());
+			outs() << "<--------------------------------------------------------->\n";
+		}
 	}
 };
 
@@ -168,11 +187,14 @@ bool ScopDescription::runOnScop(Scop &scop)
 	S = &getCurScop();//&scop;
 	C = &getAnalysis<CloogInfo>();
 	assert(S && C);
-	outs() << "\n";
-	outs() << "<------------------------------ Scop: start --------------------------------->\n";
-	printCloogAST(*C);
-	scop.print(outs());
-	outs() << "<------------------------------ Scop: end ----------------------------------->\n";
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	{
+		outs() << "\n";
+		outs() << "<------------------------------ Scop: start --------------------------------->\n";
+		printCloogAST(*C);
+		scop.print(outs());
+		outs() << "<------------------------------ Scop: end ----------------------------------->\n";
+	}
 	return false;
 }
 

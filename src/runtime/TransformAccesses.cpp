@@ -21,12 +21,14 @@
 #include <vector>
 #include "polly/Dependences.h"
 
-//#include "runtime.h"
+#include "runtime.h"
+
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "access-general-form"
 
 //!!!STATISTIC(Readings,  "Number of readings");
 
+using namespace kernelgen;
 using namespace polly;
 using namespace std;
 
@@ -114,19 +116,24 @@ bool TransformAccesses::runOnScop(Scop &scop)
 			       && "Only single dimensional access functions supported");
 
 			if(isa<AllocaInst>(*baseAddressValue)) {
-				outs() << "MemoryAccess to alloca: " << *baseAddressValue <<"\n";
-				outs().indent(4) << memoryAccess->getAccessRelationStr() << "\n";
-				outs().indent(8) << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n";
-				//continue;
+				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				{
+					outs() << "MemoryAccess to alloca: " << *baseAddressValue <<"\n";
+					outs().indent(4) << memoryAccess->getAccessRelationStr() << "\n";
+					outs().indent(8) << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n";
+					//continue;
+				}
 				memoryAccess->setGeneralAccessRelation(accessRelation);
 				memoryAccess->setCurrentRelationType(MemoryAccess::RelationType_general);
 				isl_space_free(space);
 				isl_map_free(accessRelation);
 			} else {
-
-				outs() << "MemoryAccess to pointer: " << *baseAddressValue <<"\n";
-				outs().indent(4) << memoryAccess->getAccessRelationStr() << "\n";
-				outs().indent(8) << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n";
+				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				{
+					outs() << "MemoryAccess to pointer: " << *baseAddressValue <<"\n";
+					outs().indent(4) << memoryAccess->getAccessRelationStr() << "\n";
+					outs().indent(8) << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n";
+				}
 
 				assert(isa<ConstantExpr>(*baseAddressValue)&&
 				       "that must be substituted constant expression");
@@ -146,7 +153,10 @@ bool TransformAccesses::runOnScop(Scop &scop)
 				assert(accessFunction &&
 				       "isl_pw_aff is empty?!");
 
-				outs().changeColor(raw_ostream::RED);
+				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				{
+					outs().changeColor(raw_ostream::RED);
+				}
 
 				isl_local_space *affSpace = isl_aff_get_local_space(accessFunction);
 				isl_local_space * localSpace = isl_local_space_from_space(isl_space_copy(space));
@@ -188,8 +198,11 @@ bool TransformAccesses::runOnScop(Scop &scop)
 				memoryAccess->setGeneralAccessRelation(newMap);
 				memoryAccess->setCurrentRelationType(MemoryAccess::RelationType_general);
 
-				outs().indent(4) << "replacedBy: "  << stringFromIslObj(newMap) << "\n";
-				outs().resetColor();
+				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+				{
+					outs().indent(4) << "replacedBy: "  << stringFromIslObj(newMap) << "\n";
+					outs().resetColor();
+				}
 
 				isl_pw_aff_free(access);
 				isl_local_space_free(affSpace);
