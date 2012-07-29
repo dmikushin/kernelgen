@@ -32,18 +32,18 @@ using namespace std;
 namespace llvm
 {
 class PassRegistry;
-void initializeInspectLoopsPass(llvm::PassRegistry&);
+void initializeInspectDependencesPass(llvm::PassRegistry&);
 void initializeScopDescriptionPass(llvm::PassRegistry&);
 }
 
-class InspectLoops : public polly::ScopPass
+class InspectDependences : public polly::ScopPass
 {
 	Scop *S;
 	polly::CloogInfo *C;
 	Dependences *DP;
 public:
 	static char ID;
-	InspectLoops()
+	InspectDependences()
 		:ScopPass(ID) {
 		/*Readings=0;
 		Writings=0;
@@ -59,9 +59,10 @@ public:
 		AU.setPreservesAll();
 	}
 	void checkLoopBodyes(const clast_for *for_loop, int indent);
+	void printDependences(const char * description, Dependences::Type type);
 };
 
-void InspectLoops::checkLoopBodyes(const clast_for *for_loop,int indent)
+void InspectDependences::checkLoopBodyes(const clast_for *for_loop,int indent)
 {
 	if(DP->isParallelFor(for_loop)) {
 		outs().changeColor(raw_ostream::GREEN);
@@ -78,7 +79,16 @@ void InspectLoops::checkLoopBodyes(const clast_for *for_loop,int indent)
 		stmt=stmt->next;
 	}
 }
-bool InspectLoops::runOnScop(Scop &scop)
+void InspectDependences::printDependences(const char * description, Dependences::Type type)
+{
+	isl_union_map *tmp = NULL;
+	outs().changeColor(raw_ostream::RED);
+	outs()<< description << "\n";
+	outs().resetColor();
+	outs().indent(4) << stringFromIslObj(tmp = DP->getDependences(type)) << "\n";
+	isl_union_map_free(tmp);
+}
+bool InspectDependences::runOnScop(Scop &scop)
 {
 	S = &getCurScop();//&scop;
 	C = &getAnalysis<CloogInfo>();
@@ -89,34 +99,41 @@ bool InspectLoops::runOnScop(Scop &scop)
 	       "FIXME: "
 	       "After Constant Substitution number of scop's global parameters must be zero"
 	       "if there are parameters then outer loop does not parsed");
-	//<foreach statement in scop>
+
+	outs() << "<------------------------------ Scop: dependences --------------------------->\n";
+
+	printDependences("Write after read dependences: ", Dependences::TYPE_WAR);
+	printDependences("Read after write dependences: ", Dependences::TYPE_RAW);
+	printDependences("Write after write dependences: ", Dependences::TYPE_WAW);
 
 	const clast_root *root = C->getClast();
 	assert(CLAST_STMT_IS_A(((clast_stmt *)root)->next,stmt_for));
 	const clast_for *for_loop =  (clast_for *)((clast_stmt *)root)->next;
 	checkLoopBodyes(for_loop,4);
 
+	outs() << "<------------------------------ Scop: dependences end ----------------------->\n";
+
 	return false;
 }
 
-char InspectLoops::ID = 0;
-Pass* createInspectLoopsPass()
+char InspectDependences::ID = 0;
+Pass* createInspectDependencesPass()
 {
-	return new InspectLoops();
+	return new InspectDependences();
 }
 
-INITIALIZE_PASS_BEGIN(InspectLoops, "inspect-loops",
-                      "kernelgen's inspect-loops", false,
+INITIALIZE_PASS_BEGIN(InspectDependences, "inspect-dependences",
+                      "kernelgen's inspect-dependences", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(ScopInfo)
 INITIALIZE_PASS_DEPENDENCY(CloogInfo)
 INITIALIZE_PASS_DEPENDENCY(Dependences)
-INITIALIZE_PASS_END(InspectLoops, "inspect-loops",
-                    "kernelgen's inspect-loops", false,
+INITIALIZE_PASS_END(InspectDependences, "inspect-dependences",
+                    "kernelgen's inspect dependences", false,
                     false)
-					
-static RegisterPass<InspectLoops>
-Z("InspectLoops", "Kernelgen - inspect-loops");
+
+static RegisterPass<InspectDependences>
+Z("InspectDependences", "Kernelgen - inspect dependences");
 
 
 class ScopDescription : public polly::ScopPass
@@ -173,6 +190,68 @@ INITIALIZE_PASS_DEPENDENCY(CloogInfo)
 INITIALIZE_PASS_END(ScopDescription, "print-scop",
                     "Print cloog and polly's scop definitions", false,
                     false)
-					
+
 static RegisterPass<ScopDescription>
 M("ScopDescription", "Print cloog and polly's scop definitions");
+
+class SetRelationType : public polly::ScopPass
+{
+	Scop *S;
+public:
+	static char ID;
+	MemoryAccess::RelationType relationType;
+	SetRelationType(MemoryAccess::RelationType _relationType = MemoryAccess::RelationType_polly)
+		:ScopPass(ID),relationType(_relationType) {
+		/*Readings=0;
+		Writings=0;
+		ReadWrite=0;
+		WriteWrite=0;
+		NoAAScops=0;*/
+	}
+	bool runOnScop(Scop &scop);
+	void getAnalysisUsage(AnalysisUsage &AU) const {
+		ScopPass::getAnalysisUsage(AU);
+		AU.setPreservesAll();
+	}
+};
+bool SetRelationType::runOnScop(Scop &scop)
+{
+	S = &getCurScop();//&scop;
+
+	for(Scop::iterator stmt_iterator = S->begin(), stmt_iterator_end = S->end();
+	    stmt_iterator != stmt_iterator_end; stmt_iterator++) {
+
+		ScopStmt * stmt = *stmt_iterator;
+		assert(strcmp(stmt -> getBaseName(),"FinalRead"));
+
+		for(ScopStmt::memacc_iterator access_iterator=stmt->memacc_begin(), access_iterator_end = stmt->memacc_end();
+		    access_iterator != access_iterator_end; access_iterator++) {
+
+			MemoryAccess* memoryAccess=*access_iterator;
+			memoryAccess->setCurrentRelationType(relationType);
+		}
+	}
+
+	return false;
+}
+
+char SetRelationType::ID = 0;
+Pass* createSetRelationTypePass(MemoryAccess::RelationType relationType = MemoryAccess::RelationType_polly)
+{
+	return new SetRelationType(relationType);
+}
+namespace llvm
+{
+    class PassRegistry;
+    void initializeSetRelationTypePass(llvm::PassRegistry&);
+}
+
+INITIALIZE_PASS_BEGIN(SetRelationType, "set-accesses-type",
+                      "kernelgen's set current acceses type", false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(ScopInfo)
+INITIALIZE_PASS_END(SetRelationType, "set-accesses-type",
+                    "kernelgen's set current relation type", false,
+                    false)
+static RegisterPass<SetRelationType>
+E("SetRelationType", "Kernelgen -  set current relation type");

@@ -182,7 +182,8 @@ bool TransformAccesses::runOnScop(Scop &scop)
 				newMap = isl_map_add_constraint(newMap,two);
 
 				newMap = isl_map_set_tuple_name(newMap, isl_dim_out,"NULL");
-				memoryAccess->setAccessRelation(newMap);
+				memoryAccess->setGeneralAccessRelation(newMap);
+				memoryAccess->setCurrentRelationType(MemoryAccess::RelationType_general);
 
 				outs().indent(4) << "replacedBy: "  << stringFromIslObj(newMap) << "\n";
 				outs().resetColor();
