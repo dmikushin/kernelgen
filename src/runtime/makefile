@@ -54,7 +54,8 @@ CXXFLAGS = \
 OBJECTS := \
 	entry compile launch finish timer io elf execute codegen \
 	memory hostcall wrappers \
-        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody
+        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody \
+    ScopInspection TransformAccesses
 
 OBJECTS := $(addsuffix .o, $(OBJECTS))
 
@@ -121,6 +122,12 @@ kernelgen-inspector: inspector.cpp libkernelgen-rt.so
 	-L../libasfermi/ -L../libasfermi/tests/dyloader -ldyloader -lasfermi -lelf -lrt \
 	-lgmp -lmhash -ldl -lffi -L${HOME}/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
 	-L${HOME}/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl
+
+ScopInspection.o: ScopInspection.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+
+TransformAccesses.o : TransformAccesses.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
 clean:
 	rm -rf *.o libkernelgen-rt.so kernelgen-inspector
