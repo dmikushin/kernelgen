@@ -65,20 +65,20 @@
  {
    unsigned i;
 -  unsigned num_lto_args = num_claimed_files + lto_wrapper_num_args + 1;
-+  unsigned num_lto_args = num_claimed_files + 1;
++  unsigned num_lto_args = num_claimed_files + 2;
    char **lto_argv;
    const char **lto_arg_ptr;
    if (num_claimed_files == 0)
-@@ -611,9 +611,6 @@
+@@ -611,8 +611,7 @@
  
    free_1 ();
  
 -  for (i = 0; i < lto_wrapper_num_args; i++)
 -    *lto_arg_ptr++ = lto_wrapper_argv[i];
--
++  *lto_arg_ptr++ = "/opt/kernelgen/bin/kernelgen-simple";
+ 
    for (i = 0; i < num_claimed_files; i++)
      {
-       struct plugin_file_info *info = &claimed_files[i];
 --- a/gcc-snapshot/gcc/tlink.c	2010-11-29 17:09:41.000000000 +0300
 +++ b/gcc-snapshot/gcc/tlink.c	2015-10-01 18:47:58.000000000 +0400
 @@ -765,6 +765,18 @@
