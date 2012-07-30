@@ -890,20 +890,31 @@ kernel_func_t kernelgen::runtime::compile(
 				GV->setAlignment(4096);
 		}
 
-		// Optimize module.
+		// Optimize only loop kernels.
+		if(strcmp(kernel->name.c_str(), "__kernelgen_main"))
 		{
 			PassManager manager;
 			PassManagerBuilder builder;
 			builder.Inliner = createFunctionInliningPass();
+			
 			builder.OptLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
 			builder.DisableUnrollLoops = true;
 			builder.Vectorize = false;
 			builder.populateModulePassManager(manager);
+	
 			manager.run(*m);
 		}
-
-		// Erase all defined functions, except the kernel.
+		else
+        {
+	        PassManager MPM;
+            MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
+            MPM.add(createFunctionInliningPass());
+            MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+            MPM.run(*m);
+        }
+		
+			// Erase all defined functions, except the kernel.
 		vector<Function*> erase_funcs;
 		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
 			if (!F->isDeclaration() && (F->getName() != kernel->name))

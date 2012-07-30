@@ -85,7 +85,8 @@ static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBas
 	PM.add(createMoveUpCastsPass());
 	PM.add(createInstructionCombiningPass());
 	PM.add(createBasicAliasAnalysisPass());
-	PM.add(createGVNPass());  
+	PM.add(createGVNPass()); 
+	//PM.add(createEarlyCSEPass());
 	PM.add(createBranchedLoopExtractorPass());
 	PM.add(createVerifierPass());
 }
@@ -141,13 +142,13 @@ extern "C" void callback (void*, void*)
 	// Apply optimization passes to the resulting common module.
 	//
 	{
-		int optLevel = 3;
+		int optLevel = 1;
 		
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = optLevel;
 		builder.DisableSimplifyLibCalls = true;
-		
+		builder.SizeLevel=3;
 		TrackedPassManager manager(tracker);
 		
 		if (optLevel == 0)

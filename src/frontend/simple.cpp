@@ -95,7 +95,8 @@ static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBas
 	PM.add(createMoveUpCastsPass());
 	PM.add(createInstructionCombiningPass());
 	PM.add(createBasicAliasAnalysisPass());
-	PM.add(createGVNPass());  
+	PM.add(createGVNPass()); 
+	//PM.add(createEarlyCSEPass());
 	PM.add(createBranchedLoopExtractorPass());
 	PM.add(createVerifierPass());
 }
@@ -315,7 +316,7 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = optLevel;
 		builder.DisableSimplifyLibCalls = true;
-		
+		builder.SizeLevel=3;
 		TrackedPassManager manager(tracker);
 		
 		if (optLevel == 0)
@@ -939,6 +940,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		PassManagerBuilder builder;
 		builder.Inliner = createFunctionInliningPass();
 		builder.OptLevel = 0;
+		builder.SizeLevel=3;
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
 		manager.run(composite);
@@ -1166,7 +1168,20 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		manager.add(createStripDeadDebugInfoPass());
 		manager.add(createStripDeadPrototypesPass());
 		manager.run(composite);
-
+        
+		// optimize only composite main function
+		{
+			TrackedPassManager manager(tracker);
+		    manager.add(new TargetData(&composite));
+			PassManagerBuilder builder;
+		    builder.Inliner = NULL;
+		    builder.OptLevel = 3;
+		    builder.SizeLevel=3;
+		    builder.DisableSimplifyLibCalls = true;
+		    builder.populateModulePassManager(manager);
+		    manager.run(composite);
+		}
+		
 		// Rename "main" to "__kernelgen_main".
 		Function* kernelgen_main_ = composite.getFunction("main");
 		kernelgen_main_->setName("__kernelgen_main");
@@ -1187,8 +1202,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			unsigned long long maximumSizeOfData=0;
 			
 			//list of allocas for aggregated structures with parameters
-			//list<AllocaInst *> allocasForArgs;
-            set<AllocaInst *> allocasForArgs;
+			list<AllocaInst *> allocasForArgs;
+            //set<AllocaInst *> allocasForArgs;
 			
             allocasForArgs.clear();
 			Value * tmpArg=NULL;
@@ -1229,8 +1244,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				assert(allocaForArgs->getAllocatedType()->isStructTy() && "must be allocation of structure for args");
 				
 				//store alloca
-				//allocasForArgs.push_back(allocaForArgs);   
-                allocasForArgs.insert(allocaForArgs);
+				allocasForArgs.push_back(allocaForArgs);   
+                //allocasForArgs.insert(allocaForArgs);
 			}
 			// allocate maximumSizeOfData of i8
 			//AllocaInst *collectiveAlloca = new AllocaInst(Type::getInt8Ty(module->getContext()), 
@@ -1244,8 +1259,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					  kernelgen_main_->begin()->begin());
 			
 			// walk on all stored allocas
-			//for(list<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
-            for(set<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
+			for(list<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
+            //for(set<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
                   iter!=iter_end;iter++ )
 				  {
 					 AllocaInst * allocaInst=*iter;
