@@ -38,7 +38,7 @@ libkernelgen-opt.so: $(OBJECTS_OPT)
 	$(CXX) -g -shared $^ -o $@ $(LLVM_LIB)
 
 kernelgen-simple: $(OBJECTS_KS) libkernelgen-opt.so
-	$(CXX) -g $(OBJECTS_KS) -o $@ -lelf -L. -lkernelgen-opt $(BUGPOINT_LIBS) $(LLVM_LIB)
+	$(CXX) -g $(OBJECTS_KS) -o $@ -lelf -L. -lkernelgen-opt $(BUGPOINT_LIBS) $(LLVM_LIB) -L/opt/kernelgen/lib64/ -liberty
 
 kernelgen-ct.o: compile.cpp $(BUGPOINT_INC)/TrackedPassManager.h
 	$(CXX) $(CXXFLAGS) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@

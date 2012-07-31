@@ -41,6 +41,7 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Bitcode/Archive.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
@@ -508,7 +509,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	// them into single composite module.
 	// In the meantime, find an object containing the main entry.
 	//
-	const char* main_output = NULL;
+	string main_output = "";
 	int fd;
 	string tmp_mask = "%%%%%%%%";
 	SmallString<128> tmp_main_vector;
@@ -552,6 +553,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	for (int i = 0; argv[i]; i++)
 	{
 		char* arg = argv[i];
+
 		if (!strcmp(arg + strlen(arg) - 2, ".a"))
 		{
 			cout << "Note kernelgen-simple does not parse objects in .a libraries!" << endl;
@@ -562,9 +564,36 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			cout << "Note kernelgen-simple does not parse objects in .so libraries!" << endl;
 			continue;
 		}
-		if (strcmp(arg + strlen(arg) - 2, ".o"))
+
+		// For LTO static archive support handle input file specifications
+		// that are composed of a filename and an offset like FNAME@OFFSET.
+		char* name = NULL;
+		long offset;
+		int consumed;
+		const char *p = strrchr(arg, '@');
+		if (p && (p != arg) && (sscanf(p, "@%li%n", &offset, &consumed) >= 1) &&
+			(strlen (p) == (unsigned int)consumed))
+		{
+			name = (char *)malloc(p - arg + 1);
+			memcpy(name, arg, p - arg);
+			name[p - arg] = '\0';
+
+			// Only accept non-stdin and existing FNAME parts, otherwise
+			// try with the full name.
+			if (strcmp(name, "-") == 0)
+			{
+				free(name);
+				name = NULL;
+			}
+		}
+		if (!name) name = strdup(arg);
+		if (access(name, F_OK) < 0)
+		{
+			free(name);
 			continue;
-		
+		}
+		arg = name;
+
 		if (verbose)
 			cout << "Linking " << arg << " ..." << endl;
 
@@ -573,7 +602,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		stringstream stream(stringstream::in | stringstream::out |
 			stringstream::binary);
 		ifstream f(arg, ios::in | ios::binary);
-		stream << f.rdbuf();
+		if (p) f.seekg(offset);
+		stream << f.rdbuf(); // FIXME: don't read to end of the file, read to the ELF end marker!
 		f.close();
 		string str = stream.str();
 		container.resize(str.size() + 1);
@@ -717,8 +747,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			}
 		}
 		elf_end(e);
+		free(arg);
 	}
-	if (!main_output)
+	if (main_output == "")
 	{
 		// In general case this is not an error.
 		// Missing main entry only means we are linking
@@ -1219,11 +1250,11 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			list<AllocaInst *> allocasForArgs;
             //set<AllocaInst *> allocasForArgs;
 			
-            allocasForArgs.clear();
-			Value * tmpArg=NULL;
+			allocasForArgs.clear();
+			Value * tmpArg = NULL;
 			
-			//walk on all kernelgen_launch's users
-		    for (Value::use_iterator UI = f->use_begin(), UE = f->use_end(); UI != UE; UI++)
+			// Walk on all kernelgen_launch's users
+			for (Value::use_iterator UI = f->use_begin(), UE = f->use_end(); UI != UE; UI++)
 			{
 				
 				CallInst* call = dyn_cast<CallInst>(*UI);
@@ -1408,7 +1439,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		args.reserve(argc);
 		for (int i = 0; argv[i]; i++)
 		{
-			if (!strcmp(argv[i], main_output)) {
+			if (!strcmp(argv[i], main_output.c_str())) {
 				args.push_back(tmp_main_output1.c_str());
 				continue;
 			}
@@ -1446,8 +1477,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	else
 	{
 		// When no output, kernelgen-simple acts as and LTO backend.
-		// Here we need to output the list of objects collect2 will
-		// pass to linker.
+		// Here we need to output an object collect2 will pass to linker.
+		// For compatibility with LTO plugin & gold, all objects are merged
+		// into single one.
 		if (nloops % 2) tmp_main_object1.keep();
 		else tmp_main_object2.keep();
 		for (int i = 1; argv[i]; i++)
@@ -1457,27 +1489,83 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			// To be compatible with LTO, we need to clone all
 			// objects, except the one containing main entry,
 			// which is already clonned.
-			if (strcmp(argv[i], main_output))
+			if (strcmp(argv[i], main_output.c_str()))
 			{
-		                tmp_main_vector.clear();
-        		        if (unique_file(tmp_mask, fd, tmp_main_vector))
-                		{
-                        		cout << "Cannot generate temporary main object file name" << endl;
-	                        	return 1;
-	        	        }
-        	        	name = (StringRef)tmp_main_vector;
-	        	        close(fd);
-		        	tool_output_file tmp_object(name.c_str(), err, raw_fd_ostream::F_Binary);
+				char* arg = argv[i];
+				long offset = 0;
+				{
+					char* name = NULL;
+					int consumed;
+					const char *p = strrchr(arg, '@');
+					if (p && (p != arg) && (sscanf(p, "@%li%n", &offset, &consumed) >= 1) &&
+						(strlen (p) == (unsigned int)consumed))
+					{
+						name = (char *)malloc(p - arg + 1);
+						memcpy(name, arg, p - arg);
+						name[p - arg] = '\0';
+
+						// Only accept non-stdin and existing FNAME parts, otherwise
+						// try with the full name.
+						if (strcmp(name, "-") == 0)
+						{
+							free(name);
+							name = NULL;
+						}
+					}
+					if (!name) name = strdup(arg);
+					if (access(name, F_OK) < 0)
+					{
+						free(name);
+						continue;
+					}
+					arg = name;
+				}
+
+				tmp_main_vector.clear();
+				if (unique_file(tmp_mask, fd, tmp_main_vector))
+				{
+					cout << "Cannot generate temporary main object file name" << endl;
+					return 1;
+				}
+				name = (StringRef)tmp_main_vector;
+				tool_output_file tmp_object(name.c_str(), err, raw_fd_ostream::F_Binary);
 				if (!err.empty())
 				{
 					cerr << "Cannot open output file" << name.c_str() << endl;
 					return 1;
 				}
 				tmp_object.keep();
+
+				// Find the target object size.
+				if (offset != 0)
 				{
+					// Open the archive and determine the size of member having the
+					// specified offset.
+					Archive* archive = Archive::OpenAndLoadSymbols(sys::Path(arg), context, NULL);
+					unsigned int current_offset = archive->getFirstFileOffset();
+					ArchiveMember* found_member = NULL;
+					for (Archive::iterator AI = archive->begin(), AE = archive->end(); AI != AE; AI++)
+					{
+						ArchiveMember* member = AI;
+						if (current_offset == offset)
+						{
+							found_member = member;
+							break;
+						}
+						current_offset += member->getMemberSize();
+					}
+					unsigned int size = found_member->getMemberSize();
+
+					// Copy the object content to the temporary file.
+					write(fd, found_member->getData(), size);
+					close(fd);
+				}
+				else
+				{
+					// Otherwise, just copy the whole file.
 					vector<const char*> args;
 					args.push_back(cp);
-					args.push_back(argv[i]);
+					args.push_back(arg);
 					args.push_back(name.c_str());
 					args.push_back(NULL);
 					if (verbose)
@@ -1496,6 +1584,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 						return status;
 					}
 				}
+				free(arg);
 			}
 
 			// Remove the .kernelgen section from the clonned object.
@@ -1529,6 +1618,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	return 0;
 }
 
+extern "C" void expandargv(int* argcp, char*** argvp);
+
 int main(int argc, char* argv[])
 {
 	llvm::PrettyStackTraceProgram X(argc, argv);
@@ -1544,6 +1635,10 @@ int main(int argc, char* argv[])
 	// Enable or disable verbose output.
 	char* cverbose = getenv("kernelgen_verbose");
 	if (cverbose) verbose = atoi(cverbose);
+
+	// We may be called with all the arguments stored in some file and
+	// passed with @file. Expand them into argv before processing.
+	expandargv(&argc, &argv);
 
 	// Supported source code files extensions.
 	vector<const char*> ext;
