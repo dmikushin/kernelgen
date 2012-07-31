@@ -78,6 +78,11 @@ Pass* createMoveUpCastsPass();
 
 extern string dragonegg_result;
 
+extern cl::opt<bool> EnablePRE;
+extern cl::opt<bool> EnableLoadPRE;
+extern cl::opt<bool> DisableLoadsDeletion;
+extern cl::opt<bool> DisablePromotion;
+
 static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
 	PM.add(createFixPointersPass());
@@ -142,22 +147,37 @@ extern "C" void callback (void*, void*)
 	// Apply optimization passes to the resulting common module.
 	//
 	{
-		int optLevel = 1;
-		
+		PassManager manager;
+		manager.add(new TargetData(m));
+		manager.add(createFixPointersPass());
+		manager.add(createInstructionCombiningPass());
+		manager.add(createMoveUpCastsPass());
+		manager.add(createInstructionCombiningPass());
+		manager.add(createEarlyCSEPass());
+		manager.add(createCFGSimplificationPass());
+		manager.run(*m);
+	}
+	
+	EnableLoadPRE.setValue(false);
+	DisableLoadsDeletion.setValue(true);
+	DisablePromotion.setValue(true);
+	//llvm::DebugFlag=true;
+
+	{
 		PassManagerBuilder builder;
-		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = optLevel;
+		builder.Inliner = NULL;///!!!!
+		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
-		builder.SizeLevel=3;
-		TrackedPassManager manager(tracker);
-		
-		if (optLevel == 0)
-			addKernelgenPasses(builder,manager);
-		else
-			builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-				addKernelgenPasses);
-		
+		PassManager manager;
+		manager.add(new TargetData(m));
 		builder.populateModulePassManager(manager);
+		manager.run(*m);
+		
+	}
+	{
+		PassManager manager;
+		manager.add(createBranchedLoopExtractorPass());
+		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
 

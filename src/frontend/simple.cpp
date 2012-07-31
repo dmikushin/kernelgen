@@ -87,6 +87,10 @@ static bool a_ends_with_b(const char* a, const char* b)
 
 Pass *createFixPointersPass();
 Pass *createMoveUpCastsPass();
+extern cl::opt<bool> EnablePRE;
+extern cl::opt<bool> EnableLoadPRE;
+extern cl::opt<bool> DisableLoadsDeletion;
+extern cl::opt<bool> DisablePromotion;
 
 static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
@@ -304,28 +308,38 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 			i++;
 		}
 	}*/
-	
-	//
-	// 4) Inline calls and extract loops into new functions.
-	// Apply optimization passes to the resulting common module.
-	//
 	{
-		int optLevel = 3;
-		
+		PassManager manager;
+		manager.add(new TargetData(m.get()));
+		manager.add(createFixPointersPass());
+		manager.add(createInstructionCombiningPass());
+		manager.add(createMoveUpCastsPass());
+		manager.add(createInstructionCombiningPass());
+		manager.add(createEarlyCSEPass());
+		manager.add(createCFGSimplificationPass());
+		manager.run(*m);
+	}
+	
+	EnableLoadPRE.setValue(false);
+	DisableLoadsDeletion.setValue(true);
+	DisablePromotion.setValue(true);
+	//llvm::DebugFlag=true;
+
+	{
 		PassManagerBuilder builder;
-		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = optLevel;
+		builder.Inliner = NULL;///!!!!
+		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
-		builder.SizeLevel=3;
-		TrackedPassManager manager(tracker);
-		
-		if (optLevel == 0)
-			addKernelgenPasses(builder,manager);
-		else
-			builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-				addKernelgenPasses);
-		
+		PassManager manager;
+		manager.add(new TargetData(m.get()));
 		builder.populateModulePassManager(manager);
+		manager.run(*m);
+		
+	}
+	{
+		PassManager manager;
+		manager.add(createBranchedLoopExtractorPass());
+		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
 

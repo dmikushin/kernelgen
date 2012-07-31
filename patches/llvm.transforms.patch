@@ -1,0 +1,67 @@
+--- a/llvm/lib/Transforms/Scalar/GVN.cpp	(revision 156703)
++++ b/llvm/lib/Transforms/Scalar/GVN.cpp	(working copy)
+@@ -55,10 +55,12 @@
+ STATISTIC(NumGVNEqProp, "Number of equalities propagated");
+ STATISTIC(NumPRELoad,   "Number of loads PRE'd");
+ 
+-static cl::opt<bool> EnablePRE("enable-pre",
++cl::opt<bool> EnablePRE("enable-pre",
+                                cl::init(true), cl::Hidden);
+-static cl::opt<bool> EnableLoadPRE("enable-load-pre", cl::init(true));
++cl::opt<bool> EnableLoadPRE("enable-load-pre", cl::init(true));
+ 
++cl::opt<bool> DisableLoadsDeletion("disable-loads-deletion", cl::init(false));
++
+ // Maximum allowed recursion depth.
+ static cl::opt<uint32_t>
+ MaxRecurseDepth("max-recurse-depth", cl::Hidden, cl::init(1000), cl::ZeroOrMore,
+@@ -1487,19 +1489,26 @@
+   // load, then it is fully redundant and we can use PHI insertion to compute
+   // its value.  Insert PHIs and remove the fully redundant value now.
+   if (UnavailableBlocks.empty()) {
+-    DEBUG(dbgs() << "GVN REMOVING NONLOCAL LOAD: " << *LI << '\n');
+-    
+-    // Perform PHI construction.
+-    Value *V = ConstructSSAForLoadSet(LI, ValuesPerBlock, *this);
+-    LI->replaceAllUsesWith(V);
++	  if(!DisableLoadsDeletion || isa<Argument>(LI->getPointerOperand()))
++	  {
++         DEBUG(dbgs() << "GVN REMOVING NONLOCAL LOAD: " << *LI << '\n');
++         // Perform PHI construction.
++         Value *V = ConstructSSAForLoadSet(LI, ValuesPerBlock, *this);
++         LI->replaceAllUsesWith(V);
+ 
+-    if (isa<PHINode>(V))
+-      V->takeName(LI);
+-    if (V->getType()->isPointerTy())
+-      MD->invalidateCachedPointerInfo(V);
+-    markInstructionForDeletion(LI);
+-    ++NumGVNLoad;
+-    return true;
++         if (isa<PHINode>(V))
++            V->takeName(LI);
++         if (V->getType()->isPointerTy())
++            MD->invalidateCachedPointerInfo(V);
++         markInstructionForDeletion(LI);
++         ++NumGVNLoad;
++	     return true;
++	  }
++	  else
++      { 
++		  DEBUG(dbgs() << "GVN: non-local load " << *LI << " not removed (disabled)\n");
++          return false;
++	  }
+   }
+ 
+   if (!EnablePRE || !EnableLoadPRE)
+--- a/llvm/lib/Transforms/Scalar/LICM.cpp	(revision 156703)
++++ b/llvm/lib/Transforms/Scalar/LICM.cpp	(working copy)
+@@ -62,7 +62,7 @@
+ STATISTIC(NumMovedCalls, "Number of call insts hoisted or sunk");
+ STATISTIC(NumPromoted  , "Number of memory locations promoted to registers");
+ 
+-static cl::opt<bool>
++cl::opt<bool>
+ DisablePromotion("disable-licm-promotion", cl::Hidden,
+                  cl::desc("Disable memory promotion in LICM pass"));
+ 
