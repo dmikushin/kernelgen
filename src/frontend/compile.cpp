@@ -170,7 +170,7 @@ extern "C" void callback (void*, void*)
 		builder.DisableSimplifyLibCalls = true;
 		builder.SizeLevel=3;
 		PassManager manager;
-		manager.add(new TargetData(m.get()));
+		manager.add(new TargetData(m));
 		builder.populateModulePassManager(manager);
 		manager.run(*m);
 		
