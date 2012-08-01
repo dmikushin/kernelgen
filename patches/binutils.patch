@@ -17,7 +17,7 @@
 +      int fallback = 0;
 +      if (cfallback)
 +        fallback = atoi(cfallback);
-+      if (fallback) {
++      if (!fallback) {
 +        const char* regular_main = "__regular_main";
 +        if (!strcmp(name, "main"))
 +          name = regular_main;
