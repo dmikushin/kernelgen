@@ -1,3 +1,24 @@
+--- a/llvm/lib/Transforms/Scalar/LICM.cpp	(revision 156703)
++++ b/llvm/lib/Transforms/Scalar/LICM.cpp	(working copy)
+@@ -62,7 +62,7 @@
+ STATISTIC(NumMovedCalls, "Number of call insts hoisted or sunk");
+ STATISTIC(NumPromoted  , "Number of memory locations promoted to registers");
+ 
+-static cl::opt<bool>
++cl::opt<bool>
+ DisablePromotion("disable-licm-promotion", cl::Hidden,
+                  cl::desc("Disable memory promotion in LICM pass"));
+ 
+@@ -594,7 +594,8 @@
+   // If it is not a trapping instruction, it is always safe to hoist.
+   if (isSafeToSpeculativelyExecute(&Inst))
+     return true;
+-
++  if(isa<LoadInst>(Inst) && isa<Argument>(*cast<LoadInst>(&Inst)->getPointerOperand()))
++    return true;
+   return isGuaranteedToExecute(Inst);
+ }
+ 
 --- a/llvm/lib/Transforms/Scalar/GVN.cpp	(revision 156703)
 +++ b/llvm/lib/Transforms/Scalar/GVN.cpp	(working copy)
 @@ -55,10 +55,12 @@
@@ -54,14 +75,3 @@
    }
  
    if (!EnablePRE || !EnableLoadPRE)
---- a/llvm/lib/Transforms/Scalar/LICM.cpp	(revision 156703)
-+++ b/llvm/lib/Transforms/Scalar/LICM.cpp	(working copy)
-@@ -62,7 +62,7 @@
- STATISTIC(NumMovedCalls, "Number of call insts hoisted or sunk");
- STATISTIC(NumPromoted  , "Number of memory locations promoted to registers");
- 
--static cl::opt<bool>
-+cl::opt<bool>
- DisablePromotion("disable-licm-promotion", cl::Hidden,
-                  cl::desc("Disable memory promotion in LICM pass"));
- 

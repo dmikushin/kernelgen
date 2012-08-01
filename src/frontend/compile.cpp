@@ -168,8 +168,9 @@ extern "C" void callback (void*, void*)
 		builder.Inliner = NULL;///!!!!
 		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
+		builder.SizeLevel=3;
 		PassManager manager;
-		manager.add(new TargetData(m));
+		manager.add(new TargetData(m.get()));
 		builder.populateModulePassManager(manager);
 		manager.run(*m);
 		

@@ -331,6 +331,7 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		builder.Inliner = NULL;///!!!!
 		builder.OptLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
+		builder.SizeLevel=3;
 		PassManager manager;
 		manager.add(new TargetData(m.get()));
 		builder.populateModulePassManager(manager);
