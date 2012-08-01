@@ -57,8 +57,9 @@ Patch6:         llvm.nvptx.patch
 Patch7:         llvm.clang.patch
 Patch8:		llvm.transforms.patch
 Patch9:		gcc.patch
-Patch10:        gcc-multiarch.patch
-Patch11:        gcc.build.patch
+Patch10:	binutils.patch
+Patch11:        gcc-multiarch.patch
+Patch12:        gcc.build.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -123,8 +124,9 @@ sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 %patch7 -p1
 %patch8 -p1
 %patch9 -p1
-%if (%target == debian)
 %patch10 -p1
+%if (%target == debian)
+%patch11 -p1
 %endif
 %endif
 

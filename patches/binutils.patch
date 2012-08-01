@@ -1,0 +1,28 @@
+--- a/binutils-2.22/gold/symtab.cc	20i11-11-21 12:29:36.000000000 +0300
++++ b/binutils-2.22/gold/symtab.cc	2015-10-04 21:55:59.000000000 +0400
+@@ -22,6 +22,7 @@
+ 
+ #include "gold.h"
+ 
++#include <cstdlib>
+ #include <cstring>
+ #include <stdint.h>
+ #include <algorithm>
+@@ -1109,6 +1110,17 @@
+ 
+       const char* name = sym_names + st_name;
+ 
++      // If not fallback, change main to __regular_main.
++      const char* cfallback = getenv("KERNELGEN_FALLBACK");
++      int fallback = 0;
++      if (cfallback)
++        fallback = atoi(cfallback);
++      if (fallback) {
++        const char* regular_main = "__regular_main";
++        if (!strcmp(name, "main"))
++          name = regular_main;
++      }
++
+       bool is_ordinary;
+       unsigned int st_shndx = relobj->adjust_sym_shndx(i + symndx_offset,
+ 						       sym.get_st_shndx(),

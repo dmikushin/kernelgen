@@ -41,7 +41,7 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Bitcode/Archive.h"
+#include "llvm/Object/Archive.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
@@ -69,6 +69,7 @@
 #include "TrackedPassManager.h"
 
 using namespace llvm;
+using namespace llvm::object;
 using namespace llvm::sys;
 using namespace llvm::sys::fs;
 using namespace std;
@@ -551,7 +552,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		cerr << "ELF library initialization failed: " << elf_errmsg(-1) << endl;
 		return 1;
 	}
-	for (int i = 0; argv[i]; i++)
+	for (int i = 1; argv[i]; i++)
 	{
 		char* arg = argv[i];
 
@@ -1481,8 +1482,16 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Here we need to output an object collect2 will pass to linker.
 		// For compatibility with LTO plugin & gold, all objects are merged
 		// into single one.
-		if (nloops % 2) tmp_main_object1.keep();
-		else tmp_main_object2.keep();
+		if (nloops % 2) tmp_main_object2.keep();
+		else tmp_main_object1.keep();
+		vector<const char*> ld_args;
+		ld_args.resize(argc + 4);
+		ld_args[0] = linker;
+		ld_args[1] = "-r";
+		ld_args[2] = "-o";
+		ld_args[3] = tmp_main_output2.c_str();
+		vector<string> names;
+		names.resize(argc);
 		for (int i = 1; argv[i]; i++)
 		{
 			string name = tmp_main_output1;
@@ -1542,24 +1551,32 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				{
 					// Open the archive and determine the size of member having the
 					// specified offset.
-					Archive* archive = Archive::OpenAndLoadSymbols(sys::Path(arg), context, NULL);
-					unsigned int current_offset = archive->getFirstFileOffset();
-					ArchiveMember* found_member = NULL;
-					for (Archive::iterator AI = archive->begin(), AE = archive->end(); AI != AE; AI++)
+					OwningPtr<MemoryBuffer> buffer;
+					error_code ec = MemoryBuffer::getFile(arg, buffer);
+					Archive archive(buffer.get(), ec);
+					Archive::child_iterator* found_child = NULL;
+					for (Archive::child_iterator AI = archive.begin_children(),
+						AE = archive.end_children(); AI != AE; ++AI)
 					{
-						ArchiveMember* member = AI;
+						long current_offset = (ptrdiff_t)AI->getBuffer()->getBufferStart() -
+							(ptrdiff_t)buffer->getBufferStart();
 						if (current_offset == offset)
 						{
-							found_member = member;
+							found_child = &AI;
 							break;
 						}
-						current_offset += member->getMemberSize();
 					}
-					unsigned int size = found_member->getMemberSize();
+					if (!found_child)
+					{
+						cerr << "Cannot find " << argv[i] << " (" << offset << ")" << endl;
+						return 1;
+					}
+					unsigned int size = (*found_child)->getSize();
 
 					// Copy the object content to the temporary file.
-					write(fd, found_member->getData(), size);
+					write(fd, (*found_child)->getBuffer()->getBufferStart(), size);
 					close(fd);
+					buffer.take();
 				}
 				else
 				{
@@ -1611,9 +1628,31 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					return status;
 				}
 			}
-
-			cout << name << endl;
+			names[i - 1] = name;
+			ld_args[i + 3] = names[i - 1].c_str();
 		}
+		ld_args[argc + 3] = NULL;
+
+		// Link all objects into single object and output it.
+		{
+			if (verbose)
+			{
+				cout << ld_args[0];
+				for (int i = 1; ld_args[i]; i++)
+					cout << " " << ld_args[i];
+				cout << endl;
+			}
+			int status = Program::ExecuteAndWait(
+				Program::FindProgramByName(linker), &ld_args[0],
+				NULL, NULL, 0, 0, &err);
+			if (status)
+			{
+				cerr << err;
+				return status;
+			}
+		}
+
+		cout << tmp_main_output2 << endl;
 	}
 	
 	return 0;
@@ -1640,6 +1679,9 @@ int main(int argc, char* argv[])
 	// We may be called with all the arguments stored in some file and
 	// passed with @file. Expand them into argv before processing.
 	expandargv(&argc, &argv);
+
+	if (argc == 1)
+		return 0;
 
 	// Supported source code files extensions.
 	vector<const char*> ext;
