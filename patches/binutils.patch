@@ -1,4 +1,12 @@
---- a/binutils-2.22/gold/symtab.cc	20i11-11-21 12:29:36.000000000 +0300
+# This patch shadows the original application main entry during linking.
+# The original main entry is renamed to "__regular_main" in all places
+# it is referred as defined symbol, except kernelgen-rt.so, and remains
+# "main" in all places it is referred as undefined symbol. This way
+# kernelgen-simple is able to safely rename "main" to "__regular_main",
+# and afterwards linker resolves undefined "main" in crt1.o with its
+# definition from kernelgen-rt.so.
+
+--- a/binutils-2.22/gold/symtab.cc	2011-11-21 12:29:36.000000000 +0300
 +++ b/binutils-2.22/gold/symtab.cc	2015-10-04 21:55:59.000000000 +0400
 @@ -22,6 +22,7 @@
  
@@ -8,21 +16,40 @@
  #include <cstring>
  #include <stdint.h>
  #include <algorithm>
-@@ -1109,6 +1110,17 @@
- 
-       const char* name = sym_names + st_name;
- 
+@@ -1113,6 +1114,18 @@
+       unsigned int st_shndx = relobj->adjust_sym_shndx(i + symndx_offset,
+ 						       sym.get_st_shndx(),
+ 						       &is_ordinary);
++
 +      // If not fallback, change main to __regular_main.
 +      const char* cfallback = getenv("KERNELGEN_FALLBACK");
 +      int fallback = 0;
 +      if (cfallback)
 +        fallback = atoi(cfallback);
-+      if (!fallback) {
-+        const char* regular_main = "__regular_main";
++      const char* regular_main = "__regular_main";
++      if (!fallback && (st_shndx != elfcpp::SHN_UNDEF)) {
 +        if (!strcmp(name, "main"))
 +          name = regular_main;
 +      }
 +
-       bool is_ordinary;
-       unsigned int st_shndx = relobj->adjust_sym_shndx(i + symndx_offset,
- 						       sym.get_st_shndx(),
+       unsigned int orig_st_shndx = st_shndx;
+       if (!is_ordinary)
+ 	orig_st_shndx = elfcpp::SHN_UNDEF;
+@@ -1269,6 +1282,17 @@
+   unsigned int st_shndx = sym->get_st_shndx();
+   bool is_ordinary = st_shndx < elfcpp::SHN_LORESERVE;
+ 
++  // If not fallback, change main to __regular_main.
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  int fallback = 0;
++  if (cfallback)
++    fallback = atoi(cfallback);
++  const char* regular_main = "__regular_main";
++  if (!fallback && (st_shndx != elfcpp::SHN_UNDEF)) {
++    if (!strcmp(name, "main"))
++      name = regular_main;
++  }
++
+   Stringpool::Key ver_key = 0;
+   bool is_default_version = false;
+   bool is_forced_local = false;
