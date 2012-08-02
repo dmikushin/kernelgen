@@ -1025,7 +1025,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	if (verbose)
 		cout << "Inlining ..." << endl;
 	{
-		TrackedPassManager manager(tracker);
+		//TrackedPassManager manager(tracker);
+		PassManager manager;
 		manager.add(new TargetData(&composite));
 		manager.add(createInstructionCombiningPass());
 		PassManagerBuilder builder;
@@ -1253,7 +1254,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			}
 		}
 
-		TrackedPassManager manager(tracker);
+		//TrackedPassManager manager(tracker);
+		PassManager manager;
 		manager.add(new TargetData(&composite));
 		
 		// Delete unreachable globals		
@@ -1275,7 +1277,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	if (verbose)
 		cout << "Extracting kernel main ..." << endl;
 	{
-		TrackedPassManager manager(tracker);
+		//TrackedPassManager manager(tracker);
+		PassManager manager;
 		manager.add(new TargetData(&composite));
 
 		std::vector<GlobalValue*> plain_functions;
@@ -1290,17 +1293,18 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		manager.add(createStripDeadPrototypesPass());
 		manager.run(composite);
         
-		// optimize only composite main function
+		// Optimize only composite main function
 		{
-			TrackedPassManager manager(tracker);
-		    manager.add(new TargetData(&composite));
+			//TrackedPassManager manager(tracker);
+			PassManager manager;
+			manager.add(new TargetData(&composite));
 			PassManagerBuilder builder;
-		    builder.Inliner = NULL;
-		    builder.OptLevel = 3;
-		    builder.SizeLevel=3;
-		    builder.DisableSimplifyLibCalls = true;
-		    builder.populateModulePassManager(manager);
-		    manager.run(composite);
+			builder.Inliner = NULL;
+			builder.OptLevel = 3;
+			builder.SizeLevel = 3;
+			builder.DisableSimplifyLibCalls = true;
+			builder.populateModulePassManager(manager);
+			manager.run(composite);
 		}
 		
 		// Rename "main" to "__kernelgen_main".
@@ -1324,7 +1328,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			
 			//list of allocas for aggregated structures with parameters
 			list<AllocaInst *> allocasForArgs;
-            //set<AllocaInst *> allocasForArgs;
+			//set<AllocaInst *> allocasForArgs;
 			
 			allocasForArgs.clear();
 			Value * tmpArg = NULL;
@@ -1337,36 +1341,37 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				if (!call) continue;
 				
 				assert(call->getParent() -> getParent() == kernelgen_main_ &&
-				  "by this time, after deleting of all plain functions, "
-                  "kernelgen_launch's calls can be only on kernelgen_main");
+					"by this time, after deleting of all plain functions, "
+					"kernelgen_launch's calls can be only on kernelgen_main");
 				
 				
-				//retrive size of data
+				// Retrive size of data
 				tmpArg = call -> getArgOperand(1);
 				assert( isa<ConstantInt>(*tmpArg) && "by this time, after optimization,"
-													 "second parameter of kernelgen_launch "
-													 "must be ConstantInt");
+					"second parameter of kernelgen_launch "
+					"must be ConstantInt");
 				
-				//get maximum size of data
+				// Get maximum size of data
 				uint64_t sizeOfData = ((ConstantInt*)tmpArg)->getZExtValue();
 				if(maximumSizeOfData < sizeOfData)
 				    maximumSizeOfData=sizeOfData;
 				
-				//retrive allocas from kernelgen_launches
-                tmpArg = call -> getArgOperand(3);
+				// Retrive allocas from kernelgen_launches
+				tmpArg = call -> getArgOperand(3);
 				assert(isa<BitCastInst>(*tmpArg) &&  "4th parameter of kernelgen_launch "
-													 "must be BitCast for int32 *");
+					"must be BitCast for int32 *");
 				BitCastInst *castStructToPtr = (BitCastInst *)tmpArg;
 				
 				tmpArg = castStructToPtr->getOperand(0);
 				assert(isa<AllocaInst>(*tmpArg) && "must be cast of AllocaInst's result");
 				AllocaInst *allocaForArgs = (AllocaInst*)tmpArg;
 
-				assert(allocaForArgs->getAllocatedType()->isStructTy() && "must be allocation of structure for args");
+				assert(allocaForArgs->getAllocatedType()->isStructTy() &&
+					"must be allocation of structure for args");
 				
 				//store alloca
-				allocasForArgs.push_back(allocaForArgs);   
-                //allocasForArgs.insert(allocaForArgs);
+				allocasForArgs.push_back(allocaForArgs);
+				//allocasForArgs.insert(allocaForArgs);
 			}
 			// allocate maximumSizeOfData of i8
 			//AllocaInst *collectiveAlloca = new AllocaInst(Type::getInt8Ty(module->getContext()), 
@@ -1375,30 +1380,33 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			//						   kernelgen_main_->begin()->getFirstNonPHI());
 									   
 			// allocate array [i8 x maximumSizeOfData]
-			AllocaInst *collectiveAlloca = new AllocaInst(ArrayType::get(Type::getInt8Ty(module->getContext()),maximumSizeOfData),
-			          "collectiveAllocaForArgs",
-					  kernelgen_main_->begin()->begin());
+			AllocaInst *collectiveAlloca = new AllocaInst(
+				ArrayType::get(Type::getInt8Ty(module->getContext()),maximumSizeOfData),
+				"collectiveAllocaForArgs", kernelgen_main_->begin()->begin());
 			
-			// walk on all stored allocas
+			// Walk on all stored allocas
 			for(list<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
-            //for(set<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
-                  iter!=iter_end;iter++ )
-				  {
-					 AllocaInst * allocaInst=*iter;
-					 
-					 //get type of old alloca
-					 Type * structPtrType = allocaInst -> getType();
-					 
-					 //create bit cast of created alloca for specified type
-					 BitCastInst * bitcast=new BitCastInst(collectiveAlloca,structPtrType,"ptrToArgsStructure");
-					 //insert after old alloca
-					 bitcast->insertAfter(allocaInst);
-					 //replace uses of old alloca with create bit cast
-					 allocaInst -> replaceAllUsesWith(bitcast);
-					 //erase old alloca from parent basic block
-					 allocaInst -> eraseFromParent();
-				  }
-		
+			//for(set<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
+				iter!=iter_end;iter++ )
+			{
+				AllocaInst * allocaInst=*iter;
+				
+				// Get type of old alloca
+				Type * structPtrType = allocaInst -> getType();
+				
+				// Create bit cast of created alloca for specified type
+				BitCastInst * bitcast = new BitCastInst(
+					collectiveAlloca,structPtrType,"ptrToArgsStructure");
+
+				// Insert after old alloca
+				bitcast->insertAfter(allocaInst);
+
+				// Replace uses of old alloca with create bit cast
+				allocaInst->replaceAllUsesWith(bitcast);
+
+				// Erase old alloca from parent basic block
+				allocaInst->eraseFromParent();
+			}
 		}
 
 		// Embed "main" module into main_output.
@@ -1741,7 +1749,8 @@ int main(int argc, char* argv[])
 	// Behave like compiler if no arguments.
 	if (argc == 1)
 	{
-		cout << "kernelgen: note \"simple\" is a development frontend not intended for regular use!" << endl;
+		cout << "kernelgen: note \"simple\" is a development " <<
+			"frontend not intended for regular use!" << endl;
 		cout << "kernelgen: no input files" << endl;
 		return 0;
 	}
