@@ -583,6 +583,19 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 			}
 			else
 			{
+				// FIXME: The following ugly fix mimics the backend asm printer
+				// mangler behavior. We should instead get names from the real
+				// mangler, but currently it is unclear how to instantiate it,
+				// since it needs MCContext, which is not available here.
+				string dot = "2E_";
+				for (size_t index = name.find(".", 0);
+					index = name.find(".", index); index++)
+				{
+					if (index == string::npos) break;
+					name.replace(index, 1, "_");
+					name.insert(index + 1, dot);
+				}
+
 				// Load kernel function from the binary opcodes.
 				CUstream stream = kernel->target[runmode].monitor_kernel_stream;
 				CUresult err = cudyLoadCubin((CUDYfunction*)&kernel_func,
