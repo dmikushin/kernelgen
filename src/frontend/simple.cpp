@@ -1682,6 +1682,9 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 		return 0;
+/*for (int i = 0; argv[i]; i++)
+	fprintf(stderr, "%s ", argv[i]);
+fprintf(stderr, "\n");*/
 
 	// Supported source code files extensions.
 	vector<const char*> ext;

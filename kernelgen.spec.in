@@ -31,7 +31,7 @@
 %endif
 
 # Build unoptimized version with debug info
-%define debug 1
+%define debug KERNELGEN_ENABLE_DEBUG
 
 # Rebuild everything or only kernelgen
 %define fullrepack KERNELGEN_FULLREPACK
