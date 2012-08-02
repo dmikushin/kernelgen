@@ -317,6 +317,32 @@ void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 		}
 }
 
+void substituteGlobalsByTheirAddresses(Module *m)
+{
+	list<GlobalVariable *> globalVariables;
+	LLVMContext & context = m->getContext(); 
+	for(Module::global_iterator iter=m->global_begin(), iter_end=m->global_end();
+	     iter!=iter_end; iter++)
+	{
+		 GlobalVariable *globalVar = iter;
+		 string globalName = globalVar->getName();
+		 int offset = strlen("global.");
+		 assert(!globalName.substr(0,offset).compare("global."));
+		 int index = atoi(globalName.substr(offset, globalName.length() - offset).c_str());
+		 
+		 uint64_t address = addressesOfGlobalVariables[index];
+		 Constant *replacement = ConstantExpr::getIntToPtr(
+				  ConstantInt::get(Type::getInt64Ty(context),address),
+				  globalVar->getType());
+				  
+		globalVar->replaceAllUsesWith(replacement);
+		globalVariables.push_back(globalVar);
+	}
+	for(list<GlobalVariable *>::iterator iter=globalVariables.begin(), iter_end = globalVariables.end();
+	     iter!=iter_end; iter++)
+			 (*iter)->eraseFromParent();
+}
+
 kernel_func_t kernelgen::runtime::compile(
     int runmode, kernel_t* kernel, Module* module, void * data, int szdata, int szdatai)
 {
@@ -344,7 +370,10 @@ kernel_func_t kernelgen::runtime::compile(
 		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
 	}
-
+    
+	if((string)kernel->name != "__kernelgen_main" )
+       substituteGlobalsByTheirAddresses(m);
+	
 	// Add signature record.
 	Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
 	GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),

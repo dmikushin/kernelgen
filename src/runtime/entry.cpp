@@ -69,6 +69,10 @@ bool kernelgen::debug = true;
 // for futher references.
 std::map<string, kernel_t*> kernelgen::kernels;
 
+// The array contains addresses of globalVatiables
+uint64_t *kernelgen::addressesOfGlobalVariables;
+int kernelgen::numberOfGlobalVariables;
+
 // CUDA runtime context.
 // TODO: sort out how to turn it into auto_ptr.
 kernelgen::bind::cuda::context* kernelgen::runtime::cuda_context = NULL;
@@ -263,6 +267,27 @@ int main(int argc, char* argv[], char* envp[])
 			//m->dump();
 		}
 #endif		
+      kernel = kernels["__kernelgen_main"];
+        if (!kernel->module) {
+		// Load LLVM IR source into module.
+		SMDiagnostic diag;
+		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
+		kernel->module = ParseIR(buffer, diag, context);
+		if (!kernel->module)
+			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
+			      diag.getLineContents() << ": " << diag.getMessage());
+		kernel->module->setModuleIdentifier(kernel->name + "_module");
+	}
+		
+		assert(kernel->module && "main module  must be loaded!");
+        
+		assert(sizeof(void *) == sizeof(uint64_t));
+
+		numberOfGlobalVariables = kernel->module->getGlobalList().size();
+        addressesOfGlobalVariables =(uint64_t *)(calloc(numberOfGlobalVariables, sizeof(void*)));
+		
+		assert(addressesOfGlobalVariables);
+		
 		// Load arguments, depending on the target runmode
 		// and invoke the entry point kernel.
 		switch (runmode)
@@ -273,6 +298,7 @@ int main(int argc, char* argv[], char* envp[])
 				args.argc = argc;
 				args.argv = argv;
 				args.envp = envp;
+				args.addressesOfGlobalVariables = addressesOfGlobalVariables;
 				kernelgen_launch(kernel, sizeof(main_args_t),
 					sizeof(int), (kernelgen_callback_data_t*)&args);
 				return args.ret;
@@ -441,7 +467,23 @@ int main(int argc, char* argv[], char* envp[])
 					err = cuMemsetD8(envp_dev + envc, 0, sizeof(char*));
 					if (err) THROW("Error in cuMemsetD8 " << err);
 				}
-
+                
+				// page locks memory for globals addresses
+				CUdeviceptr pointerOnDevice = 0;
+				{
+					free(addressesOfGlobalVariables);
+					addressesOfGlobalVariables=NULL;
+					CUresult err = cuMemAllocHost((void **)&addressesOfGlobalVariables,numberOfGlobalVariables*sizeof(void*) );
+				    if (err) THROW("Error in cuMemHostRegister " << err);
+					pointerOnDevice = (CUdeviceptr)addressesOfGlobalVariables;
+                    /*#define CU_MEMHOSTREGISTER_DEVICEMAP   0x02
+                	CUresult err = cuMemHostRegister(addressesOfGlobalVariables, numberOfGlobalVariables*sizeof(void*),CU_MEMHOSTREGISTER_DEVICEMAP);
+				    if (err) THROW("Error in cuMemHostRegister " << err);
+					err = cuMemHostGetDevicePointer(&pointerOnDevice,addressesOfGlobalVariables,0);
+					if (err) THROW("Error in cuMemHostGetDevicePointer " << err);*/
+					assert(pointerOnDevice);
+				}
+				
 				// Setup argerator structure and fill it with the main
 				// entry arguments.
 				main_args_t args_host;
@@ -449,6 +491,7 @@ int main(int argc, char* argv[], char* envp[])
 				args_host.argv = argv_dev;
 				args_host.callback = callback_dev;
 				args_host.memory = memory;
+				args_host.addressesOfGlobalVariables = (uint64_t *)pointerOnDevice;
 				main_args_t* args_dev = NULL;
 				err = cuMemAlloc((void**)&args_dev, sizeof(main_args_t));
 				if (err) THROW("Error in cuMemAlloc " << err);

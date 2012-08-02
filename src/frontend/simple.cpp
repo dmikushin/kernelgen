@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <fstream>
 #include <gelf.h>
+#include <sstream>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -64,6 +65,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/LinkAllPasses.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include "BranchedLoopExtractor.h"
 #include "TrackedPassManager.h"
@@ -882,7 +884,49 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			StoreInst* memory4 = new StoreInst(GEP4, memory1, true, root); // volatile!
 			memory4->setAlignment(8);
 		}
-
+		
+		//create stores of addreses of all globals
+		{
+		    Value *Idx3[1];
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 12);
+			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(arg, Idx3, "", root);
+			Value* memory2 = new BitCastInst(GEP3,
+				Type::getInt32PtrTy(context)->getPointerTo(0)->getPointerTo(), "", root);
+			LoadInst* memory3 = new LoadInst(memory2, "MemoryForGlobals", root);
+			memory3->setAlignment(8);
+			Value *Idx4[1];
+			//Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+			//GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
+		//		memory3, Idx4, "MemoryForGlobals", root);
+			
+			Value * MemoryForGlobals = memory3;
+			
+			Type * ptrToPtrType = Type::getInt32PtrTy(context)->getPointerTo(0);
+			Type * ptrToIntType = Type::getInt32PtrTy(context);
+			
+			int i = 0;
+			string globalName;
+			raw_string_ostream OS(globalName);
+			for(Module::global_iterator iter=composite.global_begin(), iter_end=composite.global_end();
+			     iter!=iter_end; iter++)
+				 {
+					 GlobalVariable *globalVar = iter;
+					 Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), i);
+                     globalName = "";
+					 OS << "global." << i;
+					 OS.flush();
+					
+					 globalVar->setName(globalName);
+					
+					 GetElementPtrInst *placeOfGlobal = GetElementPtrInst::CreateInBounds(
+		                   		memory3, Idx4, (string)"placeOf." + globalName, root);
+					 Constant *bitCastOfGlobal = ConstantExpr::getBitCast(globalVar, ptrToIntType);
+					 StoreInst *storeOfGlobal = new StoreInst(bitCastOfGlobal, placeOfGlobal, root);
+					 
+					 i++;
+				 }
+		}
+		
 		// Create an argument list for the main_ call.
 		SmallVector<Value*, 16> call_args;
 
@@ -1092,6 +1136,36 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				Module loop(func->getName(), context);
 				loop.setTargetTriple(composite.getTargetTriple());
 				loop.setDataLayout(composite.getDataLayout());
+				{
+					ValueToValueMapTy VMap;
+					// Loop over all of the global variables, making corresponding globals in the
+					// new module.  Here we add them to the VMap and to the new Module.  We
+					// don't worry about attributes or initializers, they will come later.
+					//
+					for (Module::const_global_iterator I = composite.global_begin(), E = composite.global_end();
+						I != E; ++I) {
+								GlobalVariable *GV = new GlobalVariable(loop, 
+                                            I->getType()->getElementType(),
+                                            I->isConstant(), I->getLinkage(),
+                                            (Constant*) 0, I->getName(),
+                                            (GlobalVariable*) 0,
+                                            I->isThreadLocal(),
+                                            I->getType()->getAddressSpace());
+								GV->copyAttributesFrom(I);
+								VMap[I] = GV;
+                              }
+					
+                    // Now that all of the things that global variable initializer can refer to
+                    // have been created, loop through and copy the global variable referrers
+                    // over...  We also set the attributes on the global now.
+                    //
+                    for (Module::const_global_iterator I = composite.global_begin(), E = composite.global_end();
+                       I != E; ++I) {
+                        GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
+                       if (I->hasInitializer())
+                         GV->setInitializer(MapValue(I->getInitializer(), VMap));
+                          }
+				}
 				loop.getFunctionList().push_back(func);
 				
 				// Also clone all function definitions used by entire

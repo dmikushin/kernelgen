@@ -225,7 +225,8 @@ handle(handle)
 	if (err)
 		THROW("Error in cuDeviceGet " << err);
 	
-	err = cuCtxCreate(&ctx, 0, device);
+#define CU_CTX_MAP_HOST 0x08
+	err = cuCtxCreate(&ctx, CU_CTX_MAP_HOST, device);
 	if (err)
 		THROW("Error in cuCtxCreate " << err);
 

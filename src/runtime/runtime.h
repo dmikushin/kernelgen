@@ -209,6 +209,10 @@ struct kernel_t
 // for futher references.
 extern std::map<std::string, kernel_t*> kernels;
 
+// The array contains addresses of globalVatiables
+extern uint64_t *addressesOfGlobalVariables;
+extern int numberOfGlobalVariables;
+
 // Target machines for runmodes.
 extern std::auto_ptr<llvm::TargetMachine> targets[KERNELGEN_RUNMODE_COUNT];
 
