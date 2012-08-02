@@ -10,6 +10,16 @@
 # Target operating system
 %define target KERNELGEN_TARGET
 
+# Switch on or off the compilation of particular parts
+# of the package (for bootstrapping).
+%define cloog KERNELGEN_ENABLE_CLOOG
+%define llvm KERNELGEN_ENABLE_LLVM
+%define binutils KERNELGEN_ENABLE_BINUTILS
+%define gcc KERNELGEN_ENABLE_GCC
+%define netcdf KERNELGEN_ENABLE_NETCDF
+%define dragonegg KERNELGEN_ENABLE_DRAGONEGG
+%define kernelgen KERNELGEN_ENABLE_KERNELGEN
+
 %if (%target == "fedora")
 %define lib32 lib
 %define lib64 lib64
@@ -66,10 +76,10 @@ License:        GPL/BSD/Freeware
 URL:            http://kernelgen.org/
 
 %if (%target == fedora)
-#BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool
+#BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool bison texinfo
 #Requires:       elfutils-libelf libffi gmp mpfr libmpc
 %else
-#BuildRequires:	gcc g++ gfortran perl libelf-dev libffi-dev libgmp3-dev libmpfr-dev libmpc-dev flex libc6-dev libc6-dev-i386 gcc-multilib git autoconf automake libtool
+#BuildRequires:	gcc g++ gfortran perl libelf-dev libffi-dev libgmp3-dev libmpfr-dev libmpc-dev flex libc6-dev libc6-dev-i386 gcc-multilib git autoconf automake libtool bison texinfo
 #Requires:	libelf ffi libgmp3 libmpfr libmpc g++-4.6-multilib
 %endif
 
@@ -133,6 +143,7 @@ sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 
 %build
 %if %fullrepack
+%if %cloog
 #
 # Configure and build CLooG.
 # Build CLooG now, as it is going to be used during LLVM's configure step.
@@ -142,6 +153,8 @@ cd $RPM_BUILD_DIR/cloog
 ./configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
 make
 make install
+%endif
+%if %llvm
 #
 # Configure LLVM
 #
@@ -154,6 +167,8 @@ cd build
 %else
 ../configure CC=gcc CXX=g++ --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
 %endif
+%endif
+%if %binutils
 #
 # Configure BinUtils
 #
@@ -161,6 +176,8 @@ cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
 mkdir build
 cd build
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-gold=default --disable-ld --enable-plugins --enable-lto
+%endif
+%if %gcc
 #
 # Configure GCC
 #
@@ -168,6 +185,8 @@ cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
 mkdir build
 cd build/
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin --enable-gold=default --disable-ld --with-ld=/opt/kernelgen/bin/kernelgen-ld
+%endif
+%if %netcdf
 #
 # Configure NetCDF
 #
@@ -176,6 +195,8 @@ mkdir build
 cd build/
 KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disable-netcdf-4
 %endif
+%endif
+%if %kernelgen
 #
 # Configure KernelGen
 #
@@ -183,10 +204,14 @@ rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
 tar -xf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.gz
 cd $RPM_BUILD_DIR
+%endif
+
+
 #
 # Build parts of the system
 #
 %if %fullrepack
+%if %llvm
 #
 # Build LLVM
 #
@@ -196,6 +221,8 @@ make -j%{njobs} CXXFLAGS=-O0
 %else
 make -j%{njobs}
 %endif
+%endif
+%if %binutils
 #
 # Build BinUtils
 #
@@ -205,6 +232,8 @@ make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
 make -j%{njobs}
 %endif
+%endif
+%if %gcc
 #
 # Build GCC
 #
@@ -214,6 +243,8 @@ KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
 KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
+%endif
+%if %netcdf
 #
 # Build NetCDF
 #
@@ -222,6 +253,8 @@ KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0" FFLAGS="-
 %else
 KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
+%endif
+%if %dragonegg
 #
 # Build DragonEgg
 #
@@ -233,9 +266,13 @@ CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELG
 GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make clean
 CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make
 %endif
+%endif
+%if %gcc
 cd $RPM_BUILD_DIR
 patch -p1 <$RPM_SOURCE_DIR/gcc.build.patch
 %endif
+%endif
+%if %kernelgen
 #
 # Build KernelGen
 #
@@ -244,6 +281,7 @@ cd $RPM_BUILD_DIR/kernelgen
 make src
 %else
 make src OPT=3 LLVM_MODE=Release+Asserts
+%endif
 %endif
 
 
@@ -257,40 +295,54 @@ make src OPT=3 LLVM_MODE=Release+Asserts
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/bin
 mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/%{lib64}/
+%if %cloog
 #
 # Reinstall CLooG
 #
 cd $RPM_BUILD_DIR/cloog
 make install
+%endif
+%if %llvm
 #
 # Install LLVM
 #
 cd $RPM_BUILD_DIR/llvm/build
 make install
+%endif
+%if %dragonegg
 #
 # Install DragonEgg
 #
 cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
+%endif
+%if %kernelgen
 #
 # Install KernelGen
 #
 cd $RPM_BUILD_DIR/kernelgen
 ROOT=$RPM_BUILD_ROOT LIB32=lib LIB64=lib make install
+%endif
+%if %binutils
 #
 # Install BinUtils
 #
 cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
 make install
+%endif
+%if %gcc
 #
 # Install GCC
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
 CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install
+%endif
+%if %netcdf
 #
 # Install NetCDF
 #
 cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build
 KERNELGEN_FALLBACK=1 make install
+%endif
 
 
 #
