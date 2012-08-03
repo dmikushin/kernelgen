@@ -283,19 +283,20 @@ static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops)
 }
 void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
-	Module * m = kernel-> module;
+    Module * m = kernel-> module;
 	vector<string> dimensions, parameters;
 
 	dimensions.push_back("x");
 	dimensions.push_back("y");
 	dimensions.push_back("z");
 
-	parameters.push_back("gridDim");
-	parameters.push_back("blockDim");
 
-	string prefix1("kernelgen_");
-	string prefix2("_");
-	string prefix3(".");
+	parameters.push_back("nctaid");
+	parameters.push_back("ntid");
+
+	string prefix1("llvm.nvvm.read.ptx.sreg.");
+	string dot(".");
+	
 
 	unsigned int * gridParams[2];
 	gridParams[0] = (unsigned int *)&gridDim;
@@ -303,7 +304,7 @@ void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 
 	for(int parameter =0; parameter < parameters.size(); parameter++)
 		for(int dimension=0; dimension < dimensions.size(); dimension++) {
-			string functionName = prefix1 + parameters[parameter] + prefix2 + dimensions[dimension];
+			string functionName = prefix1 + parameters[parameter] + dot + dimensions[dimension];
 			Function* function = m->getFunction(functionName);
 			if(function && function->getNumUses() > 0) {
 				assert(function->getNumUses() == 1);
