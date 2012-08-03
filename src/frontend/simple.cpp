@@ -821,7 +821,44 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		Function::arg_iterator arg = main->arg_begin();
 		arg->setName("args");
 		arg->addAttr(Attribute::NoCapture);
+		
+		//store addreses of all globals
+        {
+		    Value *Idx3[1];
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+			GetElementPtrInst *GEP3 = GetElementPtrInst::Create(arg, Idx3, "", root);
+			Value* memory2 = new BitCastInst(GEP3,
+				Type::getInt64PtrTy(context)->getPointerTo(0), "", root);
+			LoadInst* memory3 = new LoadInst(memory2, "MemoryForGlobals", root);
+			memory3->setAlignment(8);
+			Value *Idx4[1];
 
+			Value * MemoryForGlobals = memory3;
+			Type * Int64Ty = Type::getInt64Ty(context);
+			
+			int i = 0;
+			string globalName;
+			raw_string_ostream OS(globalName);
+			for(Module::global_iterator iter=composite.global_begin(), iter_end=composite.global_end();
+			     iter!=iter_end; iter++)
+				 {
+					 GlobalVariable *globalVar = iter;
+					 Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), i);
+                     globalName = "";
+					 OS << "global." << i;
+					 OS.flush();
+					
+					 globalVar->setName(globalName.c_str());
+					
+					 GetElementPtrInst *placeOfGlobal = GetElementPtrInst::Create(
+		                   		memory3, Idx4, (string)"placeOf." + globalName, root);
+					 Constant *bitCastOfGlobal = ConstantExpr::getPtrToInt(globalVar,Int64Ty);
+					 StoreInst *storeOfGlobal = new StoreInst(bitCastOfGlobal, placeOfGlobal, root);
+					 
+					 i++;
+				 }
+		}
+		
 		// Create global variable with pointer to callback structure.
 		GlobalVariable* callback1 = new GlobalVariable(
 			composite, Type::getInt32PtrTy(context), false,
@@ -832,14 +869,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Assign callback structure pointer with value received
 		// from the arguments structure.
 		// %struct.callback_t = type { i32, i32, i8*, i32, i8* }
-		// %0 = getelementptr inbounds i32* %args, i64 0
+		// %0 = getelementptr inbounds i32* %args, i64 2
 		// %1 = bitcast i32* %0 to %struct.callback_t**
 		// %2 = load %struct.callback_t** %1, align 8
 		// %3 = getelementptr inbounds %struct.callback_t* %2, i64 0, i32 0
 		// store i32* %3, i32** @__kernelgen_callback, align 8
 		{
 			Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 2);
 			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
 				arg, Idx3, "", root);
 			Value* callback2 = new BitCastInst(GEP3,
@@ -864,14 +901,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Assign memory structure pointer with value received
 		// from the arguments structure.
 		// %struct.memory_t = type { i8*, i64, i64, i64 }
-		// %4 = getelementptr inbounds i32* %args, i64 2
+		// %4 = getelementptr inbounds i32* %args, i64 4
 		// %5 = bitcast i32* %4 to %struct.memory_t**
 		// %6 = load %struct.memory_t** %5, align 8
 		// %7 = bitcast %struct.memory_t* %6 to i32*
 		// store i32* %7, i32** @__kernelgen_memory, align 8
 		{
 			Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 2);
+			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 4);
 			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(
 				arg, Idx3, "", root);
 			Value* memory2 = new BitCastInst(GEP3,
@@ -886,56 +923,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			memory4->setAlignment(8);
 		}
 		
-		//create stores of addreses of all globals
-		{
-		    Value *Idx3[1];
-			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 12);
-			GetElementPtrInst *GEP3 = GetElementPtrInst::CreateInBounds(arg, Idx3, "", root);
-			Value* memory2 = new BitCastInst(GEP3,
-				Type::getInt32PtrTy(context)->getPointerTo(0)->getPointerTo(), "", root);
-			LoadInst* memory3 = new LoadInst(memory2, "MemoryForGlobals", root);
-			memory3->setAlignment(8);
-			Value *Idx4[1];
-			//Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
-			//GetElementPtrInst *GEP4 = GetElementPtrInst::CreateInBounds(
-		//		memory3, Idx4, "MemoryForGlobals", root);
-			
-			Value * MemoryForGlobals = memory3;
-			
-			Type * ptrToPtrType = Type::getInt32PtrTy(context)->getPointerTo(0);
-			Type * ptrToIntType = Type::getInt32PtrTy(context);
-			
-			int i = 0;
-			string globalName;
-			raw_string_ostream OS(globalName);
-			for(Module::global_iterator iter=composite.global_begin(), iter_end=composite.global_end();
-			     iter!=iter_end; iter++)
-				 {
-					 GlobalVariable *globalVar = iter;
-					 Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), i);
-                     globalName = "";
-					 OS << "global." << i;
-					 OS.flush();
-					
-					 globalVar->setName(globalName);
-					
-					 GetElementPtrInst *placeOfGlobal = GetElementPtrInst::CreateInBounds(
-		                   		memory3, Idx4, (string)"placeOf." + globalName, root);
-					 Constant *bitCastOfGlobal = ConstantExpr::getBitCast(globalVar, ptrToIntType);
-					 StoreInst *storeOfGlobal = new StoreInst(bitCastOfGlobal, placeOfGlobal, root);
-					 
-					 i++;
-				 }
-		}
-		
 		// Create an argument list for the main_ call.
 		SmallVector<Value*, 16> call_args;
 
 		// Load the argc argument value from aggregator.
 		if (main_->getFunctionType()->getNumParams() >= 2)
 		{
-			// Create and insert GEP to (int*)(args + 2).
-			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 4) };
+			// Create and insert GEP to (int64*)args + 3.
+			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 6) };
 			GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(
 				arg, Idx, "", root);
 
@@ -949,8 +944,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Load the argv argument value from aggregator.
 		if (main_->getFunctionType()->getNumParams() >= 2)
 		{
-			// Create and insert GEP to (int*)(args + 3).
-			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 6) };
+			// Create and insert GEP to (int64*)args + 4.
+			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 8) };
 			GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(
 				arg, Idx, "", root);
 
@@ -966,14 +961,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		}
 
 		// Load the envp argument value from aggregator.
-		// Create and insert GEP to (int*)(args + 4).
+		// Create and insert GEP to (int64*)(args) + 5.
 		if (main_->getFunctionType()->getNumParams() == 3)
 		{
-			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 8) };
+			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 10) };
 			GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(
 					arg, Idx, "", root);
 
-			// Bitcast (int8***)(int*)(args + 4).
+			// Bitcast (int8***)((int*)(args) + 4)).
 			Value* envp1 = new BitCastInst(GEP, Type::getInt8Ty(context)->
 					getPointerTo(0)->getPointerTo(0)->getPointerTo(0), "", root);
 
@@ -992,8 +987,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Set return value, if present.
 		if (!main_->getReturnType()->isVoidTy())
 		{
-			// Create and insert GEP to (int*)(args + 5).
-			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 10) };
+			// Create and insert GEP to (int64*)args + 6.
+			Value* Idx[] = { ConstantInt::get(Type::getInt64Ty(context), 12) };
 			GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(
 				arg, Idx, "", root);
 

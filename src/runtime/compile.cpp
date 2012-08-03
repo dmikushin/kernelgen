@@ -324,8 +324,17 @@ void substituteGlobalsByTheirAddresses(Module *m)
 	for(Module::global_iterator iter=m->global_begin(), iter_end=m->global_end();
 	     iter!=iter_end; iter++)
 	{
+	
 		 GlobalVariable *globalVar = iter;
 		 string globalName = globalVar->getName();
+		 
+		 if(!globalName.compare("__kernelgen_callback") || !globalName.compare("__kernelgen_memory"))
+		 {
+			 assert(globalVar->getNumUses() == 0);
+			 globalVariables.push_back(globalVar);
+			 continue;
+		 }
+			 
 		 int offset = strlen("global.");
 		 assert(!globalName.substr(0,offset).compare("global."));
 		 int index = atoi(globalName.substr(offset, globalName.length() - offset).c_str());

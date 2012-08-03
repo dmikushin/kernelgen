@@ -96,8 +96,8 @@ int main(int argc, char* argv[], char* envp[])
 	// Retrieve the regular main entry function prototype out of
 	// the internal table.
 	Function* regular_main = NULL;
-	//celf e("/proc/self/exe", "");
-	celf e("/RHM/users/work/dmikushin/forge/kernelgen/tests/behavior/hello_c/hello_c", "");
+	celf e("/proc/self/exe", "");
+	//celf e("/RHM/users/work/dmikushin/forge/kernelgen/tests/behavior/hello_c/hello_c", "");
 	cregex regex("^__kernelgen_main$", REG_EXTENDED | REG_NOSUB);
 	vector<csymbol*> symbols = e.getSymtab()->find(regex);
 	if (!symbols.size())
@@ -269,25 +269,22 @@ int main(int argc, char* argv[], char* envp[])
 		}
 #endif
 		kernel = kernels["__kernelgen_main"];
-		if (!kernel->module) {
-			// Load LLVM IR source into module.
-			SMDiagnostic diag;
-			MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
-			kernel->module = ParseIR(buffer, diag, context);
-			if (!kernel->module)
-				THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
-					diag.getLineContents() << ": " << diag.getMessage());
-			kernel->module->setModuleIdentifier(kernel->name + "_module");
-		}
+        if (!kernel->module) {
+		// Load LLVM IR source into module.
+		SMDiagnostic diag;
+		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
+		kernel->module = ParseIR(buffer, diag, context);
+		if (!kernel->module)
+			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
+			      diag.getLineContents() << ": " << diag.getMessage());
+		kernel->module->setModuleIdentifier(kernel->name + "_module");
+	}
 		
 		assert(kernel->module && "main module  must be loaded!");
-        
 		assert(sizeof(void *) == sizeof(uint64_t));
 
 		numberOfGlobalVariables = kernel->module->getGlobalList().size();
-		addressesOfGlobalVariables =(uint64_t *)(calloc(numberOfGlobalVariables, sizeof(void*)));
-		
-		assert(addressesOfGlobalVariables);
+        addressesOfGlobalVariables=NULL;
 		
 		// Load arguments, depending on the target runmode
 		// and invoke the entry point kernel.
@@ -295,11 +292,12 @@ int main(int argc, char* argv[], char* envp[])
 		{
 			case KERNELGEN_RUNMODE_NATIVE :
 			{
+				addressesOfGlobalVariables =(uint64_t *)(calloc(numberOfGlobalVariables, sizeof(void*)));
 				main_args_t args;
+				args.addressesOfGlobalVariables = addressesOfGlobalVariables;
 				args.argc = argc;
 				args.argv = argv;
 				args.envp = envp;
-				args.addressesOfGlobalVariables = addressesOfGlobalVariables;
 				kernelgen_launch(kernel, sizeof(main_args_t),
 					sizeof(int), (kernelgen_callback_data_t*)&args);
 				return args.ret;
@@ -469,30 +467,32 @@ int main(int argc, char* argv[], char* envp[])
 					if (err) THROW("Error in cuMemsetD8 " << err);
 				}
                 
-				// page locks memory for globals addresses
-				CUdeviceptr pointerOnDevice = 0;
+                // page locks memory for globals addresses
 				{
-					free(addressesOfGlobalVariables);
-					addressesOfGlobalVariables=NULL;
+					
 					CUresult err = cuMemAllocHost((void **)&addressesOfGlobalVariables,numberOfGlobalVariables*sizeof(void*) );
-				    if (err) THROW("Error in cuMemHostRegister " << err);
-					pointerOnDevice = (CUdeviceptr)addressesOfGlobalVariables;
-                    /*#define CU_MEMHOSTREGISTER_DEVICEMAP   0x02
+				    if (err) THROW("Error in cuMemAllocHost " << err);
+					CUdeviceptr pointerOnDevice = (CUdeviceptr)addressesOfGlobalVariables;
+                    err = cuMemsetD8 (pointerOnDevice, 0, numberOfGlobalVariables*sizeof(void*));
+					if (err) THROW("Error in cuMemsetD8 " << err);
+                    
+					/*#define CU_MEMHOSTREGISTER_DEVICEMAP   0x02
                 	CUresult err = cuMemHostRegister(addressesOfGlobalVariables, numberOfGlobalVariables*sizeof(void*),CU_MEMHOSTREGISTER_DEVICEMAP);
 				    if (err) THROW("Error in cuMemHostRegister " << err);
 					err = cuMemHostGetDevicePointer(&pointerOnDevice,addressesOfGlobalVariables,0);
-					if (err) THROW("Error in cuMemHostGetDevicePointer " << err);*/
+					if (err) THROW("Error in cuMemHostGetDevicePointer " << err);
 					assert(pointerOnDevice);
+					//addressesOfGlobalVariables = (uint64_t *)pointerOnDevice;*/
 				}
 				
 				// Setup argerator structure and fill it with the main
 				// entry arguments.
 				main_args_t args_host;
+				args_host.addressesOfGlobalVariables = addressesOfGlobalVariables;
 				args_host.argc = argc;
 				args_host.argv = argv_dev;
 				args_host.callback = callback_dev;
 				args_host.memory = memory;
-				args_host.addressesOfGlobalVariables = (uint64_t *)pointerOnDevice;
 				main_args_t* args_dev = NULL;
 				err = cuMemAlloc((void**)&args_dev, sizeof(main_args_t));
 				if (err) THROW("Error in cuMemAlloc " << err);

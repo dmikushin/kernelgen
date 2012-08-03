@@ -43,7 +43,7 @@
 #include <fstream>
 #include <vector>
 
-#define KERNELGEN_PRIVATIZE
+//#define KERNELGEN_PRIVATIZE
 
 using namespace llvm;
 
