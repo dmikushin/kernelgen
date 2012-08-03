@@ -382,7 +382,7 @@
  private:
    // The Scop we code generate.
    Scop *S;
-@@ -283,6 +371,219 @@
+@@ -371,6 +371,219 @@
    /// statement.
    void codegenForOpenMP(const clast_for *f);
  
@@ -599,9 +599,9 @@
 +    return goodLoops;
 +  }
 +
-   bool isInnermostLoop(const clast_for *f);
- 
-   /// @brief Get the number of loop iterations for this loop.
+   /// @brief Check if a loop is parallel
+   ///
+   /// Detect if a clast_for loop can be executed in parallel.
 @@ -610,7 +911,7 @@
  
  void ClastStmtCodeGen::codegen(const clast_for *f) {
