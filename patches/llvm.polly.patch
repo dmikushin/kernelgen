@@ -588,7 +588,7 @@
 +      bool user_or_assignment = false;
 +      if(isaGoodListOfStatements(stmt, nested_for, user_or_assignment)) {
 +        if(nested_for) // if there is a loop
-+          if(P->getAnalysis<Dependences>().isParallelFor(nested_for)) { // and it is parallel
++          if(isParallelFor(nested_for)) { // and it is parallel
 +            goodLoops++; // then increment the good loops counter
 +            stmt = nested_for->body; // and check the body of this loop
 +          } else break; // if there is a non-parallel loop
