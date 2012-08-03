@@ -606,8 +606,8 @@
  
  void ClastStmtCodeGen::codegen(const clast_for *f) {
    bool Vector = PollyVectorizerChoice != VECTORIZER_NONE;
--  if ((Vector || OpenMP) && P->getAnalysis<Dependences>().isParallelFor(f)) {
-+  if ((Vector || OpenMP || CUDA) && P->getAnalysis<Dependences>().isParallelFor(f)) {
+-  if ((Vector || OpenMP) && isParallelFor(f)) {
++  if ((Vector || OpenMP || CUDA) && isParallelFor(f)) {
      if (Vector && isInnermostLoop(f) && (-1 != getNumberOfIterations(f))
          && (getNumberOfIterations(f) <= 16)) {
        codegenForVector(f);

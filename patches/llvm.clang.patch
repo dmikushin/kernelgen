@@ -1,9 +1,9 @@
 --- a/llvm/tools/clang/lib/Basic/Targets.cpp    (revision 157736)
 +++ b/llvm/tools/clang/lib/Basic/Targets.cpp    (working copy)
-@@ -982,6 +982,10 @@
-       AvailableFeatures.push_back("sm21");
-       AvailableFeatures.push_back("sm22");
-       AvailableFeatures.push_back("sm23");
+@@ -966,6 +966,10 @@
+       AddrSpaceMap = &NVPTXAddrSpaceMap;
+       // Define available target features
+       // These must be defined in sorted order!
 +
 +      // {} in inline assembly are local scope specifiers, not assembly variant
 +      // specifiers.
@@ -22,8 +22,8 @@
    GVALinkage External = GVA_StrongExternal;
  
    Linkage L = FD->getLinkage();
---- a/llvm/tools/clang/include/clang/Basic/BuiltinsPTX.def	(revision 157736)
-+++ b/llvm/tools/clang/include/clang/Basic/BuiltinsPTX.def	(working copy)
+--- a/llvm/tools/clang/include/clang/Basic/BuiltinsNVPTX.def	(revision 157736)
++++ b/llvm/tools/clang/include/clang/Basic/BuiltinsNVPTX.def	(working copy)
 @@ -58,5 +58,271 @@
  
  BUILTIN(__builtin_ptx_bar_sync, "vi", "n")
