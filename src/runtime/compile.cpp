@@ -227,7 +227,7 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		    //polly.add(createScopDescriptionPass());
 		}
 		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
-													  // is use polly's representation of Memory Accesses
+													  // use polly's representation of Memory Accesses
 		polly.add(createCFGSimplificationPass());
 		polly.run(*kernel->module);
 	}

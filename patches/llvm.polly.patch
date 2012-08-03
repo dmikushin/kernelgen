@@ -611,7 +611,7 @@
      if (Vector && isInnermostLoop(f) && (-1 != getNumberOfIterations(f))
          && (getNumberOfIterations(f) <= 16)) {
        codegenForVector(f);
-@@ -624,6 +925,11 @@
+@@ -624,6 +925,12 @@
        parallelCodeGeneration = false;
        return;
      }
@@ -619,6 +619,7 @@
 +    if (CUDA && (int)parallelLoops.size() < goodNestedParallelLoopsCount) {
 +      parallelLoops.push_back(f->iterator);
 +      codegenForCUDA(f);
++	  return;
 +    }
    }
  
