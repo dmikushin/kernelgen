@@ -23,8 +23,9 @@
 
 OPT ?= 0
 
+ROOT ?= /opt/kernelgen
+
 LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm
-LLVM_MODE ?= Debug+Asserts
 LLVM_VERSION ?= 3.2
 LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 LLVMINC = \
@@ -38,8 +39,8 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 LLVM_LIB = \
 	-Wl,-rpath $(RPATH) -L../bindings -lkernelgen-gpu \
-	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-$(LLVM_VERSION)svn \
-	-L$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib -lLLVMPolly
+	-L$(ROOT)/lib -lLLVM-$(LLVM_VERSION)svn \
+	-L$(ROOT)/lib -lLLVMPolly
 
 ELF_INC = /usr/include/libelf
 

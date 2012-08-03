@@ -41,7 +41,7 @@
 #include <iostream>
 #include <cstdlib>
 
-#include "TrackedPassManager.h"
+//#include "TrackedPassManager.h"
 
 // Regular main entry.
 extern "C" int __regular_main(int argc, char* argv[]);
@@ -89,15 +89,15 @@ Module* kernelgen::runtime::cuda_module = NULL;
 
 int main(int argc, char* argv[], char* envp[])
 {
-	tracker = new PassTracker("codegen", NULL, NULL);
+	//tracker = new PassTracker("codegen", NULL, NULL);
 
 	LLVMContext& context = getGlobalContext();
 
 	// Retrieve the regular main entry function prototype out of
 	// the internal table.
 	Function* regular_main = NULL;
-	celf e("/proc/self/exe", "");
-	//celf e("/home/marcusmae/Programming/kernelgen/tests/perf/polybench-3.1/atax_base", "");
+	//celf e("/proc/self/exe", "");
+	celf e("/RHM/users/work/dmikushin/forge/kernelgen/tests/behavior/hello_c/hello_c", "");
 	cregex regex("^__kernelgen_main$", REG_EXTENDED | REG_NOSUB);
 	vector<csymbol*> symbols = e.getSymtab()->find(regex);
 	if (!symbols.size())
@@ -132,6 +132,7 @@ int main(int argc, char* argv[], char* envp[])
 	// structure we define the maximum possible parameter list.
 	struct main_args_t
 	{
+		uint64_t* addressesOfGlobalVariables;
 		kernelgen_callback_t* callback;
 		kernelgen_memory_t* memory;
 		int argc;
@@ -266,25 +267,25 @@ int main(int argc, char* argv[], char* envp[])
 			
 			//m->dump();
 		}
-#endif		
-      kernel = kernels["__kernelgen_main"];
-        if (!kernel->module) {
-		// Load LLVM IR source into module.
-		SMDiagnostic diag;
-		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
-		kernel->module = ParseIR(buffer, diag, context);
-		if (!kernel->module)
-			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
-			      diag.getLineContents() << ": " << diag.getMessage());
-		kernel->module->setModuleIdentifier(kernel->name + "_module");
-	}
+#endif
+		kernel = kernels["__kernelgen_main"];
+		if (!kernel->module) {
+			// Load LLVM IR source into module.
+			SMDiagnostic diag;
+			MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
+			kernel->module = ParseIR(buffer, diag, context);
+			if (!kernel->module)
+				THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
+					diag.getLineContents() << ": " << diag.getMessage());
+			kernel->module->setModuleIdentifier(kernel->name + "_module");
+		}
 		
 		assert(kernel->module && "main module  must be loaded!");
         
 		assert(sizeof(void *) == sizeof(uint64_t));
 
 		numberOfGlobalVariables = kernel->module->getGlobalList().size();
-        addressesOfGlobalVariables =(uint64_t *)(calloc(numberOfGlobalVariables, sizeof(void*)));
+		addressesOfGlobalVariables =(uint64_t *)(calloc(numberOfGlobalVariables, sizeof(void*)));
 		
 		assert(addressesOfGlobalVariables);
 		
