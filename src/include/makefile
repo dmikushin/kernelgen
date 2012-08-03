@@ -2,7 +2,7 @@ CI_INCLUDE = $(shell dirname $(shell which nvcc))/../nvvm/ci_include.h
 
 OPT ?= 0
 
-CLANG = clang -cc1 -emit-llvm -fcuda-is-device -triple ptx64-unknown-unknown
+CLANG = clang -cc1 -emit-llvm -fcuda-is-device -triple nvptx64-unknown-unknown
 
 all: kernelgen_runtime.bc kernelgen_monitor.bc kernelgen_cuda.bc
 
