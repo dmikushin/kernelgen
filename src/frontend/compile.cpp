@@ -172,6 +172,7 @@ extern "C" void callback (void*, void*)
 		PassManager manager;
 		manager.add(new TargetData(m));
 		builder.populateModulePassManager(manager);
+		manager.add(createLoopSimplifyPass());
 		manager.run(*m);
 		
 	}
