@@ -280,7 +280,7 @@ cd $RPM_BUILD_DIR/kernelgen
 %if %debug
 make src
 %else
-make src OPT=3 LLVM_MODE=Release+Asserts
+make src OPT=3
 %endif
 %endif
 
