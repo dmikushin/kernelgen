@@ -120,7 +120,7 @@
  
 --- a/llvm/tools/polly/include/polly/Dependences.h	2015-10-07 20:43:27.000000000 +0400
 +++ b/llvm/tools/polly/include/polly/Dependences.h	2015-10-07 20:43:07.000000000 +0400
-@@ -84,16 +84,6 @@
+@@ -84,6 +84,16 @@
      bool isParallelDimension(__isl_take isl_set *LoopDomain,
                               unsigned ParallelDimension);
  
@@ -136,7 +136,7 @@
 +
      /// @brief Get the dependences in this Scop.
      ///
-     /// @param Kinds This integer defines the different kinds of dependences 
+     /// @param Kinds This integer defines the different kinds of dependences
 --- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(revision 156703)
 +++ b/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(working copy)
 @@ -239,7 +239,10 @@
