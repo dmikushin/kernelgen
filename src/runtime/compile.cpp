@@ -162,7 +162,7 @@ static void registerPollyPreoptPasses(llvm::PassManagerBase &PM)
 	PM.add(polly::createRegionSimplifyPass());
 }
 
-void getAllocasAndMaximumSize(Function *f,set<AllocaInst *> *allocasForArgs, unsigned long long * maximumSizeOfData )
+void getAllocasAndMaximumSize(Function *f,list<Value *> *allocasForArgs, unsigned long long * maximumSizeOfData )
 {
 	Value *tmpArg=NULL;
 	if (f && allocasForArgs && maximumSizeOfData) {
@@ -186,7 +186,7 @@ void getAllocasAndMaximumSize(Function *f,set<AllocaInst *> *allocasForArgs, uns
 				assert(isa<BitCastInst>(*tmpArg));
 				tmpArg=cast<BitCastInst>(tmpArg)->getOperand(0);
 			}
-			allocasForArgs->insert(cast<AllocaInst>(tmpArg));
+			allocasForArgs->push_back(tmpArg);
 		}
 	}
 }
@@ -391,7 +391,8 @@ static void processCallTreeMain(kernel_t* kernel, Module* m, Function* f, vector
 			// insert its implementation from the CUDA runtime module.
 			Function* Dst = callee;
 			Function* Src = cuda_module->getFunction(callee->getName());
-			if (Src)
+			if (Src && (Src != Dst))
+				if (!Src->isDeclaration())
 			{
 				if (verbose)
 					cout << "Device call: " << callee->getName().data()<< endl;
@@ -806,9 +807,9 @@ kernel_func_t kernelgen::runtime::compile(
 			// Process the function calls tree with main function in root.
 			vector<CallInst*> erase_calls;
 			processCallTreeMain(kernel, m, f, &erase_calls);
-			for (vector<CallInst*>::iterator i = erase_calls.begin(),
-				ie = erase_calls.end(); i != ie; i++)
-				(*i)->eraseFromParent();
+		//	for (vector<CallInst*>::iterator i = erase_calls.begin(),
+		//		ie = erase_calls.end(); i != ie; i++)
+		//		(*i)->eraseFromParent();
 
 			// Evaluate ConstantExpr::SizeOf to integer number ConstantInt
 			PassManager manager;
@@ -819,15 +820,15 @@ kernel_func_t kernelgen::runtime::compile(
 			{
 				Function* kernelgenFunction = NULL;
 				Value * tmpArg = NULL;
-				AllocaInst* oldCollectiveAlloca = NULL;
+				Value* oldCollectiveAlloca = NULL;
 				unsigned long long maximumSizeOfData = 0;
 				
 				// Set of allocas we want to collect together
-				set<AllocaInst *> allocasForArgs;
+				list<Value *> allocasForArgs;
 				allocasForArgs.clear();
 
 				// Collect alloca-s for kernelgen_launch-s
-				kernelgenFunction = m->getFunction("kernelgen_launch");
+				/*kernelgenFunction = m->getFunction("kernelgen_launch");
 				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
 				
 				// There must be one collective alloca for all kernelgen_launch-s,
@@ -835,38 +836,52 @@ kernel_func_t kernelgen::runtime::compile(
 				assert(allocasForArgs.size() <= 1);
 				if(allocasForArgs.size() == 1) {
 					oldCollectiveAlloca=*allocasForArgs.begin();
-					assert((oldCollectiveAlloca->getAllocatedType()->isStructTy() ||
-						oldCollectiveAlloca->getAllocatedType()->isArrayTy())
+					assert(isa<GlobalVariable>(*oldCollectiveAlloca)
+                     // && (oldCollectiveAlloca->getAllocatedType()->isStructTy() ||
+						// oldCollectiveAlloca->getType()->isArrayTy())
 						&& "must be allocation of array or struct");
 					oldCollectiveAlloca->setName("oldCollectiveAllocaForArgs");
-				}
+				}*/
 
 				// Collect allocas for kernelgen_hostcall-s
 				kernelgenFunction = m->getFunction("kernelgen_hostcall");
+				if(kernelgenFunction)
+				{
 				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
 
 				// Replace all allocas by one collective alloca
-				// allocate array [i8 x maximumSizeOfData]
-				AllocaInst *collectiveAlloca = new AllocaInst(ArrayType::get(Type::getInt8Ty(m->getContext()),maximumSizeOfData),
-				        "collectiveAllocaForArgs",
-				        f->begin()->begin());
-
-				for(set<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
+						   
+			  Type * allocatedType=ArrayType::get(Type::getInt8Ty(context),maximumSizeOfData);
+			  // allocate array [i8 x maximumSizeOfData]
+		     /*	 AllocaInst *collectiveAlloca = new AllocaInst(
+				 allocatedType, maximumSizeOfData),
+				 "collectiveAllocaForArgs", kernelgen_main_->begin()->begin());*/
+				
+			   GlobalVariable *collectiveAlloca = new GlobalVariable(
+						*m, allocatedType,
+                        false, GlobalValue::PrivateLinkage,
+						Constant::getNullValue(allocatedType), "memoryForHostcallArgs");
+				collectiveAlloca->setAlignment(4096);
+					
+				for(list<Value *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
 					iter!=iter_end; iter++ ) {
-					AllocaInst * allocaInst=*iter;
+					AllocaInst * allocaInst=cast<AllocaInst>(*iter);
 
 					// Get type of old alloca
 					Type * structPtrType = allocaInst -> getType();
 
 					// Create bit cast of created alloca for specified type
 					BitCastInst * bitcast = new BitCastInst(collectiveAlloca, structPtrType, "ptrToArgsStructure");
+
 					// Insert after old alloca
 					bitcast->insertAfter(allocaInst);
 					// Replace uses of old alloca with created bit cast
 					allocaInst -> replaceAllUsesWith(bitcast);
 					// Erase old alloca from parent basic block
+					//if(isa<Instruction>(*allocaInst))
 					allocaInst -> eraseFromParent();
 				}
+			}
 			}
 
 			// Replace static alloca-s with global variables.
