@@ -241,8 +241,7 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
 
                         if (symbol.st_shndx == iglobal_init)
                         {
-				memcpy(pglobal_init_new, pglobal_init, symbol.st_size);
-				pglobal_init += symbol.st_size;
+				memcpy(pglobal_init_new, pglobal_init + symbol.st_value, symbol.st_size);
 
 				symbol.st_value = szglobal_init_new;
 				if (symbol.st_size % align)
@@ -513,6 +512,8 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 				// The -g option by some reason is needed even w/o debug.
 				// Otherwise some tests are failing.
 				ptxas_args.push_back("-g");
+				if (major == 3)
+					ptxas_args.push_back("--cloning=yes");
 				if (::debug)
 				{
 					ptxas_args.push_back("--return-at-end");
