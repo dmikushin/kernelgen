@@ -32,6 +32,7 @@ LLVM_INC = \
 	-I/usr/include/i686-linux-gnu \
 	-I/usr/include/x86_64-linux-gnu \
 	-I/usr/lib64/libffi-3.0.9/include \
+	-I/usr/lib64/libffi-3.0.10/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/tools/polly/include \
 	-I${HOME}/rpmbuild/BUILD/cloog/include \
