@@ -38,8 +38,11 @@ libkernelgen-ct.so: $(OBJECTS_CT) libkernelgen-opt.so
 libkernelgen-opt.so: $(OBJECTS_OPT)
 	$(CXX) -g -shared $^ -o $@ $(LLVM_LIB)
 
-kernelgen-simple: $(OBJECTS_KS) libkernelgen-opt.so
-	$(CXX) -g $(OBJECTS_KS) -o $@ -lelf -L. -lkernelgen-opt $(BUGPOINT_LIBS) $(LLVM_LIB) -L$(ROOT)/lib -L$(ROOT)/lib64 -liberty
+LinkFunctionBody.o: LinkFunctionBody.cpp LinkFunctionBody.h
+	$(CXX) $(CXXFLAGS) $(LLVM_INC) $(LLVM_DEF) -fno-rtti -c $< -o  $@
+
+kernelgen-simple: $(OBJECTS_KS) LinkFunctionBody.o libkernelgen-opt.so
+	$(CXX) -g $(OBJECTS_KS) LinkFunctionBody.o -o $@ -lelf -L. -lkernelgen-opt $(BUGPOINT_LIBS) $(LLVM_LIB) -L$(ROOT)/lib -L$(ROOT)/lib64 -liberty
 
 kernelgen-ct.o: compile.cpp $(BUGPOINT_INC)/TrackedPassManager.h
 	$(CXX) $(CXXFLAGS) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(PLUGIN_INC) $(LLVM_INC) -fPIC -c $< -o $@

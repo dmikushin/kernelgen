@@ -68,8 +68,10 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include "BranchedLoopExtractor.h"
+#include "LinkFunctionBody.h"
 #include "TrackedPassManager.h"
 
+using namespace kernelgen;
 using namespace llvm;
 using namespace llvm::object;
 using namespace llvm::sys;
@@ -296,22 +298,6 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		func->setAttributes(attr_new);
 	}
 	
-	/*//
-	// Add noalias for all used functions arguments (dirty hack).
-	//
-	for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
-	    function != function_end; function++) {
-		Function * f = function;
-		int i = 1;
-		for(Function::arg_iterator arg_iter = f -> arg_begin(), arg_iter_end = f -> arg_end();
-		    arg_iter != arg_iter_end; arg_iter++) {
-			Argument * arg = arg_iter;
-			if(isa<PointerType>(*(arg -> getType())))
-				if(arg -> getType() -> getSequentialElementType() -> isSingleValueType() )
-					f -> setDoesNotAlias(i);
-			i++;
-		}
-	}*/
 	{
 		PassManager manager;
 		manager.add(new TargetData(m.get()));
@@ -822,9 +808,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		arg->setName("args");
 		arg->addAttr(Attribute::NoCapture);
 		
-		//store addreses of all globals
-        {
-		    Value *Idx3[1];
+		// Store addreses of all globals
+		{
+			Value *Idx3[1];
 			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
 			GetElementPtrInst *GEP3 = GetElementPtrInst::Create(arg, Idx3, "", root);
 			Value* memory2 = new BitCastInst(GEP3,
@@ -839,32 +825,32 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			int i = 0;
 			string globalName;
 			raw_string_ostream OS(globalName);
-			for(Module::global_iterator iter=composite.global_begin(), iter_end=composite.global_end();
-			     iter!=iter_end; iter++)
-				 {
-					 GlobalVariable *globalVar = iter;
-					 Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), i);
-                     globalName = "";
-					 OS << "global." << i;
-					 OS.flush();
-					
-					 globalVar->setName(globalName.c_str());
-					
-					 GetElementPtrInst *placeOfGlobal = GetElementPtrInst::Create(
-		                   		memory3, Idx4, (string)"placeOf." + globalName, root);
-					 Constant *bitCastOfGlobal = ConstantExpr::getPtrToInt(globalVar,Int64Ty);
-					 StoreInst *storeOfGlobal = new StoreInst(bitCastOfGlobal, placeOfGlobal, root);
-					 
-					 i++;
-				 }
+			for (Module::global_iterator iter=composite.global_begin(),
+				iter_end=composite.global_end(); iter!=iter_end; iter++)
+			{
+				GlobalVariable *globalVar = iter;
+				Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), i);
+				globalName = "";
+				OS << "global." << i;
+				OS.flush();
+				
+				globalVar->setName(globalName.c_str());
+
+				GetElementPtrInst *placeOfGlobal = GetElementPtrInst::Create(
+					memory3, Idx4, (string)"placeOf." + globalName, root);
+				Constant *bitCastOfGlobal = ConstantExpr::getPtrToInt(globalVar,Int64Ty);
+				StoreInst *storeOfGlobal = new StoreInst(bitCastOfGlobal, placeOfGlobal, root);
+
+				i++;
+			}
 		}
 		
 		// Create global variable with pointer to callback structure.
 		GlobalVariable* callback1 = new GlobalVariable(
 			composite, Type::getInt32PtrTy(context), false,
-			GlobalValue::PrivateLinkage,
+			GlobalValue::ExternalLinkage,
 			Constant::getNullValue(Type::getInt32PtrTy(context)),
-			"__kernelgen_callback");
+			"__kernelgen_callback", 0, false, 1);
 
 		// Assign callback structure pointer with value received
 		// from the arguments structure.
@@ -894,9 +880,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Create global variable with pointer to memory structure.
 		GlobalVariable* memory1 = new GlobalVariable(
 			composite, Type::getInt32PtrTy(context), false,
-			GlobalValue::PrivateLinkage,
+			GlobalValue::ExternalLinkage,
 			Constant::getNullValue(Type::getInt32PtrTy(context)),
-			"__kernelgen_memory");
+			"__kernelgen_memory", 0, false, 1);
 
 		// Assign memory structure pointer with value received
 		// from the arguments structure.
@@ -1026,9 +1012,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		manager.add(new TargetData(&composite));
 		manager.add(createInstructionCombiningPass());
 		PassManagerBuilder builder;
-		builder.Inliner = createFunctionInliningPass();
+		builder.Inliner = 0; //createFunctionInliningPass();
 		builder.OptLevel = 0;
-		builder.SizeLevel=3;
+		builder.SizeLevel = 3;
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
 		manager.run(composite);
@@ -1135,47 +1121,53 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				loop.setDataLayout(composite.getDataLayout());
 				{
 					ValueToValueMapTy VMap;
+
 					// Loop over all of the global variables, making corresponding globals in the
 					// new module.  Here we add them to the VMap and to the new Module.  We
 					// don't worry about attributes or initializers, they will come later.
-					//
-					for (Module::const_global_iterator I = composite.global_begin(), E = composite.global_end();
-						I != E; ++I) {
-								GlobalVariable *GV = new GlobalVariable(loop, 
-                                            I->getType()->getElementType(),
-                                            I->isConstant(), I->getLinkage(),
-                                            (Constant*) 0, I->getName(),
-                                            (GlobalVariable*) 0,
-                                            I->isThreadLocal(),
-                                            I->getType()->getAddressSpace());
-								GV->copyAttributesFrom(I);
-								VMap[I] = GV;
-                              }
-					
-                    // Now that all of the things that global variable initializer can refer to
-                    // have been created, loop through and copy the global variable referrers
-                    // over...  We also set the attributes on the global now.
-                    //
-                    for (Module::const_global_iterator I = composite.global_begin(), E = composite.global_end();
-                       I != E; ++I) {
-                        GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
-                       if (I->hasInitializer())
-                         GV->setInitializer(MapValue(I->getInitializer(), VMap));
-                          }
+					for (Module::const_global_iterator I = composite.global_begin(),
+						E = composite.global_end(); I != E; ++I)
+					{
+						GlobalVariable *GV = new GlobalVariable(loop,
+							I->getType()->getElementType(),
+							I->isConstant(), I->getLinkage(),
+							(Constant*) 0, I->getName(), (GlobalVariable*) 0,
+							I->isThreadLocal(),
+							I->getType()->getAddressSpace());
+						GV->copyAttributesFrom(I);
+						VMap[I] = GV;
+					}
+
+					// Now that all of the things that global variable initializer can refer to
+					// have been created, loop through and copy the global variable referrers
+					// over...  We also set the attributes on the global now.
+					for (Module::const_global_iterator I = composite.global_begin(),
+						E = composite.global_end(); I != E; ++I)
+					{
+						GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
+						if (I->hasInitializer())
+							GV->setInitializer(MapValue(I->getInitializer(), VMap));
+					}
 				}
 				loop.getFunctionList().push_back(func);
 				
-				// Also clone all function definitions used by entire
-				// loop function to the new module.
+				// Also clone all functions used by entire loop function
+				// to the new module.
 				for (Function::iterator bb = func->begin(), be = func->end(); bb != be; bb++)
 					for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
 					{
 						CallInst* call = dyn_cast<CallInst>(i);
 						if (!call) continue;
-				
+
+						// Check if function is called (needs -instcombine pass).
 						Function* callee = dyn_cast<Function>(
 							call->getCalledValue()->stripPointerCasts());
-						if (callee) loop.getOrInsertFunction(callee->getName(), callee->getFunctionType());
+						if (!callee) continue;
+
+						Function* Dst = callee;
+						Function* Src = composite.getFunction(callee->getName());
+						if (Src && (Src != Dst))
+							if (!Src->isDeclaration()) LinkFunctionBody(Dst, Src);
 					}
 
 				// Embed "loop" module into object.
@@ -1267,8 +1259,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 
 	//
-	// 6) Delete all plain functions, except main out of "main" module.
-	// Add wrapper around main to make it compatible with kernelgen_launch.
+	// 6) Add wrapper around main to make it compatible with kernelgen_launch.
 	//
 	if (verbose)
 		cout << "Extracting kernel main ..." << endl;
@@ -1277,19 +1268,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		PassManager manager;
 		manager.add(new TargetData(&composite));
 
-		std::vector<GlobalValue*> plain_functions;
-		for (Module::iterator f = composite.begin(), fe = composite.end(); f != fe; f++)
-			if (!f->isDeclaration() && f->getName() != "main")
-				plain_functions.push_back(f);
-	
-		// Delete all plain functions (that are not called through launcher).
-		manager.add(createGVExtractionPass(plain_functions, true));
-		manager.add(createGlobalDCEPass());
-		manager.add(createStripDeadDebugInfoPass());
-		manager.add(createStripDeadPrototypesPass());
-		manager.run(composite);
-        
-		// Optimize only composite main function
+		// Optimize only composite module with main function.
 		{
 			//TrackedPassManager manager(tracker);
 			PassManager manager;
@@ -1311,8 +1290,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		Function::Create(mainTy, GlobalValue::ExternalLinkage,
 			"__kernelgen_regular_main", &composite);
 
-		//composite.dump();
-
 		// Replace all allocas by one collective alloca
 		Function* f = composite.getFunction("kernelgen_launch");
 		if (f)
@@ -1320,7 +1297,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			Module *module = &composite;
 			
 			//maximum size of aggregated structure with parameters
-			unsigned long long maximumSizeOfData=0;
+			unsigned long long maximumSizeOfData = 0;
 			
 			//list of allocas for aggregated structures with parameters
 			list<AllocaInst *> allocasForArgs;
@@ -1332,17 +1309,11 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			// Walk on all kernelgen_launch's users
 			for (Value::use_iterator UI = f->use_begin(), UE = f->use_end(); UI != UE; UI++)
 			{
-				
 				CallInst* call = dyn_cast<CallInst>(*UI);
-				if (!call) continue;
-				
-				assert(call->getParent() -> getParent() == kernelgen_main_ &&
-					"by this time, after deleting of all plain functions, "
-					"kernelgen_launch's calls can be only on kernelgen_main");
-				
+				if (!call) continue;		
 				
 				// Retrive size of data
-				tmpArg = call -> getArgOperand(1);
+				tmpArg = call->getArgOperand(1);
 				assert( isa<ConstantInt>(*tmpArg) && "by this time, after optimization,"
 					"second parameter of kernelgen_launch "
 					"must be ConstantInt");

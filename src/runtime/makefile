@@ -27,8 +27,8 @@ ROOT ?= /opt/kernelgen
 
 LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm
 LLVM_VERSION ?= 3.2
-LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
-LLVMINC = \
+LLVM_DEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
+LLVM_INC = \
 	-I/usr/include/i686-linux-gnu \
 	-I/usr/include/x86_64-linux-gnu \
 	-I/usr/lib64/libffi-3.0.9/include \
@@ -50,7 +50,7 @@ BUGPOINT_LIBS = -L../bugpoint -lbugpoint
 
 CXXFLAGS = \
 	-g -fPIC -O$(OPT) -I../include -I../bindings \
-	-I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
+	-I../libasfermi/tests/dyloader $(LLVM_INC) $(LLVM_DEF)
 
 OBJECTS := \
 	entry compile launch finish timer io elf execute codegen \
