@@ -181,11 +181,12 @@ void getAllocasAndMaximumSize(Function *f,list<Value *> *allocasForArgs, unsigne
 			if(*maximumSizeOfData < sizeOfData)
 				*maximumSizeOfData=sizeOfData;
 
-			tmpArg = call -> getArgOperand(3);
-			while(!isa<AllocaInst>(*tmpArg)) {
+			tmpArg = call -> getArgOperand(3)->stripPointerCasts();
+			/*while(!isa<AllocaInst>(*tmpArg)) {
 				assert(isa<BitCastInst>(*tmpArg));
 				tmpArg=cast<BitCastInst>(tmpArg)->getOperand(0);
-			}
+			}*/
+			assert(isa<AllocaInst>(*tmpArg));
 			allocasForArgs->push_back(tmpArg);
 		}
 	}
@@ -356,7 +357,7 @@ static void substituteGlobalsByTheirAddresses(Module *m)
 			 (*iter)->eraseFromParent();
 }
 
-static void processCallTreeMain(kernel_t* kernel, Module* m, Function* f, vector<CallInst*>* erase_calls)
+static void processCallTreeMain(kernel_t* kernel, Module* m, Function* f, list<CallInst*>* erase_calls)
 {
 	for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 		for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++)
@@ -381,7 +382,7 @@ static void processCallTreeMain(kernel_t* kernel, Module* m, Function* f, vector
 			// process its body.
 			if (!callee->isDeclaration())
 			{
-				processCallTreeMain(kernel, m, callee, erase_calls);
+			//	processCallTreeMain(kernel, m, callee, erase_calls);
 				continue;
 			}
 
@@ -805,11 +806,15 @@ kernel_func_t kernelgen::runtime::compile(
 			}
 
 			// Process the function calls tree with main function in root.
-			vector<CallInst*> erase_calls;
-			processCallTreeMain(kernel, m, f, &erase_calls);
-		//	for (vector<CallInst*>::iterator i = erase_calls.begin(),
-		//		ie = erase_calls.end(); i != ie; i++)
-		//		(*i)->eraseFromParent();
+			list<CallInst*> erase_calls;
+			for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+			{
+			    processCallTreeMain(kernel, m, F, &erase_calls);
+			    for (list<CallInst*>::iterator i = erase_calls.begin(),
+				ie = erase_calls.end(); i != ie; i++)
+				   (*i)->eraseFromParent();
+				erase_calls.clear();
+			}
 
 			// Evaluate ConstantExpr::SizeOf to integer number ConstantInt
 			PassManager manager;
@@ -817,41 +822,24 @@ kernel_func_t kernelgen::runtime::compile(
 			manager.add(createInstructionCombiningPass());
 			manager.run(*m);
 			
+			// Replace all allocas for kernelgen_hostcalls by one big global variable
+			Function* kernelgenFunction = NULL;
+			kernelgenFunction = m->getFunction("kernelgen_hostcall");
+			if(kernelgenFunction)
 			{
-				Function* kernelgenFunction = NULL;
+				
 				Value * tmpArg = NULL;
-				Value* oldCollectiveAlloca = NULL;
 				unsigned long long maximumSizeOfData = 0;
 				
 				// Set of allocas we want to collect together
 				list<Value *> allocasForArgs;
 				allocasForArgs.clear();
 
-				// Collect alloca-s for kernelgen_launch-s
-				/*kernelgenFunction = m->getFunction("kernelgen_launch");
-				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
-				
-				// There must be one collective alloca for all kernelgen_launch-s,
-				// it was made in link-step if it is.
-				assert(allocasForArgs.size() <= 1);
-				if(allocasForArgs.size() == 1) {
-					oldCollectiveAlloca=*allocasForArgs.begin();
-					assert(isa<GlobalVariable>(*oldCollectiveAlloca)
-                     // && (oldCollectiveAlloca->getAllocatedType()->isStructTy() ||
-						// oldCollectiveAlloca->getType()->isArrayTy())
-						&& "must be allocation of array or struct");
-					oldCollectiveAlloca->setName("oldCollectiveAllocaForArgs");
-				}*/
-
 				// Collect allocas for kernelgen_hostcall-s
-				kernelgenFunction = m->getFunction("kernelgen_hostcall");
-				if(kernelgenFunction)
-				{
-				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
 
-				// Replace all allocas by one collective alloca
+				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
 						   
-			  Type * allocatedType=ArrayType::get(Type::getInt8Ty(context),maximumSizeOfData);
+			    Type * allocatedType=ArrayType::get(Type::getInt8Ty(context),maximumSizeOfData);
 			  // allocate array [i8 x maximumSizeOfData]
 		     /*	 AllocaInst *collectiveAlloca = new AllocaInst(
 				 allocatedType, maximumSizeOfData),
@@ -881,7 +869,6 @@ kernel_func_t kernelgen::runtime::compile(
 					//if(isa<Instruction>(*allocaInst))
 					allocaInst -> eraseFromParent();
 				}
-			}
 			}
 
 			// Replace static alloca-s with global variables.
@@ -976,7 +963,7 @@ kernel_func_t kernelgen::runtime::compile(
 		{
 			PassManager manager;
 			PassManagerBuilder builder;
-			builder.Inliner = createFunctionInliningPass();
+			//builder.Inliner = createFunctionInliningPass();
 			
 			builder.OptLevel = 3;
 			builder.DisableSimplifyLibCalls = true;

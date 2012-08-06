@@ -39,7 +39,7 @@ libkernelgen-opt.so: $(OBJECTS_OPT)
 	$(CXX) -g -shared $^ -o $@ $(LLVM_LIB)
 
 LinkFunctionBody.o: LinkFunctionBody.cpp LinkFunctionBody.h
-	$(CXX) $(CXXFLAGS) $(LLVM_INC) $(LLVM_DEF) -fno-rtti -c $< -o  $@
+	$(CXX) $(CXXFLAGS) $(LLVM_INC) $(LLVM_DEF) -g -fno-rtti -c $< -o  $@
 
 kernelgen-simple: $(OBJECTS_KS) LinkFunctionBody.o libkernelgen-opt.so
 	$(CXX) -g $(OBJECTS_KS) LinkFunctionBody.o -o $@ -lelf -L. -lkernelgen-opt $(BUGPOINT_LIBS) $(LLVM_LIB) -L$(ROOT)/lib -L$(ROOT)/lib64 -liberty

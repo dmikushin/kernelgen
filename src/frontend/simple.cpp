@@ -814,7 +814,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		arg->addAttr(Attribute::NoCapture);
 
 
-		// Replace all allocas by one collective alloca
+		// Replace all allocas by one big global variable
 		Function* f = composite.getFunction("kernelgen_launch");
 		if (f)
 		{
@@ -895,13 +895,10 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				// Create bit cast of created alloca for specified type
 				BitCastInst * bitcast = new BitCastInst(
 					collectiveAlloca,structPtrType,"ptrToArgsStructure");
-
 				// Insert after old alloca
 				bitcast->insertAfter(allocaInst);
-
 				// Replace uses of old alloca with create bit cast
 				allocaInst->replaceAllUsesWith(bitcast);
-
 				// Erase old alloca from parent basic block
 				allocaInst->eraseFromParent();
 			}
@@ -1103,7 +1100,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	// Do not perform agressive optimizations here, or the process
 	// would hang infinitely.
 	//
-	if (verbose)
+	/*if (verbose)
 		cout << "Inlining ..." << endl;
 	{
 		//TrackedPassManager manager(tracker);
@@ -1117,7 +1114,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		builder.DisableSimplifyLibCalls = true;
 		builder.populateModulePassManager(manager);
 		manager.run(composite);
-	}
+	}*/
 
 	InitializeAllTargets();
 	InitializeAllTargetMCs();
@@ -1218,6 +1215,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				Module loop(func->getName(), context);
 				loop.setTargetTriple(composite.getTargetTriple());
 				loop.setDataLayout(composite.getDataLayout());
+				
+				// copy all global variables
 				{
 					ValueToValueMapTy VMap;
 
@@ -1261,14 +1260,40 @@ static int link(int argc, char** argv, const char* input, const char* output)
 						// Check if function is called (needs -instcombine pass).
 						Function* callee = dyn_cast<Function>(
 							call->getCalledValue()->stripPointerCasts());
+						
 						if (!callee) continue;
+						Function * Src = composite.getFunction(callee->getName());
+						Function * Dst = cast<Function>(loop.getOrInsertFunction(Src->getName(), Src->getFunctionType(),Src->getAttributes())-> stripPointerCasts());
+						
+                        if (Src && (Src != Dst))
+							if (!Src->isDeclaration() && Dst->isDeclaration()) 
+								LinkFunctionBody(Dst, Src);
+                        
+						Type *calledFunctionType = call->getCalledValue()->getType();
 
-						Function* Dst = callee;
-						Function* Src = composite.getFunction(callee->getName());
-						if (Src && (Src != Dst))
-							if (!Src->isDeclaration()) LinkFunctionBody(Dst, Src);
+                        if(calledFunctionType == Dst -> getType())
+						   call -> setCalledFunction(Dst);
+						else
+						{
+						   cout << "Nested device call: " << Dst->getName().data()<< " need bitcast "<<endl;
+                           call -> setCalledFunction( ConstantExpr::getBitCast(Dst,calledFunctionType));
+						}
 					}
-
+		         
+				 // defined functions will be deleted after inlining
+				 // if linkage type is LinkerPrivateLinkage
+				 for(Module::iterator iter=loop.begin(), iter_end = loop.end();
+				  iter!=iter_end; iter++)
+					  if(!iter->isDeclaration() && cast<Function>(iter)!= func)
+						  iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+				
+                 //perform inlining
+				 {
+			        PassManager manager;
+				  	manager.add(createFunctionInliningPass());
+			        manager.run(loop);
+		          }
+		
 				// Embed "loop" module into object.
 				{
 					// Put the resulting module into LLVM output file
