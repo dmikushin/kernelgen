@@ -340,10 +340,14 @@ static void substituteGlobalsByTheirAddresses(Module *m)
 			 globalVariables.push_back(globalVar);
 			 continue;
 		 }
-			 
-		 int offset = strlen("global.");
+		 std::map<llvm::StringRef, uint64_t>::const_iterator tuple;
+		 tuple = orderOfGlobals.find(globalVar->getName());
+		 assert(tuple != orderOfGlobals.end());
+		
+		 int index = tuple->second;
+		 /* int offset = strlen("global.");
 		 assert(!globalName.substr(0,offset).compare("global."));
-		 int index = atoi(globalName.substr(offset, globalName.length() - offset).c_str());
+		 int index = atoi(globalName.substr(offset, globalName.length() - offset).c_str());*/
 		 
 		 uint64_t address = addressesOfGlobalVariables[index];
 		 Constant *replacement = ConstantExpr::getIntToPtr(

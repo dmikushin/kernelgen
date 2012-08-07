@@ -213,6 +213,9 @@ extern std::map<std::string, kernel_t*> kernels;
 extern uint64_t *addressesOfGlobalVariables;
 extern int numberOfGlobalVariables;
 
+// order of globals in which they were stored in addressesOfGlobalVariables
+extern std::map<llvm::StringRef, uint64_t> orderOfGlobals;
+
 // Target machines for runmodes.
 extern std::auto_ptr<llvm::TargetMachine> targets[KERNELGEN_RUNMODE_COUNT];
 

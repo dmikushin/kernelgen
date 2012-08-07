@@ -66,6 +66,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Support/MDBuilder.h"
 
 #include "BranchedLoopExtractor.h"
 #include "LinkFunctionBody.h"
@@ -918,25 +919,29 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			Value * MemoryForGlobals = memory3;
 			Type * Int64Ty = Type::getInt64Ty(context);
 			
-			int i = 0;
-			string globalName;
-			raw_string_ostream OS(globalName);
+            int i = 0;
+	        MDBuilder *mdBuilder =new MDBuilder(context);
+	        NamedMDNode *namedMdNode = composite.getOrInsertNamedMetadata("OrderOfGlobals");
+			assert(namedMdNode);
+	
+			
 			for (Module::global_iterator iter=composite.global_begin(),
 				iter_end=composite.global_end(); iter!=iter_end; iter++)
 			{
 				GlobalVariable *globalVar = iter;
 				Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), i);
-				globalName = "";
-				OS << "global." << i;
-				OS.flush();
+                
+				Value *vals[2];
+		        vals[0] = mdBuilder->createString(iter->getName());
+		        vals[1] = ConstantInt::get(Int64Ty, i);
 				
-				globalVar->setName(globalName.c_str());
+                MDNode *mdNode = MDNode::get(context, vals);
+		        namedMdNode->addOperand(mdNode);
 
 				GetElementPtrInst *placeOfGlobal = GetElementPtrInst::Create(
-					memory3, Idx4, (string)"placeOf." + globalName, root);
+					memory3, Idx4, (string)"placeOf." + iter->getName(), root);
 				Constant *bitCastOfGlobal = ConstantExpr::getPtrToInt(globalVar,Int64Ty);
 				StoreInst *storeOfGlobal = new StoreInst(bitCastOfGlobal, placeOfGlobal, root);
-
 				i++;
 			}
 		}

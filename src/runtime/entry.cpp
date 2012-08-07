@@ -73,6 +73,9 @@ std::map<string, kernel_t*> kernelgen::kernels;
 uint64_t *kernelgen::addressesOfGlobalVariables;
 int kernelgen::numberOfGlobalVariables;
 
+// order of globals in which they were stored in addressesOfGlobalVariables
+std::map<llvm::StringRef, uint64_t> kernelgen::orderOfGlobals;
+
 // CUDA runtime context.
 // TODO: sort out how to turn it into auto_ptr.
 kernelgen::bind::cuda::context* kernelgen::runtime::cuda_context = NULL;
@@ -283,8 +286,21 @@ int main(int argc, char* argv[], char* envp[])
 		assert(kernel->module && "main module  must be loaded!");
 		assert(sizeof(void *) == sizeof(uint64_t));
 
-		numberOfGlobalVariables = kernel->module->getGlobalList().size();
-        addressesOfGlobalVariables=NULL;
+        
+		
+		NamedMDNode *orderOfGlobalsMD = kernel->module->getNamedMetadata("OrderOfGlobals");
+		assert(orderOfGlobalsMD);
+		numberOfGlobalVariables = orderOfGlobalsMD->getNumOperands();
+		addressesOfGlobalVariables=NULL;
+	    for(int i =0; i < numberOfGlobalVariables; i++)
+	    {
+		   MDNode *mdNode = orderOfGlobalsMD->getOperand(i);
+		   assert(mdNode -> getNumOperands() == 2);
+		   assert(isa<MDString>(*(mdNode->getOperand(0))) && isa<ConstantInt>(*(mdNode->getOperand(1))));
+		   StringRef name = cast<MDString>(mdNode -> getOperand(0)) -> getString();
+		   uint64_t index = cast<ConstantInt>(mdNode -> getOperand(1))-> getZExtValue();
+		   orderOfGlobals[name] = index;
+	   }
 		
 		// Load arguments, depending on the target runmode
 		// and invoke the entry point kernel.
