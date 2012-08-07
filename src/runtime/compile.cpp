@@ -52,6 +52,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/IRBuilder.h"
 #include "polly/ScopInfo.h"
+//#include "/home/likhogrud/myInclude.h"
 
 #include "io.h"
 #include "util.h"
@@ -357,7 +358,7 @@ static void substituteGlobalsByTheirAddresses(Module *m)
 			 (*iter)->eraseFromParent();
 }
 
-static void processCallTreeMain(kernel_t* kernel, Module* m, Function* f)
+static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 {
 	list<AllocaInst*> allocas;
 	list<CallInst*> erase_calls;
@@ -698,19 +699,17 @@ kernel_func_t kernelgen::runtime::compile(
 		dim3 blockDim(1, 1, 1);
 		dim3 gridDim(1, 1, 1);
 		if (kernel->name != "__kernelgen_main")  {	
-			// If the target kernel is loop, do not allow host calls in it.
-			// Also do not allow malloc/free, probably support them later.
-			// TODO: kernel *may* have kernelgen_launch called, but it must
-			// always evaluate to -1.
-			if (!processCallTreeLoop(kernel, m, f))
-				return NULL;
+		
 
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
 
+	        //printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
 			// Apply the Polly codegen for CUDA target.
 			Size3 sizeOfLoops;
 			runPollyCUDA(kernel, &sizeOfLoops);
+			
+
 
 			// Do not compile the loop kernel if no grid detected.
 			// Important to place this condition *after* hostcalls check
@@ -719,6 +718,7 @@ kernel_func_t kernelgen::runtime::compile(
 			// hostcalls on each individual iteration, which will be terribly slow.
 			if (sizeOfLoops.x == -1)
 			{
+				
 				// Dump the LLVM IR Polly has failed to create
 				// gird in for futher analysis with kernelgen-polly.
 				/*if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
@@ -808,6 +808,14 @@ kernel_func_t kernelgen::runtime::compile(
 				return NULL;
 			}
 
+	
+					// If the target kernel is loop, do not allow host calls in it.
+			// Also do not allow malloc/free, probably support them later.
+			// TODO: kernel *may* have kernelgen_launch called, but it must
+			// always evaluate to -1.
+            if (!processCallTreeLoop(kernel, m, f))
+				return NULL;
+				
 			int device;
 			CUresult err = cuDeviceGet(&device, 0);
 			if (err)
@@ -832,6 +840,7 @@ kernel_func_t kernelgen::runtime::compile(
 			if (err)
 				THROW("Error in cuDeviceGetProperties " << err);
 
+            //printModuleToFile(m, kernel->name + (string)"_after_polly.txt" );
 			// x   y     z         x     y     z
 			// 123 13640   -1  ->  13640 123   1     two loops
 			// 123 13640 2134  ->  2134  13640 123   three loops
@@ -875,6 +884,7 @@ kernel_func_t kernelgen::runtime::compile(
 			// Substitute grid parameters to reduce amount of instructions
 			// and used registers.
 			substituteGridParams(kernel, gridDim, blockDim);
+			//printModuleToFile(m, kernel->name + (string)"_after_substitution.txt" );
 		}
 
 		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
@@ -894,7 +904,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 			// Process the function calls tree with main function in root.
 			for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
-			    processCallTreeMain(kernel, m, F);
+			    processFunctionFromMain(kernel, m, F);
 
 			// Evaluate ConstantExpr::SizeOf to integer number ConstantInt
 			PassManager manager;
@@ -959,18 +969,25 @@ kernel_func_t kernelgen::runtime::compile(
 		// Optimize only loop kernels.
 		if (kernel->name != "__kernelgen_main")
 		{
+			for(Module::iterator iter=m->begin(), iter_end = m->end();
+				  iter!=iter_end; iter++)
+					  if(!iter->isDeclaration() && cast<Function>(iter)!= f)
+						  iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+						  
 			PassManager manager;
 			PassManagerBuilder builder;
-			//builder.Inliner = createFunctionInliningPass();
+			builder.Inliner = createFunctionInliningPass();
 			
 			builder.OptLevel = 3;
 			builder.SizeLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
-			builder.DisableUnrollLoops = true;
+			//builder.DisableUnrollLoops = true;
 			builder.Vectorize = false;
 			builder.populateModulePassManager(manager);
 	
 			manager.run(*m);
+			
+			//printModuleToFile(m, kernel->name + (string)"_after_optimizations.txt" );
 		}
 		else
 		{
