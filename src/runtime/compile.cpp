@@ -978,6 +978,11 @@ kernel_func_t kernelgen::runtime::compile(
 					  if(!iter->isDeclaration() && cast<Function>(iter)!= f)
 						  iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
 						  
+			for(Module::global_iterator iter=m->global_begin(), iter_end = m->global_end();
+				  iter!=iter_end; iter++)
+					  if(!iter->isDeclaration())
+					       iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+						  
 			PassManager manager;
 			PassManagerBuilder builder;
 			builder.Inliner = createFunctionInliningPass();
