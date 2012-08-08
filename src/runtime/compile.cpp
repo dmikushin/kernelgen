@@ -980,7 +980,7 @@ kernel_func_t kernelgen::runtime::compile(
 						  
 			for(Module::global_iterator iter=m->global_begin(), iter_end = m->global_end();
 				  iter!=iter_end; iter++)
-					  if(!iter->isDeclaration())
+					  if(!iter->isDeclaration() && cast<GlobalVariable>(iter) != GVSig)
 					       iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
 						  
 			PassManager manager;
