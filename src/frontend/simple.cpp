@@ -255,7 +255,6 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		args.push_back("-fplugin-arg-dragonegg-emit-ir");
 		args.push_back("-fplugin-arg-dragonegg-llvm-ir-optimize=0");
 		args.push_back("-fkeep-inline-functions");
-        args.push_back("-fno-math-errno");
 		args.push_back("-D_KERNELGEN");
 		args.push_back("-S");
 		args.push_back("-o"); 
@@ -752,12 +751,15 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		cerr << "Note kernelgen-simple only searches in objects!" << endl;
 		return 1;
 	}
-{
-		 PassManager manager;
+
+	// Run -instcombine pass.
+	{
+		PassManager manager;
 		manager.add(new TargetData(&composite));
 		manager.add(createInstructionCombiningPass());
 		manager.run(composite);
-}
+	}
+
 	//
 	// 3) Rename main entry and insert new main entry into the
 	// composite module. The new main entry shall have all arguments
@@ -1102,27 +1104,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		}
 	}
 
-	//
-	// 4) Perform inlining pass on the resulting common module.
-	// Do not perform agressive optimizations here, or the process
-	// would hang infinitely.
-	//
-	/*if (verbose)
-		cout << "Inlining ..." << endl;
-	{
-		//TrackedPassManager manager(tracker);
-		PassManager manager;
-		manager.add(new TargetData(&composite));
-		manager.add(createInstructionCombiningPass());
-		PassManagerBuilder builder;
-		builder.Inliner = 0; //createFunctionInliningPass();
-		builder.OptLevel = 0;
-		builder.SizeLevel = 3;
-		builder.DisableSimplifyLibCalls = true;
-		builder.populateModulePassManager(manager);
-		manager.run(composite);
-	}*/
-
 	InitializeAllTargets();
 	InitializeAllTargetMCs();
 	InitializeAllAsmPrinters();
@@ -1223,7 +1204,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				loop.setTargetTriple(composite.getTargetTriple());
 				loop.setDataLayout(composite.getDataLayout());
 				
-				// copy all global variables
+				// Copy all global variables.
 				{
 					ValueToValueMapTy VMap;
 
@@ -1255,7 +1236,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					}
 				}
 				loop.getFunctionList().push_back(func);
-				
+
 				// Also clone all functions used by entire loop function
 				// to the new module.
 				for (Function::iterator bb = func->begin(), be = func->end(); bb != be; bb++)
@@ -1270,36 +1251,42 @@ static int link(int argc, char** argv, const char* input, const char* output)
 						
 						if (!callee) continue;
 						Function * Src = composite.getFunction(callee->getName());
-						Function * Dst = cast<Function>(loop.getOrInsertFunction(Src->getName(), Src->getFunctionType(),Src->getAttributes())-> stripPointerCasts());
-						
-                        if (Src && (Src != Dst))
+						Function * Dst = cast<Function>(loop.getOrInsertFunction(
+							Src->getName(), Src->getFunctionType(),
+							Src->getAttributes())-> stripPointerCasts());
+
+						if (Src && (Src != Dst))
 							if (!Src->isDeclaration() && Dst->isDeclaration()) 
 								LinkFunctionBody(Dst, Src);
                         
 						Type *calledFunctionType = call->getCalledValue()->getType();
 
-                        if(calledFunctionType == Dst -> getType())
-						   call -> setCalledFunction(Dst);
+						if (calledFunctionType == Dst->getType())
+							call -> setCalledFunction(Dst);
 						else
 						{
-						   cout << "Nested device call: " << Dst->getName().data()<< " need bitcast "<<endl;
-                           call -> setCalledFunction( ConstantExpr::getBitCast(Dst,calledFunctionType));
+							cout << "Nested device call: " << Dst->getName().data() <<
+								" need bitcast " << endl;
+							call->setCalledFunction(
+								ConstantExpr::getBitCast(Dst,calledFunctionType));
 						}
 					}
-		         
-				 // defined functions will be deleted after inlining
-				 // if linkage type is LinkerPrivateLinkage
-				 for(Module::iterator iter=loop.begin(), iter_end = loop.end();
-				  iter!=iter_end; iter++)
-					  if(!iter->isDeclaration() && cast<Function>(iter)!= func)
-						  iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
-				
-                 //perform inlining
-				 {
-			        PassManager manager;
-				  	manager.add(createFunctionInliningPass());
-			        manager.run(loop);
-		          }
+
+				//verifyModule(loop);
+
+				// Defined functions will be deleted after inlining
+				// if linkage type is LinkerPrivateLinkage.
+				for (Module::iterator iter = loop.begin(), iter_end = loop.end();
+					iter != iter_end; iter++)
+				if(!iter->isDeclaration() && cast<Function>(iter) != func)
+					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+
+				// Perform inlining.
+				{
+					PassManager manager;
+					manager.add(createFunctionInliningPass());
+					manager.run(loop);
+				}
 		
 				// Embed "loop" module into object.
 				{
