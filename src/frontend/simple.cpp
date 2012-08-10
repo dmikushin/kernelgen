@@ -254,6 +254,8 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		args.push_back("-fplugin=/opt/kernelgen/lib/dragonegg.so");
 		args.push_back("-fplugin-arg-dragonegg-emit-ir");
 		args.push_back("-fplugin-arg-dragonegg-llvm-ir-optimize=0");
+		args.push_back("-fkeep-inline-functions");
+        args.push_back("-fno-math-errno");
 		args.push_back("-D_KERNELGEN");
 		args.push_back("-S");
 		args.push_back("-o"); 

@@ -68,7 +68,7 @@ namespace
 			BranchedCodeExtractor(DominatorTree* dt = 0)
 				: DT(dt), NumExitBlocks(~0U), OriginalLoopBlocks(BlocksToExtract) {}
 
-			CallInst *ExtractCodeRegion(Loop *L, LoopInfo &LI );
+			CallInst *ExtractCodeRegion(Loop *L, LoopInfo &LI, bool makeBranch );
 
 			bool isEligible(const std::vector<BasicBlock*> &code);
 
@@ -925,7 +925,7 @@ void BranchedCodeExtractor::updatePhiNodes(
 /// computed result back into memory.
 ///
 CallInst *BranchedCodeExtractor::
-ExtractCodeRegion(Loop *L, LoopInfo &LI )
+ExtractCodeRegion(Loop *L, LoopInfo &LI , bool makeBranch)
 {
 	const std::vector<BasicBlock*> &code = L->getBlocks();
 	if (!isEligible(code)) return NULL;
@@ -1124,9 +1124,9 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 namespace llvm
 {
 // ExtractBasicBlock - slurp a natural loop into a brand new function.
- CallInst* BranchedExtractLoop(DominatorTree& DT,LoopInfo &LI, Loop *L)
+ CallInst* BranchedExtractLoop(DominatorTree& DT,LoopInfo &LI, Loop *L, bool isBranched)
 {
-	return BranchedCodeExtractor(&DT).ExtractCodeRegion(L,LI);
+	return BranchedCodeExtractor(&DT).ExtractCodeRegion(L,LI, isBranched);
 }
 
 }

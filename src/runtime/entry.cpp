@@ -380,6 +380,7 @@ int main(int argc, char* argv[], char* envp[])
                                 }
 
 				// Load LLVM IR for CUDA runtime functions, if not yet loaded.
+				
 				if (!cuda_module)
 				{
 					string cuda_source = "";

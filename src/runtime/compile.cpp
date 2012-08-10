@@ -86,7 +86,7 @@ namespace llvm
 extern cl::opt<bool> IgnoreAliasing;
 
 void ConstantSubstitution( Function * func, void * args);
-Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL);
+Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL, bool * isThereAtLeastOneParallelLoop = NULL);
 Pass* createRuntimeAliasAnalysisPass();
 
 Pass* createTransformAccessesPass();
@@ -193,7 +193,7 @@ void getAllocasAndMaximumSize(Function *f,list<Value *> *allocasForArgs, unsigne
 	}
 }
 
-static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
+static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode, bool *isThereAtLeastOneParallelLoop)
 {
 	{
 		PassManager polly;
@@ -226,7 +226,7 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		    polly.add(createInspectDependencesPass()); // Dependences run and compute dependences 
 			                                           // before InspectDependences, but after TransformAccesses
                                                        // and use general form of memory accesses
-			polly.add(createSizeOfLoopsPass(&sizes));  // compute size of loops
+			polly.add(createSizeOfLoopsPass(&sizes, isThereAtLeastOneParallelLoop));  // compute size of loops
 		    polly.add(createSetRelationTypePass()); // set current relation types in scop's memory Accesses back to 
 			                                        // RelationType_polly
 		    //polly.add(createScopDescriptionPass());
@@ -280,11 +280,11 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 }
 static void runPollyNATIVE(kernel_t *kernel, Size3 *sizeOfLoops)
 {
-	return runPolly(kernel, sizeOfLoops, false);
+	return runPolly(kernel, sizeOfLoops, false, NULL);
 }
-static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops)
+static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops, bool *isThereAtLeastOneParallelLoop)
 {
-	return runPolly(kernel, sizeOfLoops, true);
+	return runPolly(kernel, sizeOfLoops, true, isThereAtLeastOneParallelLoop);
 }
 void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
@@ -392,6 +392,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				call->getCalledValue()->stripPointerCasts());
 			if (!callee) continue;
 		
+		    call->setAttributes(callee->getAttributes());
 			// If function is defined (has body),
 			// it will be handled in another call of processCallTreeMain
 			if (!callee->isDeclaration())
@@ -411,6 +412,14 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				call->setCallingConv(CallingConv::PTX_Device);					
 				LinkFunctionBody(Dst, Src);
 				Dst->setName((string)"_" + (string)Dst->getName());
+				
+				Dst->setAttributes(Src->getAttributes());
+				for(Value::use_iterator use_iter = Dst->use_begin(), use_iter_end = Dst->use_end();
+			    use_iter != use_iter_end; use_iter++)
+			    {
+				    CallInst * call = cast<CallInst>(*use_iter);
+				    call-> setAttributes(Dst -> getAttributes());
+			    }
 				continue;
 			}
 
@@ -576,6 +585,7 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 			{
 				if (!processCallTreeLoop(kernel, m, callee))
 					return false;
+				//call -> setAttributes(callee -> getAttributes());
 				continue;
 			}
 		
@@ -590,6 +600,7 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 				call->setCallingConv(CallingConv::PTX_Device);					
 				LinkFunctionBody(Dst, Src);
 				Dst->setName((string)"_" + (string)Dst->getName());
+				//Dst->setAttributes(Src -> getAttributes());
 				continue;
 			}
 
@@ -708,10 +719,36 @@ kernel_func_t kernelgen::runtime::compile(
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
 
-	        //printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
-			// Apply the Polly codegen for CUDA target.
-			Size3 sizeOfLoops;
-			runPollyCUDA(kernel, &sizeOfLoops);
+
+
+		/*{
+			PassManager MPM;
+			MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
+			MPM.add(createFunctionInliningPass());
+			MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+			MPM.run(*m);
+		}*/
+		
+		// copy attributes for declarations from cuda_module
+		// set appropriate attributes to calls
+		for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+			if(func->isDeclaration()) {
+  			    Function *Src = cuda_module -> getFunction(func->getName());
+			    if(Src)
+			        func->setAttributes(Src->getAttributes());
+			}
+		    for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+			use_iter != use_iter_end; use_iter++)
+			{
+				CallInst * call = cast<CallInst>(*use_iter);
+				call-> setAttributes(func -> getAttributes());
+			}
+	     }
+	     //printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
+		 // Apply the Polly codegen for CUDA target.
+		 Size3 sizeOfLoops;
+		 bool isThereAtLeastOneParallelLoop = false;
+		 runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
 			
 
 
@@ -808,12 +845,14 @@ kernel_func_t kernelgen::runtime::compile(
 			
 				// XXX Turn off future kernel analysis, if it has been detected as
 				// non-parallel at least once. This behavior is subject for change in future.
-				kernel->target[runmode].supported = false;
+				if(!isThereAtLeastOneParallelLoop)
+				    kernel->target[runmode].supported = false;
 				return NULL;
 			}
+            assert(isThereAtLeastOneParallelLoop);
 
-	
-					// If the target kernel is loop, do not allow host calls in it.
+
+			// If the target kernel is loop, do not allow host calls in it.
 			// Also do not allow malloc/free, probably support them later.
 			// TODO: kernel *may* have kernelgen_launch called, but it must
 			// always evaluate to -1.
