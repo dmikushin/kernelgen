@@ -100,6 +100,7 @@ void load_kernel(kernel_t* kernel)
 	raw_string_ostream ir(kernel->source);
 	ir << (*m);
 	kernel->loaded = true;
+	kernel->module = m;
 	//m->dump();
 }
 #endif

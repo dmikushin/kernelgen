@@ -619,7 +619,7 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 kernel_func_t kernelgen::runtime::compile(
     int runmode, kernel_t* kernel, Module* module, void * data, int szdata, int szdatai)
 {
-	// Do not compile, if no source.
+    // Do not compile, if no source.
 	if (kernel->source == "")
 		return kernel->target[runmode].binary;
 

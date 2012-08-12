@@ -1351,7 +1351,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 						{
 				           if(!iter->isDeclaration())
 					             iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
-							else iter->setLinkage(GlobalValue::ExternalLinkage);
+							else if(!iter->isIntrinsic())
+								iter->setLinkage(GlobalValue::ExternalLinkage);
 						}
 				
 				verifyModule(loop);
@@ -1479,6 +1480,22 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		//TrackedPassManager manager(tracker);
 		PassManager manager;
 		manager.add(new TargetData(&composite));
+		
+		// Rename "main" to "__kernelgen_main".
+		Function* kernelgen_main_ = composite.getFunction("main");
+		
+      for (Module::iterator iter = composite.begin(), iter_end = composite.end();
+					iter != iter_end; iter++)
+						
+		if(cast<Function>(iter) != kernelgen_main_){
+				  if(!iter->isDeclaration())
+					    iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+					else if(!iter->isIntrinsic())
+					    iter->setLinkage(GlobalValue::ExternalLinkage);
+		}
+				
+				verifyModule(composite);
+
 
 		// Optimize only composite module with main function.
 		{
@@ -1494,8 +1511,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			manager.run(composite);
 		}
 		
-		// Rename "main" to "__kernelgen_main".
-		Function* kernelgen_main_ = composite.getFunction("main");
+
 		kernelgen_main_->setName("__kernelgen_main");
 
 		// Add __kernelgen_regular_main reference.
