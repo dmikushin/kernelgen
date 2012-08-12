@@ -1201,7 +1201,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				
 				
 				// Rename "loop" function to "__kernelgen_loop".
-				//func->setName("__kernelgen_" + func->getName());
+				func->setName("__kernelgen_" + func->getName());
 				
 				// Create new module and populate it with entire loop function.
 				Module loop(func->getName(), context);
@@ -1342,7 +1342,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				// !!!!!!!!!!!!!!!
 				
 				Function *newFunc = cast<Function>(VMap[func]);
-				newFunc ->setName("__kernelgen_" + newFunc->getName());
+				newFunc ->setName(newFunc->getName());
 				// Defined functions will be deleted after inlining
 				// if linkage type is LinkerPrivateLinkage.
 				for (Module::iterator iter = loop.begin(), iter_end = loop.end();

@@ -41,7 +41,7 @@ using namespace std;
 
 #ifdef KERNELGEN_LOAD_KERNELS_LAZILY
 // Read source into LLVM module for the specified kernel.
-static void load_kernel(kernel_t* kernel)
+void load_kernel(kernel_t* kernel)
 {
 	LLVMContext& context = getGlobalContext();
 
@@ -99,7 +99,7 @@ static void load_kernel(kernel_t* kernel)
 	kernel->source = "";
 	raw_string_ostream ir(kernel->source);
 	ir << (*m);
-	
+	kernel->loaded = true;
 	//m->dump();
 }
 #endif

@@ -90,6 +90,8 @@ Module* kernelgen::runtime::runtime_module = NULL;
 // CUDA module (applicable for some targets).
 Module* kernelgen::runtime::cuda_module = NULL;
 
+void load_kernel(kernel_t* kernel);
+
 int main(int argc, char* argv[], char* envp[])
 {
 	//tracker = new PassTracker("codegen", NULL, NULL);
@@ -183,9 +185,8 @@ int main(int argc, char* argv[], char* envp[])
 			kernel_t* kernel =  new kernel_t();
 			kernel->name = name;
 			kernel->source = data;
-#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
 			kernel->loaded = false;
-#endif
+
 			// Initially, all targets are supported.
 			for (int ii = 0; ii < KERNELGEN_RUNMODE_COUNT; ii++)
 			{
@@ -204,11 +205,13 @@ int main(int argc, char* argv[], char* envp[])
 		{
 			THROW("Cannot find the __kernelgen_main symbol");
 		}
-#ifndef KERNELGEN_LOAD_KERNELS_LAZILY
+		
+		
+
 		// Walk through kernel index and replace
 		// all names with kernel structure addresses
 		// for each kernelgen_launch call.
-		SMDiagnostic diag;
+		//SMDiagnostic diag;
 		for (map<string, kernel_t*>::iterator i = kernels.begin(),
 			e = kernels.end(); i != e; i++)
 		{
@@ -216,78 +219,17 @@ int main(int argc, char* argv[], char* envp[])
 			
 			if (!kernel) THROW("Invalid kernel item");
 			
-			// Load IR from source.
-			MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
-			Module* m = ParseIR(buffer, diag, context);
-			if (!m)
-				THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
-					diag.getLineContents() << ": " << diag.getMessage());
-			m->setModuleIdentifier(kernel->name + "_module");
-		
-			for (Module::iterator fi = m->begin(), fe = m->end(); fi != fe; fi++)
-				for (Function::iterator bi = fi->begin(), be = fi->end(); bi != be; bi++)
-					for (BasicBlock::iterator ii = bi->begin(), ie = bi->end(); ii != ie; ii++)
-					{
-						// Check if instruction in focus is a call.
-						CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-						if (!call) continue;
-					
-						// Check if function is called (needs -instcombine pass).
-						Function* callee = call->getCalledFunction();
-						if (!callee) continue;
-						if (!callee->isDeclaration()) continue;
-						if (callee->getName() != "kernelgen_launch") continue;
+			#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+			if(kernel->name != "__kernelgen_main") continue;
+			#endif			
 
-						// Get the called function name from the metadata node.
-						MDNode* nameMD = call->getMetadata("kernelgen_launch");
-						if (!nameMD)
-							THROW("Cannot find kernelgen_launch metadata");
-						if (nameMD->getNumOperands() != 1)
-							THROW("Unexpected kernelgen_launch metadata number of operands");
-						ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
-							nameMD->getOperand(0));
-						if (!nameArray)
-							THROW("Invalid kernelgen_launch metadata operand");
-						if (!nameArray->isCString())
-							THROW("Invalid kernelgen_launch metadata operand");
-						string name = "__kernelgen_" + (string)nameArray->getAsCString();
-						if (verbose)
-							cout << "Launcher invokes kernel " << name << endl;
-						
-						// Permanently assign launcher first argument with the address
-						// of the called kernel function structure (for fast access).
-						kernel_t* kernel = kernels[name];
-						if (!kernel)
-							THROW("Cannot get the name of kernel invoked by kernelgen_launch");
-						call->setArgOperand(0, ConstantExpr::getIntToPtr(
-							ConstantInt::get(Type::getInt64Ty(context), (uint64_t)kernel),
-							Type::getInt8PtrTy(context)));
-					}
-
-			kernel->source = "";
-			raw_string_ostream ir(kernel->source);
-			ir << (*m);
-			
-			//m->dump();
+			load_kernel(kernel);
 		}
-#endif
+
 		kernel = kernels["__kernelgen_main"];
-        if (!kernel->module) {
-		// Load LLVM IR source into module.
-		SMDiagnostic diag;
-		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
-		kernel->module = ParseIR(buffer, diag, context);
-		if (!kernel->module)
-			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
-			      diag.getLineContents() << ": " << diag.getMessage());
-		kernel->module->setModuleIdentifier(kernel->name + "_module");
-	}
-		
-		assert(kernel->module && "main module  must be loaded!");
+        assert(kernel->module && "main module must be loaded");
 		assert(sizeof(void *) == sizeof(uint64_t));
 
-        
-		
 		NamedMDNode *orderOfGlobalsMD = kernel->module->getNamedMetadata("OrderOfGlobals");
 		assert(orderOfGlobalsMD);
 		numberOfGlobalVariables = orderOfGlobalsMD->getNumOperands();
