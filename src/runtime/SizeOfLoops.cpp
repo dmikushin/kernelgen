@@ -364,9 +364,10 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 	else
 		sizeOfLoops->push_back(Size3());
 		
-	*isThereAtLeastOneParallelLoop = false;
-	findParallelLoop(stmt->next);
-    
+	if(isThereAtLeastOneParallelLoop) {
+	   *isThereAtLeastOneParallelLoop = false;
+	   findParallelLoop(stmt->next);
+    }
 	printSizeOfLoops( (*sizeOfLoops)[0], goodLoopsCount);
     //printCloogAST(C);
         if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
