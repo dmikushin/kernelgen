@@ -325,8 +325,13 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		builder.SizeLevel=3;
 		PassManager manager;
 		manager.add(new TargetData(m.get()));
-		builder.populateModulePassManager(manager);
-		manager.add(createLoopSimplifyPass());
+		//builder.populateModulePassManager(manager);
+		//manager.add(createLoopSimplifyPass());
+		
+		manager.add(createBasicAliasAnalysisPass());
+		manager.add(createLICMPass());
+		manager.add(createGVNPass());
+		
 		manager.run(*m);
 		
 	}
