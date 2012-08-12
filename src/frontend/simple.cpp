@@ -1199,100 +1199,189 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				if (verbose)
 					cout << "Extracting kernel " << func->getName().str() << " ..." << endl;
 				
-				func->removeFromParent();
 				
 				// Rename "loop" function to "__kernelgen_loop".
-				func->setName("__kernelgen_" + func->getName());
+				//func->setName("__kernelgen_" + func->getName());
 				
 				// Create new module and populate it with entire loop function.
 				Module loop(func->getName(), context);
 				loop.setTargetTriple(composite.getTargetTriple());
 				loop.setDataLayout(composite.getDataLayout());
-				
-				// Copy all global variables.
+			    loop.setModuleInlineAsm(composite.getModuleInlineAsm());
+	
+	            // list of required functions
+	            list<Function *> requiredFunctions;
+	            stack<Function *> notHandledFunctions;
+				notHandledFunctions.push(func);
+				requiredFunctions.push_back(func);
+				while(!notHandledFunctions.empty())
 				{
-					ValueToValueMapTy VMap;
-
-					// Loop over all of the global variables, making corresponding globals in the
-					// new module.  Here we add them to the VMap and to the new Module.  We
-					// don't worry about attributes or initializers, they will come later.
-					for (Module::const_global_iterator I = composite.global_begin(),
-						E = composite.global_end(); I != E; ++I)
-					{
-						GlobalVariable *GV = new GlobalVariable(loop,
-							I->getType()->getElementType(),
-							I->isConstant(), I->getLinkage(),
-							(Constant*) 0, I->getName(), (GlobalVariable*) 0,
-							I->isThreadLocal(),
-							I->getType()->getAddressSpace());
-						GV->copyAttributesFrom(I);
-						VMap[I] = GV;
-					}
-
-					// Now that all of the things that global variable initializer can refer to
-					// have been created, loop through and copy the global variable referrers
-					// over...  We also set the attributes on the global now.
-					for (Module::const_global_iterator I = composite.global_begin(),
-						E = composite.global_end(); I != E; ++I)
-					{
-						GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
-						if (I->hasInitializer())
-							GV->setInitializer(MapValue(I->getInitializer(), VMap));
-					}
-				}
-				loop.getFunctionList().push_back(func);
-
-				// Also clone all functions used by entire loop function
-				// to the new module.
-				for (Function::iterator bb = func->begin(), be = func->end(); bb != be; bb++)
-					for (BasicBlock::iterator i = bb->begin(); i != bb->end(); i++)
-					{
-						CallInst* call = dyn_cast<CallInst>(i);
-						if (!call) continue;
-
-						// Check if function is called (needs -instcombine pass).
-						Function* callee = dyn_cast<Function>(
-							call->getCalledValue()->stripPointerCasts());
-						
-						if (!callee) continue;
-						Function * Src = composite.getFunction(callee->getName());
-						Function * Dst = cast<Function>(loop.getOrInsertFunction(
-							Src->getName(), Src->getFunctionType(),
-							Src->getAttributes())-> stripPointerCasts());
-
-						if (Src && (Src != Dst))
-							if (!Src->isDeclaration() && Dst->isDeclaration()) 
-								LinkFunctionBody(Dst, Src);
-                        
-						Type *calledFunctionType = call->getCalledValue()->getType();
-
-						if (calledFunctionType == Dst->getType())
-							call -> setCalledFunction(Dst);
-						else
+					Function *current = notHandledFunctions.top();
+					notHandledFunctions.pop();
+					for (Function::iterator bb = current->begin(), be = current->end(); bb != be; bb++)
+                        for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) 
 						{
-							cout << "Nested device call: " << Dst->getName().data() <<
-								" need bitcast " << endl;
-							call->setCalledFunction(
-								ConstantExpr::getBitCast(Dst,calledFunctionType));
+							 CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+                             if (!call) continue;
+							 
+							 Function* callee = dyn_cast<Function>(
+							     call->getCalledValue()->stripPointerCasts());
+                             if(!callee) continue;
+							 
+							 //find function in handled functions
+							 list<Function *>::iterator findIter = requiredFunctions.begin();
+							 while(findIter != requiredFunctions.end() &&  (*findIter) != callee)
+								 findIter++;
+						     
+							 // if we did not seen it before
+							 if(findIter == requiredFunctions.end())
+							 {
+								 // if it has body - handle it
+								 if(!callee->isDeclaration())
+									 notHandledFunctions.push(callee);
+								 // push it to required functions
+								 requiredFunctions.push_back(callee);
+							 }
 						}
+				}
+				// map values from composite to new module
+				ValueToValueMapTy VMap;
+				// Copy all of the dependent libraries over.
+                for (Module::lib_iterator I = composite.lib_begin(), E = composite.lib_end(); I != E; ++I)
+                     loop.addLibrary(*I);
+				
+				 // Loop over all of the global variables, making corresponding globals in the
+                 // new module.  Here we add them to the VMap and to the new Module.  We
+                 // don't worry about attributes or initializers, they will come later.
+                 //
+                 for (Module::const_global_iterator I = composite.global_begin(), E = composite.global_end();
+                   I != E; ++I) {
+                      GlobalVariable *GV = new GlobalVariable(loop, 
+                                            I->getType()->getElementType(),
+                                            I->isConstant(), I->getLinkage(),
+                                            (Constant*) 0, I->getName(),
+                                            (GlobalVariable*) 0,
+                                            I->isThreadLocal(),
+                                            I->getType()->getAddressSpace());
+                      GV->copyAttributesFrom(I);
+                      VMap[I] = GV;
+                   }
+				
+				/*// Loop over the required functions in the module, making external functions as before
+                for (list<Function *>::iterator I = requiredFunctions.begin(), E = requiredFunctions.end(); I != E; ++I) {
+                    Function *Src = (*I);
+					Function *NF =
+                       Function::Create(cast<FunctionType>(Src->getType()->getElementType()),
+                          Src->getLinkage(), Src->getName(), &loop);
+                      NF->copyAttributesFrom(Src);
+                      VMap[Src] = NF;
+				}*/
+				  // Loop over the functions in the module, making external functions as before
+                 for (Module::const_iterator I = composite.begin(), E = composite.end(); I != E; ++I) {
+                    Function *NF =
+                    Function::Create(cast<FunctionType>(I->getType()->getElementType()),
+                       I->getLinkage(), I->getName(), &loop);
+                    NF->copyAttributesFrom(I);
+                    VMap[I] = NF;
+                  }
+				
+                // Loop over the aliases in the module
+                for (Module::const_alias_iterator I = composite.alias_begin(), E = composite.alias_end();
+                    I != E; ++I) {
+                   GlobalAlias *GA = new GlobalAlias(I->getType(), I->getLinkage(),
+                                      I->getName(), NULL, &loop);
+                            GA->copyAttributesFrom(I);
+                          VMap[I] = GA;
+                    }
+
+               // Now that all of the things that global variable initializer can refer to
+               // have been created, loop through and copy the global variable referrers
+               // over...  We also set the attributes on the global now.
+               //
+               for (Module::const_global_iterator I = composite.global_begin(), E = composite.global_end();
+                   I != E; ++I) {
+                 GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
+                 if (I->hasInitializer())
+                  GV->setInitializer(MapValue(I->getInitializer(), VMap));
+               }
+
+
+               // Similarly, copy over required function bodies now...
+               //
+                for (list<Function *>::iterator Iter = requiredFunctions.begin(), E = requiredFunctions.end(); Iter != E; ++Iter) {
+                   Function *I = *Iter;
+				   Function *F = cast<Function>(VMap[I]);
+				   
+                   if (!I->isDeclaration()) {
+                       Function::arg_iterator DestI = F->arg_begin();
+                       for (Function::const_arg_iterator J = I->arg_begin(); J != I->arg_end(); ++J) {
+                          DestI->setName(J->getName());
+                          VMap[J] = DestI++;
+					   }
+                       SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
+                       CloneFunctionInto(F, I, VMap, /*ModuleLevelChanges=*/true, Returns);
+					   
+					   for (Function::arg_iterator argI = I->arg_begin(), argE = I->arg_end();
+                           argI != argE; ++argI)
+                        VMap.erase(argI);
 					}
+                }
 
-				//verifyModule(loop);
-
+              // And aliases
+               for (Module::const_alias_iterator I = composite.alias_begin(), E = composite.alias_end();
+                  I != E; ++I) {
+                  GlobalAlias *GA = cast<GlobalAlias>(VMap[I]);
+                  if (const Constant *C = I->getAliasee())
+                    GA->setAliasee(MapValue(C, VMap));
+                }
+  
+  
+                // And named metadata....
+				// !!!!!!!!!!!!!!!
+				// copy metadata??
+				// !!!!!!!!!!!!!!!
+				
+				Function *newFunc = cast<Function>(VMap[func]);
+				newFunc ->setName("__kernelgen_" + newFunc->getName());
 				// Defined functions will be deleted after inlining
 				// if linkage type is LinkerPrivateLinkage.
 				for (Module::iterator iter = loop.begin(), iter_end = loop.end();
 					iter != iter_end; iter++)
-				if(!iter->isDeclaration() && cast<Function>(iter) != func)
-					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+						if(cast<Function>(iter) != newFunc)
+						{
+				           if(!iter->isDeclaration())
+					             iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+							else iter->setLinkage(GlobalValue::ExternalLinkage);
+						}
+				
+				verifyModule(loop);
+				
+				
 
+				
+
+               /* // delete unused globals 
+			   for (Module::global_iterator iter = loop.global_begin(), iter_end = loop.global_end();
+					iter != iter_end; iter++)
+				if(!iter->isDeclaration())
+					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);*/
+					
 				// Perform inlining.
 				{
 					PassManager manager;
 					manager.add(createFunctionInliningPass());
+					manager.add(createCFGSimplificationPass());
 					manager.run(loop);
 				}
-		
+				// delete unnecessary globals and function declarations
+				{
+			        PassManager manager;
+			        manager.add(createGlobalOptimizerPass());     // Optimize out global vars
+			        //MPM.add(createFunctionInliningPass());
+			        manager.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+			        manager.run(loop);
+		          }
+		       
 				// Embed "loop" module into object.
 				{
 					// Put the resulting module into LLVM output file
@@ -1360,7 +1449,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					tmp_main_output1 = tmp_main_output2;
 					tmp_main_output2 = swap;
 				}
-				
+				func -> eraseFromParent();
 				nloops++;
 			}
 		}

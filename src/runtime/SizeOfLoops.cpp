@@ -364,7 +364,7 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 	else
 		sizeOfLoops->push_back(Size3());
 		
-	if(isThereAtLeastOneParallelLoop) {
+	if(isThereAtLeastOneParallelLoop) {	
 	   *isThereAtLeastOneParallelLoop = false;
 	   findParallelLoop(stmt->next);
     }

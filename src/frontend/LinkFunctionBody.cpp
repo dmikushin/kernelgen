@@ -39,7 +39,6 @@ using namespace std;
 //===----------------------------------------------------------------------===//
 // TypeMap implementation.
 //===----------------------------------------------------------------------===//
-
 namespace {
 class TypeMapTy : public ValueMapTypeRemapper {
   /// MappedTypes - This is a mapping from a source type to a destination type
@@ -427,5 +426,92 @@ void kernelgen::LinkFunctionBody(Function *Dst, Function *Src) {
 		}
       //if (verbose) cout << "Nested device call: " << DstRNew->getName().data()<< endl;
   }
+}
+
+namespace {
+/// LinkFunctionBody - Copy the source function over into the dest function and
+/// fix up references to values.  Dest is an external function, and Src is not.
+/// Also insert the used functions declarations.
+void LinkFunctionBody(Function *Dst, Function *Src, ValueToValueMapTy & ValueMap,TypeMapTy & TypeMap ) {
+  assert(Src && Dst && Dst->isDeclaration() && !Src->isDeclaration());
+
+  // ValueMap - Mapping of values from what they used to be in Src, to what
+  // they are now in DstM.  ValueToValueMapTy is a ValueMap, which involves
+  // some overhead due to the use of Value handles which the Linker doesn't
+  // actually need, but this allows us to reuse the ValueMapper code.
+ //ValueToValueMapTy ValueMap;
+  
+  //TypeMapTy TypeMap; 
+
+  // Go through and convert function arguments over, remembering the mapping.
+  Function::arg_iterator DI = Dst->arg_begin();
+  for (Function::arg_iterator I = Src->arg_begin(), E = Src->arg_end();
+       I != E; ++I, ++DI) {
+    DI->setName(I->getName());  // Copy the name over.
+
+    // Add a mapping to our mapping.
+    ValueMap[I] = DI;
+  }
+
+  // Clone the body of the function into the dest function.
+  SmallVector<ReturnInst*, 8> Returns; // Ignore returns.
+  CloneFunctionInto(Dst, Src, ValueMap, false, Returns, "", NULL, &TypeMap);
+  
+  // There is no need to map the arguments anymore.
+  for (Function::arg_iterator I = Src->arg_begin(), E = Src->arg_end();
+       I != E; ++I)
+    ValueMap.erase(I);
+
+  // Recursively link declarations of functions used by the one just inserted.
+  for (Function::iterator bb = Dst->begin(), be = Dst->end(); bb != be; bb++)
+    for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+     
+       // Check if instruction in focus is a call.
+      CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+      if (!call) continue;
+      
+    	Function* DstR = dyn_cast<Function>(
+							call->getCalledValue()->stripPointerCasts());
+      if (!DstR) continue;
+      
+	  // function already handled
+	  if (DstR->getParent() == Dst->getParent()) continue;
+	  
+      Function* SrcR = Src->getParent()->getFunction(DstR->getName());
+      if (!SrcR) continue;
+	  assert(DstR == SrcR);
+	  
+      //Function* DstRNew = Function::Create(TypeMap.get(SrcR->getFunctionType()),
+      //	SrcR->getLinkage(), SrcR->getName(), Dst->getParent());
+      Function* DstRNew =  dyn_cast<Function>(Dst->getParent()->getOrInsertFunction(
+	            SrcR->getName(), SrcR->getFunctionType(),SrcR->getAttributes()) -> stripPointerCasts());
+
+	  if(!DstRNew) continue; // something wrong
+	  else
+		  //link if  DstRNew is not defined (has not body)
+		  if(!SrcR->isDeclaration() && DstRNew->isDeclaration())
+	  {
+         // Use the maximum alignment, rather than just copying the alignment of SrcGV.
+         unsigned Alignment = std::max(DstRNew->getAlignment(), DstR->getAlignment());
+         DstRNew->setAlignment(Alignment);
+		 LinkFunctionBody(DstRNew, SrcR, ValueMap, TypeMap);
+      }
+	  
+	  // replace called function by DstRNew
+		Type *calledFunctionType = call->getCalledValue()->getType();
+        if(calledFunctionType == DstRNew -> getType())
+     	   call -> setCalledFunction(DstRNew);
+	    else
+		{
+		   cout << "Nested device call: " << DstRNew->getName().data()<< " need bitcast "<<endl;
+           call -> setCalledFunction( ConstantExpr::getBitCast(DstRNew,calledFunctionType));
+		}
+      //if (verbose) cout << "Nested device call: " << DstRNew->getName().data()<< endl;
+  }
+}
+}
+void kernelgen::LinkFunctionBody(Function *Dst, Function *Src, ValueToValueMapTy & ValueMap ) {
+  TypeMapTy TypeMap;
+  ::LinkFunctionBody(Dst, Src, ValueMap,TypeMap );
 }
 
