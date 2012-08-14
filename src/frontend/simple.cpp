@@ -1381,8 +1381,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					iter != iter_end; iter++)
 						if(cast<Function>(iter) != newFunc)
 						{
-				           if(!iter->isDeclaration())
-					             iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+							if(!iter->isDeclaration())
+								iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
 							else if(!iter->isIntrinsic())
 								iter->setLinkage(GlobalValue::ExternalLinkage);
 						}
@@ -1403,7 +1403,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					manager.run(loop);
 				}
 
-				// delete unnecessary globals and function declarations
+				// Delete unnecessary globals and function declarations
 				{
 					PassManager manager;
 					manager.add(createGlobalOptimizerPass());     // Optimize out global vars
@@ -1515,23 +1515,23 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		Function* kernelgen_main_ = composite.getFunction("main");
 		
 		list<Function *> functionsToDelete;
-        for (Module::iterator iter = composite.begin(), iter_end = composite.end();
-					iter != iter_end; iter++)
-			if(cast<Function>(iter) != kernelgen_main_){
-				  /*if(!iter->isDeclaration())
-					    iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
-					else if(!iter->isIntrinsic())
-					    iter->setLinkage(GlobalValue::ExternalLinkage);*/
+		for (Module::iterator iter = composite.begin(), iter_end = composite.end();
+			iter != iter_end; iter++)
+			if(cast<Function>(iter) != kernelgen_main_)
+			{
+				/*if(!iter->isDeclaration())
+					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+				else if(!iter->isIntrinsic())
+					iter->setLinkage(GlobalValue::ExternalLinkage);*/
 				if(iter->getNumUses() == 0)
 					functionsToDelete.push_back(iter);
-		}
+			}
 		
-		for(list<Function *>::iterator iter = functionsToDelete.begin(), iter_end = functionsToDelete.end();
-		   iter!=iter_end; iter++)
-			   (*iter)->eraseFromParent();
+		for(list<Function *>::iterator iter = functionsToDelete.begin(),
+			iter_end = functionsToDelete.end(); iter!=iter_end; iter++)
+			(*iter)->eraseFromParent();
 		
 		verifyModule(composite);
-
 
 		// Optimize only composite module with main function.
 		{
@@ -1553,8 +1553,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Add __kernelgen_regular_main reference.
 		Function::Create(mainTy, GlobalValue::ExternalLinkage,
 			"__kernelgen_regular_main", &composite);
-
-
 
 		// Embed "main" module into main_output.
 		{
@@ -1707,120 +1705,48 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	}
 	else
 	{
-		// When no output, kernelgen-simple acts as and LTO backend.
-		// Here we need to output an object collect2 will pass to linker.
-		// For compatibility with LTO plugin & gold, all objects are merged
-		// into single one.
-		if (nloops % 2) tmp_main_object2.keep();
-		else tmp_main_object1.keep();
-		vector<const char*> ld_args;
-		ld_args.resize(argc + 4);
-		ld_args[0] = linker;
-		ld_args[1] = "-r";
-		ld_args[2] = "-o";
-		ld_args[3] = tmp_main_output2.c_str();
-		vector<string> names;
-		names.resize(argc);
+		// When no output, kernelgen-simple acts as an LTO backend.
+		// Here we need to output objects collect2 will pass to linker.
+		if (nloops % 2) tmp_main_object1.keep();
+		else tmp_main_object2.keep();
 		for (int i = 1; argv[i]; i++)
 		{
-			string name = tmp_main_output1;
+			string filename = tmp_main_output1;
 
-			// To be compatible with LTO, we need to clone all
-			// objects, except the one containing main entry,
-			// which is already clonned.
+			// Copy existing objects to temporary files.
 			if (strcmp(argv[i], main_output.c_str()))
 			{
-				char* arg = argv[i];
-				long offset = 0;
-				{
-					char* name = NULL;
-					int consumed;
-					const char *p = strrchr(arg, '@');
-					if (p && (p != arg) && (sscanf(p, "@%li%n", &offset, &consumed) >= 1) &&
-						(strlen (p) == (unsigned int)consumed))
-					{
-						name = (char *)malloc(p - arg + 1);
-						memcpy(name, arg, p - arg);
-						name[p - arg] = '\0';
-
-						// Only accept non-stdin and existing FNAME parts, otherwise
-						// try with the full name.
-						if (strcmp(name, "-") == 0)
-						{
-							free(name);
-							name = NULL;
-						}
-					}
-					if (!name) name = strdup(arg);
-					if (access(name, F_OK) < 0)
-					{
-						free(name);
-						continue;
-					}
-					arg = name;
-				}
-
+				// Get object data.
+				filename = argv[i];
+				vector<char> container;
+				if (getArchiveObjData(filename, container)) return -1;
+			
 				tmp_main_vector.clear();
 				if (unique_file(tmp_mask, fd, tmp_main_vector))
 				{
 					cout << "Cannot generate temporary main object file name" << endl;
 					return 1;
 				}
-				name = (StringRef)tmp_main_vector;
-				tool_output_file tmp_object(name.c_str(), err, raw_fd_ostream::F_Binary);
+				filename = (StringRef)tmp_main_vector;
+				tool_output_file tmp_object(filename.c_str(), err, raw_fd_ostream::F_Binary);
 				if (!err.empty())
 				{
-					cerr << "Cannot open output file" << name.c_str() << endl;
+					cerr << "Cannot open output file" << filename.c_str() << endl;
 					return 1;
 				}
 				tmp_object.keep();
 
-				// Find the target object size.
-				if (offset != 0)
-				{
-					// Open the archive and determine the size of member having the
-					// specified offset.
-					string filename = arg;
-					vector<char> container;
-					if (getArchiveObjData(filename, container, offset)) return -1;
-
-					// Copy the object content to the temporary file.
-					write(fd, (char*)&container[0], container.size() - 1);
-					close(fd);
-				}
-				else
-				{
-					// Otherwise, just copy the whole file.
-					vector<const char*> args;
-					args.push_back(cp);
-					args.push_back(arg);
-					args.push_back(name.c_str());
-					args.push_back(NULL);
-					if (verbose)
-					{
-						cout << args[0];
-						for (int i = 1; args[i]; i++)
-							cout << " " << args[i];
-						cout << endl;
-					}
-					int status = Program::ExecuteAndWait(
-						Program::FindProgramByName(cp), &args[0],
-						NULL, NULL, 0, 0, &err);
-					if (status)
-					{
-						cerr << err;
-						return status;
-					}
-				}
-				free(arg);
+				// Copy the object data to the temporary file.
+				write(fd, (char*)&container[0], container.size() - 1);
+				close(fd);
 			}
 
-			// Remove the .kernelgen section from the clonned object.
+			// Remove .kernelgen section from each clonned object.
 			{
 				vector<const char*> args;
 				args.push_back(objcopy);
 				args.push_back("--remove-section=.kernelgen");
-				args.push_back(name.c_str());
+				args.push_back(filename.c_str());
 				args.push_back(NULL);
 				if (verbose)
 				{
@@ -1838,31 +1764,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					return status;
 				}
 			}
-			names[i - 1] = name;
-			ld_args[i + 3] = names[i - 1].c_str();
+			
+			cout << filename << endl;
 		}
-		ld_args[argc + 3] = NULL;
-
-		// Link all objects into single object and output it.
-		{
-			if (verbose)
-			{
-				cout << ld_args[0];
-				for (int i = 1; ld_args[i]; i++)
-					cout << " " << ld_args[i];
-				cout << endl;
-			}
-			int status = Program::ExecuteAndWait(
-				Program::FindProgramByName(linker), &ld_args[0],
-				NULL, NULL, 0, 0, &err);
-			if (status)
-			{
-				cerr << err;
-				return status;
-			}
-		}
-
-		cout << tmp_main_output2 << endl;
 	}
 	
 	return 0;
