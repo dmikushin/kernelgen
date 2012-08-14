@@ -99,6 +99,12 @@ extern cl::opt<bool> EnableLoadPRE;
 extern cl::opt<bool> DisableLoadsDeletion;
 extern cl::opt<bool> DisablePromotion;
 
+namespace kernelgen
+{
+    void getAllDependencesForValue(llvm::GlobalValue * value, DepsByType & dependencesByType);
+}
+
+
 static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
 	PM.add(createFixPointersPass());
@@ -1210,40 +1216,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			    loop.setModuleInlineAsm(composite.getModuleInlineAsm());
 	
 	            // list of required functions
-	            list<Function *> requiredFunctions;
-	            stack<Function *> notHandledFunctions;
-				notHandledFunctions.push(func);
-				requiredFunctions.push_back(func);
-				while(!notHandledFunctions.empty())
-				{
-					Function *current = notHandledFunctions.top();
-					notHandledFunctions.pop();
-					for (Function::iterator bb = current->begin(), be = current->end(); bb != be; bb++)
-                        for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) 
-						{
-							 CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-                             if (!call) continue;
-							 
-							 Function* callee = dyn_cast<Function>(
-							     call->getCalledValue()->stripPointerCasts());
-                             if(!callee) continue;
-							 
-							 //find function in handled functions
-							 list<Function *>::iterator findIter = requiredFunctions.begin();
-							 while(findIter != requiredFunctions.end() &&  (*findIter) != callee)
-								 findIter++;
-						     
-							 // if we did not seen it before
-							 if(findIter == requiredFunctions.end())
-							 {
-								 // if it has body - handle it
-								 if(!callee->isDeclaration())
-									 notHandledFunctions.push(callee);
-								 // push it to required functions
-								 requiredFunctions.push_back(callee);
-							 }
-						}
-				}
+                DepsByType dependences;
+			    getAllDependencesForValue(func, dependences);
+				
 				// map values from composite to new module
 				ValueToValueMapTy VMap;
 				// Copy all of the dependent libraries over.
@@ -1254,8 +1229,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
                  // new module.  Here we add them to the VMap and to the new Module.  We
                  // don't worry about attributes or initializers, they will come later.
                  //
-                 for (Module::const_global_iterator I = composite.global_begin(), E = composite.global_end();
-                   I != E; ++I) {
+                 for (variable_iter iter = dependences.variables.begin(), iter_end = dependences.variables.end();
+                   iter != iter_end; ++iter) {
+					  GlobalVariable *I = *iter;
                       GlobalVariable *GV = new GlobalVariable(loop, 
                                             I->getType()->getElementType(),
                                             I->isConstant(), I->getLinkage(),
@@ -1267,17 +1243,10 @@ static int link(int argc, char** argv, const char* input, const char* output)
                       VMap[I] = GV;
                    }
 				
-				/*// Loop over the required functions in the module, making external functions as before
-                for (list<Function *>::iterator I = requiredFunctions.begin(), E = requiredFunctions.end(); I != E; ++I) {
-                    Function *Src = (*I);
-					Function *NF =
-                       Function::Create(cast<FunctionType>(Src->getType()->getElementType()),
-                          Src->getLinkage(), Src->getName(), &loop);
-                      NF->copyAttributesFrom(Src);
-                      VMap[Src] = NF;
-				}*/
 				  // Loop over the functions in the module, making external functions as before
-                 for (Module::const_iterator I = composite.begin(), E = composite.end(); I != E; ++I) {
+                 for (function_iter iter = dependences.functions.begin(), iter_end = dependences.functions.end();
+                  iter != iter_end; ++iter) {
+					Function *I = *iter;
                     Function *NF =
                     Function::Create(cast<FunctionType>(I->getType()->getElementType()),
                        I->getLinkage(), I->getName(), &loop);
@@ -1286,8 +1255,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
                   }
 				
                 // Loop over the aliases in the module
-                for (Module::const_alias_iterator I = composite.alias_begin(), E = composite.alias_end();
-                    I != E; ++I) {
+                for (alias_iter iter = dependences.aliases.begin(), iter_end = dependences.aliases.end();
+                    iter != iter_end; ++iter) {
+				   GlobalAlias *I = (*iter);
                    GlobalAlias *GA = new GlobalAlias(I->getType(), I->getLinkage(),
                                       I->getName(), NULL, &loop);
                             GA->copyAttributesFrom(I);
@@ -1298,8 +1268,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
                // have been created, loop through and copy the global variable referrers
                // over...  We also set the attributes on the global now.
                //
-               for (Module::const_global_iterator I = composite.global_begin(), E = composite.global_end();
-                   I != E; ++I) {
+               for (variable_iter iter = dependences.variables.begin(), iter_end = dependences.variables.end();
+               iter != iter_end; ++iter) {
+				 GlobalVariable *I = *iter;
                  GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
                  if (I->hasInitializer())
                   GV->setInitializer(MapValue(I->getInitializer(), VMap));
@@ -1308,8 +1279,10 @@ static int link(int argc, char** argv, const char* input, const char* output)
 
                // Similarly, copy over required function bodies now...
                //
-                for (list<Function *>::iterator Iter = requiredFunctions.begin(), E = requiredFunctions.end(); Iter != E; ++Iter) {
-                   Function *I = *Iter;
+               for (function_iter iter = dependences.functions.begin(), iter_end = dependences.functions.end();
+               iter != iter_end; ++iter) {
+				   
+				   Function *I = *iter;
 				   Function *F = cast<Function>(VMap[I]);
 				   
                    if (!I->isDeclaration()) {
@@ -1328,8 +1301,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
                 }
 
               // And aliases
-               for (Module::const_alias_iterator I = composite.alias_begin(), E = composite.alias_end();
-                  I != E; ++I) {
+              for (alias_iter iter = dependences.aliases.begin(), iter_end = dependences.aliases.end();
+                    iter != iter_end; ++iter) {
+				  GlobalAlias *I = (*iter);
                   GlobalAlias *GA = cast<GlobalAlias>(VMap[I]);
                   if (const Constant *C = I->getAliasee())
                     GA->setAliasee(MapValue(C, VMap));
@@ -1455,6 +1429,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			}
 		}
 
+	 	
 		//TrackedPassManager manager(tracker);
 		PassManager manager;
 		manager.add(new TargetData(&composite));

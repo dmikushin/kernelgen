@@ -24,7 +24,7 @@ all: libkernelgen-ct.so libkernelgen-opt.so kernelgen-simple kernelgen-version
 OBJECTS_CT := kernelgen-ct
 OBJECTS_CT := $(addsuffix .o, $(OBJECTS_CT))
 
-OBJECTS_OPT := BranchedLoopExtractor BranchedCodeExtractor FixPointers
+OBJECTS_OPT := BranchedLoopExtractor BranchedCodeExtractor FixPointers GlobalDependences
 OBJECTS_OPT := $(addsuffix .o, $(OBJECTS_OPT))
 
 OBJECTS_KS := simple
@@ -58,6 +58,9 @@ BranchedCodeExtractor.o: BranchedCodeExtractor.cpp
 
 FixPointers.o: FixPointers.cpp
 	$(CXX) $(CXXFLAGS) $(LLVM_INC) -c $< -o $@
+
+GlobalDependences.o : GlobalDependences.cpp
+	$(CXX) $(CXXFLAGS) $(LLVM_INC) -fno-rtti -c $< -o $@
 
 kernelgen-version.c:
 	perl kernelgen-version.pl > $@
