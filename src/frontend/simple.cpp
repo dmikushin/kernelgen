@@ -1459,17 +1459,23 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		// Rename "main" to "__kernelgen_main".
 		Function* kernelgen_main_ = composite.getFunction("main");
 		
-      for (Module::iterator iter = composite.begin(), iter_end = composite.end();
+		list<Function *> functionsToDelete;
+        for (Module::iterator iter = composite.begin(), iter_end = composite.end();
 					iter != iter_end; iter++)
-						
-		if(cast<Function>(iter) != kernelgen_main_){
-				  if(!iter->isDeclaration())
+			if(cast<Function>(iter) != kernelgen_main_){
+				  /*if(!iter->isDeclaration())
 					    iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
 					else if(!iter->isIntrinsic())
-					    iter->setLinkage(GlobalValue::ExternalLinkage);
+					    iter->setLinkage(GlobalValue::ExternalLinkage);*/
+				if(iter->getNumUses() == 0)
+					functionsToDelete.push_back(iter);
 		}
-				
-				verifyModule(composite);
+		
+		for(list<Function *>::iterator iter = functionsToDelete.begin(), iter_end = functionsToDelete.end();
+		   iter!=iter_end; iter++)
+			   (*iter)->eraseFromParent();
+		
+		verifyModule(composite);
 
 
 		// Optimize only composite module with main function.
