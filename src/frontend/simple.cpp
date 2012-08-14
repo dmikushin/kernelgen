@@ -487,6 +487,88 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 	return 0;
 }
 
+// Get the object data from the specified file.
+// If the filename has offset suffix, it is removed on output.
+int getArchiveObjData(string& filename, vector<char>& container, long offset = 0)
+{
+	// Get the object data in static library (archive) located
+	// at the specified offset.
+	if (offset)
+	{
+		// Open the archive and determine the size of member having the
+		// specified offset.
+		OwningPtr<MemoryBuffer> buffer;
+		error_code ec = MemoryBuffer::getFile(filename, buffer);
+		Archive archive(buffer.get(), ec);
+		Archive::child_iterator* found_child = NULL;
+		for (Archive::child_iterator AI = archive.begin_children(),
+			AE = archive.end_children(); AI != AE; ++AI)
+		{
+			long current_offset = (ptrdiff_t)AI->getBuffer()->getBufferStart() -
+				(ptrdiff_t)buffer->getBufferStart();
+			if (current_offset == offset)
+			{
+				found_child = &AI;
+				break;
+			}
+		}
+		if (!found_child)
+		{
+			cerr << "Cannot find " << filename << " @" << offset << endl;
+			return -1;
+		}
+
+		size_t size = (size_t)((*found_child)->getSize());
+		container.resize(size + 1);
+		memcpy((char*)&container[0],
+			(*found_child)->getBuffer()->getBufferStart(), size);
+		container[size] = '\0';
+
+		buffer.take();
+
+		return 0;
+	}
+
+	// For LTO static archive, support handling of input file specifications
+	// that are composed of a filename and an offset like FNAME@OFFSET.
+	int consumed;
+	const char *p = strrchr(filename.c_str(), '@');
+	if (p && (p != filename.c_str()) &&
+		(sscanf(p, "@%li%n", &offset, &consumed) >= 1) &&
+		(strlen (p) == (unsigned int)consumed))
+	{
+		filename = string(filename.c_str(), p - filename.c_str());
+
+		// Only accept non-stdin and existing FNAME parts, otherwise
+		// try with the full name.
+		if (filename == "-") return -1;
+	}
+	
+	// Check the file exists.
+	if (access(filename.c_str(), F_OK) < 0)
+		return -1;
+
+	// Read the object into memory.
+	if (p) return getArchiveObjData(filename, container, offset);
+
+	// Create data container and open the object file.
+	stringstream stream(stringstream::in | stringstream::out |
+		stringstream::binary);
+	ifstream f(filename.c_str(), ios::in | ios::binary);
+	filebuf* buffer = f.rdbuf();
+
+	// Get file size and load its data.
+	size_t size = buffer->pubseekoff(0, ios::end,ios::in);
+	buffer->pubseekpos(0, ios::in);
+	container.resize(size + 1);
+	buffer->sgetn((char*)&container[0], size);
+	container[size] = '\0';
+	
+	f.close();
+
+	return 0;
+}
+
 static int link(int argc, char** argv, const char* input, const char* output)
 {
 	//
@@ -569,51 +651,16 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			continue;
 		}
 
-		// For LTO static archive support handle input file specifications
-		// that are composed of a filename and an offset like FNAME@OFFSET.
-		char* name = NULL;
-		long offset;
-		int consumed;
-		const char *p = strrchr(arg, '@');
-		if (p && (p != arg) && (sscanf(p, "@%li%n", &offset, &consumed) >= 1) &&
-			(strlen (p) == (unsigned int)consumed))
-		{
-			name = (char *)malloc(p - arg + 1);
-			memcpy(name, arg, p - arg);
-			name[p - arg] = '\0';
-
-			// Only accept non-stdin and existing FNAME parts, otherwise
-			// try with the full name.
-			if (strcmp(name, "-") == 0)
-			{
-				free(name);
-				name = NULL;
-			}
-		}
-		if (!name) name = strdup(arg);
-		if (access(name, F_OK) < 0)
-		{
-			free(name);
-			continue;
-		}
-		arg = name;
-
 		if (verbose)
 			cout << "Linking " << arg << " ..." << endl;
 
+		// Load the object data into memory.
 		vector<char> container;
-		char *image = NULL;
-		stringstream stream(stringstream::in | stringstream::out |
-			stringstream::binary);
-		ifstream f(arg, ios::in | ios::binary);
-		if (p) f.seekg(offset);
-		stream << f.rdbuf(); // FIXME: don't read to end of the file, read to the ELF end marker!
-		f.close();
-		string str = stream.str();
-		container.resize(str.size() + 1);
-		image = (char*)&container[0];
-		memcpy(image, str.c_str(), str.size() + 1);
+		string filename = arg;
+		if (getArchiveObjData(filename, container)) return -1;
+		char* image = (char*)&container[0];
 
+		// Check the ELF magic.
 		if (strncmp(image, ELFMAG, 4))
 		{
 			cerr << "Cannot read ELF image from " << arg << endl;
@@ -751,7 +798,6 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			}
 		}
 		elf_end(e);
-		free(arg);
 	}
 	if (main_output == "")
 	{
@@ -933,13 +979,12 @@ static int link(int argc, char** argv, const char* input, const char* output)
 
 			Value * MemoryForGlobals = memory3;
 			Type * Int64Ty = Type::getInt64Ty(context);
-			
-            int i = 0;
-	        MDBuilder *mdBuilder =new MDBuilder(context);
-	        NamedMDNode *namedMdNode = composite.getOrInsertNamedMetadata("OrderOfGlobals");
+
+			int i = 0;
+			MDBuilder mdBuilder(context);
+			NamedMDNode *namedMdNode = composite.getOrInsertNamedMetadata("OrderOfGlobals");
 			assert(namedMdNode);
-	
-			
+
 			for (Module::global_iterator iter=composite.global_begin(),
 				iter_end=composite.global_end(); iter!=iter_end; iter++)
 			{
@@ -947,11 +992,11 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				Idx4[0] = ConstantInt::get(Type::getInt64Ty(context), i);
                 
 				Value *vals[2];
-		        vals[0] = mdBuilder->createString(iter->getName());
-		        vals[1] = ConstantInt::get(Int64Ty, i);
-				
-                MDNode *mdNode = MDNode::get(context, vals);
-		        namedMdNode->addOperand(mdNode);
+				vals[0] = mdBuilder.createString(iter->getName());
+				vals[1] = ConstantInt::get(Int64Ty, i);
+
+				MDNode *mdNode = MDNode::get(context, vals);
+				namedMdNode->addOperand(mdNode);
 
 				GetElementPtrInst *placeOfGlobal = GetElementPtrInst::Create(
 					memory3, Idx4, (string)"placeOf." + iter->getName(), root);
@@ -1213,104 +1258,117 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				Module loop(func->getName(), context);
 				loop.setTargetTriple(composite.getTargetTriple());
 				loop.setDataLayout(composite.getDataLayout());
-			    loop.setModuleInlineAsm(composite.getModuleInlineAsm());
-	
-	            // list of required functions
-                DepsByType dependences;
-			    getAllDependencesForValue(func, dependences);
+				loop.setModuleInlineAsm(composite.getModuleInlineAsm());
+
+				// List of required functions
+				DepsByType dependences;
+				getAllDependencesForValue(func, dependences);
 				
-				// map values from composite to new module
+				// Map values from composite to new module
 				ValueToValueMapTy VMap;
+				
 				// Copy all of the dependent libraries over.
-                for (Module::lib_iterator I = composite.lib_begin(), E = composite.lib_end(); I != E; ++I)
-                     loop.addLibrary(*I);
+				for (Module::lib_iterator I = composite.lib_begin(),
+					E = composite.lib_end(); I != E; ++I)
+					loop.addLibrary(*I);
 				
-				 // Loop over all of the global variables, making corresponding globals in the
-                 // new module.  Here we add them to the VMap and to the new Module.  We
-                 // don't worry about attributes or initializers, they will come later.
-                 //
-                 for (variable_iter iter = dependences.variables.begin(), iter_end = dependences.variables.end();
-                   iter != iter_end; ++iter) {
-					  GlobalVariable *I = *iter;
-                      GlobalVariable *GV = new GlobalVariable(loop, 
-                                            I->getType()->getElementType(),
-                                            I->isConstant(), I->getLinkage(),
-                                            (Constant*) 0, I->getName(),
-                                            (GlobalVariable*) 0,
-                                            I->isThreadLocal(),
-                                            I->getType()->getAddressSpace());
-                      GV->copyAttributesFrom(I);
-                      VMap[I] = GV;
-                   }
-				
-				  // Loop over the functions in the module, making external functions as before
-                 for (function_iter iter = dependences.functions.begin(), iter_end = dependences.functions.end();
-                  iter != iter_end; ++iter) {
+				// Loop over all of the global variables, making corresponding
+				// globals in the new module.  Here we add them to the VMap and
+				// to the new Module.  We don't worry about attributes or initializers,
+				// they will come later.
+				for (variable_iter iter = dependences.variables.begin(),
+					iter_end = dependences.variables.end(); iter != iter_end; ++iter)
+				{
+					GlobalVariable *I = *iter;
+
+					GlobalVariable *GV = new GlobalVariable(loop,
+						I->getType()->getElementType(),
+						I->isConstant(), I->getLinkage(),
+						(Constant*) 0, I->getName(),
+						(GlobalVariable*) 0,
+						I->isThreadLocal(),
+						I->getType()->getAddressSpace());
+					
+					GV->copyAttributesFrom(I);
+					VMap[I] = GV;
+				}
+
+				// Loop over the functions in the module, making external functions as before.
+				for (function_iter iter = dependences.functions.begin(),
+					iter_end = dependences.functions.end(); iter != iter_end; ++iter)
+				{
 					Function *I = *iter;
-                    Function *NF =
-                    Function::Create(cast<FunctionType>(I->getType()->getElementType()),
-                       I->getLinkage(), I->getName(), &loop);
-                    NF->copyAttributesFrom(I);
-                    VMap[I] = NF;
-                  }
-				
-                // Loop over the aliases in the module
-                for (alias_iter iter = dependences.aliases.begin(), iter_end = dependences.aliases.end();
-                    iter != iter_end; ++iter) {
-				   GlobalAlias *I = (*iter);
-                   GlobalAlias *GA = new GlobalAlias(I->getType(), I->getLinkage(),
-                                      I->getName(), NULL, &loop);
-                            GA->copyAttributesFrom(I);
-                          VMap[I] = GA;
-                    }
+					
+					Function *NF = Function::Create(
+						cast<FunctionType>(I->getType()->getElementType()),
+						I->getLinkage(), I->getName(), &loop);
+					NF->copyAttributesFrom(I);
+					VMap[I] = NF;
+				}
 
-               // Now that all of the things that global variable initializer can refer to
-               // have been created, loop through and copy the global variable referrers
-               // over...  We also set the attributes on the global now.
-               //
-               for (variable_iter iter = dependences.variables.begin(), iter_end = dependences.variables.end();
-               iter != iter_end; ++iter) {
-				 GlobalVariable *I = *iter;
-                 GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
-                 if (I->hasInitializer())
-                  GV->setInitializer(MapValue(I->getInitializer(), VMap));
-               }
+				// Loop over the aliases in the module.
+				for (alias_iter iter = dependences.aliases.begin(),
+					iter_end = dependences.aliases.end(); iter != iter_end; ++iter)
+				{
+					GlobalAlias *I = *iter;
+					
+					GlobalAlias *GA = new GlobalAlias(I->getType(), I->getLinkage(),
+						I->getName(), NULL, &loop);
+					GA->copyAttributesFrom(I);
+					VMap[I] = GA;
+				}
 
+				// Now that all of the things that global variable initializer can refer to
+				// have been created, loop through and copy the global variable referrers
+				// over...  We also set the attributes on the global now.
+				for (variable_iter iter = dependences.variables.begin(),
+					iter_end = dependences.variables.end(); iter != iter_end; ++iter)
+				{
+					GlobalVariable *I = *iter;
+					
+					GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
+					if (I->hasInitializer())
+						GV->setInitializer(MapValue(I->getInitializer(), VMap));
+				}
 
-               // Similarly, copy over required function bodies now...
-               //
-               for (function_iter iter = dependences.functions.begin(), iter_end = dependences.functions.end();
-               iter != iter_end; ++iter) {
-				   
-				   Function *I = *iter;
-				   Function *F = cast<Function>(VMap[I]);
-				   
-                   if (!I->isDeclaration()) {
-                       Function::arg_iterator DestI = F->arg_begin();
-                       for (Function::const_arg_iterator J = I->arg_begin(); J != I->arg_end(); ++J) {
-                          DestI->setName(J->getName());
-                          VMap[J] = DestI++;
-					   }
-                       SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
-                       CloneFunctionInto(F, I, VMap, /*ModuleLevelChanges=*/true, Returns);
-					   
-					   for (Function::arg_iterator argI = I->arg_begin(), argE = I->arg_end();
-                           argI != argE; ++argI)
-                        VMap.erase(argI);
+				// Similarly, copy over required function bodies now...
+				for (function_iter iter = dependences.functions.begin(),
+					iter_end = dependences.functions.end(); iter != iter_end; ++iter)
+				{
+					Function *I = *iter;
+					Function *F = cast<Function>(VMap[I]);
+					
+					if (!I->isDeclaration())
+					{
+						Function::arg_iterator DestI = F->arg_begin();
+						for (Function::const_arg_iterator J = I->arg_begin();
+							J != I->arg_end(); ++J)
+						{
+							DestI->setName(J->getName());
+							VMap[J] = DestI++;
+						}
+						
+						SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
+						CloneFunctionInto(F, I, VMap, /*ModuleLevelChanges=*/true, Returns);
+						
+						for (Function::arg_iterator argI = I->arg_begin(),
+							argE = I->arg_end(); argI != argE; ++argI)
+							VMap.erase(argI);
 					}
-                }
+				}
 
-              // And aliases
-              for (alias_iter iter = dependences.aliases.begin(), iter_end = dependences.aliases.end();
-                    iter != iter_end; ++iter) {
-				  GlobalAlias *I = (*iter);
-                  GlobalAlias *GA = cast<GlobalAlias>(VMap[I]);
-                  if (const Constant *C = I->getAliasee())
-                    GA->setAliasee(MapValue(C, VMap));
-                }
-  
-  
-                // And named metadata....
+				// And aliases.
+				for (alias_iter iter = dependences.aliases.begin(),
+					iter_end = dependences.aliases.end(); iter != iter_end; ++iter)
+				{
+					GlobalAlias *I = *iter;
+					
+					GlobalAlias *GA = cast<GlobalAlias>(VMap[I]);
+					if (const Constant *C = I->getAliasee())
+						GA->setAliasee(MapValue(C, VMap));
+				}
+
+				// And named metadata....
 				// !!!!!!!!!!!!!!!
 				// copy metadata??
 				// !!!!!!!!!!!!!!!
@@ -1331,15 +1389,11 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				
 				verifyModule(loop);
 				
-				
-
-				
-
-               /* // delete unused globals 
-			   for (Module::global_iterator iter = loop.global_begin(), iter_end = loop.global_end();
-					iter != iter_end; iter++)
-				if(!iter->isDeclaration())
-					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);*/
+				/* // Delete unused globals.
+				for (Module::global_iterator iter = loop.global_begin(),
+					iter_end = loop.global_end(); iter != iter_end; iter++)
+					if(!iter->isDeclaration())
+						iter->setLinkage(GlobalValue::LinkerPrivateLinkage);*/
 					
 				// Perform inlining.
 				{
@@ -1348,14 +1402,15 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					manager.add(createCFGSimplificationPass());
 					manager.run(loop);
 				}
+
 				// delete unnecessary globals and function declarations
 				{
-			        PassManager manager;
-			        manager.add(createGlobalOptimizerPass());     // Optimize out global vars
-			        //MPM.add(createFunctionInliningPass());
-			        manager.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
-			        manager.run(loop);
-		          }
+					PassManager manager;
+					manager.add(createGlobalOptimizerPass());     // Optimize out global vars
+					//MPM.add(createFunctionInliningPass());
+					manager.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+					manager.run(loop);
+				}
 		       
 				// Embed "loop" module into object.
 				{
@@ -1725,32 +1780,13 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				{
 					// Open the archive and determine the size of member having the
 					// specified offset.
-					OwningPtr<MemoryBuffer> buffer;
-					error_code ec = MemoryBuffer::getFile(arg, buffer);
-					Archive archive(buffer.get(), ec);
-					Archive::child_iterator* found_child = NULL;
-					for (Archive::child_iterator AI = archive.begin_children(),
-						AE = archive.end_children(); AI != AE; ++AI)
-					{
-						long current_offset = (ptrdiff_t)AI->getBuffer()->getBufferStart() -
-							(ptrdiff_t)buffer->getBufferStart();
-						if (current_offset == offset)
-						{
-							found_child = &AI;
-							break;
-						}
-					}
-					if (!found_child)
-					{
-						cerr << "Cannot find " << argv[i] << " (" << offset << ")" << endl;
-						return 1;
-					}
-					unsigned int size = (*found_child)->getSize();
+					string filename = arg;
+					vector<char> container;
+					if (getArchiveObjData(filename, container, offset)) return -1;
 
 					// Copy the object content to the temporary file.
-					write(fd, (*found_child)->getBuffer()->getBufferStart(), size);
+					write(fd, (char*)&container[0], container.size() - 1);
 					close(fd);
-					buffer.take();
 				}
 				else
 				{
