@@ -179,6 +179,13 @@ public:
 		GlobalValueInfo::finalizeWithGlobalDependences(this);
 		// all maps will be deleted automatically
 	}
+	void eraseAllDependences()
+	{
+		dropAllReferences();
+		functionsDeps.clear();
+		variablesDeps.clear();
+		aliasesDeps.clear();
+	}
     //удаление элементов не дописал
 };
 
@@ -241,12 +248,15 @@ void GlobalValueInfo::handleDependences()
 	
 	
 static GlobalDependences globalDependences;
-
+#define CLEAR_DEPENDENCES
 namespace kernelgen
 {
     void getAllDependencesForValue(llvm::GlobalValue * value, DepsByType & dependencesByType) {
 		//прописать суда периодическую очистку зависимостей
-		return globalDependences.getAllDependencesForValue(value,dependencesByType);
+		globalDependences.getAllDependencesForValue(value,dependencesByType);
+		#ifdef CLEAR_DEPENDENCES 
+		globalDependences.eraseAllDependences();
+		#endif
 	}
 }
 
