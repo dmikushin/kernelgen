@@ -735,8 +735,27 @@ kernel_func_t kernelgen::runtime::compile(
 			if(func->isDeclaration()) {
   			    Function *Src = cuda_module -> getFunction(func->getName());
 			    if(Src)
+				{
 			        func->setAttributes(Src->getAttributes());
-			}
+         		    for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+		        	use_iter != use_iter_end; use_iter++)
+			        {
+				        CallInst * call = cast<CallInst>(*use_iter);
+						const AttrListPtr attr = func->getAttributes();
+		                const AttrListPtr attr_new = attr.addAttr(~0U/*attr.getNumSlots()*/, Attribute::ReadNone);
+				        call-> setAttributes(attr_new);
+						
+			        }
+	            }
+		    }
+		}
+	     //printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
+		 // Apply the Polly codegen for CUDA target.
+		 Size3 sizeOfLoops;
+		 bool isThereAtLeastOneParallelLoop = false;
+		 runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
+			
+         for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
 		    for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
 			use_iter != use_iter_end; use_iter++)
 			{
@@ -744,13 +763,6 @@ kernel_func_t kernelgen::runtime::compile(
 				call-> setAttributes(func -> getAttributes());
 			}
 	     }
-	     //printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
-		 // Apply the Polly codegen for CUDA target.
-		 Size3 sizeOfLoops;
-		 bool isThereAtLeastOneParallelLoop = false;
-		 runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
-			
-
 
 			// Do not compile the loop kernel if no grid detected.
 			// Important to place this condition *after* hostcalls check
