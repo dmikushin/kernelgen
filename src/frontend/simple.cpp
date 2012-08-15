@@ -1412,7 +1412,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					manager.run(loop);
 				}
 		       
-				// Embed "loop" module into object.
+				// Embed "loop" module into object or just issue
+				// the temporary object in case of LTO.
+				do
 				{
 					// Put the resulting module into LLVM output file
 					// as object binary. Method: create another module
@@ -1430,6 +1432,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					PassManager manager;
 					manager.add(new TargetData(*tdata));
 
+					tmp_main_vector.clear();
+					if (unique_file(tmp_mask, fd, tmp_main_vector))
+					{
+						cout << "Cannot generate temporary main object file name" << endl;
+						return 1;
+					}
+					string tmp_loop_output = (StringRef)tmp_main_vector;
+					close(fd);
 					tool_output_file tmp_loop_object(tmp_loop_output.c_str(),
 						err, raw_fd_ostream::F_Binary);
 					if (!err.empty())
@@ -1448,6 +1458,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 
 					manager.run(obj_m);
 					fos.flush();
+
+					// Just issue the temporary object in case of LTO.
+					if (!output)
+					{
+						cout << tmp_loop_output.c_str() << endl;
+						tmp_loop_object.keep();
+						break;
+					}
 
 					vector<const char*> args;
 					args.push_back(linker);
@@ -1479,7 +1497,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					tmp_main_output1 = tmp_main_output2;
 					tmp_main_output2 = swap;
 				}
-				func -> eraseFromParent();
+				while (0);
+
+				func->eraseFromParent();
 				nloops++;
 			}
 		}
@@ -1527,7 +1547,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					functionsToDelete.push_back(iter);
 			}
 		
-		for(list<Function *>::iterator iter = functionsToDelete.begin(),
+		for (list<Function *>::iterator iter = functionsToDelete.begin(),
 			iter_end = functionsToDelete.end(); iter!=iter_end; iter++)
 			(*iter)->eraseFromParent();
 		
@@ -1554,7 +1574,9 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		Function::Create(mainTy, GlobalValue::ExternalLinkage,
 			"__kernelgen_regular_main", &composite);
 
-		// Embed "main" module into main_output.
+		// Embed "main" module into main_output or just issue
+		// the temporary object in case of LTO.
+		do
 		{
 			// Put the resulting module into LLVM output file
 			// as object binary. Method: create another module
@@ -1598,6 +1620,14 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			manager.run(obj_m);
 			fos.flush();
 
+			// Just issue the temporary object in case of LTO.
+			if (!output)
+			{
+				cout << tmp_main_output.c_str() << endl;
+				tmp_main_object.keep();
+				break;
+			}
+			
 			vector<const char*> args;
 			args.push_back(linker);
 			args.push_back("--unresolved-symbols=ignore-all");
@@ -1622,12 +1652,13 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				cerr << err;
 				return status;
 			}
-
+			
 			// Swap tmp_main_output 1 and 2.
 			string swap = tmp_main_output1;
 			tmp_main_output1 = tmp_main_output2;
 			tmp_main_output2 = swap;
 		}
+		while (0);
 	}
 	
 	//
@@ -1707,8 +1738,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 	{
 		// When no output, kernelgen-simple acts as an LTO backend.
 		// Here we need to output objects collect2 will pass to linker.
-		if (nloops % 2) tmp_main_object1.keep();
-		else tmp_main_object2.keep();
+		tmp_main_object1.keep();
 		for (int i = 1; argv[i]; i++)
 		{
 			string filename = tmp_main_output1;
