@@ -347,7 +347,7 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
-
+    verifyModule(*m);
 	if (verbose) m->dump();
 
 	//
@@ -839,7 +839,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				break;
 			if (mainTy == TypeBuilder<void(
 				types::i<32>, types::i<8>**), true>::get(context))
-				break;
+ 				break;
 			if (mainTy == TypeBuilder<void(
 				types::i<32>, types::i<8>**, types::i<8>**), true>::get(context))
 				break;

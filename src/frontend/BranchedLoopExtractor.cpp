@@ -136,8 +136,10 @@ void BranchedLoopExtractor::recursiveExtractSubLoops(Loop *loop)
 		for(std::vector<Loop *>::iterator loop_iter = loops.begin(), loop_iter_end = loops.end();
 		    loop_iter != loop_iter_end; loop_iter++ ) {
 			Loop * subLoop = *loop_iter;
-			BranchedExtractLoop(DT, LI,subLoop);
-			recursiveExtractSubLoops(subLoop);
+
+			BranchedExtractLoop(DT, LI,subLoop,!subLoop->empty());
+			if(!subLoop->empty())
+				recursiveExtractSubLoops(subLoop);
 			//BranchedCodeExtractor(&DT).ExtractCodeRegion(loop,LI);
 			outs().changeColor(raw_ostream::RED);
 			outs() << "subloop exctracted!!\n"; 
@@ -182,13 +184,13 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 			}
 		}
 	}
-
+    bool extractWithBranch = true;
 	LoopInfo &LI = getAnalysis<LoopInfo>();
 	if (ShouldExtractLoop) {
 		if (NumLoops == 0) return Changed;
 		--NumLoops;
 		CallInst * Call;
-		if ( (Call = BranchedExtractLoop(DT,LI, L)) != 0) {
+		if ( (Call = BranchedExtractLoop(DT,LI, L,!L->empty())) != 0) {
 			Changed = true;
 			++NumBranchedExtracted;
 			recursiveExtractSubLoops(L);

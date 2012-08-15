@@ -187,7 +187,7 @@ extern "C" void callback (void*, void*)
 		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
-
+    verifyModule(*m);
 	if (verbose) m->dump();
 
 	//

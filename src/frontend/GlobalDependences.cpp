@@ -252,7 +252,7 @@ static GlobalDependences globalDependences;
 namespace kernelgen
 {
     void getAllDependencesForValue(llvm::GlobalValue * value, DepsByType & dependencesByType) {
-		//прописать суда периодическую очистку зависимостей
+		//прописать сюда периодическую очистку зависимостей
 		globalDependences.getAllDependencesForValue(value,dependencesByType);
 		#ifdef CLEAR_DEPENDENCES 
 		globalDependences.eraseAllDependences();
