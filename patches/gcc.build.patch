@@ -1,6 +1,6 @@
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-snapshot/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
-@@ -0,0 +1,308 @@
+@@ -0,0 +1,310 @@
 +/* main.c: defines main() for cc1, cc1plus, etc.
 +   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
 +
@@ -243,9 +243,12 @@
 +    vector<const char*> compiler_argv_vector;
 +    compiler_argv_vector.resize(compiler_argc + 1);
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
-+    compiler_argv[0] = argv[0];
-+    int i = 0; for ( ; i < argc; i++)
-+      compiler_argv[i] = argv[i];
++
++    // Disable debug info generation in DragonEgg, since it is not
++    // currently handled correctly by loop extraction pass & Co.
++    int i = 0; for (int k = 0; k < argc; k++)
++      if (strcmp(argv[k], "-g"))
++        compiler_argv[i++] = argv[k];
 +    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "dragonegg.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
@@ -295,7 +298,6 @@
 +    vector<const char*> compiler_argv_vector;
 +    compiler_argv_vector.resize(compiler_argc + 1);
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
-+    compiler_argv[0] = argv[0];
 +    int i = 0; for ( ; i < argc; i++)
 +      compiler_argv[i] = argv[i];
 +    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "libkernelgen-ct.so";
