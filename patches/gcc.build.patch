@@ -257,7 +257,7 @@
 +    compiler_argv[i++] = "-D_KERNELGEN";
 +    compiler_argv[i++] = NULL;
 +
-+    rcompiler = toplev_main(compiler_argc, compiler_argv);
++    rcompiler = toplev_main(i - 1, compiler_argv);
 +  }
 +
 +  // Check the DragonEgg result.
@@ -306,7 +306,7 @@
 +    compiler_argv[i++] = "-flto";
 +    compiler_argv[i++] = NULL;
 +
-+    rcompiler = toplev_main(compiler_argc, compiler_argv);
++    rcompiler = toplev_main(i - 1, compiler_argv);
 +  }
 +
 +  return rcompiler;
