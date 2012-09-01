@@ -1553,7 +1553,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 		
 		verifyModule(composite);
 
-		// Optimize only composite module with main function.
+		/*// Optimize only composite module with main function.
 		{
 			//TrackedPassManager manager(tracker);
 			PassManager manager;
@@ -1565,8 +1565,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			builder.DisableSimplifyLibCalls = true;
 			builder.populateModulePassManager(manager);
 			manager.run(composite);
-		}
-		
+		}*/
 
 		kernelgen_main_->setName("__kernelgen_main");
 

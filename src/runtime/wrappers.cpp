@@ -171,7 +171,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 	// Emit call to kernelgen_hostcall.
 	CallInst *newcall = CallInst::Create(hostcall, call_args, "", call);
 	newcall->setCallingConv(call->getCallingConv());
-	newcall->setAttributes(call->getAttributes());
+	//newcall->setAttributes(call->getAttributes());
 	newcall->setDebugLoc(call->getDebugLoc());
 	newcall->setOnlyReadsMemory(false);
 

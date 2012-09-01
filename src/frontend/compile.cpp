@@ -108,13 +108,16 @@ extern "C" void callback (void*, void*)
 {
 	PassTracker* tracker = new PassTracker(main_input_filename, &fallback, NULL);
 
-	//
-	// 1) Append "always inline" attribute to all existing functions.
-	//
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(dragonegg_result);
 	Module* m = ParseIR(buffer1, diag, context);
+
+	//
+	// 2) Append "always inline" attribute to all existing functions.
+	// TODO: inlining is now only required by Polly. So we should probably move
+	// this closer to computational loops kernels compilation logic.
+	//
 	for (Module::iterator f = m->begin(), fe = m->end(); f != fe; f++)
 	{
 		Function* func = f;
@@ -125,26 +128,9 @@ extern "C" void callback (void*, void*)
 		func->setAttributes(attr_new);
 	}
 
-	/*//
-	// Add noalias for all used functions arguments (dirty hack).
 	//
-	for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
-	    function != function_end; function++) {
-		Function * f = function;
-		int i = 1;
-		for(Function::arg_iterator arg_iter = f -> arg_begin(), arg_iter_end = f -> arg_end();
-		    arg_iter != arg_iter_end; arg_iter++) {
-			Argument * arg = arg_iter;
-			if(isa<PointerType>(*(arg -> getType())))
-				if(arg -> getType() -> getSequentialElementType() -> isSingleValueType() )
-					f -> setDoesNotAlias(i);
-			i++;
-		}
-	}*/
-	
-	//
-	// 2) Inline calls and extract loops into new functions.
-	// Apply optimization passes to the resulting common module.
+	// 3) Extract loops into new functions. Apply some optimization
+	// passes to the resulting module.
 	//
 	{
 		PassManager manager;
@@ -157,27 +143,15 @@ extern "C" void callback (void*, void*)
 		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
-	
-	EnableLoadPRE.setValue(false);
-	DisableLoadsDeletion.setValue(true);
-	DisablePromotion.setValue(true);
-	//llvm::DebugFlag=true;
-
 	{
-		PassManagerBuilder builder;
-		builder.Inliner = NULL;///!!!!
-		builder.OptLevel = 3;
-		builder.DisableSimplifyLibCalls = true;
-		builder.SizeLevel=3;
+		EnableLoadPRE.setValue(false);
+		DisableLoadsDeletion.setValue(true);
+		DisablePromotion.setValue(true);
 		PassManager manager;
 		manager.add(new TargetData(m));
-		//builder.populateModulePassManager(manager);
-		//manager.add(createLoopSimplifyPass());
-		
 		manager.add(createBasicAliasAnalysisPass());
 		manager.add(createLICMPass());
 		manager.add(createGVNPass());
-		
 		manager.run(*m);
 		
 	}
@@ -187,11 +161,12 @@ extern "C" void callback (void*, void*)
 		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
-    verifyModule(*m);
+
+	verifyModule(*m);
 	if (verbose) m->dump();
 
 	//
-	// 3) Embed the resulting module into object file.
+	// 4) Embed the resulting module into object file.
 	//
 	{
 		// The name of the symbol to hold LLVM IR source.
