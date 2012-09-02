@@ -4,6 +4,9 @@
 #define llvm revision
 %define llvm_rev KERNELGEN_LLVM_REV
 
+#define openmpi revision
+%define openmpi_rev KERNELGEN_OPENMPI_REV
+
 # Release name
 %define release accurate
 
@@ -17,6 +20,7 @@
 %define binutils KERNELGEN_ENABLE_BINUTILS
 %define gcc KERNELGEN_ENABLE_GCC
 %define netcdf KERNELGEN_ENABLE_NETCDF
+%define openmpi KERNELGEN_ENABLE_OPENMPI
 %define dragonegg KERNELGEN_ENABLE_DRAGONEGG
 %define kernelgen KERNELGEN_ENABLE_KERNELGEN
 
@@ -57,6 +61,7 @@ Source3:        ftp://upload.hpcforge.org/pub/kernelgen/KERNELGEN_GCC_SNAP.tar.b
 Source4:        ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r%{llvm_rev}.tar.gz
 Source5:        ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.gz
 Source6:        ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
+SOurce7:	ftp://upload.hpcforge.org/pub/kernelgen/openmpi-r%{openmpi_rev}.tar.gz
 Patch0:         dragonegg.ptx.patch
 Patch1:         dragonegg.patch
 Patch2:         llvm.polly.patch
@@ -111,6 +116,8 @@ rm -rf $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
 rm -rf $RPM_BUILD_DIR/netcdf-snapshot
 tar -xf $RPM_SOURCE_DIR/KERNELGEN_NETCDF_SNAP.tar.gz
 ln -s $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP $RPM_BUILD_DIR/netcdf-snapshot
+rm -rf $RPM_BUILD_DIR/openmpi
+tar -xf $RPM_SOURCE_DIR/openmpi-r%{openmpi_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
@@ -195,6 +202,17 @@ mkdir build
 cd build/
 KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disable-netcdf-4
 %endif
+%if %openmpi
+#
+# Configure OpenMPI
+#
+cd $RPM_BUILD_DIR/openmpi
+mkdir build
+cd build
+./autogen.pl
+KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+#--disable-mpi-interface-warning --with-cuda=/opt/cuda --with-cuda-libdir=/usr/%{lib64}
+%endif
 %endif
 %if %kernelgen
 #
@@ -248,6 +266,18 @@ KERNELGEN_FALLBACK=1 make -j%{njobs}
 #
 # Build NetCDF
 #
+cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0" FFLAGS="-g -O0" FCFLAGS="-g -O0"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+%endif
+%if %openmpi
+#
+# Build OpenMPI
+#
+cd $RPM_BUILD_DIR/openmpi/build
 %if %debug
 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0" FFLAGS="-g -O0" FCFLAGS="-g -O0"
 %else
@@ -336,6 +366,13 @@ make install
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
 CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install
 %endif
+%if %openmpi
+#
+# Install OpenMPI
+#
+cd $RPM_BUILD_DIR/openmpi/build
+KERNELGEN_FALLBACK=1 make install
+%endif
 %if %netcdf
 #
 # Install NetCDF
@@ -368,6 +405,8 @@ echo "/opt/kernelgen/lib64" >>/etc/ld.so.conf.d/kernelgen.conf
 
 
 %changelog
+* Sun Sep  2 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
+- added bundled CUDA-enabled OpenMPI
 * Sat Jul 21 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
 - added locally installed binutils with gold for default linker
 * Thu Jul 19 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
