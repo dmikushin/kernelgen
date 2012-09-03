@@ -293,19 +293,10 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		m.reset(getLazyIRFileModule(llvm_output.c_str(), diag, context));
 	}
 
-	//
-	// 3) Append "always inline" attribute to all existing functions.
-	//
-	for (Module::iterator f = m.get()->begin(), fe = m.get()->end(); f != fe; f++)
-	{
-		Function* func = f;
-		if (func->isDeclaration()) continue;
-
-		const AttrListPtr attr = func->getAttributes();
-		const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::AlwaysInline);
-		func->setAttributes(attr_new);
-	}
-	
+        //
+        // 3) Extract loops into new functions. Apply some optimization
+        // passes to the resulting module.
+        //
 	{
 		PassManager manager;
 		manager.add(new TargetData(m.get()));
@@ -317,29 +308,16 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
-	
-	EnableLoadPRE.setValue(false);
-	DisableLoadsDeletion.setValue(true);
-	DisablePromotion.setValue(true);
-	//llvm::DebugFlag=true;
-
 	{
-		PassManagerBuilder builder;
-		builder.Inliner = NULL;///!!!!
-		builder.OptLevel = 3;
-		builder.DisableSimplifyLibCalls = true;
-		builder.SizeLevel=3;
+		EnableLoadPRE.setValue(false);
+		DisableLoadsDeletion.setValue(true);
+		DisablePromotion.setValue(true);
 		PassManager manager;
 		manager.add(new TargetData(m.get()));
-		//builder.populateModulePassManager(manager);
-		//manager.add(createLoopSimplifyPass());
-		
 		manager.add(createBasicAliasAnalysisPass());
 		manager.add(createLICMPass());
 		manager.add(createGVNPass());
-		
 		manager.run(*m);
-		
 	}
 	{
 		PassManager manager;
@@ -347,11 +325,12 @@ static int compile(int argc, char** argv, const char* input, const char* output)
 		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
-    verifyModule(*m);
+
+	verifyModule(*m);
 	if (verbose) m->dump();
 
 	//
-	// 5) Emit the resulting LLVM IR module into temporary
+	// 4) Emit the resulting LLVM IR module into temporary
 	// object symbol and embed it into the final object file.
 	//
 	{
@@ -949,14 +928,20 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			//for(set<AllocaInst *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
 				iter!=iter_end;iter++ )
 			{
-				AllocaInst * allocaInst=*iter;
+				AllocaInst* allocaInst = *iter;
+
+				// FIXME: This is a temporary workaround for an issue
+				// spotted during COSMO linking: by some reason the same
+				// allocaInst is accounted in list multiple times. This
+				// check should bypass possible duplicates.
+				if (!allocaInst->getParent()) continue;
 				
 				// Get type of old alloca
-				Type * structPtrType = allocaInst -> getType();
+				Type* structPtrType = allocaInst -> getType();
 				
 				// Create bit cast of created alloca for specified type
-				BitCastInst * bitcast = new BitCastInst(
-					collectiveAlloca,structPtrType,"ptrToArgsStructure");
+				BitCastInst* bitcast = new BitCastInst(
+					collectiveAlloca, structPtrType, "ptrToArgsStructure");
 				// Insert after old alloca
 				bitcast->insertAfter(allocaInst);
 				// Replace uses of old alloca with create bit cast
@@ -1386,6 +1371,18 @@ static int link(int argc, char** argv, const char* input, const char* output)
 							else if(!iter->isIntrinsic())
 								iter->setLinkage(GlobalValue::ExternalLinkage);
 						}
+
+				// Append "always inline" attribute to all existing functions
+				// in loop module.
+				for (Module::iterator f = loop.begin(), fe = loop.end(); f != fe; f++)
+				{
+					Function* func = f;
+					if (func->isDeclaration()) continue;
+
+					const AttrListPtr attr = func->getAttributes();
+					const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::AlwaysInline);
+					func->setAttributes(attr_new);
+				}
 				
 				verifyModule(loop);
 				
@@ -1395,7 +1392,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					if(!iter->isDeclaration())
 						iter->setLinkage(GlobalValue::LinkerPrivateLinkage);*/
 					
-				// Perform inlining.
+				// Perform inlining (required by Polly).
 				{
 					PassManager manager;
 					manager.add(createFunctionInliningPass());

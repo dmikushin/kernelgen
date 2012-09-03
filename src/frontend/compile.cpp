@@ -114,22 +114,7 @@ extern "C" void callback (void*, void*)
 	Module* m = ParseIR(buffer1, diag, context);
 
 	//
-	// 2) Append "always inline" attribute to all existing functions.
-	// TODO: inlining is now only required by Polly. So we should probably move
-	// this closer to computational loops kernels compilation logic.
-	//
-	for (Module::iterator f = m->begin(), fe = m->end(); f != fe; f++)
-	{
-		Function* func = f;
-		if (func->isDeclaration()) continue;
-
-		const AttrListPtr attr = func->getAttributes();
-		const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::AlwaysInline);
-		func->setAttributes(attr_new);
-	}
-
-	//
-	// 3) Extract loops into new functions. Apply some optimization
+	// 1) Extract loops into new functions. Apply some optimization
 	// passes to the resulting module.
 	//
 	{
@@ -166,7 +151,7 @@ extern "C" void callback (void*, void*)
 	if (verbose) m->dump();
 
 	//
-	// 4) Embed the resulting module into object file.
+	// 2) Embed the resulting module into object file.
 	//
 	{
 		// The name of the symbol to hold LLVM IR source.
