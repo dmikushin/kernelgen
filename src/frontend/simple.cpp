@@ -1379,9 +1379,8 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					Function* func = f;
 					if (func->isDeclaration()) continue;
 
-					const AttrListPtr attr = func->getAttributes();
-					const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::AlwaysInline);
-					func->setAttributes(attr_new);
+					f->removeFnAttr(Attribute::NoInline);
+					f->addFnAttr(Attribute::AlwaysInline);
 				}
 				
 				verifyModule(loop);
