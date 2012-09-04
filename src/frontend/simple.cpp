@@ -1372,7 +1372,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 								iter->setLinkage(GlobalValue::ExternalLinkage);
 						}
 
-				/*// Append "always inline" attribute to all existing functions
+				// Append "always inline" attribute to all existing functions
 				// in loop module.
 				for (Module::iterator f = loop.begin(), fe = loop.end(); f != fe; f++)
 				{
@@ -1381,7 +1381,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 
 					f->removeFnAttr(Attribute::NoInline);
 					f->addFnAttr(Attribute::AlwaysInline);
-				}*/
+				}
 				
 				verifyModule(loop);
 				
@@ -1391,13 +1391,13 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					if(!iter->isDeclaration())
 						iter->setLinkage(GlobalValue::LinkerPrivateLinkage);*/
 					
-				/*// Perform inlining (required by Polly).
+				// Perform inlining (required by Polly).
 				{
 					PassManager manager;
 					manager.add(createFunctionInliningPass());
 					manager.add(createCFGSimplificationPass());
 					manager.run(loop);
-				}*/
+				}
 
 				// Delete unnecessary globals and function declarations
 				{

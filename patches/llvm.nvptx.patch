@@ -185,6 +185,28 @@
      if (nvptxSubtarget.is64Bit()) {
        O << "\t.reg .b64 \t%SP;\n";
        O << "\t.reg .b64 \t%SPL;\n";
+@@ -1890,17 +1890,15 @@
+   case Type::ArrayTyID:
+   case Type::VectorTyID:
+   case Type::StructTyID: {
+-    if (isa<ConstantArray>(CPV) || isa<ConstantVector>(CPV) ||
+-        isa<ConstantStruct>(CPV)) {
++    if (isa<ConstantAggregateZero>(CPV))
++      aggBuffer->addZeros(Bytes);
++    else
++    {
+       int ElementSize = TD->getTypeAllocSize(CPV->getType());
+       bufferAggregateConstant(CPV, aggBuffer);
+       if ( Bytes > ElementSize )
+         aggBuffer->addZeros(Bytes-ElementSize);
+     }
+-    else if (isa<ConstantAggregateZero>(CPV))
+-      aggBuffer->addZeros(Bytes);
+-    else
+-      llvm_unreachable("Unexpected Constant type");
+     break;
+   }
+
 @@ -2066,3 +2131,4 @@
    RegisterAsmPrinter<NVPTXAsmPrinter> X(TheNVPTXTarget32);
    RegisterAsmPrinter<NVPTXAsmPrinter> Y(TheNVPTXTarget64);
