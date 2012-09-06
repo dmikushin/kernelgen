@@ -41,4 +41,16 @@
 +    { "internal-output", &InternalOutput },
      { NULL, NULL } // Terminator.
  };
- 
+
+--- a/dragonegg/src/Convert.cpp	2012-09-06 19:33:07.362601226 +0200
++++ b/dragonegg/src/Convert.cpp	2012-09-06 19:33:48.630599469 +0200
+@@ -4150,6 +4150,9 @@
+ /// If we can't handle the builtin, return false, otherwise return true.
+ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
+                                  const MemRef *DestLoc, Value *&Result) {
++  // Do not emit any builtin calls.
++  return false;
++
+   if (DECL_BUILT_IN_CLASS(fndecl) == BUILT_IN_MD) {
+     unsigned FnCode = DECL_FUNCTION_CODE(fndecl);
+     if (TargetBuiltinCache.size() <= FnCode) 

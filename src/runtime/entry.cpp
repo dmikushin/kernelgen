@@ -205,8 +205,6 @@ int main(int argc, char* argv[], char* envp[])
 		{
 			THROW("Cannot find the __kernelgen_main symbol");
 		}
-		
-		
 
 		// Walk through kernel index and replace
 		// all names with kernel structure addresses
@@ -227,22 +225,22 @@ int main(int argc, char* argv[], char* envp[])
 		}
 
 		kernel = kernels["__kernelgen_main"];
-        assert(kernel->module && "main module must be loaded");
+		assert(kernel->module && "main module must be loaded");
 		assert(sizeof(void *) == sizeof(uint64_t));
 
 		NamedMDNode *orderOfGlobalsMD = kernel->module->getNamedMetadata("OrderOfGlobals");
 		assert(orderOfGlobalsMD);
 		numberOfGlobalVariables = orderOfGlobalsMD->getNumOperands();
-		addressesOfGlobalVariables=NULL;
-	    for(int i =0; i < numberOfGlobalVariables; i++)
-	    {
-		   MDNode *mdNode = orderOfGlobalsMD->getOperand(i);
-		   assert(mdNode -> getNumOperands() == 2);
-		   assert(isa<MDString>(*(mdNode->getOperand(0))) && isa<ConstantInt>(*(mdNode->getOperand(1))));
-		   StringRef name = cast<MDString>(mdNode -> getOperand(0)) -> getString();
-		   uint64_t index = cast<ConstantInt>(mdNode -> getOperand(1))-> getZExtValue();
-		   orderOfGlobals[name] = index;
-	   }
+		addressesOfGlobalVariables = NULL;
+		for(int i = 0; i < numberOfGlobalVariables; i++)
+		{
+			MDNode *mdNode = orderOfGlobalsMD->getOperand(i);
+			assert(mdNode->getNumOperands() == 2);
+			assert(isa<MDString>(*(mdNode->getOperand(0))) && isa<ConstantInt>(*(mdNode->getOperand(1))));
+			StringRef name = cast<MDString>(mdNode -> getOperand(0)) -> getString();
+			uint64_t index = cast<ConstantInt>(mdNode -> getOperand(1))-> getZExtValue();
+			orderOfGlobals[name] = index;
+		}
 		
 		// Load arguments, depending on the target runmode
 		// and invoke the entry point kernel.
@@ -425,23 +423,16 @@ int main(int argc, char* argv[], char* envp[])
 					err = cuMemsetD8(envp_dev + envc, 0, sizeof(char*));
 					if (err) THROW("Error in cuMemsetD8 " << err);
 				}
-                
-                // page locks memory for globals addresses
+
+				// Allocate page-locked memory for globals addresses.
 				{
 					
-					CUresult err = cuMemAllocHost((void **)&addressesOfGlobalVariables,numberOfGlobalVariables*sizeof(void*) );
-				    if (err) THROW("Error in cuMemAllocHost " << err);
+					CUresult err = cuMemAllocHost((void **)&addressesOfGlobalVariables,
+						numberOfGlobalVariables * sizeof(void*));
+					if (err) THROW("Error in cuMemAllocHost " << err);
 					CUdeviceptr pointerOnDevice = (CUdeviceptr)addressesOfGlobalVariables;
-                    err = cuMemsetD8 (pointerOnDevice, 0, numberOfGlobalVariables*sizeof(void*));
+					err = cuMemsetD8(pointerOnDevice, 0, numberOfGlobalVariables*sizeof(void*));
 					if (err) THROW("Error in cuMemsetD8 " << err);
-                    
-					/*#define CU_MEMHOSTREGISTER_DEVICEMAP   0x02
-                	CUresult err = cuMemHostRegister(addressesOfGlobalVariables, numberOfGlobalVariables*sizeof(void*),CU_MEMHOSTREGISTER_DEVICEMAP);
-				    if (err) THROW("Error in cuMemHostRegister " << err);
-					err = cuMemHostGetDevicePointer(&pointerOnDevice,addressesOfGlobalVariables,0);
-					if (err) THROW("Error in cuMemHostGetDevicePointer " << err);
-					assert(pointerOnDevice);
-					//addressesOfGlobalVariables = (uint64_t *)pointerOnDevice;*/
 				}
 				
 				// Setup argerator structure and fill it with the main

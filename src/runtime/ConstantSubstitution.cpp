@@ -39,9 +39,9 @@ int isAllowedInstruction(const Value * const &someValue)
 
 void makeUseTreeForIntegerArgs(UseTreeNode * const &useNode, const TargetData * const &targetData)
 {
-	const Value * sourceValue = useNode->sourceValue;
-	for(Value::const_use_iterator useIterator = sourceValue->use_begin(), useEnd = sourceValue->use_end();
-	    useIterator != useEnd; useIterator++) {
+	const Value* sourceValue = useNode->sourceValue;
+	for (Value::const_use_iterator useIterator = sourceValue->use_begin(),
+		useEnd = sourceValue->use_end(); useIterator != useEnd; useIterator++) {
 		const Value * User = *useIterator;
 		int inst;
 		
@@ -70,12 +70,12 @@ void makeUseTreeForIntegerArgs(UseTreeNode * const &useNode, const TargetData * 
 		}
 		break;
 		case Cast:
-		    // Cast change only Type
+			// Cast change only Type
 			// new Type is newUseNode->sourceValue->getType()
 			makeUseTreeForIntegerArgs(newUseNode, targetData);
 			break;
 		case Load:
-		    LoadInstOffsets[(LoadInst *)User] = useNode->currentOffset;
+			LoadInstOffsets[(LoadInst *)User] = useNode->currentOffset;
 			//alignment?
 			break;
 		case Store:
@@ -84,7 +84,6 @@ void makeUseTreeForIntegerArgs(UseTreeNode * const &useNode, const TargetData * 
 		if(inst == GEP || inst == Cast)
 			delete newUseNode;
 	}
-
 }
 
 void computeLoadInstOffsets(const Value * sourceArg,const TargetData * targetData)
@@ -115,8 +114,8 @@ void ConstantSubstitution(Function * func, void * args)
 
 	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)	
 		std::cout << "    Integer args substituted: " << std::endl;
-	for(MapIterator arg = LoadInstOffsets.begin(), argEnd = LoadInstOffsets.end();
-	    arg != argEnd; arg++) {
+	for(MapIterator arg = LoadInstOffsets.begin(),
+		argEnd = LoadInstOffsets.end(); arg != argEnd; arg++) {
 		LoadInst * load = arg->first;
 		Type * type = load->getType();
 		
@@ -154,3 +153,4 @@ void ConstantSubstitution(Function * func, void * args)
 	}
 	return;
 }
+

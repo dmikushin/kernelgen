@@ -52,7 +52,6 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/IRBuilder.h"
 #include "polly/ScopInfo.h"
-//#include "/home/likhogrud/myInclude.h"
 
 #include "io.h"
 #include "util.h"
@@ -370,11 +369,11 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 		for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++)
 		{
 			AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
-			if(alloca) { 
+			if(alloca) {
 				// handle alloca later
-			   allocas.push_back(alloca);
-			   continue;
-		     }
+				allocas.push_back(alloca);
+				continue;
+			}
 					
 			// Check if instruction in focus is a call.
 			CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
@@ -391,8 +390,8 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 			Function* callee = dyn_cast<Function>(
 				call->getCalledValue()->stripPointerCasts());
 			if (!callee) continue;
-		
-		    call->setAttributes(callee->getAttributes());
+
+			call->setAttributes(callee->getAttributes());
 			// If function is defined (has body),
 			// it will be handled in another call of processCallTreeMain
 			if (!callee->isDeclaration())
@@ -471,19 +470,24 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 		for (list<CallInst*>::iterator i = erase_calls.begin(),
 			ie = erase_calls.end(); i != ie; i++)
 			   (*i)->eraseFromParent();
-			
+
 		// Replace static alloca-s with global variables.
-		// Replace dynamic alloca-s with kernelgen_malloc
+		// Replace dynamic alloca-s with kernelgen_malloc.
+		Type* i1Ty = Type::getInt1Ty(m->getContext());
 		for (list<AllocaInst*>::iterator i = allocas.begin(),
 			ie = allocas.end(); i != ie; i++) {
 			AllocaInst *alloca = *i;
+			Type* Ty = alloca->getAllocatedType();
+
+			// Use of i1 is not supported by NVPTX.
+			assert(Ty != i1Ty);
 
 			if(!alloca->isArrayAllocation()) {
 				// Allocation of single element:
-				// Replace "alloca type" with "@a=type".
+				// Replace "alloca type" with "@a = type".
 				GlobalVariable* GV = new GlobalVariable(
-					*m, alloca->getAllocatedType(), false, GlobalValue::PrivateLinkage,
-					Constant::getNullValue(alloca->getAllocatedType()), "replacementOfAlloca");
+					*m, Ty, false, GlobalValue::PrivateLinkage,
+					Constant::getNullValue(Ty), "replacementOfAlloca");
 				GV->setAlignment(alloca->getAlignment());
 				alloca->replaceAllUsesWith(GV);
 				if (verbose) {
@@ -502,7 +506,8 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 					*m, arrayType, false, GlobalValue::PrivateLinkage,
 					Constant::getNullValue(arrayType), "memoryForAlloca");
 				GV->setAlignment(alloca->getAlignment());
-				BitCastInst * bitcast= new BitCastInst(GV,alloca->getType(), "replacementOfAlloca", alloca);
+				BitCastInst* bitcast = new BitCastInst(GV,alloca->getType(),
+					"replacementOfAlloca", alloca);
 				alloca->replaceAllUsesWith(bitcast);
 
 				if (verbose) {
@@ -512,9 +517,9 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				}
 			} 
 			else  {
-				// more complex case: array size is a common value and unknown at compile-time
-        		// Replace "alloca type, count" with "%0=call i8* kernelgen_malloc(sizeof(type)*count)
-				//%1=bitcast i8* %0 to type*"
+				// More complex case: array size is a common value and unknown at compile-time
+				// Replace "alloca type, count" with "%0=call i8* kernelgen_malloc(sizeof(type)*count)
+				// %1 = bitcast i8* %0 to type*"
 
 				IRBuilder<> Builder(alloca);
 				Constant *sizeOfElement = ConstantExpr::getSizeOf(alloca->getAllocatedType());
@@ -526,7 +531,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				callOfMalloc->setCallingConv(llvm::CallingConv::PTX_Device);
 				
 				if(callOfMalloc->getType() == alloca->getType()) {
-     				callOfMalloc->setName((string)"replacementOfAlloca");
+     				callOfMalloc->setName("replacementOfAlloca");
 					alloca->replaceAllUsesWith(callOfMalloc);
 					if (verbose) {
 						outs().changeColor(raw_ostream::GREEN);
@@ -619,7 +624,7 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 kernel_func_t kernelgen::runtime::compile(
     int runmode, kernel_t* kernel, Module* module, void * data, int szdata, int szdatai)
 {
-    // Do not compile, if no source.
+	// Do not compile, if no source.
 	if (kernel->source == "")
 		return kernel->target[runmode].binary;
 
@@ -699,7 +704,6 @@ kernel_func_t kernelgen::runtime::compile(
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 
-		// Change the target triple for entire module to be the same
 		// as for KernelGen device runtime module.
 		m->setTargetTriple(runtime_module->getTargetTriple());
 		m->setDataLayout(runtime_module->getDataLayout());
@@ -715,54 +719,45 @@ kernel_func_t kernelgen::runtime::compile(
 		dim3 gridDim(1, 1, 1);
 		if (kernel->name != "__kernelgen_main")  {	
 		
-
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
-
-
-
-		/*{
-			PassManager MPM;
-			MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
-			MPM.add(createFunctionInliningPass());
-			MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
-			MPM.run(*m);
-		}*/
 		
-		// copy attributes for declarations from cuda_module
-		// set appropriate attributes to calls
-		for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
-			if(func->isDeclaration()) {
-  			    Function *Src = cuda_module -> getFunction(func->getName());
-			    if(Src)
-				{
-			        func->setAttributes(Src->getAttributes());
-         		    for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
-		        	use_iter != use_iter_end; use_iter++)
-			        {
-				        CallInst * call = cast<CallInst>(*use_iter);
+			// Copy attributes for declarations from cuda_module
+			// Set appropriate attributes to calls
+			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+				if(func->isDeclaration()) {
+  					Function *Src = cuda_module -> getFunction(func->getName());
+					if(!Src) continue;
+
+					func->setAttributes(Src->getAttributes());
+					for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+						use_iter != use_iter_end; use_iter++)
+					{
+						CallInst* call = cast<CallInst>(*use_iter);
+
 						const AttrListPtr attr = func->getAttributes();
-		                const AttrListPtr attr_new = attr.addAttr(~0U/*attr.getNumSlots()*/, Attribute::ReadNone);
-				        call-> setAttributes(attr_new);
-						
-			        }
-	            }
-		    }
-		}
-	     //printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
-		 // Apply the Polly codegen for CUDA target.
-		 Size3 sizeOfLoops;
-		 bool isThereAtLeastOneParallelLoop = false;
-		 runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
-			
-         for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
-		    for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
-			use_iter != use_iter_end; use_iter++)
-			{
-				CallInst * call = cast<CallInst>(*use_iter);
-				call-> setAttributes(func -> getAttributes());
+						const AttrListPtr attr_new = attr.addAttr(
+							~0U /*attr.getNumSlots()*/, Attribute::ReadNone);
+						call->setAttributes(attr_new);
+					}
+				}
 			}
-	     }
+
+			//printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
+
+			// Apply the Polly codegen for CUDA target.
+			Size3 sizeOfLoops;
+			bool isThereAtLeastOneParallelLoop = false;
+			runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
+		
+			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+				for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+					use_iter != use_iter_end; use_iter++)
+				{
+					CallInst * call = cast<CallInst>(*use_iter);
+					call-> setAttributes(func -> getAttributes());
+				}
+			}
 
 			// Do not compile the loop kernel if no grid detected.
 			// Important to place this condition *after* hostcalls check
@@ -861,14 +856,13 @@ kernel_func_t kernelgen::runtime::compile(
 				    kernel->target[runmode].supported = false;
 				return NULL;
 			}
-            assert(isThereAtLeastOneParallelLoop);
-
+			assert(isThereAtLeastOneParallelLoop);
 
 			// If the target kernel is loop, do not allow host calls in it.
 			// Also do not allow malloc/free, probably support them later.
 			// TODO: kernel *may* have kernelgen_launch called, but it must
 			// always evaluate to -1.
-            if (!processCallTreeLoop(kernel, m, f))
+			if (!processCallTreeLoop(kernel, m, f))
 				return NULL;
 				
 			int device;
@@ -895,7 +889,8 @@ kernel_func_t kernelgen::runtime::compile(
 			if (err)
 				THROW("Error in cuDeviceGetProperties " << err);
 
-            //printModuleToFile(m, kernel->name + (string)"_after_polly.txt" );
+			//printModuleToFile(m, kernel->name + (string)"_after_polly.txt" );
+
 			// x   y     z         x     y     z
 			// 123 13640   -1  ->  13640 123   1     two loops
 			// 123 13640 2134  ->  2134  13640 123   three loops
@@ -981,38 +976,34 @@ kernel_func_t kernelgen::runtime::compile(
 				allocasForArgs.clear();
 
 				// Collect allocas for kernelgen_hostcall-s
-
 				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
-						   
-			    Type * allocatedType=ArrayType::get(Type::getInt8Ty(context),maximumSizeOfData);
-			  // allocate array [i8 x maximumSizeOfData]
-		     /*	 AllocaInst *collectiveAlloca = new AllocaInst(
-				 allocatedType, maximumSizeOfData),
-				 "collectiveAllocaForArgs", kernelgen_main_->begin()->begin());*/
-				
-			   GlobalVariable *collectiveAlloca = new GlobalVariable(
-						*m, allocatedType,
-                        false, GlobalValue::PrivateLinkage,
-						Constant::getNullValue(allocatedType), "memoryForHostcallArgs");
+
+				// Allocate array [i8 x maximumSizeOfData]
+				Type* allocatedType = ArrayType::get(Type::getInt8Ty(context),maximumSizeOfData);
+				GlobalVariable *collectiveAlloca = new GlobalVariable(
+					*m, allocatedType, false, GlobalValue::PrivateLinkage,
+					Constant::getNullValue(allocatedType), "memoryForHostcallArgs");
 				collectiveAlloca->setAlignment(4096);
 					
-				for(list<Value *>::iterator iter=allocasForArgs.begin(), iter_end=allocasForArgs.end();
-					iter!=iter_end; iter++ ) {
-					AllocaInst * allocaInst=cast<AllocaInst>(*iter);
+				for(list<Value *>::iterator iter = allocasForArgs.begin(),
+					iter_end = allocasForArgs.end(); iter != iter_end; iter++ ) {
+					AllocaInst* allocaInst = cast<AllocaInst>(*iter);
 
 					// Get type of old alloca
-					Type * structPtrType = allocaInst -> getType();
+					Type* structPtrType = allocaInst->getType();
 
 					// Create bit cast of created alloca for specified type
-					BitCastInst * bitcast = new BitCastInst(collectiveAlloca, structPtrType, "ptrToArgsStructure");
+					BitCastInst* bitcast = new BitCastInst(collectiveAlloca,
+						structPtrType, "ptrToArgsStructure");
 
 					// Insert after old alloca
 					bitcast->insertAfter(allocaInst);
+
 					// Replace uses of old alloca with created bit cast
-					allocaInst -> replaceAllUsesWith(bitcast);
+					allocaInst->replaceAllUsesWith(bitcast);
+
 					// Erase old alloca from parent basic block
-					//if(isa<Instruction>(*allocaInst))
-					allocaInst -> eraseFromParent();
+					allocaInst->eraseFromParent();
 				}
 			}
 
@@ -1053,7 +1044,6 @@ kernel_func_t kernelgen::runtime::compile(
 		{
 			PassManager MPM;
 			MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
-			//MPM.add(createFunctionInliningPass());
 			MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
 			MPM.run(*m);
 		}

@@ -88,6 +88,9 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		ArgTypes.push_back(retTy);
 	}
 
+	// Load/store of i1 is not supported by NVPTX.
+	assert(retTy != Type::getInt1Ty(context));
+
 	// Allocate memory for the struct.
 	StructType *StructArgTy = StructType::get(
 		context, ArgTypes, false /* isPacked */);
