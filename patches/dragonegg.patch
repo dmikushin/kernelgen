@@ -53,4 +53,4 @@
 +
    if (DECL_BUILT_IN_CLASS(fndecl) == BUILT_IN_MD) {
      unsigned FnCode = DECL_FUNCTION_CODE(fndecl);
-     if (TargetBuiltinCache.size() <= FnCode) 
+     if (TargetBuiltinCache.size() <= FnCode)
