@@ -157,7 +157,7 @@ public:
 		}
 
 	}
-    void dropAllReferences()
+	void dropAllReferences()
 	{
 		for(FunctionsDeps::iterator iter = functionsDeps.begin(),iter_end = functionsDeps.end();
 		   iter!=iter_end; iter++)

@@ -413,12 +413,12 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				Dst->setName((string)"_" + (string)Dst->getName());
 				
 				Dst->setAttributes(Src->getAttributes());
-				for(Value::use_iterator use_iter = Dst->use_begin(), use_iter_end = Dst->use_end();
-			    use_iter != use_iter_end; use_iter++)
-			    {
-				    CallInst * call = cast<CallInst>(*use_iter);
-				    call-> setAttributes(Dst -> getAttributes());
-			    }
+				for (Value::use_iterator use_iter = Dst->use_begin(),
+					use_iter_end = Dst->use_end(); use_iter != use_iter_end; use_iter++)
+				{
+					CallInst * call = cast<CallInst>(*use_iter);
+					call->setAttributes(Dst->getAttributes());
+				}
 				continue;
 			}
 
@@ -699,7 +699,7 @@ kernel_func_t kernelgen::runtime::compile(
 
 		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
-
+ 
 		return codegen(runmode, kernel, m);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
@@ -1015,15 +1015,16 @@ kernel_func_t kernelgen::runtime::compile(
 		// Optimize only loop kernels.
 		if (kernel->name != "__kernelgen_main")
 		{
-			for(Module::iterator iter=m->begin(), iter_end = m->end();
-				  iter!=iter_end; iter++)
-					  if(!iter->isDeclaration() && cast<Function>(iter)!= f)
-						  iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
-						  
-			for(Module::global_iterator iter=m->global_begin(), iter_end = m->global_end();
-				  iter!=iter_end; iter++)
-					  if(!iter->isDeclaration() && cast<GlobalVariable>(iter) != GVSig)
-					       iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+			// Internalize globals in order to let them get removed from
+			// the optimized module.
+			for (Module::iterator iter = m->begin(), iter_end = m->end();
+				iter != iter_end; iter++)
+				if (!iter->isDeclaration() && cast<Function>(iter) != f)
+					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+			for (Module::global_iterator iter = m->global_begin(),
+				iter_end = m->global_end();  iter != iter_end; iter++)
+				if (!iter->isDeclaration() && cast<GlobalVariable>(iter) != GVSig)
+					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
 						  
 			PassManager manager;
 			PassManagerBuilder builder;
