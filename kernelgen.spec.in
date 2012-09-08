@@ -331,14 +331,14 @@ mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/%{lib64}/
 # Reinstall CLooG
 #
 cd $RPM_BUILD_DIR/cloog
-make install
+make install -j%{njobs}
 %endif
 %if %llvm
 #
 # Install LLVM
 #
 cd $RPM_BUILD_DIR/llvm/build
-make install
+make install -j%{njobs}
 %endif
 %if %dragonegg
 #
@@ -358,28 +358,28 @@ ROOT=$RPM_BUILD_ROOT LIB32=lib LIB64=lib make install
 # Install BinUtils
 #
 cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
-make install
+make install -j%{njobs}
 %endif
 %if %gcc
 #
 # Install GCC
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
-CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install
+CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 %if %openmpi
 #
 # Install OpenMPI
 #
 cd $RPM_BUILD_DIR/openmpi/build
-KERNELGEN_FALLBACK=1 make install
+KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 %if %netcdf
 #
 # Install NetCDF
 #
 cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build
-KERNELGEN_FALLBACK=1 make install
+KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 
 
