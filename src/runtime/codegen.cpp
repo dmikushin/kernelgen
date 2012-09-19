@@ -502,10 +502,14 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 
 					dim3 blockDim = kernel->target[runmode].blockDim;
 					int maxregcount = props.regsPerBlock / (blockDim.x * blockDim.y * blockDim.z) - 4;
-					if (major == 3)
+					if ((major == 3) && (minor >= 5))
+					{
 						if (maxregcount > 128) maxregcount = 128;
+					}
 					else
+					{
 						if (maxregcount > 63) maxregcount = 63;
+					}
 					ptxas_args.push_back("--maxrregcount");
 					std::ostringstream smaxregcount;
 					smaxregcount << maxregcount;
@@ -514,11 +518,12 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 
 				// The -g option by some reason is needed even w/o debug.
 				// Otherwise some tests are failing.
-				ptxas_args.push_back("-g");
+				//ptxas_args.push_back("-g");
 				//if (major == 3)
 				//	ptxas_args.push_back("--cloning=yes");
 				if (::debug)
 				{
+					ptxas_args.push_back("-g");
 					ptxas_args.push_back("--return-at-end");
 					ptxas_args.push_back("--dont-merge-basicblocks");
 				}
