@@ -234,3 +234,12 @@
    void printParamName(int paramIndex, raw_ostream &O);
    void printParamName(Function::const_arg_iterator I, int paramIndex,
                        raw_ostream &O);
+--- a/llvm/lib/Target/NVPTX/NVPTXSubtarget.cpp	2012-09-21 18:22:36.985134812 +0200
++++ b/llvm/lib/Target/NVPTX/NVPTXSubtarget.cpp	2012-09-21 18:22:49.761135342 +0200
+@@ -29,7 +29,7 @@
+                     clEnumValN(NVPTX::CUDA, "drvcuda", "Nvidia CUDA driver"),
+                     clEnumValN(NVPTX::TEST, "drvtest", "Plain Test"),
+                     clEnumValEnd),
+-                    cl::init(NVPTX::NVCL));
++                    cl::init(NVPTX::CUDA));
+ }
