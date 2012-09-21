@@ -514,6 +514,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 					std::ostringstream smaxregcount;
 					smaxregcount << maxregcount;
 					ptxas_args.push_back(smaxregcount.str().c_str());
+					ptxas_args.push_back("-g");
 				}
 
 				// The -g option by some reason is needed even w/o debug.
