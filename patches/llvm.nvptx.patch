@@ -243,3 +243,5 @@
 -                    cl::init(NVPTX::NVCL));
 +                    cl::init(NVPTX::CUDA));
  }
+ 
+ NVPTXSubtarget::NVPTXSubtarget(const std::string &TT, const std::string &CPU,
