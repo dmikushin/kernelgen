@@ -514,14 +514,16 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 					std::ostringstream smaxregcount;
 					smaxregcount << maxregcount;
 					ptxas_args.push_back(smaxregcount.str().c_str());
+
+					// The -g option by some reason is needed even w/o debug.
+					// Otherwise some tests are failing.
 					ptxas_args.push_back("-g");
 				}
 
 				// The -g option by some reason is needed even w/o debug.
 				// Otherwise some tests are failing.
-				//ptxas_args.push_back("-g");
-				//if (major == 3)
-				//	ptxas_args.push_back("--cloning=yes");
+				if (major == 3)
+					ptxas_args.push_back("--cloning=no");
 				if (::debug)
 				{
 					ptxas_args.push_back("-g");
