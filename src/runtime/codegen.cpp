@@ -520,10 +520,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 					ptxas_args.push_back("-g");
 				}
 
-				// The -g option by some reason is needed even w/o debug.
-				// Otherwise some tests are failing.
-				if (major == 3)
-					ptxas_args.push_back("--cloning=no");
+				ptxas_args.push_back("--cloning=no");
 				if (::debug)
 				{
 					ptxas_args.push_back("-g");
