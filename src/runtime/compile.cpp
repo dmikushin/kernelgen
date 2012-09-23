@@ -651,11 +651,13 @@ kernel_func_t kernelgen::runtime::compile(
     
 	if (kernel->name != "__kernelgen_main")
 		substituteGlobalsByTheirAddresses(m);
-	
-	// Add signature record.
-	Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
-	GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),
-		true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version", 0, false);
+	else
+	{	
+		// Add signature record.
+		Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
+		GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),
+			true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version", 0, false);
+	}
 
 	// Emit target assembly and binary image, depending
 	// on runmode.
@@ -1023,7 +1025,7 @@ kernel_func_t kernelgen::runtime::compile(
 					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
 			for (Module::global_iterator iter = m->global_begin(),
 				iter_end = m->global_end();  iter != iter_end; iter++)
-				if (!iter->isDeclaration() && cast<GlobalVariable>(iter) != GVSig)
+				if (!iter->isDeclaration())
 					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
 						  
 			PassManager manager;
