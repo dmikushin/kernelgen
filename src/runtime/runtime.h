@@ -124,6 +124,7 @@ extern bool debug;
 #define KERNELGEN_VERBOSE_HOSTCALL	1 << 4
 #define KERNELGEN_VERBOSE_POLLYGEN	1 << 5
 #define KERNELGEN_VERBOSE_TIMEPERF	1 << 6
+#define KERNELGEN_VERBOSE_ALLOCA	1 << 7
 
 // Define to load kernels lazily. Means instead of reading and verifying
 // modules during application startup, they are instead loaded in the place

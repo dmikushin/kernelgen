@@ -146,19 +146,28 @@ int kernelgen_launch(kernel_t* kernel,
 			{
 				void* monitor_stream =
 					kernel->target[runmode].monitor_kernel_stream;
-				char* content = (char*)malloc(szdatai);
-				int err = cuMemHostRegister(content, szdatai, 0);
+
+				// Copy launch arguments from host to device.
+				// In order to determine the precompiled kernel hash,
+				// only integer arguments are needed (first szdatai bytes).
+				// In order to perform verbose pointers tracking for
+				// debug purposes, all arguments are needed.
+				size_t size = verbose ? szdata : szdatai;
+				char* content = (char*)malloc(size);
+				int err = cuMemHostRegister(content, size, 0);
 				if (err) THROW("Error in cuMemHostRegister " << err);
-				err = cuMemcpyDtoHAsync(content, &data->args, szdatai, monitor_stream);
+				err = cuMemcpyDtoHAsync(content, &data->args, size, monitor_stream);
 				if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
 				err = cuStreamSynchronize(monitor_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
 				mhash(td, content, szdatai);
+
+				// TODO: Unpin and free the device buffer?
 				//err = cuMemFreeHost(content);
 				if (err) THROW("Error in cuMemFreeHost " << err);
 				
-				args = malloc(2*sizeof(void *) + szdatai);//malloc(szdata)
-				memcpy((char *)args + 2*sizeof(void *), content, szdatai);
+				args = malloc(2 * sizeof(void *) + szdatai);
+				memcpy((char *)args + 2 * sizeof(void *), content, szdatai);
 				
 				break;
 			}
@@ -292,6 +301,22 @@ int kernelgen_launch(kernel_t* kernel,
 				sizeof(struct kernelgen_callback_t), 0);
 			if (err) THROW("Error in cuMemHostRegister " << err);
 
+			// Launch main GPU kernel.
+			{
+				struct { unsigned int x, y, z; } gridDim, blockDim;
+				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+				size_t szshmem = 0;
+				void* kernel_func_args[] = { (void*)&data };
+				int err = cuLaunchKernel((void*)kernel_func,
+					gridDim.x, gridDim.y, gridDim.z,
+					blockDim.x, blockDim.y, blockDim.z, szshmem,
+					kernel->target[runmode].kernel_stream,
+					kernel_func_args, NULL);
+				if (err)
+					THROW("Error in cuLaunchKernel " << err);
+			}
+
 			// Launch monitor GPU kernel.
 			{
 				struct { unsigned int x, y, z; } gridDim, blockDim;
@@ -305,22 +330,6 @@ int kernelgen_launch(kernel_t* kernel,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem, args,
 					kernel->target[runmode].monitor_kernel_stream, NULL);
-				if (err)
-					THROW("Error in cudyLaunch " << err);
-			}
-	
-			// Launch main GPU kernel.
-			{
-				struct { unsigned int x, y, z; } gridDim, blockDim;
-				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
-				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
-				size_t szshmem = 0;
-				void* kernel_func_args[] = { (void*)&data };
-				int err = cuLaunchKernel((void*)kernel_func,
-					gridDim.x, gridDim.y, gridDim.z,
-					blockDim.x, blockDim.y, blockDim.z, szshmem,
-					kernel->target[runmode].kernel_stream,
-					kernel_func_args, NULL);
 				if (err)
 					THROW("Error in cudyLaunch " << err);
 			}

@@ -63,6 +63,14 @@ __attribute__((device)) __attribute__((always_inline)) void kernelgen_hostcall(u
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
 
+__attribute__((device)) __attribute__((always_inline)) void kernelgen_start()
+{
+	// Wait for being unblocked by an instance of monitor.
+	struct kernelgen_callback_t* callback =
+		(struct kernelgen_callback_t*)__kernelgen_callback;
+	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
+}
+
 __attribute__((device)) __attribute((always_inline)) int kernelgen_launch(unsigned char* kernel,
 	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
 {

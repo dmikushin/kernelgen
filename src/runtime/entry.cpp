@@ -345,9 +345,8 @@ int main(int argc, char* argv[], char* envp[])
                                 }
 
 				// Initialize callback structure.
-				// Initial lock state is "locked". It will be dropped
-				// by GPU side monitor that must be started *before*
-				// target GPU kernel.
+				// Initial lock state is "locked". It will be dropped by
+				// special GPU monitor kernel, upon its launch.
 				kernelgen_callback_t callback;
 				callback.lock = 1;
 				callback.state = KERNELGEN_STATE_INACTIVE;

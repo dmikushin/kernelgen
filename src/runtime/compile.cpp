@@ -287,7 +287,7 @@ static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops, bool *isThereAtLe
 }
 void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
-    Module * m = kernel-> module;
+	Module * m = kernel->module;
 	vector<string> dimensions, parameters;
 
 	dimensions.push_back("x");
@@ -490,7 +490,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 					Constant::getNullValue(Ty), "replacementOfAlloca");
 				GV->setAlignment(alloca->getAlignment());
 				alloca->replaceAllUsesWith(GV);
-				if (verbose) {
+				if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
 					outs().changeColor(raw_ostream::RED);
 					outs() << "Replace \"" << *alloca << "\" with \n  " << *GV;
 					outs().resetColor();
@@ -510,7 +510,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 					"replacementOfAlloca", alloca);
 				alloca->replaceAllUsesWith(bitcast);
 
-				if (verbose) {
+				if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
 					outs().changeColor(raw_ostream::GREEN);
 					outs() << "Replace \"" << *alloca << "\" with \n  " << *GV << *bitcast << "\n";
 					outs().resetColor();
@@ -533,7 +533,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				if(callOfMalloc->getType() == alloca->getType()) {
      				callOfMalloc->setName("replacementOfAlloca");
 					alloca->replaceAllUsesWith(callOfMalloc);
-					if (verbose) {
+					if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
 						outs().changeColor(raw_ostream::GREEN);
 						outs() << "Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n";
 						outs().resetColor();
@@ -542,7 +542,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				else {
 					Value * bitcast = Builder.CreateBitCast(callOfMalloc, alloca->getType(), "replacementOfAlloca");
 					alloca->replaceAllUsesWith(bitcast);
-					if (verbose) {
+					if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
 						outs().changeColor(raw_ostream::GREEN);
 						outs() << "Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n" << *bitcast << "\"\n";
 						outs().resetColor();

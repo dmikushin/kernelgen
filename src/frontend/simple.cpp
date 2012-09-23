@@ -1111,6 +1111,12 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			call_args.push_back(envp2);
 		}
 
+		// Create a call to kernelgen_start() to begin execution.
+		Function* start = Function::Create(TypeBuilder<void(), true>::get(context),
+			GlobalValue::ExternalLinkage, "kernelgen_start", &composite);
+		SmallVector<Value*, 16> start_args;
+		CallInst* start_call = CallInst::Create(start, start_args, "", root);
+
 		// Create a call to main_(int argc, char* argv[], char* envp[]).
 		CallInst* call = CallInst::Create(main_, call_args, "", root);
 		call->setTailCall();
@@ -1129,7 +1135,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 			ret->setAlignment(1);
 		}
 		
-		// Call kernelgen_finish to finalize execution.
+		// Create a call to kernelgen_finish() to finalize execution.
 		Function* finish = Function::Create(TypeBuilder<void(), true>::get(context),
 			GlobalValue::ExternalLinkage, "kernelgen_finish", &composite);
 		SmallVector<Value*, 16> finish_args;
