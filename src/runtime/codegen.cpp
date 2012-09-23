@@ -162,7 +162,7 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
 		// global symbols, if they were aligned. Also update the sizes
 		// and offsets for individual initialized symbols.
 		//
-                int szglobal_new = 0, szglobal_init_new = 0;
+                vector<char>::size_type szglobal_new = 0, szglobal_init_new = 0;
                 for (int isymbol = 0; isymbol < nsymbols; isymbol++)
                 {
                         GElf_Sym symbol;
