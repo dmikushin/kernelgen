@@ -54,7 +54,7 @@ CXXFLAGS = \
 	-I../libasfermi/tests/dyloader $(LLVM_INC) $(LLVM_DEF)
 
 OBJECTS := \
-	entry compile launch finish timer io elf execute codegen \
+	entry compile start launch finish timer io elf execute codegen \
 	memory hostcall wrappers \
         ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody \
     ScopInspection TransformAccesses
@@ -75,6 +75,9 @@ KERNELGEN_VERSION = $(shell perl kernelgen-version.pl)
 
 compile.o: compile.cpp runtime.h
 	$(CXX) -DKERNELGEN_VERSION=\"$(KERNELGEN_VERSION)\" -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
+
+start.o: start.cpp runtime.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 launch.o: launch.cpp runtime.h
 	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@

@@ -256,6 +256,9 @@ extern "C" int kernelgen_launch(kernelgen::kernel_t* kernel,
 	unsigned long long szdata, unsigned long long szdatai,
 	kernelgen_callback_data_t* data);
 
+// Start kernel execution.
+extern "C" void kernelgen_start();
+
 // Finish kernel execution.
 extern "C" void kernelgen_finish();
 
