@@ -217,9 +217,9 @@ int main(int argc, char* argv[], char* envp[])
 			
 			if (!kernel) THROW("Invalid kernel item");
 			
-			#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
 			if(kernel->name != "__kernelgen_main") continue;
-			#endif			
+#endif			
 
 			load_kernel(kernel);
 		}

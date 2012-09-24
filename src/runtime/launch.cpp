@@ -111,7 +111,7 @@ int kernelgen_launch(kernel_t* kernel,
 	kernelgen_callback_data_t* data)
 {
 #ifdef KERNELGEN_LOAD_KERNELS_LAZILY
-	// Load kernel source, of lazy load is enabled.
+	// Load kernel source, if lazy load is enabled.
 	if (!kernel->loaded) load_kernel(kernel);
 #endif
 	if (!kernel->target[runmode].supported)
