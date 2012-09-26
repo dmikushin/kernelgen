@@ -391,8 +391,6 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 	
 		case KERNELGEN_RUNMODE_CUDA : {
 
-if (name != "__kernelgen_main")
-{
 			int device;
 			CUresult err = cuDeviceGet(&device, 0);
 			if (err)
@@ -609,26 +607,6 @@ if (name != "__kernelgen_main")
 				cout << "Loaded '" << name << "' at: " << kernel_func << endl;
 	
 			return (kernel_func_t)kernel_func;
-}
-else
-{
-			CUfunction kernel_func = NULL;
-
-			// Load CUBIN from string into module.
-			CUmodule module;
-			int err = cuModuleLoad(&module, "/tmp/main.cubin");
-			if (err)
-				THROW("Error in cuModuleLoadData " << err);
-
-			err = cuModuleGetFunction(&kernel_func, module, name.c_str());
-			if (err)
-				THROW("Error in cuModuleGetFunction " << err);
-
-			if (verbose)
-				cout << "Loaded '" << name << "' at: " << kernel_func << endl;
-
-			return (kernel_func_t)kernel_func;
-}
 		}
 	}
 }
