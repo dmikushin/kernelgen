@@ -265,13 +265,21 @@ int main(int argc, char* argv[], char* envp[])
 					kernelgen::bind::cuda::context::init(8192);
 
 				// Create streams where monitoring and target kernels
-				// will be executed.
-				int err = cuStreamCreate(
-					&kernel->target[runmode].monitor_kernel_stream, 0);
+				// will be executed and assign them to every kernel.
+				CUstream monitor_kernel_stream = NULL, kernel_stream = NULL;
+				err = cuStreamCreate(&monitor_kernel_stream, 0);
 				if (err) THROW("Error in cuStreamCreate " << err);
-				err = cuStreamCreate(
-					&kernel->target[runmode].kernel_stream, 0);
+				err = cuStreamCreate(&kernel_stream, 0);
 				if (err) THROW("Error in cuStreamCreate " << err);
+				for (map<string, kernel_t*>::iterator i = kernels.begin(),
+					e = kernels.end(); i != e; i++)
+				{
+					kernel_t* kernel = (*i).second;
+					kernel->target[KERNELGEN_RUNMODE_CUDA].monitor_kernel_stream =
+						monitor_kernel_stream;
+					kernel->target[KERNELGEN_RUNMODE_CUDA].kernel_stream =
+						kernel_stream;
+				}
 				
 				// Load LLVM IR for kernel monitor, if not yet loaded.
 				if (!monitor_module)
