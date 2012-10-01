@@ -267,7 +267,7 @@ int main(int argc, char* argv[], char* envp[])
 				// Create streams where monitoring and target kernels
 				// will be executed and assign them to every kernel.
 				CUstream monitor_kernel_stream = NULL, kernel_stream = NULL;
-				err = cuStreamCreate(&monitor_kernel_stream, 0);
+				int err = cuStreamCreate(&monitor_kernel_stream, 0);
 				if (err) THROW("Error in cuStreamCreate " << err);
 				err = cuStreamCreate(&kernel_stream, 0);
 				if (err) THROW("Error in cuStreamCreate " << err);
