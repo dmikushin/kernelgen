@@ -1274,7 +1274,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 
 					GlobalVariable *GV = new GlobalVariable(loop,
 						I->getType()->getElementType(),
-						I->isConstant(), I->getLinkage(),
+						I->isConstant(), GlobalValue::ExternalLinkage,//I->getLinkage(),
 						(Constant*) 0, I->getName(),
 						(GlobalVariable*) 0,
 						I->isThreadLocal(),
@@ -1312,7 +1312,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				// Now that all of the things that global variable initializer can refer to
 				// have been created, loop through and copy the global variable referrers
 				// over...  We also set the attributes on the global now.
-				for (variable_iter iter = dependences.variables.begin(),
+				/*for (variable_iter iter = dependences.variables.begin(),
 					iter_end = dependences.variables.end(); iter != iter_end; ++iter)
 				{
 					GlobalVariable *I = *iter;
@@ -1320,7 +1320,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 					GlobalVariable *GV = cast<GlobalVariable>(VMap[I]);
 					if (I->hasInitializer())
 						GV->setInitializer(MapValue(I->getInitializer(), VMap));
-				}
+				}*/
 
 				// Similarly, copy over required function bodies now...
 				for (function_iter iter = dependences.functions.begin(),
@@ -1366,6 +1366,7 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				
 				Function *newFunc = cast<Function>(VMap[func]);
 				newFunc ->setName(newFunc->getName());
+				
 				// Defined functions will be deleted after inlining
 				// if linkage type is LinkerPrivateLinkage.
 				for (Module::iterator iter = loop.begin(), iter_end = loop.end();
@@ -1406,13 +1407,12 @@ static int link(int argc, char** argv, const char* input, const char* output)
 				}
 
 				// Delete unnecessary globals and function declarations
-				{
-					PassManager manager;
-					manager.add(createGlobalOptimizerPass());     // Optimize out global vars
-					//MPM.add(createFunctionInliningPass());
-					manager.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
-					manager.run(loop);
-				}
+				//{
+				//	PassManager manager;
+				//	manager.add(createGlobalOptimizerPass());     // Optimize out global vars
+				//	manager.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+				//	manager.run(loop);
+				//}
 		       
 				// Embed "loop" module into object or just issue
 				// the temporary object in case of LTO.

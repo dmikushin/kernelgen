@@ -120,10 +120,21 @@ bool InspectDependences::runOnScop(Scop &scop)
 	}
 
 	const clast_root *root = C->getClast();
-	assert(CLAST_STMT_IS_A(((clast_stmt *)root)->next,stmt_for));
-	const clast_for *for_loop =  (clast_for *)((clast_stmt *)root)->next;
-	checkLoopBodyes(for_loop,4);
-
+	assert(root);
+	if(((clast_stmt *)root)->next)
+	{
+	    if(CLAST_STMT_IS_A(((clast_stmt *)root)->next,stmt_for));
+	    const clast_for *for_loop =  (clast_for *)((clast_stmt *)root)->next;
+	    checkLoopBodyes(for_loop,4);
+    } else 
+	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	{
+		assert(scop.begin() == scop.end());
+		outs().changeColor(raw_ostream::RED);
+		outs().indent(4) << "WARNING: There is useless Scop ( i.e. scop without statements )!!!\n";
+        outs().resetColor();
+	}
+	
 	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
 	{
 		outs() << "<------------------------------ Scop: dependences end ----------------------->\n";
