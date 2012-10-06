@@ -123,9 +123,11 @@ bool InspectDependences::runOnScop(Scop &scop)
 	assert(root);
 	if(((clast_stmt *)root)->next)
 	{
-	    if(CLAST_STMT_IS_A(((clast_stmt *)root)->next,stmt_for));
-	    const clast_for *for_loop =  (clast_for *)((clast_stmt *)root)->next;
-	    checkLoopBodyes(for_loop,4);
+	    if(CLAST_STMT_IS_A(((clast_stmt *)root)->next,stmt_for))
+		{
+	       const clast_for *for_loop =  (clast_for *)((clast_stmt *)root)->next;
+	       checkLoopBodyes(for_loop,4);
+		}
     } else 
 	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
 	{
