@@ -517,7 +517,8 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 
 					// The -g option by some reason is needed even w/o debug.
 					// Otherwise some tests are failing.
-					ptxas_args.push_back("-g");
+					//ptxas_args.push_back("-g");
+					//ptxas_args.push_back("--cloning=yes");
 				}
 
 				ptxas_args.push_back("--cloning=no");

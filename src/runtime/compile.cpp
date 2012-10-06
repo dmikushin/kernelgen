@@ -726,8 +726,8 @@ kernel_func_t kernelgen::runtime::compile(
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
             
-			// Copy attributes for declarations from cuda_module
-			// Set appropriate attributes to calls
+			// Copy attributes for declarations from cuda_module.
+			// Set appropriate attributes to calls.
 			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
 				if(func->isDeclaration()) {
   					Function *Src = cuda_module -> getFunction(func->getName());
@@ -749,13 +749,6 @@ kernel_func_t kernelgen::runtime::compile(
 
 			//printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
 			
-			// If the target kernel is loop, do not allow host calls in it.
-			// Also do not allow malloc/free, probably support them later.
-			// TODO: kernel *may* have kernelgen_launch called, but it must
-			// always evaluate to -1.
-			if (!processCallTreeLoop(kernel, m, f))
-				return NULL;
-				
 			// Apply the Polly codegen for CUDA target.
 			Size3 sizeOfLoops;
 			bool isThereAtLeastOneParallelLoop = false;
@@ -868,7 +861,14 @@ kernel_func_t kernelgen::runtime::compile(
 				return NULL;
 			}
 			assert(isThereAtLeastOneParallelLoop);
-				
+
+			// If the target kernel is loop, do not allow host calls in it.
+			// Also do not allow malloc/free, probably support them later.
+			// TODO: kernel *may* have kernelgen_launch called, but it must
+			// always evaluate to -1.
+			if (!processCallTreeLoop(kernel, m, f))
+				return NULL;
+	
 			int device;
 			CUresult err = cuDeviceGet(&device, 0);
 			if (err)
@@ -970,8 +970,7 @@ kernel_func_t kernelgen::runtime::compile(
 			Function* kernelgenFunction = NULL;
 			kernelgenFunction = m->getFunction("kernelgen_hostcall");
 			if(kernelgenFunction)
-			{
-				
+			{				
 				Value * tmpArg = NULL;
 				unsigned long long maximumSizeOfData = 0;
 				

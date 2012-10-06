@@ -325,6 +325,9 @@ int main(int argc, char* argv[], char* envp[])
 					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
 						runtime_source);
 					runtime_module = ParseIR(buffer1, diag, context);
+					if (!runtime_module)
+						THROW("Cannot load KernelGen runtime functions module: " <<
+							diag.getMessage());
                                 }
 
 				// Load LLVM IR for CUDA runtime functions, if not yet loaded.
@@ -346,6 +349,9 @@ int main(int argc, char* argv[], char* envp[])
 					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
 						cuda_source);
 					cuda_module = ParseIR(buffer1, diag, context);
+					if (!cuda_module)
+						THROW("Cannot load CUDA math functions module: " <<
+							diag.getMessage());
 
 					// Mark all module functions as device functions.
 			                for (Module::iterator F = cuda_module->begin(), FE = cuda_module->end(); F != FE; F++)
