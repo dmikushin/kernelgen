@@ -409,7 +409,8 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				if (verbose)
 					cout << "Device call: " << callee->getName().data()<< endl;
 				call->setCallingConv(CallingConv::PTX_Device);					
-				LinkFunctionBody(Dst, Src);
+				//LinkFunctionBody(Dst, Src);
+				linkFunctionWithAllDependendes(Src,Dst);
 				Dst->setName((string)"_" + (string)Dst->getName());
 				
 				Dst->setAttributes(Src->getAttributes());
@@ -592,7 +593,7 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 					return false;
 				//call -> setAttributes(callee -> getAttributes());
 				continue;
-			}
+			} 
 		
 			// If function is only declared, then try to find and
 			// insert its implementation from the CUDA runtime module.
@@ -603,7 +604,8 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 				if (verbose)
 					cout << "Device call: " << callee->getName().data()<< endl;
 				call->setCallingConv(CallingConv::PTX_Device);					
-				LinkFunctionBody(Dst, Src);
+				//LinkFunctionBody(Dst, Src);
+				linkFunctionWithAllDependendes(Src, Dst);
 				Dst->setName((string)"_" + (string)Dst->getName());
 				//Dst->setAttributes(Src -> getAttributes());
 				continue;

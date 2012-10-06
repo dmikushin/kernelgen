@@ -56,7 +56,7 @@ CXXFLAGS = \
 OBJECTS := \
 	entry compile start launch finish timer io elf execute codegen \
 	memory hostcall wrappers \
-        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody \
+        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody GlobalDependences\
     ScopInspection TransformAccesses
 
 OBJECTS := $(addsuffix .o, $(OBJECTS))
@@ -132,6 +132,9 @@ ScopInspection.o: ScopInspection.cpp
 	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
 TransformAccesses.o : TransformAccesses.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+
+GlobalDependences.o : GlobalDependences.cpp
 	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
 clean:
