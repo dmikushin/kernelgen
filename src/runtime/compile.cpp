@@ -565,7 +565,7 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 					if(!isa<Constant>(*alloca->getArraySize())) {
 						if (verbose) {
 							outs().changeColor(raw_ostream::RED);
-							outs() << "Not allowed dynamic alloca: " << *alloca << "\n";
+							outs() << "\n    FAIL: Not allowed dynamic alloca in loop: " << *alloca << "\n";
 							outs().resetColor();
 						}
 						kernel->target[runmode].supported = false;
@@ -614,7 +614,11 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 			// Loop kernel contains non-native calls, and therefore
 			// cannot be executed on GPU.
 			if (verbose)
-				cout << "Not allowed host call: " << callee->getName().data()<< endl;
+			{
+				outs().changeColor(raw_ostream::RED);
+			    outs() <<  "\n    FAIL: Not allowed host call in loop: " << callee->getName().data()<< "\n";
+			    outs().resetColor();
+			}
 			kernel->target[runmode].supported = false;
 			return false;
 		}
@@ -721,7 +725,7 @@ kernel_func_t kernelgen::runtime::compile(
 		
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
-		
+            
 			// Copy attributes for declarations from cuda_module
 			// Set appropriate attributes to calls
 			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
@@ -744,7 +748,14 @@ kernel_func_t kernelgen::runtime::compile(
 			}
 
 			//printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
-
+			
+			// If the target kernel is loop, do not allow host calls in it.
+			// Also do not allow malloc/free, probably support them later.
+			// TODO: kernel *may* have kernelgen_launch called, but it must
+			// always evaluate to -1.
+			if (!processCallTreeLoop(kernel, m, f))
+				return NULL;
+				
 			// Apply the Polly codegen for CUDA target.
 			Size3 sizeOfLoops;
 			bool isThereAtLeastOneParallelLoop = false;
@@ -857,13 +868,6 @@ kernel_func_t kernelgen::runtime::compile(
 				return NULL;
 			}
 			assert(isThereAtLeastOneParallelLoop);
-
-			// If the target kernel is loop, do not allow host calls in it.
-			// Also do not allow malloc/free, probably support them later.
-			// TODO: kernel *may* have kernelgen_launch called, but it must
-			// always evaluate to -1.
-			if (!processCallTreeLoop(kernel, m, f))
-				return NULL;
 				
 			int device;
 			CUresult err = cuDeviceGet(&device, 0);
