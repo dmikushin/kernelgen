@@ -721,6 +721,16 @@ kernel_func_t kernelgen::runtime::compile(
 		// Mark kernel as GPU global function.
 		f->setCallingConv(CallingConv::PTX_Kernel);
 
+		// Copy attributes for declarations from cuda_module.
+		for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+			if(func->isDeclaration()) {
+				Function *Src = cuda_module->getFunction(func->getName());
+				if(!Src) continue;
+
+				func->setAttributes(Src->getAttributes());
+			}
+		}
+
 		dim3 blockDim(1, 1, 1);
 		dim3 gridDim(1, 1, 1);
 		if (kernel->name != "__kernelgen_main")  {	
@@ -728,14 +738,12 @@ kernel_func_t kernelgen::runtime::compile(
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
             
-			// Copy attributes for declarations from cuda_module.
-			// Set appropriate attributes to calls.
+			// Add ReadNone attribute to calls (Polly workaround).
 			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
 				if(func->isDeclaration()) {
-  					Function *Src = cuda_module -> getFunction(func->getName());
+  					Function *Src = cuda_module->getFunction(func->getName());
 					if(!Src) continue;
 
-					func->setAttributes(Src->getAttributes());
 					for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
 						use_iter != use_iter_end; use_iter++)
 					{
@@ -755,13 +763,14 @@ kernel_func_t kernelgen::runtime::compile(
 			Size3 sizeOfLoops;
 			bool isThereAtLeastOneParallelLoop = false;
 			runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
-		
+
+			// Remove ReadNone attribute from calls (Polly workaround).
 			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
 				for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
 					use_iter != use_iter_end; use_iter++)
 				{
-					CallInst * call = cast<CallInst>(*use_iter);
-					call-> setAttributes(func -> getAttributes());
+					CallInst* call = cast<CallInst>(*use_iter);
+					call->setAttributes(func->getAttributes());
 				}
 			}
 
