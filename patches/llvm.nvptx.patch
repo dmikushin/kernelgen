@@ -1,3 +1,25 @@
+--- a/llvm/lib/MC/MCAsmStreamer.cpp	2012-10-19 01:21:57.160626454 +0200
++++ b/llvm/lib/MC/MCAsmStreamer.cpp	2012-10-19 01:23:11.088629695 +0200
+@@ -451,8 +451,8 @@
+   case MCSA_Protected:      OS << "\t.protected\t";       break;
+   case MCSA_Reference:      OS << "\t.reference\t";       break;
+   case MCSA_Weak:           OS << "\t.weak\t";            break;
+-  case MCSA_WeakDefinition:
+-    OS << "\t.weak_definition\t";
++  case MCSA_WeakDefinition: // .weak_definition
++    OS << MAI.getWeakDefDirective();
+     FlagMap[Symbol] |= EHWeakDefinition;
+     break;
+       // .weak_reference
+--- a/llvm/lib/Target/NVPTX/MCTargetDesc/NVPTXMCAsmInfo.cpp	2012-10-19 01:30:56.160650096 +0200
++++ b/llvm/lib/Target/NVPTX/MCTargetDesc/NVPTXMCAsmInfo.cpp	2012-10-19 01:18:55.828618499 +0200
+@@ -60,4 +60,6 @@
+ 
+   // @TODO: Can we just disable this?
+   GlobalDirective = "\t// .globl\t";
++
++  WeakDefDirective = "\t// .weak\t";
+ }
 --- a/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(revision 157736)
 +++ b/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(working copy)
 @@ -40,17 +40,17 @@
@@ -88,7 +110,25 @@
  
    OS2 << '\n';
  
-@@ -1018,7 +1029,61 @@
+@@ -913,7 +924,7 @@
+   O << "//\n";
+   O << "\n";
+ 
+-  O << ".version 3.0\n";
++  O << ".version 3.1\n";
+ 
+   O << ".target ";
+   O << nvptxSubtarget.getTargetName();
+@@ -991,6 +1002,8 @@
+ void NVPTXAsmPrinter::emitLinkageDirective(const GlobalValue* V, raw_ostream &O)
+ {
+   if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA) {
++    if (V->hasWeakLinkage())
++      O << ".weak";
+     if (V->hasExternalLinkage()) {
+       if (isa<GlobalVariable>(V)) {
+         const GlobalVariable *GVar = cast<GlobalVariable>(V);
+@@ -1018,7 +1031,61 @@
  
  
  void NVPTXAsmPrinter::printModuleLevelGV(GlobalVariable* GVar, raw_ostream &O,
@@ -151,7 +191,7 @@
  
    // Skip meta data
    if (GVar->hasSection()) {
-@@ -1143,6 +1208,7 @@
+@@ -1143,6 +1210,7 @@
      // Ptx allows variable initilization only for constant and global state
      // spaces.
      if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
@@ -159,7 +199,7 @@
          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST))
          && GVar->hasInitializer()) {
-@@ -1167,6 +1233,7 @@
+@@ -1167,6 +1235,7 @@
        // Ptx allows variable initilization only for constant and
        // global state spaces.
        if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
@@ -167,7 +207,7 @@
            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST))
            && GVar->hasInitializer()) {
-@@ -1239,6 +1306,7 @@
+@@ -1239,6 +1308,7 @@
    case llvm::ADDRESS_SPACE_LOCAL:
      O << "local" ;
      break;
@@ -175,7 +215,7 @@
    case llvm::ADDRESS_SPACE_GLOBAL:
      O << "global" ;
      break;
-@@ -1588,9 +1656,6 @@
+@@ -1588,9 +1658,6 @@
    const MachineFrameInfo *MFI = MF.getFrameInfo();
    int NumBytes = (int) MFI->getStackSize();
    if (NumBytes) {
@@ -185,7 +225,7 @@
      if (nvptxSubtarget.is64Bit()) {
        O << "\t.reg .b64 \t%SP;\n";
        O << "\t.reg .b64 \t%SPL;\n";
-@@ -1890,17 +1890,15 @@
+@@ -1825,17 +1892,15 @@
    case Type::ArrayTyID:
    case Type::VectorTyID:
    case Type::StructTyID: {
@@ -206,12 +246,7 @@
 -      llvm_unreachable("Unexpected Constant type");
      break;
    }
-
-@@ -2066,3 +2131,4 @@
-   RegisterAsmPrinter<NVPTXAsmPrinter> X(TheNVPTXTarget32);
-   RegisterAsmPrinter<NVPTXAsmPrinter> Y(TheNVPTXTarget64);
- }
-+
+ 
 --- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.h	2012-07-12 19:47:58.000000000 +0400
 +++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.h	2012-07-19 21:08:30.000000000 +0400
 @@ -30,6 +30,10 @@
