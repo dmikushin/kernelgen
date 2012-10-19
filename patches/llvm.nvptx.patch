@@ -123,8 +123,8 @@
  void NVPTXAsmPrinter::emitLinkageDirective(const GlobalValue* V, raw_ostream &O)
  {
    if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA) {
-+    if (V->hasWeakLinkage())
-+      O << ".weak";
++    if (V->hasWeakLinkage() || V->hasLinkOnceLinkage())
++      O << ".weak ";
      if (V->hasExternalLinkage()) {
        if (isa<GlobalVariable>(V)) {
          const GlobalVariable *GVar = cast<GlobalVariable>(V);
