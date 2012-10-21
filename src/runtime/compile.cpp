@@ -411,7 +411,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				call->setCallingConv(CallingConv::PTX_Device);					
 				//LinkFunctionBody(Dst, Src);
 				linkFunctionWithAllDependendes(Src,Dst);
-				Dst->setName((string)"_" + (string)Dst->getName());
+				Dst->setName(Dst->getName());
 				
 				Dst->setAttributes(Src->getAttributes());
 				for (Value::use_iterator use_iter = Dst->use_begin(),
@@ -606,7 +606,7 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 				call->setCallingConv(CallingConv::PTX_Device);					
 				//LinkFunctionBody(Dst, Src);
 				linkFunctionWithAllDependendes(Src, Dst);
-				Dst->setName((string)"_" + (string)Dst->getName());
+				Dst->setName(Dst->getName());
 				//Dst->setAttributes(Src -> getAttributes());
 				continue;
 			}

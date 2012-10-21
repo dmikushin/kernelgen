@@ -137,7 +137,8 @@ void BranchedLoopExtractor::recursiveExtractSubLoops(Loop *loop)
 		    loop_iter != loop_iter_end; loop_iter++ ) {
 			Loop * subLoop = *loop_iter;
 
-			BranchedExtractLoop(DT, LI,subLoop,!subLoop->empty());
+//			BranchedExtractLoop(DT, LI,subLoop, !subLoop->empty());
+			BranchedExtractLoop(DT, LI,subLoop, true);
 			if(!subLoop->empty())
 				recursiveExtractSubLoops(subLoop);
 			//BranchedCodeExtractor(&DT).ExtractCodeRegion(loop,LI);
@@ -190,7 +191,8 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 		if (NumLoops == 0) return Changed;
 		--NumLoops;
 		CallInst * Call;
-		if ( (Call = BranchedExtractLoop(DT,LI, L,!L->empty())) != 0) {
+//		if ( (Call = BranchedExtractLoop(DT,LI, L, !L->empty())) != 0) {
+		if ( (Call = BranchedExtractLoop(DT,LI, L, true)) != 0) {
 			Changed = true;
 			++NumBranchedExtracted;
 			recursiveExtractSubLoops(L);

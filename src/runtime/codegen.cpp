@@ -141,7 +141,7 @@ static void cubin_export_funcmap(const char* cubin, map<string, size_t>& funcmap
 			char* name = elf_strptr(e, shdr.sh_link, symbol.st_name);
 			funcmap.insert(pair<string, size_t>(name, symbol.st_value));
 			
-			//cout << name << " -> " << symbol.st_value << endl;
+			// cout << name << " -> " << symbol.st_value << endl;
 		}
 		
 		elf_end(e);
@@ -159,6 +159,26 @@ static void cubin_export_funcmap(const char* cubin, map<string, size_t>& funcmap
 // Import the function-address mapping to the given cubin image.
 static void cubin_import_funcmap(const char* cubin, const map<string, size_t> funcmap)
 {
+	// Retrieve the current cubin function-address mapping.
+	map<string, size_t> funcmap_old;
+	cubin_export_funcmap(cubin, funcmap_old);
+
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
+	// Merge mappings.
+	vector<pair<size_t, size_t> > addrmap;
+	addrmap.resize(MAX(funcmap.size(), funcmap_old.size()));
+	for (map<string, size_t>::iterator I1 = funcmap_old.begin(), IE1 = funcmap_old.end(); I1 != IE1; I1++)
+	{
+		pair<string, size_t> item_old = *I1;
+		map<string, size_t>::const_iterator I2 = funcmap.find(item_old.first);
+		if (I2 == funcmap.end()) continue;
+		pair<string, size_t> item = *I2;
+		addrmap.push_back(pair<size_t, size_t>(item_old.second, item.second));
+		//cout << item_old.second << " -> " << item.second << endl;
+	}
+	
+	// TODO: call libasfermi to replace JCALs according to address-address mapping.
 }
 
 // Align cubin global data to the specified boundary.
@@ -616,14 +636,8 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 					std::ostringstream smaxregcount;
 					smaxregcount << maxregcount;
 					ptxas_args.push_back(smaxregcount.str().c_str());
-
-					// The -g option by some reason is needed even w/o debug.
-					// Otherwise some tests are failing.
-					//ptxas_args.push_back("-g");
-					//ptxas_args.push_back("--cloning=yes");
 				}
 
-				ptxas_args.push_back("--cloning=no");
 				if (::debug)
 				{
 					ptxas_args.push_back("-g");
