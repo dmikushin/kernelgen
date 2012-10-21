@@ -1042,18 +1042,18 @@ kernel_func_t kernelgen::runtime::compile(
 						  
 			PassManager manager;
 			PassManagerBuilder builder;
-			builder.Inliner = createFunctionInliningPass();
+
+			// Do not inline anything in loop kernels. All kernel function
+			// dependencies will be taken from the main kernel module.
+			builder.Inliner = 0;
 			
 			builder.OptLevel = 3;
 			builder.SizeLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
-			//builder.DisableUnrollLoops = true;
 			builder.Vectorize = false;
 			builder.populateModulePassManager(manager);
 	
 			manager.run(*m);
-			
-			//printModuleToFile(m, kernel->name + (string)"_after_optimizations.txt" );
 		}
 		else
 		{

@@ -8,107 +8,107 @@ target triple = "nvptx64-unknown-unknown"
 @__cudart_i2opi_d = internal addrspace(4) unnamed_addr constant [18 x i64] [i64 7780917995555872008, i64 4397547296490951402, i64 8441921394348257659, i64 5712322887342352941, i64 7869616827067468215, i64 -1211730484530615009, i64 2303758334597371919, i64 -7168499653074671557, i64 4148332274289687028, i64 -1613291254968254911, i64 -1692731182770600828, i64 -135693905287338178, i64 452944820249399836, i64 -5249950069107600672, i64 -121206125134887583, i64 -2638381946312093631, i64 -277156292786332224, i64 -6703182060581546711], align 8
 @__cudart_sin_cos_coeffs = internal addrspace(4) global [16 x double] [double 0x3DE5DB65F9785EBA, double 0xBE5AE5F12CB0D246, double 0x3EC71DE369ACE392, double 0xBF2A01A019DB62A1, double 0x3F81111111110818, double 0xBFC5555555555554, double 0.000000e+00, double 0.000000e+00, double 0xBDA8FF8320FD8164, double 0x3E21EEA7C1EF8528, double 0xBE927E4F8E06E6D9, double 0x3EFA01A019DDBCE9, double 0xBF56C16C16C15D47, double 0x3FA5555555555551, double -5.000000e-01, double 1.000000e+00], align 8
 
-define i32 @__syncthreads_count(i32 %predicate) nounwind alwaysinline alignstack(1) {
+define i32 @__syncthreads_count(i32 %predicate) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.barrier0.popc(i32 %predicate), !dbg !0
   ret i32 %1, !dbg !0
 }
 
 declare i32 @llvm.nvvm.barrier0.popc(i32) nounwind
 
-define i32 @__syncthreads_and(i32 %predicate) nounwind alwaysinline alignstack(1) {
+define i32 @__syncthreads_and(i32 %predicate) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.barrier0.and(i32 %predicate), !dbg !6
   ret i32 %1, !dbg !6
 }
 
 declare i32 @llvm.nvvm.barrier0.and(i32) nounwind
 
-define i32 @__syncthreads_or(i32 %predicate) nounwind alwaysinline alignstack(1) {
+define i32 @__syncthreads_or(i32 %predicate) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.barrier0.or(i32 %predicate), !dbg !9
   ret i32 %1, !dbg !9
 }
 
 declare i32 @llvm.nvvm.barrier0.or(i32) nounwind
 
-define void @__threadfence_block() nounwind alwaysinline alignstack(1) {
+define void @__threadfence_block() nounwind alignstack(1) {
   tail call void @llvm.nvvm.membar.cta(), !dbg !12
   ret void, !dbg !15
 }
 
 declare void @llvm.nvvm.membar.cta() nounwind
 
-define void @__threadfence() nounwind alwaysinline alignstack(1) {
+define void @__threadfence() nounwind alignstack(1) {
   tail call void @llvm.nvvm.membar.gl(), !dbg !16
   ret void, !dbg !19
 }
 
 declare void @llvm.nvvm.membar.gl() nounwind
 
-define void @__threadfence_system() nounwind alwaysinline alignstack(1) {
+define void @__threadfence_system() nounwind alignstack(1) {
   tail call void @llvm.nvvm.membar.sys(), !dbg !20
   ret void, !dbg !23
 }
 
 declare void @llvm.nvvm.membar.sys() nounwind
 
-define i32 @__all(i32 %a) nounwind alwaysinline alignstack(1) {
+define i32 @__all(i32 %a) nounwind alignstack(1) {
   %1 = tail call i32 asm sideeffect "{ \0A\09.reg .pred \09%p1; \0A\09.reg .pred \09%p2; \0A\09setp.ne.u32 \09%p1, $1, 0; \0A\09vote.all.pred \09%p2, %p1; \0A\09selp.s32 \09$0, 1, 0, %p2; \0A\09}", "=r,r"(i32 %a) nounwind, !dbg !24
   ret i32 %1, !dbg !27
 }
 
-define i32 @__any(i32 %a) nounwind alwaysinline alignstack(1) {
+define i32 @__any(i32 %a) nounwind alignstack(1) {
   %1 = tail call i32 asm sideeffect "{ \0A\09.reg .pred \09%p1; \0A\09.reg .pred \09%p2; \0A\09setp.ne.u32 \09%p1, $1, 0; \0A\09vote.any.pred \09%p2, %p1; \0A\09selp.s32 \09$0, 1, 0, %p2; \0A\09}", "=r,r"(i32 %a) nounwind, !dbg !28
   ret i32 %1, !dbg !31
 }
 
-define i32 @__ballot(i32 %a) nounwind alwaysinline alignstack(1) {
+define i32 @__ballot(i32 %a) nounwind alignstack(1) {
   %1 = tail call i32 asm sideeffect "{ \0A\09.reg .pred \09%p1; \0A\09setp.ne.u32 \09%p1, $1, 0; \0A\09vote.ballot.b32 \09$0, %p1; \0A\09}", "=r,r"(i32 %a) nounwind, !dbg !32
   ret i32 %1, !dbg !35
 }
 
-define void @__brkpt() nounwind alwaysinline alignstack(1) {
+define void @__brkpt() nounwind alignstack(1) {
   tail call void asm sideeffect "brkpt;", ""() nounwind, !dbg !36
   ret void, !dbg !39
 }
 
-define i32 @clock() nounwind alwaysinline alignstack(1) {
+define i32 @clock() nounwind alignstack(1) {
   %1 = tail call i32 asm sideeffect "mov.u32 \09$0, %clock;", "=r"() nounwind, !dbg !40
   ret i32 %1, !dbg !43
 }
 
-define i64 @clock64() nounwind alwaysinline alignstack(1) {
+define i64 @clock64() nounwind alignstack(1) {
   %1 = tail call i64 asm sideeffect "mov.u64 \09$0, %clock64;", "=l"() nounwind, !dbg !44
   ret i64 %1, !dbg !47
 }
 
-define i32 @__clz(i32 %x) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__clz(i32 %x) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.clz.i(i32 %x), !dbg !48
   ret i32 %1, !dbg !48
 }
 
 declare i32 @llvm.nvvm.clz.i(i32) nounwind readnone
 
-define i32 @__clzll(i64 %x) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__clzll(i64 %x) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.clz.ll(i64 %x), !dbg !51
   ret i32 %1, !dbg !51
 }
 
 declare i32 @llvm.nvvm.clz.ll(i64) nounwind readnone
 
-define i32 @__popc(i32 %x) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__popc(i32 %x) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.popc.i(i32 %x), !dbg !54
   ret i32 %1, !dbg !54
 }
 
 declare i32 @llvm.nvvm.popc.i(i32) nounwind readnone
 
-define i32 @__popcll(i64 %x) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__popcll(i64 %x) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.popc.ll(i64 %x), !dbg !57
   ret i32 %1, !dbg !57
 }
 
 declare i32 @llvm.nvvm.popc.ll(i64) nounwind readnone
 
-define i32 @__byte_perm(i32 %a, i32 %b, i32 %c) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__byte_perm(i32 %a, i32 %b, i32 %c) nounwind readnone alignstack(1) {
   %1 = and i32 %c, 30583, !dbg !60
   %2 = tail call i32 @llvm.nvvm.prmt(i32 %a, i32 %b, i32 %1), !dbg !63
   ret i32 %2, !dbg !63
@@ -116,1286 +116,1286 @@ define i32 @__byte_perm(i32 %a, i32 %b, i32 %c) nounwind readnone alwaysinline a
 
 declare i32 @llvm.nvvm.prmt(i32, i32, i32) nounwind readnone
 
-define i32 @__pm0() nounwind alwaysinline alignstack(1) {
+define i32 @__pm0() nounwind alignstack(1) {
   %1 = tail call i32 asm "mov.u32 \09$0, %pm0;", "=r"() nounwind, !dbg !64
   ret i32 %1, !dbg !67
 }
 
-define i32 @__pm1() nounwind alwaysinline alignstack(1) {
+define i32 @__pm1() nounwind alignstack(1) {
   %1 = tail call i32 asm "mov.u32 \09$0, %pm1;", "=r"() nounwind, !dbg !68
   ret i32 %1, !dbg !71
 }
 
-define i32 @__pm2() nounwind alwaysinline alignstack(1) {
+define i32 @__pm2() nounwind alignstack(1) {
   %1 = tail call i32 asm "mov.u32 \09$0, %pm2;", "=r"() nounwind, !dbg !72
   ret i32 %1, !dbg !75
 }
 
-define i32 @__pm3() nounwind alwaysinline alignstack(1) {
+define i32 @__pm3() nounwind alignstack(1) {
   %1 = tail call i32 asm "mov.u32 \09$0, %pm3;", "=r"() nounwind, !dbg !76
   ret i32 %1, !dbg !79
 }
 
-define void @__trap() nounwind alwaysinline alignstack(1) {
+define void @__trap() nounwind alignstack(1) {
   tail call void asm sideeffect "trap;", ""() nounwind, !dbg !80
   ret void, !dbg !83
 }
 
-define i32 @min(i32 %x, i32 %y) nounwind readnone alwaysinline alignstack(1) {
+define i32 @min(i32 %x, i32 %y) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.min.i(i32 %x, i32 %y), !dbg !84
   ret i32 %1, !dbg !84
 }
 
 declare i32 @llvm.nvvm.min.i(i32, i32) nounwind readnone
 
-define i32 @umin(i32 %x, i32 %y) nounwind readnone alwaysinline alignstack(1) {
+define i32 @umin(i32 %x, i32 %y) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.min.ui(i32 %x, i32 %y), !dbg !87
   ret i32 %1, !dbg !87
 }
 
 declare i32 @llvm.nvvm.min.ui(i32, i32) nounwind readnone
 
-define i64 @llmin(i64 %x, i64 %y) nounwind readnone alwaysinline alignstack(1) {
+define i64 @llmin(i64 %x, i64 %y) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.min.ll(i64 %x, i64 %y), !dbg !90
   ret i64 %1, !dbg !90
 }
 
 declare i64 @llvm.nvvm.min.ll(i64, i64) nounwind readnone
 
-define i64 @ullmin(i64 %x, i64 %y) nounwind readnone alwaysinline alignstack(1) {
+define i64 @ullmin(i64 %x, i64 %y) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.min.ull(i64 %x, i64 %y), !dbg !93
   ret i64 %1, !dbg !93
 }
 
 declare i64 @llvm.nvvm.min.ull(i64, i64) nounwind readnone
 
-define i32 @max(i32 %x, i32 %y) nounwind readnone alwaysinline alignstack(1) {
+define i32 @max(i32 %x, i32 %y) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.max.i(i32 %x, i32 %y), !dbg !96
   ret i32 %1, !dbg !96
 }
 
 declare i32 @llvm.nvvm.max.i(i32, i32) nounwind readnone
 
-define i32 @umax(i32 %x, i32 %y) nounwind readnone alwaysinline alignstack(1) {
+define i32 @umax(i32 %x, i32 %y) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.max.ui(i32 %x, i32 %y), !dbg !99
   ret i32 %1, !dbg !99
 }
 
 declare i32 @llvm.nvvm.max.ui(i32, i32) nounwind readnone
 
-define i64 @llmax(i64 %x, i64 %y) nounwind readnone alwaysinline alignstack(1) {
+define i64 @llmax(i64 %x, i64 %y) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.max.ll(i64 %x, i64 %y), !dbg !102
   ret i64 %1, !dbg !102
 }
 
 declare i64 @llvm.nvvm.max.ll(i64, i64) nounwind readnone
 
-define i64 @ullmax(i64 %x, i64 %y) nounwind readnone alwaysinline alignstack(1) {
+define i64 @ullmax(i64 %x, i64 %y) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.max.ull(i64 %x, i64 %y), !dbg !105
   ret i64 %1, !dbg !105
 }
 
 declare i64 @llvm.nvvm.max.ull(i64, i64) nounwind readnone
 
-define i32 @__mulhi(i32 %x, i32 %y) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__mulhi(i32 %x, i32 %y) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.mulhi.i(i32 %x, i32 %y), !dbg !108
   ret i32 %1, !dbg !108
 }
 
 declare i32 @llvm.nvvm.mulhi.i(i32, i32) nounwind readnone
 
-define i32 @__umulhi(i32 %x, i32 %y) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__umulhi(i32 %x, i32 %y) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.mulhi.ui(i32 %x, i32 %y), !dbg !111
   ret i32 %1, !dbg !111
 }
 
 declare i32 @llvm.nvvm.mulhi.ui(i32, i32) nounwind readnone
 
-define i64 @__mul64hi(i64 %x, i64 %y) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__mul64hi(i64 %x, i64 %y) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.mulhi.ll(i64 %x, i64 %y), !dbg !114
   ret i64 %1, !dbg !114
 }
 
 declare i64 @llvm.nvvm.mulhi.ll(i64, i64) nounwind readnone
 
-define i64 @__umul64hi(i64 %x, i64 %y) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__umul64hi(i64 %x, i64 %y) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.mulhi.ull(i64 %x, i64 %y), !dbg !117
   ret i64 %1, !dbg !117
 }
 
 declare i64 @llvm.nvvm.mulhi.ull(i64, i64) nounwind readnone
 
-define i32 @__mul24(i32 %x, i32 %y) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__mul24(i32 %x, i32 %y) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.mul24.i(i32 %x, i32 %y), !dbg !120
   ret i32 %1, !dbg !120
 }
 
 declare i32 @llvm.nvvm.mul24.i(i32, i32) nounwind readnone
 
-define i32 @__umul24(i32 %x, i32 %y) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__umul24(i32 %x, i32 %y) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.mul24.ui(i32 %x, i32 %y), !dbg !123
   ret i32 %1, !dbg !123
 }
 
 declare i32 @llvm.nvvm.mul24.ui(i32, i32) nounwind readnone
 
-define i32 @__brev(i32 %x) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__brev(i32 %x) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.brev32(i32 %x), !dbg !126
   ret i32 %1, !dbg !126
 }
 
 declare i32 @llvm.nvvm.brev32(i32) nounwind readnone
 
-define i64 @__brevll(i64 %x) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__brevll(i64 %x) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.brev64(i64 %x), !dbg !129
   ret i64 %1, !dbg !129
 }
 
 declare i64 @llvm.nvvm.brev64(i64) nounwind readnone
 
-define i32 @__sad(i32 %x, i32 %y, i32 %z) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__sad(i32 %x, i32 %y, i32 %z) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.sad.i(i32 %x, i32 %y, i32 %z), !dbg !132
   ret i32 %1, !dbg !132
 }
 
 declare i32 @llvm.nvvm.sad.i(i32, i32, i32) nounwind readnone
 
-define i32 @__usad(i32 %x, i32 %y, i32 %z) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__usad(i32 %x, i32 %y, i32 %z) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.sad.ui(i32 %x, i32 %y, i32 %z), !dbg !135
   ret i32 %1, !dbg !135
 }
 
 declare i32 @llvm.nvvm.sad.ui(i32, i32, i32) nounwind readnone
 
-define i32 @abs(i32 %x) nounwind readnone alwaysinline alignstack(1) {
+define i32 @abs(i32 %x) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.abs.i(i32 %x), !dbg !138
   ret i32 %1, !dbg !138
 }
 
 declare i32 @llvm.nvvm.abs.i(i32) nounwind readnone
 
-define i64 @labs(i64 %x) nounwind readnone alwaysinline alignstack(1) {
+define i64 @labs(i64 %x) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.abs.ll(i64 %x), !dbg !141
   ret i64 %1, !dbg !141
 }
 
 declare i64 @llvm.nvvm.abs.ll(i64) nounwind readnone
 
-define i64 @llabs(i64 %x) nounwind readnone alwaysinline alignstack(1) {
+define i64 @llabs(i64 %x) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.abs.ll(i64 %x), !dbg !144
   ret i64 %1, !dbg !144
 }
 
-define float @floorf(float %f) nounwind readnone alwaysinline alignstack(1) {
+define float @floorf(float %f) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.floor.f(float %f), !dbg !147
   ret float %1, !dbg !147
 }
 
 declare float @llvm.nvvm.floor.f(float) nounwind readnone
 
-define double @floor(double %f) nounwind readnone alwaysinline alignstack(1) {
+define double @floor(double %f) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.floor.d(double %f), !dbg !150
   ret double %1, !dbg !150
 }
 
 declare double @llvm.nvvm.floor.d(double) nounwind readnone
 
-define float @fabsf(float %f) nounwind readnone alwaysinline alignstack(1) {
+define float @fabsf(float %f) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %f), !dbg !153
   ret float %1, !dbg !153
 }
 
 declare float @llvm.nvvm.fabs.f(float) nounwind readnone
 
-define double @fabs(double %f) nounwind readnone alwaysinline alignstack(1) {
+define double @fabs(double %f) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %f), !dbg !156
   ret double %1, !dbg !156
 }
 
 declare double @llvm.nvvm.fabs.d(double) nounwind readnone
 
-define double @__rcp64h(double %d) nounwind readnone alwaysinline alignstack(1) {
+define double @__rcp64h(double %d) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.rcp.approx.ftz.d(double %d), !dbg !159
   ret double %1, !dbg !159
 }
 
 declare double @llvm.nvvm.rcp.approx.ftz.d(double) nounwind readnone
 
-define float @fminf(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @fminf(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fmin.f(float %x, float %y), !dbg !162
   ret float %1, !dbg !162
 }
 
 declare float @llvm.nvvm.fmin.f(float, float) nounwind readnone
 
-define float @fmaxf(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @fmaxf(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fmax.f(float %x, float %y), !dbg !165
   ret float %1, !dbg !165
 }
 
 declare float @llvm.nvvm.fmax.f(float, float) nounwind readnone
 
-define float @rsqrtf(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @rsqrtf(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.rsqrt.approx.f(float %x), !dbg !168
   ret float %1, !dbg !168
 }
 
 declare float @llvm.nvvm.rsqrt.approx.f(float) nounwind readnone
 
-define double @fmin(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @fmin(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fmin.d(double %x, double %y), !dbg !171
   ret double %1, !dbg !171
 }
 
 declare double @llvm.nvvm.fmin.d(double, double) nounwind readnone
 
-define double @fmax(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @fmax(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fmax.d(double %x, double %y), !dbg !174
   ret double %1, !dbg !174
 }
 
 declare double @llvm.nvvm.fmax.d(double, double) nounwind readnone
 
-define double @rsqrt(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @rsqrt(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.rsqrt.approx.d(double %x), !dbg !177
   ret double %1, !dbg !177
 }
 
 declare double @llvm.nvvm.rsqrt.approx.d(double) nounwind readnone
 
-define double @ceil(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @ceil(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ceil.d(double %x), !dbg !180
   ret double %1, !dbg !180
 }
 
 declare double @llvm.nvvm.ceil.d(double) nounwind readnone
 
-define double @trunc(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @trunc(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.trunc.d(double %x), !dbg !183
   ret double %1, !dbg !183
 }
 
 declare double @llvm.nvvm.trunc.d(double) nounwind readnone
 
-define double @__round(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__round(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.round.d(double %x), !dbg !186
   ret double %1, !dbg !186
 }
 
 declare double @llvm.nvvm.round.d(double) nounwind readnone
 
-define double @__exp2(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__exp2(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ex2.approx.d(double %x), !dbg !189
   ret double %1, !dbg !189
 }
 
 declare double @llvm.nvvm.ex2.approx.d(double) nounwind readnone
 
-define double @__log2(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__log2(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.lg2.approx.d(double %x), !dbg !192
   ret double %1, !dbg !192
 }
 
 declare double @llvm.nvvm.lg2.approx.d(double) nounwind readnone
 
-define float @__roundf(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__roundf(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.round.f(float %x), !dbg !195
   ret float %1, !dbg !195
 }
 
 declare float @llvm.nvvm.round.f(float) nounwind readnone
 
-define float @__exp2f(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__exp2f(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ex2.approx.f(float %x), !dbg !198
   ret float %1, !dbg !198
 }
 
 declare float @llvm.nvvm.ex2.approx.f(float) nounwind readnone
 
-define float @exp2f(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @exp2f(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ex2.approx.f(float %x) nounwind, !dbg !201
   ret float %1, !dbg !202
 }
 
-define float @__builtin_log2f(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__builtin_log2f(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.lg2.approx.f(float %x), !dbg !205
   ret float %1, !dbg !205
 }
 
 declare float @llvm.nvvm.lg2.approx.f(float) nounwind readnone
 
-define float @__builtin_sinf(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__builtin_sinf(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.sin.approx.f(float %x), !dbg !208
   ret float %1, !dbg !208
 }
 
 declare float @llvm.nvvm.sin.approx.f(float) nounwind readnone
 
-define float @__builtin_cosf(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__builtin_cosf(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.cos.approx.f(float %x), !dbg !211
   ret float %1, !dbg !211
 }
 
 declare float @llvm.nvvm.cos.approx.f(float) nounwind readnone
 
-define float @__builtin_roundf(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__builtin_roundf(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.round.f(float %x), !dbg !214
   ret float %1, !dbg !214
 }
 
-define double @__builtin_round(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__builtin_round(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.round.d(double %x), !dbg !217
   ret double %1, !dbg !217
 }
 
-define float @truncf(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @truncf(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.trunc.f(float %x), !dbg !220
   ret float %1, !dbg !220
 }
 
 declare float @llvm.nvvm.trunc.f(float) nounwind readnone
 
-define float @ceilf(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @ceilf(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ceil.f(float %x), !dbg !223
   ret float %1, !dbg !223
 }
 
 declare float @llvm.nvvm.ceil.f(float) nounwind readnone
 
-define double @__saturate(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__saturate(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.saturate.d(double %x), !dbg !226
   ret double %1, !dbg !226
 }
 
 declare double @llvm.nvvm.saturate.d(double) nounwind readnone
 
-define float @__saturatef(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__saturatef(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.saturate.f(float %x), !dbg !229
   ret float %1, !dbg !229
 }
 
 declare float @llvm.nvvm.saturate.f(float) nounwind readnone
 
-define float @__fmaf_rn(float %x, float %y, float %z) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmaf_rn(float %x, float %y, float %z) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rn.f(float %x, float %y, float %z), !dbg !232
   ret float %1, !dbg !232
 }
 
 declare float @llvm.nvvm.fma.rn.f(float, float, float) nounwind readnone
 
-define float @__fmaf_rz(float %x, float %y, float %z) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmaf_rz(float %x, float %y, float %z) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rz.f(float %x, float %y, float %z), !dbg !235
   ret float %1, !dbg !235
 }
 
 declare float @llvm.nvvm.fma.rz.f(float, float, float) nounwind readnone
 
-define float @__fmaf_rd(float %x, float %y, float %z) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmaf_rd(float %x, float %y, float %z) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rm.f(float %x, float %y, float %z), !dbg !238
   ret float %1, !dbg !238
 }
 
 declare float @llvm.nvvm.fma.rm.f(float, float, float) nounwind readnone
 
-define float @__fmaf_ru(float %x, float %y, float %z) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmaf_ru(float %x, float %y, float %z) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rp.f(float %x, float %y, float %z), !dbg !241
   ret float %1, !dbg !241
 }
 
 declare float @llvm.nvvm.fma.rp.f(float, float, float) nounwind readnone
 
-define float @__fmaf_ieee_rn(float %x, float %y, float %z) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmaf_ieee_rn(float %x, float %y, float %z) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rn.f(float %x, float %y, float %z), !dbg !244
   ret float %1, !dbg !244
 }
 
-define float @__fmaf_ieee_rz(float %x, float %y, float %z) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmaf_ieee_rz(float %x, float %y, float %z) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rz.f(float %x, float %y, float %z), !dbg !247
   ret float %1, !dbg !247
 }
 
-define float @__fmaf_ieee_rd(float %x, float %y, float %z) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmaf_ieee_rd(float %x, float %y, float %z) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rm.f(float %x, float %y, float %z), !dbg !250
   ret float %1, !dbg !250
 }
 
-define float @__fmaf_ieee_ru(float %x, float %y, float %z) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmaf_ieee_ru(float %x, float %y, float %z) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rp.f(float %x, float %y, float %z), !dbg !253
   ret float %1, !dbg !253
 }
 
-define double @__fma_rn(double %x, double %y, double %z) nounwind readnone alwaysinline alignstack(1) {
+define double @__fma_rn(double %x, double %y, double %z) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rn.d(double %x, double %y, double %z), !dbg !256
   ret double %1, !dbg !256
 }
 
 declare double @llvm.nvvm.fma.rn.d(double, double, double) nounwind readnone
 
-define double @__fma_rz(double %x, double %y, double %z) nounwind readnone alwaysinline alignstack(1) {
+define double @__fma_rz(double %x, double %y, double %z) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rz.d(double %x, double %y, double %z), !dbg !259
   ret double %1, !dbg !259
 }
 
 declare double @llvm.nvvm.fma.rz.d(double, double, double) nounwind readnone
 
-define double @__fma_rd(double %x, double %y, double %z) nounwind readnone alwaysinline alignstack(1) {
+define double @__fma_rd(double %x, double %y, double %z) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rm.d(double %x, double %y, double %z), !dbg !262
   ret double %1, !dbg !262
 }
 
 declare double @llvm.nvvm.fma.rm.d(double, double, double) nounwind readnone
 
-define double @__fma_ru(double %x, double %y, double %z) nounwind readnone alwaysinline alignstack(1) {
+define double @__fma_ru(double %x, double %y, double %z) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rp.d(double %x, double %y, double %z), !dbg !265
   ret double %1, !dbg !265
 }
 
 declare double @llvm.nvvm.fma.rp.d(double, double, double) nounwind readnone
 
-define float @__fdividef(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fdividef(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.div.approx.f(float %x, float %y), !dbg !268
   ret float %1, !dbg !268
 }
 
 declare float @llvm.nvvm.div.approx.f(float, float) nounwind readnone
 
-define float @__fdiv_rn(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fdiv_rn(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.div.rn.f(float %x, float %y), !dbg !271
   ret float %1, !dbg !271
 }
 
 declare float @llvm.nvvm.div.rn.f(float, float) nounwind readnone
 
-define float @__fdiv_rz(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fdiv_rz(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.div.rz.f(float %x, float %y), !dbg !274
   ret float %1, !dbg !274
 }
 
 declare float @llvm.nvvm.div.rz.f(float, float) nounwind readnone
 
-define float @__fdiv_rd(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fdiv_rd(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.div.rm.f(float %x, float %y), !dbg !277
   ret float %1, !dbg !277
 }
 
 declare float @llvm.nvvm.div.rm.f(float, float) nounwind readnone
 
-define float @__fdiv_ru(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fdiv_ru(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.div.rp.f(float %x, float %y), !dbg !280
   ret float %1, !dbg !280
 }
 
 declare float @llvm.nvvm.div.rp.f(float, float) nounwind readnone
 
-define float @__frcp_rn(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__frcp_rn(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.rcp.rn.f(float %x), !dbg !283
   ret float %1, !dbg !283
 }
 
 declare float @llvm.nvvm.rcp.rn.f(float) nounwind readnone
 
-define float @__frcp_rz(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__frcp_rz(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.rcp.rz.f(float %x), !dbg !286
   ret float %1, !dbg !286
 }
 
 declare float @llvm.nvvm.rcp.rz.f(float) nounwind readnone
 
-define float @__frcp_rd(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__frcp_rd(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.rcp.rm.f(float %x), !dbg !289
   ret float %1, !dbg !289
 }
 
 declare float @llvm.nvvm.rcp.rm.f(float) nounwind readnone
 
-define float @__frcp_ru(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__frcp_ru(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.rcp.rp.f(float %x), !dbg !292
   ret float %1, !dbg !292
 }
 
 declare float @llvm.nvvm.rcp.rp.f(float) nounwind readnone
 
-define float @__fsqrt_rn(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__fsqrt_rn(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.sqrt.rn.f(float %x), !dbg !295
   ret float %1, !dbg !295
 }
 
 declare float @llvm.nvvm.sqrt.rn.f(float) nounwind readnone
 
-define float @__fsqrt_rz(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__fsqrt_rz(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.sqrt.rz.f(float %x), !dbg !298
   ret float %1, !dbg !298
 }
 
 declare float @llvm.nvvm.sqrt.rz.f(float) nounwind readnone
 
-define float @__fsqrt_rd(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__fsqrt_rd(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.sqrt.rm.f(float %x), !dbg !301
   ret float %1, !dbg !301
 }
 
 declare float @llvm.nvvm.sqrt.rm.f(float) nounwind readnone
 
-define float @__fsqrt_ru(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__fsqrt_ru(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.sqrt.rp.f(float %x), !dbg !304
   ret float %1, !dbg !304
 }
 
 declare float @llvm.nvvm.sqrt.rp.f(float) nounwind readnone
 
-define double @__ddiv_rn(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__ddiv_rn(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.div.rn.d(double %x, double %y), !dbg !307
   ret double %1, !dbg !307
 }
 
 declare double @llvm.nvvm.div.rn.d(double, double) nounwind readnone
 
-define double @__ddiv_rz(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__ddiv_rz(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.div.rz.d(double %x, double %y), !dbg !310
   ret double %1, !dbg !310
 }
 
 declare double @llvm.nvvm.div.rz.d(double, double) nounwind readnone
 
-define double @__ddiv_rd(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__ddiv_rd(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.div.rm.d(double %x, double %y), !dbg !313
   ret double %1, !dbg !313
 }
 
 declare double @llvm.nvvm.div.rm.d(double, double) nounwind readnone
 
-define double @__ddiv_ru(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__ddiv_ru(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.div.rp.d(double %x, double %y), !dbg !316
   ret double %1, !dbg !316
 }
 
 declare double @llvm.nvvm.div.rp.d(double, double) nounwind readnone
 
-define double @__drcp_rn(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__drcp_rn(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.rcp.rn.d(double %x), !dbg !319
   ret double %1, !dbg !319
 }
 
 declare double @llvm.nvvm.rcp.rn.d(double) nounwind readnone
 
-define double @__drcp_rz(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__drcp_rz(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.rcp.rz.d(double %x), !dbg !322
   ret double %1, !dbg !322
 }
 
 declare double @llvm.nvvm.rcp.rz.d(double) nounwind readnone
 
-define double @__drcp_rd(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__drcp_rd(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.rcp.rm.d(double %x), !dbg !325
   ret double %1, !dbg !325
 }
 
 declare double @llvm.nvvm.rcp.rm.d(double) nounwind readnone
 
-define double @__drcp_ru(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__drcp_ru(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.rcp.rp.d(double %x), !dbg !328
   ret double %1, !dbg !328
 }
 
 declare double @llvm.nvvm.rcp.rp.d(double) nounwind readnone
 
-define double @__dsqrt_rn(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__dsqrt_rn(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.sqrt.rn.d(double %x), !dbg !331
   ret double %1, !dbg !331
 }
 
 declare double @llvm.nvvm.sqrt.rn.d(double) nounwind readnone
 
-define double @__dsqrt_rz(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__dsqrt_rz(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.sqrt.rz.d(double %x), !dbg !334
   ret double %1, !dbg !334
 }
 
 declare double @llvm.nvvm.sqrt.rz.d(double) nounwind readnone
 
-define double @__dsqrt_rd(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__dsqrt_rd(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.sqrt.rm.d(double %x), !dbg !337
   ret double %1, !dbg !337
 }
 
 declare double @llvm.nvvm.sqrt.rm.d(double) nounwind readnone
 
-define double @__dsqrt_ru(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__dsqrt_ru(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.sqrt.rp.d(double %x), !dbg !340
   ret double %1, !dbg !340
 }
 
 declare double @llvm.nvvm.sqrt.rp.d(double) nounwind readnone
 
-define float @sqrtf(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @sqrtf(float %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.sqrt.rn.f(float %x), !dbg !343
   ret float %1, !dbg !343
 }
 
-define double @sqrt(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @sqrt(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.sqrt.rn.d(double %x), !dbg !346
   ret double %1, !dbg !346
 }
 
-define double @__dadd_rn(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__dadd_rn(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.add.rn.d(double %x, double %y), !dbg !349
   ret double %1, !dbg !349
 }
 
 declare double @llvm.nvvm.add.rn.d(double, double) nounwind readnone
 
-define double @__dadd_rz(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__dadd_rz(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.add.rz.d(double %x, double %y), !dbg !352
   ret double %1, !dbg !352
 }
 
 declare double @llvm.nvvm.add.rz.d(double, double) nounwind readnone
 
-define double @__dadd_rd(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__dadd_rd(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.add.rm.d(double %x, double %y), !dbg !355
   ret double %1, !dbg !355
 }
 
 declare double @llvm.nvvm.add.rm.d(double, double) nounwind readnone
 
-define double @__dadd_ru(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__dadd_ru(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.add.rp.d(double %x, double %y), !dbg !358
   ret double %1, !dbg !358
 }
 
 declare double @llvm.nvvm.add.rp.d(double, double) nounwind readnone
 
-define double @__dmul_rn(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__dmul_rn(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.mul.rn.d(double %x, double %y), !dbg !361
   ret double %1, !dbg !361
 }
 
 declare double @llvm.nvvm.mul.rn.d(double, double) nounwind readnone
 
-define double @__dmul_rz(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__dmul_rz(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.mul.rz.d(double %x, double %y), !dbg !364
   ret double %1, !dbg !364
 }
 
 declare double @llvm.nvvm.mul.rz.d(double, double) nounwind readnone
 
-define double @__dmul_rd(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__dmul_rd(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.mul.rm.d(double %x, double %y), !dbg !367
   ret double %1, !dbg !367
 }
 
 declare double @llvm.nvvm.mul.rm.d(double, double) nounwind readnone
 
-define double @__dmul_ru(double %x, double %y) nounwind readnone alwaysinline alignstack(1) {
+define double @__dmul_ru(double %x, double %y) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.mul.rp.d(double %x, double %y), !dbg !370
   ret double %1, !dbg !370
 }
 
 declare double @llvm.nvvm.mul.rp.d(double, double) nounwind readnone
 
-define float @__fadd_rd(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fadd_rd(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.add.rm.f(float %x, float %y), !dbg !373
   ret float %1, !dbg !373
 }
 
 declare float @llvm.nvvm.add.rm.f(float, float) nounwind readnone
 
-define float @__fadd_ru(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fadd_ru(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.add.rp.f(float %x, float %y), !dbg !376
   ret float %1, !dbg !376
 }
 
 declare float @llvm.nvvm.add.rp.f(float, float) nounwind readnone
 
-define float @__fmul_rd(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmul_rd(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.mul.rm.f(float %x, float %y), !dbg !379
   ret float %1, !dbg !379
 }
 
 declare float @llvm.nvvm.mul.rm.f(float, float) nounwind readnone
 
-define float @__fmul_ru(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmul_ru(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.mul.rp.f(float %x, float %y), !dbg !382
   ret float %1, !dbg !382
 }
 
 declare float @llvm.nvvm.mul.rp.f(float, float) nounwind readnone
 
-define float @__fadd_rn(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fadd_rn(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.add.rn.f(float %x, float %y), !dbg !385
   ret float %1, !dbg !385
 }
 
 declare float @llvm.nvvm.add.rn.f(float, float) nounwind readnone
 
-define float @__fadd_rz(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fadd_rz(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.add.rz.f(float %x, float %y), !dbg !388
   ret float %1, !dbg !388
 }
 
 declare float @llvm.nvvm.add.rz.f(float, float) nounwind readnone
 
-define float @__fmul_rn(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmul_rn(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.mul.rn.f(float %x, float %y), !dbg !391
   ret float %1, !dbg !391
 }
 
 declare float @llvm.nvvm.mul.rn.f(float, float) nounwind readnone
 
-define float @__fmul_rz(float %x, float %y) nounwind readnone alwaysinline alignstack(1) {
+define float @__fmul_rz(float %x, float %y) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.mul.rz.f(float %x, float %y), !dbg !394
   ret float %1, !dbg !394
 }
 
 declare float @llvm.nvvm.mul.rz.f(float, float) nounwind readnone
 
-define float @__double2float_rn(double %d) nounwind readnone alwaysinline alignstack(1) {
+define float @__double2float_rn(double %d) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.d2f.rn(double %d), !dbg !397
   ret float %1, !dbg !397
 }
 
 declare float @llvm.nvvm.d2f.rn(double) nounwind readnone
 
-define float @__double2float_rz(double %d) nounwind readnone alwaysinline alignstack(1) {
+define float @__double2float_rz(double %d) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.d2f.rz(double %d), !dbg !400
   ret float %1, !dbg !400
 }
 
 declare float @llvm.nvvm.d2f.rz(double) nounwind readnone
 
-define float @__double2float_rd(double %d) nounwind readnone alwaysinline alignstack(1) {
+define float @__double2float_rd(double %d) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.d2f.rm(double %d), !dbg !403
   ret float %1, !dbg !403
 }
 
 declare float @llvm.nvvm.d2f.rm(double) nounwind readnone
 
-define float @__double2float_ru(double %d) nounwind readnone alwaysinline alignstack(1) {
+define float @__double2float_ru(double %d) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.d2f.rp(double %d), !dbg !406
   ret float %1, !dbg !406
 }
 
 declare float @llvm.nvvm.d2f.rp(double) nounwind readnone
 
-define i32 @__double2int_rn(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2int_rn(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.rn(double %d), !dbg !409
   ret i32 %1, !dbg !409
 }
 
 declare i32 @llvm.nvvm.d2i.rn(double) nounwind readnone
 
-define i32 @__double2int_rz(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2int_rz(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.rz(double %d), !dbg !412
   ret i32 %1, !dbg !412
 }
 
 declare i32 @llvm.nvvm.d2i.rz(double) nounwind readnone
 
-define i32 @__double2int_rd(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2int_rd(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.rm(double %d), !dbg !415
   ret i32 %1, !dbg !415
 }
 
 declare i32 @llvm.nvvm.d2i.rm(double) nounwind readnone
 
-define i32 @__double2int_ru(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2int_ru(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.rp(double %d), !dbg !418
   ret i32 %1, !dbg !418
 }
 
 declare i32 @llvm.nvvm.d2i.rp(double) nounwind readnone
 
-define i32 @__double2uint_rn(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2uint_rn(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2ui.rn(double %d), !dbg !421
   ret i32 %1, !dbg !421
 }
 
 declare i32 @llvm.nvvm.d2ui.rn(double) nounwind readnone
 
-define i32 @__double2uint_rz(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2uint_rz(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2ui.rz(double %d), !dbg !424
   ret i32 %1, !dbg !424
 }
 
 declare i32 @llvm.nvvm.d2ui.rz(double) nounwind readnone
 
-define i32 @__double2uint_rd(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2uint_rd(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2ui.rm(double %d), !dbg !427
   ret i32 %1, !dbg !427
 }
 
 declare i32 @llvm.nvvm.d2ui.rm(double) nounwind readnone
 
-define i32 @__double2uint_ru(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2uint_ru(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2ui.rp(double %d), !dbg !430
   ret i32 %1, !dbg !430
 }
 
 declare i32 @llvm.nvvm.d2ui.rp(double) nounwind readnone
 
-define double @__int2double_rn(i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__int2double_rn(i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.i2d.rn(i32 %i), !dbg !433
   ret double %1, !dbg !433
 }
 
 declare double @llvm.nvvm.i2d.rn(i32) nounwind readnone
 
-define double @__int2double_rz(i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__int2double_rz(i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.i2d.rz(i32 %i), !dbg !436
   ret double %1, !dbg !436
 }
 
 declare double @llvm.nvvm.i2d.rz(i32) nounwind readnone
 
-define double @__int2double_rd(i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__int2double_rd(i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.i2d.rm(i32 %i), !dbg !439
   ret double %1, !dbg !439
 }
 
 declare double @llvm.nvvm.i2d.rm(i32) nounwind readnone
 
-define double @__int2double_ru(i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__int2double_ru(i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.i2d.rp(i32 %i), !dbg !442
   ret double %1, !dbg !442
 }
 
 declare double @llvm.nvvm.i2d.rp(i32) nounwind readnone
 
-define double @__uint2double_rn(i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__uint2double_rn(i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ui2d.rn(i32 %i), !dbg !445
   ret double %1, !dbg !445
 }
 
 declare double @llvm.nvvm.ui2d.rn(i32) nounwind readnone
 
-define double @__uint2double_rz(i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__uint2double_rz(i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ui2d.rz(i32 %i), !dbg !448
   ret double %1, !dbg !448
 }
 
 declare double @llvm.nvvm.ui2d.rz(i32) nounwind readnone
 
-define double @__uint2double_rd(i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__uint2double_rd(i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ui2d.rm(i32 %i), !dbg !451
   ret double %1, !dbg !451
 }
 
 declare double @llvm.nvvm.ui2d.rm(i32) nounwind readnone
 
-define double @__uint2double_ru(i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__uint2double_ru(i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ui2d.rp(i32 %i), !dbg !454
   ret double %1, !dbg !454
 }
 
 declare double @llvm.nvvm.ui2d.rp(i32) nounwind readnone
 
-define i32 @__float2int_rn(float %in) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float2int_rn(float %in) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.f2i.rn(float %in), !dbg !457
   ret i32 %1, !dbg !457
 }
 
 declare i32 @llvm.nvvm.f2i.rn(float) nounwind readnone
 
-define i32 @__float2int_rz(float %in) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float2int_rz(float %in) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.f2i.rz(float %in), !dbg !460
   ret i32 %1, !dbg !460
 }
 
 declare i32 @llvm.nvvm.f2i.rz(float) nounwind readnone
 
-define i32 @__float2int_rd(float %in) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float2int_rd(float %in) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.f2i.rm(float %in), !dbg !463
   ret i32 %1, !dbg !463
 }
 
 declare i32 @llvm.nvvm.f2i.rm(float) nounwind readnone
 
-define i32 @__float2int_ru(float %in) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float2int_ru(float %in) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.f2i.rp(float %in), !dbg !466
   ret i32 %1, !dbg !466
 }
 
 declare i32 @llvm.nvvm.f2i.rp(float) nounwind readnone
 
-define i32 @__float2uint_rn(float %in) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float2uint_rn(float %in) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.f2ui.rn(float %in), !dbg !469
   ret i32 %1, !dbg !469
 }
 
 declare i32 @llvm.nvvm.f2ui.rn(float) nounwind readnone
 
-define i32 @__float2uint_rz(float %in) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float2uint_rz(float %in) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.f2ui.rz(float %in), !dbg !472
   ret i32 %1, !dbg !472
 }
 
 declare i32 @llvm.nvvm.f2ui.rz(float) nounwind readnone
 
-define i32 @__float2uint_rd(float %in) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float2uint_rd(float %in) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.f2ui.rm(float %in), !dbg !475
   ret i32 %1, !dbg !475
 }
 
 declare i32 @llvm.nvvm.f2ui.rm(float) nounwind readnone
 
-define i32 @__float2uint_ru(float %in) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float2uint_ru(float %in) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.f2ui.rp(float %in), !dbg !478
   ret i32 %1, !dbg !478
 }
 
 declare i32 @llvm.nvvm.f2ui.rp(float) nounwind readnone
 
-define float @__int2float_rn(i32 %in) nounwind readnone alwaysinline alignstack(1) {
+define float @__int2float_rn(i32 %in) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.i2f.rn(i32 %in), !dbg !481
   ret float %1, !dbg !481
 }
 
 declare float @llvm.nvvm.i2f.rn(i32) nounwind readnone
 
-define float @__int2float_rz(i32 %in) nounwind readnone alwaysinline alignstack(1) {
+define float @__int2float_rz(i32 %in) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.i2f.rz(i32 %in), !dbg !484
   ret float %1, !dbg !484
 }
 
 declare float @llvm.nvvm.i2f.rz(i32) nounwind readnone
 
-define float @__int2float_rd(i32 %in) nounwind readnone alwaysinline alignstack(1) {
+define float @__int2float_rd(i32 %in) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.i2f.rm(i32 %in), !dbg !487
   ret float %1, !dbg !487
 }
 
 declare float @llvm.nvvm.i2f.rm(i32) nounwind readnone
 
-define float @__int2float_ru(i32 %in) nounwind readnone alwaysinline alignstack(1) {
+define float @__int2float_ru(i32 %in) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.i2f.rp(i32 %in), !dbg !490
   ret float %1, !dbg !490
 }
 
 declare float @llvm.nvvm.i2f.rp(i32) nounwind readnone
 
-define float @__uint2float_rn(i32 %in) nounwind readnone alwaysinline alignstack(1) {
+define float @__uint2float_rn(i32 %in) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ui2f.rn(i32 %in), !dbg !493
   ret float %1, !dbg !493
 }
 
 declare float @llvm.nvvm.ui2f.rn(i32) nounwind readnone
 
-define float @__uint2float_rz(i32 %in) nounwind readnone alwaysinline alignstack(1) {
+define float @__uint2float_rz(i32 %in) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ui2f.rz(i32 %in), !dbg !496
   ret float %1, !dbg !496
 }
 
 declare float @llvm.nvvm.ui2f.rz(i32) nounwind readnone
 
-define float @__uint2float_rd(i32 %in) nounwind readnone alwaysinline alignstack(1) {
+define float @__uint2float_rd(i32 %in) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ui2f.rm(i32 %in), !dbg !499
   ret float %1, !dbg !499
 }
 
 declare float @llvm.nvvm.ui2f.rm(i32) nounwind readnone
 
-define float @__uint2float_ru(i32 %in) nounwind readnone alwaysinline alignstack(1) {
+define float @__uint2float_ru(i32 %in) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ui2f.rp(i32 %in), !dbg !502
   ret float %1, !dbg !502
 }
 
 declare float @llvm.nvvm.ui2f.rp(i32) nounwind readnone
 
-define double @__hiloint2double(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define double @__hiloint2double(i32 %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.lohi.i2d(i32 %b, i32 %a), !dbg !505
   ret double %1, !dbg !505
 }
 
 declare double @llvm.nvvm.lohi.i2d(i32, i32) nounwind readnone
 
-define i32 @__double2loint(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2loint(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.lo(double %d), !dbg !508
   ret i32 %1, !dbg !508
 }
 
 declare i32 @llvm.nvvm.d2i.lo(double) nounwind readnone
 
-define i32 @__double2hiint(double %d) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__double2hiint(double %d) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %d), !dbg !511
   ret i32 %1, !dbg !511
 }
 
 declare i32 @llvm.nvvm.d2i.hi(double) nounwind readnone
 
-define i64 @__float2ll_rn(float %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__float2ll_rn(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ll.rn(float %f), !dbg !514
   ret i64 %1, !dbg !514
 }
 
 declare i64 @llvm.nvvm.f2ll.rn(float) nounwind readnone
 
-define i64 @__float2ll_rz(float %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__float2ll_rz(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ll.rz(float %f), !dbg !517
   ret i64 %1, !dbg !517
 }
 
 declare i64 @llvm.nvvm.f2ll.rz(float) nounwind readnone
 
-define i64 @__float2ll_rd(float %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__float2ll_rd(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ll.rm(float %f), !dbg !520
   ret i64 %1, !dbg !520
 }
 
 declare i64 @llvm.nvvm.f2ll.rm(float) nounwind readnone
 
-define i64 @__float2ll_ru(float %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__float2ll_ru(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ll.rp(float %f), !dbg !523
   ret i64 %1, !dbg !523
 }
 
 declare i64 @llvm.nvvm.f2ll.rp(float) nounwind readnone
 
-define i64 @__float2ull_rn(float %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__float2ull_rn(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ull.rn(float %f), !dbg !526
   ret i64 %1, !dbg !526
 }
 
 declare i64 @llvm.nvvm.f2ull.rn(float) nounwind readnone
 
-define i64 @__float2ull_rz(float %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__float2ull_rz(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ull.rz(float %f), !dbg !529
   ret i64 %1, !dbg !529
 }
 
 declare i64 @llvm.nvvm.f2ull.rz(float) nounwind readnone
 
-define i64 @__float2ull_rd(float %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__float2ull_rd(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ull.rm(float %f), !dbg !532
   ret i64 %1, !dbg !532
 }
 
 declare i64 @llvm.nvvm.f2ull.rm(float) nounwind readnone
 
-define i64 @__float2ull_ru(float %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__float2ull_ru(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ull.rp(float %f), !dbg !535
   ret i64 %1, !dbg !535
 }
 
 declare i64 @llvm.nvvm.f2ull.rp(float) nounwind readnone
 
-define i64 @__double2ll_rn(double %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double2ll_rn(double %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ll.rn(double %f), !dbg !538
   ret i64 %1, !dbg !538
 }
 
 declare i64 @llvm.nvvm.d2ll.rn(double) nounwind readnone
 
-define i64 @__double2ll_rz(double %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double2ll_rz(double %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ll.rz(double %f), !dbg !541
   ret i64 %1, !dbg !541
 }
 
 declare i64 @llvm.nvvm.d2ll.rz(double) nounwind readnone
 
-define i64 @__double2ll_rd(double %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double2ll_rd(double %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ll.rm(double %f), !dbg !544
   ret i64 %1, !dbg !544
 }
 
 declare i64 @llvm.nvvm.d2ll.rm(double) nounwind readnone
 
-define i64 @__double2ll_ru(double %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double2ll_ru(double %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ll.rp(double %f), !dbg !547
   ret i64 %1, !dbg !547
 }
 
 declare i64 @llvm.nvvm.d2ll.rp(double) nounwind readnone
 
-define i64 @__double2ull_rn(double %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double2ull_rn(double %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ull.rn(double %f), !dbg !550
   ret i64 %1, !dbg !550
 }
 
 declare i64 @llvm.nvvm.d2ull.rn(double) nounwind readnone
 
-define i64 @__double2ull_rz(double %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double2ull_rz(double %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ull.rz(double %f), !dbg !553
   ret i64 %1, !dbg !553
 }
 
 declare i64 @llvm.nvvm.d2ull.rz(double) nounwind readnone
 
-define i64 @__double2ull_rd(double %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double2ull_rd(double %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ull.rm(double %f), !dbg !556
   ret i64 %1, !dbg !556
 }
 
 declare i64 @llvm.nvvm.d2ull.rm(double) nounwind readnone
 
-define i64 @__double2ull_ru(double %f) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double2ull_ru(double %f) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ull.rp(double %f), !dbg !559
   ret i64 %1, !dbg !559
 }
 
 declare i64 @llvm.nvvm.d2ull.rp(double) nounwind readnone
 
-define float @__ll2float_rn(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define float @__ll2float_rn(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ll2f.rn(i64 %l), !dbg !562
   ret float %1, !dbg !562
 }
 
 declare float @llvm.nvvm.ll2f.rn(i64) nounwind readnone
 
-define float @__ll2float_rz(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define float @__ll2float_rz(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ll2f.rz(i64 %l), !dbg !565
   ret float %1, !dbg !565
 }
 
 declare float @llvm.nvvm.ll2f.rz(i64) nounwind readnone
 
-define float @__ll2float_rd(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define float @__ll2float_rd(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ll2f.rm(i64 %l), !dbg !568
   ret float %1, !dbg !568
 }
 
 declare float @llvm.nvvm.ll2f.rm(i64) nounwind readnone
 
-define float @__ll2float_ru(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define float @__ll2float_ru(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ll2f.rp(i64 %l), !dbg !571
   ret float %1, !dbg !571
 }
 
 declare float @llvm.nvvm.ll2f.rp(i64) nounwind readnone
 
-define float @__ull2float_rn(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define float @__ull2float_rn(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ull2f.rn(i64 %l), !dbg !574
   ret float %1, !dbg !574
 }
 
 declare float @llvm.nvvm.ull2f.rn(i64) nounwind readnone
 
-define float @__ull2float_rz(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define float @__ull2float_rz(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ull2f.rz(i64 %l), !dbg !577
   ret float %1, !dbg !577
 }
 
 declare float @llvm.nvvm.ull2f.rz(i64) nounwind readnone
 
-define float @__ull2float_rd(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define float @__ull2float_rd(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ull2f.rm(i64 %l), !dbg !580
   ret float %1, !dbg !580
 }
 
 declare float @llvm.nvvm.ull2f.rm(i64) nounwind readnone
 
-define float @__ull2float_ru(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define float @__ull2float_ru(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.ull2f.rp(i64 %l), !dbg !583
   ret float %1, !dbg !583
 }
 
 declare float @llvm.nvvm.ull2f.rp(i64) nounwind readnone
 
-define double @__ll2double_rn(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define double @__ll2double_rn(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ll2d.rn(i64 %l), !dbg !586
   ret double %1, !dbg !586
 }
 
 declare double @llvm.nvvm.ll2d.rn(i64) nounwind readnone
 
-define double @__ll2double_rz(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define double @__ll2double_rz(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ll2d.rz(i64 %l), !dbg !589
   ret double %1, !dbg !589
 }
 
 declare double @llvm.nvvm.ll2d.rz(i64) nounwind readnone
 
-define double @__ll2double_rd(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define double @__ll2double_rd(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ll2d.rm(i64 %l), !dbg !592
   ret double %1, !dbg !592
 }
 
 declare double @llvm.nvvm.ll2d.rm(i64) nounwind readnone
 
-define double @__ll2double_ru(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define double @__ll2double_ru(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ll2d.rp(i64 %l), !dbg !595
   ret double %1, !dbg !595
 }
 
 declare double @llvm.nvvm.ll2d.rp(i64) nounwind readnone
 
-define double @__ull2double_rn(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define double @__ull2double_rn(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ull2d.rn(i64 %l), !dbg !598
   ret double %1, !dbg !598
 }
 
 declare double @llvm.nvvm.ull2d.rn(i64) nounwind readnone
 
-define double @__ull2double_rz(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define double @__ull2double_rz(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ull2d.rz(i64 %l), !dbg !601
   ret double %1, !dbg !601
 }
 
 declare double @llvm.nvvm.ull2d.rz(i64) nounwind readnone
 
-define double @__ull2double_rd(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define double @__ull2double_rd(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ull2d.rm(i64 %l), !dbg !604
   ret double %1, !dbg !604
 }
 
 declare double @llvm.nvvm.ull2d.rm(i64) nounwind readnone
 
-define double @__ull2double_ru(i64 %l) nounwind readnone alwaysinline alignstack(1) {
+define double @__ull2double_ru(i64 %l) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.ull2d.rp(i64 %l), !dbg !607
   ret double %1, !dbg !607
 }
 
 declare double @llvm.nvvm.ull2d.rp(i64) nounwind readnone
 
-define zeroext i16 @__float2half_rn(float %f) nounwind readnone alwaysinline alignstack(1) {
+define zeroext i16 @__float2half_rn(float %f) nounwind readnone alignstack(1) {
   %1 = tail call i16 @llvm.nvvm.f2h.rn(float %f), !dbg !610
   ret i16 %1, !dbg !610
 }
 
 declare i16 @llvm.nvvm.f2h.rn(float) nounwind readnone
 
-define float @__half2float(i16 zeroext %h) nounwind readnone alwaysinline alignstack(1) {
+define float @__half2float(i16 zeroext %h) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.h2f(i16 %h), !dbg !613
   ret float %1, !dbg !613
 }
 
 declare float @llvm.nvvm.h2f(i16) nounwind readnone
 
-define float @__int_as_float(i32 %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__int_as_float(i32 %x) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.bitcast.i2f(i32 %x), !dbg !616
   ret float %1, !dbg !616
 }
 
 declare float @llvm.nvvm.bitcast.i2f(i32) nounwind readnone
 
-define i32 @__float_as_int(float %x) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__float_as_int(float %x) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %x), !dbg !619
   ret i32 %1, !dbg !619
 }
 
 declare i32 @llvm.nvvm.bitcast.f2i(float) nounwind readnone
 
-define double @__longlong_as_double(i64 %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__longlong_as_double(i64 %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.bitcast.ll2d(i64 %x), !dbg !622
   ret double %1, !dbg !622
 }
 
 declare double @llvm.nvvm.bitcast.ll2d(i64) nounwind readnone
 
-define i64 @__double_as_longlong(double %x) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__double_as_longlong(double %x) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.bitcast.d2ll(double %x), !dbg !625
   ret i64 %1, !dbg !625
 }
 
 declare i64 @llvm.nvvm.bitcast.d2ll(double) nounwind readnone
 
-define i8* @memcpy(i8* %dest, i8* nocapture %src, i64 %n) nounwind alwaysinline alignstack(1) {
+define i8* @memcpy(i8* %dest, i8* nocapture %src, i64 %n) nounwind alignstack(1) {
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %dest, i8* %src, i64 %n, i32 1, i1 false), !dbg !628
   ret i8* %dest, !dbg !631
 }
 
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture, i64, i32, i1) nounwind
 
-define i8* @memset(i8* %dest, i32 %c, i64 %n) nounwind alwaysinline alignstack(1) {
+define i8* @memset(i8* %dest, i32 %c, i64 %n) nounwind alignstack(1) {
   %1 = trunc i32 %c to i8, !dbg !632
   tail call void @llvm.memset.p0i8.i64(i8* %dest, i8 %1, i64 %n, i32 1, i1 false), !dbg !632
   ret i8* %dest, !dbg !635
@@ -1403,44 +1403,44 @@ define i8* @memset(i8* %dest, i32 %c, i64 %n) nounwind alwaysinline alignstack(1
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind
 
-define i32 @__iAtomicAdd(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__iAtomicAdd(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw add i32* %p, i32 %val seq_cst, !dbg !636
   ret i32 %1, !dbg !636
 }
 
-define i32 @__uAtomicAdd(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicAdd(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw add i32* %p, i32 %val seq_cst, !dbg !639
   ret i32 %1, !dbg !639
 }
 
-define i64 @__ullAtomicAdd(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__ullAtomicAdd(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw add i64* %p, i64 %val seq_cst, !dbg !642
   ret i64 %1, !dbg !642
 }
 
-define float @__fAtomicAdd(float* nocapture %p, float %val) nounwind alwaysinline alignstack(1) {
+define float @__fAtomicAdd(float* nocapture %p, float %val) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.atomic.load.add.f32.p0f32(float* %p, float %val), !dbg !645
   ret float %1, !dbg !645
 }
 
 declare float @llvm.nvvm.atomic.load.add.f32.p0f32(float* nocapture, float) nounwind
 
-define i32 @__iAtomicExch(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__iAtomicExch(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw xchg i32* %p, i32 %val seq_cst, !dbg !648
   ret i32 %1, !dbg !648
 }
 
-define i32 @__uAtomicExch(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicExch(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw xchg i32* %p, i32 %val seq_cst, !dbg !651
   ret i32 %1, !dbg !651
 }
 
-define i64 @__ullAtomicExch(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__ullAtomicExch(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw xchg i64* %p, i64 %val seq_cst, !dbg !654
   ret i64 %1, !dbg !654
 }
 
-define float @__fAtomicExch(float* %p, float %val) nounwind alwaysinline alignstack(1) {
+define float @__fAtomicExch(float* %p, float %val) nounwind alignstack(1) {
   %1 = bitcast float* %p to i32*, !dbg !657
   %2 = tail call i32 @llvm.nvvm.bitcast.f2i(float %val) nounwind, !dbg !660
   %3 = atomicrmw xchg i32* %1, i32 %2 seq_cst, !dbg !657
@@ -1448,158 +1448,158 @@ define float @__fAtomicExch(float* %p, float %val) nounwind alwaysinline alignst
   ret float %4, !dbg !662
 }
 
-define i32 @__iAtomicMin(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__iAtomicMin(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw min i32* %p, i32 %val seq_cst, !dbg !663
   ret i32 %1, !dbg !663
 }
 
-define i64 @__illAtomicMin(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__illAtomicMin(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw min i64* %p, i64 %val seq_cst, !dbg !666
   ret i64 %1, !dbg !666
 }
 
-define i32 @__uAtomicMin(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicMin(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw umin i32* %p, i32 %val seq_cst, !dbg !669
   ret i32 %1, !dbg !669
 }
 
-define i64 @__ullAtomicMin(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__ullAtomicMin(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw umin i64* %p, i64 %val seq_cst, !dbg !672
   ret i64 %1, !dbg !672
 }
 
-define i32 @__iAtomicMax(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__iAtomicMax(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw max i32* %p, i32 %val seq_cst, !dbg !675
   ret i32 %1, !dbg !675
 }
 
-define i64 @__illAtomicMax(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__illAtomicMax(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw max i64* %p, i64 %val seq_cst, !dbg !678
   ret i64 %1, !dbg !678
 }
 
-define i32 @__uAtomicMax(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicMax(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw umax i32* %p, i32 %val seq_cst, !dbg !681
   ret i32 %1, !dbg !681
 }
 
-define i64 @__ullAtomicMax(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__ullAtomicMax(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw umax i64* %p, i64 %val seq_cst, !dbg !684
   ret i64 %1, !dbg !684
 }
 
-define i32 @__uAtomicInc(i32* nocapture %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicInc(i32* nocapture %p, i32 %val) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.atomic.load.inc.32.p0i32(i32* %p, i32 %val), !dbg !687
   ret i32 %1, !dbg !687
 }
 
 declare i32 @llvm.nvvm.atomic.load.inc.32.p0i32(i32* nocapture, i32) nounwind
 
-define i32 @__uAtomicDec(i32* nocapture %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicDec(i32* nocapture %p, i32 %val) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.atomic.load.dec.32.p0i32(i32* %p, i32 %val), !dbg !690
   ret i32 %1, !dbg !690
 }
 
 declare i32 @llvm.nvvm.atomic.load.dec.32.p0i32(i32* nocapture, i32) nounwind
 
-define i32 @__iAtomicCAS(i32* %p, i32 %compare, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__iAtomicCAS(i32* %p, i32 %compare, i32 %val) nounwind alignstack(1) {
   %1 = cmpxchg i32* %p, i32 %compare, i32 %val seq_cst, !dbg !693
   ret i32 %1, !dbg !693
 }
 
-define i32 @__uAtomicCAS(i32* %p, i32 %compare, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicCAS(i32* %p, i32 %compare, i32 %val) nounwind alignstack(1) {
   %1 = cmpxchg i32* %p, i32 %compare, i32 %val seq_cst, !dbg !696
   ret i32 %1, !dbg !696
 }
 
-define i64 @__ullAtomicCAS(i64* %p, i64 %compare, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__ullAtomicCAS(i64* %p, i64 %compare, i64 %val) nounwind alignstack(1) {
   %1 = cmpxchg i64* %p, i64 %compare, i64 %val seq_cst, !dbg !699
   ret i64 %1, !dbg !699
 }
 
-define i32 @__iAtomicAnd(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__iAtomicAnd(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw and i32* %p, i32 %val seq_cst, !dbg !702
   ret i32 %1, !dbg !702
 }
 
-define i64 @__llAtomicAnd(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__llAtomicAnd(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw and i64* %p, i64 %val seq_cst, !dbg !705
   ret i64 %1, !dbg !705
 }
 
-define i32 @__uAtomicAnd(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicAnd(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw and i32* %p, i32 %val seq_cst, !dbg !708
   ret i32 %1, !dbg !708
 }
 
-define i64 @__ullAtomicAnd(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__ullAtomicAnd(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw and i64* %p, i64 %val seq_cst, !dbg !711
   ret i64 %1, !dbg !711
 }
 
-define i32 @__iAtomicOr(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__iAtomicOr(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw or i32* %p, i32 %val seq_cst, !dbg !714
   ret i32 %1, !dbg !714
 }
 
-define i64 @__llAtomicOr(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__llAtomicOr(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw or i64* %p, i64 %val seq_cst, !dbg !717
   ret i64 %1, !dbg !717
 }
 
-define i32 @__uAtomicOr(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicOr(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw or i32* %p, i32 %val seq_cst, !dbg !720
   ret i32 %1, !dbg !720
 }
 
-define i64 @__ullAtomicOr(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__ullAtomicOr(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw or i64* %p, i64 %val seq_cst, !dbg !723
   ret i64 %1, !dbg !723
 }
 
-define i32 @__iAtomicXor(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__iAtomicXor(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw xor i32* %p, i32 %val seq_cst, !dbg !726
   ret i32 %1, !dbg !726
 }
 
-define i64 @__llAtomicXor(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__llAtomicXor(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw xor i64* %p, i64 %val seq_cst, !dbg !729
   ret i64 %1, !dbg !729
 }
 
-define i32 @__uAtomicXor(i32* %p, i32 %val) nounwind alwaysinline alignstack(1) {
+define i32 @__uAtomicXor(i32* %p, i32 %val) nounwind alignstack(1) {
   %1 = atomicrmw xor i32* %p, i32 %val seq_cst, !dbg !732
   ret i32 %1, !dbg !732
 }
 
-define i64 @__ullAtomicXor(i64* %p, i64 %val) nounwind alwaysinline alignstack(1) {
+define i64 @__ullAtomicXor(i64* %p, i64 %val) nounwind alignstack(1) {
   %1 = atomicrmw xor i64* %p, i64 %val seq_cst, !dbg !735
   ret i64 %1, !dbg !735
 }
 
-define float @__sinf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__sinf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.sin.approx.f(float %a) nounwind, !dbg !738
   ret float %1, !dbg !739
 }
 
-define float @__cosf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__cosf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.cos.approx.f(float %a) nounwind, !dbg !743
   ret float %1, !dbg !744
 }
 
-define float @__log2f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__log2f(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.lg2.approx.f(float %a) nounwind, !dbg !747
   ret float %1, !dbg !748
 }
 
-define float @__tanf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__tanf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.sin.approx.f(float %a) nounwind, !dbg !751
   %2 = tail call float @llvm.nvvm.cos.approx.f(float %a) nounwind, !dbg !756
   %3 = tail call float @llvm.nvvm.div.approx.f(float %1, float %2) nounwind, !dbg !758
   ret float %3, !dbg !753
 }
 
-define void @__sincosf(float %a, float* nocapture %sptr, float* nocapture %cptr) nounwind alwaysinline alignstack(1) {
+define void @__sincosf(float %a, float* nocapture %sptr, float* nocapture %cptr) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.sin.approx.f(float %a) nounwind, !dbg !759
   store float %1, float* %sptr, align 4, !dbg !761
   %2 = tail call float @llvm.nvvm.cos.approx.f(float %a) nounwind, !dbg !764
@@ -1607,48 +1607,48 @@ define void @__sincosf(float %a, float* nocapture %sptr, float* nocapture %cptr)
   ret void, !dbg !767
 }
 
-define float @__expf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__expf(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x3FF7154760000000, !dbg !768
   %2 = tail call float @llvm.nvvm.ex2.approx.f(float %1) nounwind, !dbg !771
   ret float %2, !dbg !768
 }
 
-define float @__exp10f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__exp10f(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x400A934F00000000, !dbg !773
   %2 = tail call float @llvm.nvvm.ex2.approx.f(float %1) nounwind, !dbg !776
   ret float %2, !dbg !773
 }
 
-define float @__log10f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__log10f(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.lg2.approx.f(float %a) nounwind, !dbg !778
   %2 = fmul float %1, 0x3FD3441360000000, !dbg !780
   ret float %2, !dbg !780
 }
 
-define float @__logf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__logf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.lg2.approx.f(float %a) nounwind, !dbg !783
   %2 = fmul float %1, 0x3FE62E4300000000, !dbg !785
   ret float %2, !dbg !785
 }
 
-define float @__powf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @__powf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.lg2.approx.f(float %a) nounwind, !dbg !788
   %2 = fmul float %1, %b, !dbg !790
   %3 = tail call float @llvm.nvvm.ex2.approx.f(float %2) nounwind, !dbg !793
   ret float %3, !dbg !790
 }
 
-define float @fdividef(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @fdividef(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = fdiv float %a, %b, !dbg !795
   ret float %1, !dbg !795
 }
 
-define double @fdivide(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @fdivide(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = fdiv double %a, %b, !dbg !798
   ret double %1, !dbg !798
 }
 
-define i32 @__hadd(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__hadd(i32 %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = and i32 %b, %a, !dbg !801
   %2 = xor i32 %b, %a, !dbg !801
   %3 = ashr i32 %2, 1, !dbg !801
@@ -1656,7 +1656,7 @@ define i32 @__hadd(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1) 
   ret i32 %4, !dbg !801
 }
 
-define i32 @__rhadd(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__rhadd(i32 %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = or i32 %b, %a, !dbg !804
   %2 = xor i32 %b, %a, !dbg !804
   %3 = ashr i32 %2, 1, !dbg !804
@@ -1664,7 +1664,7 @@ define i32 @__rhadd(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1)
   ret i32 %4, !dbg !804
 }
 
-define i32 @__uhadd(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__uhadd(i32 %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = and i32 %b, %a, !dbg !807
   %2 = xor i32 %b, %a, !dbg !807
   %3 = lshr i32 %2, 1, !dbg !807
@@ -1672,7 +1672,7 @@ define i32 @__uhadd(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1)
   ret i32 %4, !dbg !807
 }
 
-define i32 @__urhadd(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__urhadd(i32 %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = or i32 %b, %a, !dbg !810
   %2 = xor i32 %b, %a, !dbg !810
   %3 = lshr i32 %2, 1, !dbg !810
@@ -1680,7 +1680,7 @@ define i32 @__urhadd(i32 %a, i32 %b) nounwind readnone alwaysinline alignstack(1
   ret i32 %4, !dbg !810
 }
 
-define float @__frsqrt_rn(float %a) nounwind alwaysinline alignstack(1) {
+define float @__frsqrt_rn(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !813
   %2 = fcmp olt float %1, 0x3810000000000000, !dbg !814
   br i1 %2, label %3, label %5, !dbg !814
@@ -1730,7 +1730,7 @@ define float @__frsqrt_rn(float %a) nounwind alwaysinline alignstack(1) {
   ret float %res.0, !dbg !845
 }
 
-define i32 @__ffs(i32 %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__ffs(i32 %a) nounwind readnone alignstack(1) {
   %1 = sub i32 0, %a, !dbg !846
   %2 = and i32 %a, %1, !dbg !846
   %3 = tail call i32 @llvm.nvvm.clz.i(i32 %2) nounwind, !dbg !849
@@ -1738,7 +1738,7 @@ define i32 @__ffs(i32 %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !846
 }
 
-define i32 @__ffsll(i64 %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__ffsll(i64 %a) nounwind readnone alignstack(1) {
   %1 = sub i64 0, %a, !dbg !850
   %2 = and i64 %a, %1, !dbg !850
   %3 = tail call i32 @llvm.nvvm.clz.ll(i64 %2) nounwind, !dbg !853
@@ -1746,33 +1746,33 @@ define i32 @__ffsll(i64 %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !850
 }
 
-define float @rintf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @rintf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.round.f(float %a) nounwind, !dbg !854
   ret float %1, !dbg !855
 }
 
-define i64 @lrintf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @lrintf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ll.rn(float %a) nounwind, !dbg !859
   ret i64 %1, !dbg !860
 }
 
-define i64 @llrintf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @llrintf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.f2ll.rn(float %a) nounwind, !dbg !863
   ret i64 %1, !dbg !864
 }
 
-define float @nearbyintf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @nearbyintf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.round.f(float %a) nounwind, !dbg !867
   ret float %1, !dbg !868
 }
 
-define i32 @__signbitf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__signbitf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !871
   %2 = lshr i32 %1, 31, !dbg !872
   ret i32 %2, !dbg !872
 }
 
-define float @copysignf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @copysignf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %b) nounwind, !dbg !875
   %2 = and i32 %1, -2147483648, !dbg !876
   %3 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !875
@@ -1782,7 +1782,7 @@ define float @copysignf(float %a, float %b) nounwind readnone alwaysinline align
   ret float %6, !dbg !876
 }
 
-define i32 @__finitef(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__finitef(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !880
   %2 = tail call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !884
   %3 = fcmp olt float %1, %2, !dbg !881
@@ -1790,7 +1790,7 @@ define i32 @__finitef(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !881
 }
 
-define i32 @__isinff(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isinff(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !885
   %2 = tail call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !889
   %3 = fcmp oeq float %1, %2, !dbg !886
@@ -1798,7 +1798,7 @@ define i32 @__isinff(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !886
 }
 
-define i32 @__isnanf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isnanf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !890
   %2 = tail call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !894
   %3 = fcmp ugt float %1, %2, !dbg !891
@@ -1806,7 +1806,7 @@ define i32 @__isnanf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !891
 }
 
-define float @nextafterf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @nextafterf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !895
   %2 = tail call i32 @llvm.nvvm.bitcast.f2i(float %b) nounwind, !dbg !899
   %3 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !901
@@ -1869,7 +1869,7 @@ define float @nextafterf(float %a, float %b) nounwind readnone alwaysinline alig
   ret float %retval.0, !dbg !925
 }
 
-define i64 @__internal_nan_kernel(i8* %s) nounwind readonly alwaysinline alignstack(1) {
+define i64 @__internal_nan_kernel(i8* %s) nounwind readonly alignstack(1) {
   %1 = icmp eq i8* %s, null, !dbg !926
   br i1 %1, label %.critedge14, label %2, !dbg !926
 
@@ -2036,22 +2036,22 @@ define i64 @__internal_nan_kernel(i8* %s) nounwind readonly alwaysinline alignst
   ret i64 %61, !dbg !992
 }
 
-define float @nanf(i8* nocapture %tagp) nounwind readnone alwaysinline alignstack(1) {
+define float @nanf(i8* nocapture %tagp) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.bitcast.i2f(i32 2147483647) nounwind, !dbg !993
   ret float %1, !dbg !994
 }
 
-define float @__internal_fmad(float %a, float %b, float %c) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_fmad(float %a, float %b, float %c) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rn.f(float %a, float %b, float %c) nounwind, !dbg !997
   ret float %1, !dbg !998
 }
 
-define float @__internal_fast_rcpf(float %a) nounwind alwaysinline alignstack(1) {
+define float @__internal_fast_rcpf(float %a) nounwind alignstack(1) {
   %1 = tail call float asm "rcp.approx.ftz.f32 $0,$1;", "=f,f"(float %a) nounwind, !dbg !1001
   ret float %1, !dbg !1004
 }
 
-define float @__internal_atanhf_kernel(float %a_1, float %a_2) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_atanhf_kernel(float %a_1, float %a_2) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.add.rn.f(float %a_1, float %a_2) nounwind, !dbg !1005
   %2 = fmul float %1, %1, !dbg !1009
   %3 = tail call float @llvm.nvvm.fma.rn.f(float 0x3F640C7860000000, float %2, float 0x3F89897C00000000) nounwind, !dbg !1010
@@ -2062,7 +2062,7 @@ define float @__internal_atanhf_kernel(float %a_1, float %a_2) nounwind readnone
   ret float %7, !dbg !1021
 }
 
-define float @__internal_atanf_kernel(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_atanf_kernel(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.mul.rn.f(float %a, float %a) nounwind, !dbg !1022
   %2 = tail call float @llvm.nvvm.fma.rn.f(float %1, float 0xBFEA58FD40000000, float 0xC016B31060000000) nounwind, !dbg !1026
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float %1, float 0xC01A4320E0000000) nounwind, !dbg !1029
@@ -2076,7 +2076,7 @@ define float @__internal_atanf_kernel(float %a) nounwind readnone alwaysinline a
   ret float %10, !dbg !1045
 }
 
-define float @__internal_tan_kernel(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_tan_kernel(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, %a, !dbg !1046
   %2 = tail call float @llvm.nvvm.fma.rn.f(float 0x3F70DA8DA0000000, float %1, float 0xBFEA56FE80000000) nounwind, !dbg !1049
   %3 = fadd float %1, 0xC003C13A00000000, !dbg !1052
@@ -2087,7 +2087,7 @@ define float @__internal_tan_kernel(float %a) nounwind readnone alwaysinline ali
   ret float %7, !dbg !1059
 }
 
-define float @__internal_accurate_logf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_accurate_logf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !1060
   %2 = fcmp ogt float %a, 0.000000e+00, !dbg !1064
   br i1 %2, label %3, label %.critedge, !dbg !1064
@@ -2151,7 +2151,7 @@ define float @__internal_accurate_logf(float %a) nounwind readnone alwaysinline 
   ret float %z.0, !dbg !1111
 }
 
-define %struct.float2.0 @__internal_log_ep(float %a) nounwind readnone alwaysinline alignstack(1) {
+define %struct.float2.0 @__internal_log_ep(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !1112
   %2 = lshr i32 %1, 23, !dbg !1113
   %3 = and i32 %2, 255, !dbg !1113
@@ -2234,7 +2234,7 @@ define %struct.float2.0 @__internal_log_ep(float %a) nounwind readnone alwaysinl
   ret %struct.float2.0 %insert2, !dbg !1177
 }
 
-define float @__internal_accurate_log2f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_accurate_log2f(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !1178
   %2 = fcmp ogt float %a, 0.000000e+00, !dbg !1183
   br i1 %2, label %3, label %.critedge.i, !dbg !1183
@@ -2299,7 +2299,7 @@ __internal_accurate_logf.exit:                    ; preds = %21, %.critedge.i
   ret float %38, !dbg !1180
 }
 
-define %struct.float2.0 @__internal_dsmul(%struct.float2.0 %x, %struct.float2.0 %y) nounwind readnone alwaysinline alignstack(1) {
+define %struct.float2.0 @__internal_dsmul(%struct.float2.0 %x, %struct.float2.0 %y) nounwind readnone alignstack(1) {
   %x5 = extractvalue %struct.float2.0 %x, 0
   %x6 = extractvalue %struct.float2.0 %x, 1
   %y3 = extractvalue %struct.float2.0 %y, 0
@@ -2318,7 +2318,7 @@ define %struct.float2.0 @__internal_dsmul(%struct.float2.0 %x, %struct.float2.0 
   ret %struct.float2.0 %insert2, !dbg !1237
 }
 
-define float @__internal_trig_reduction_slowpath(float %a, i32* nocapture %quadrant) nounwind alwaysinline alignstack(1) {
+define float @__internal_trig_reduction_slowpath(float %a, i32* nocapture %quadrant) nounwind alignstack(1) {
   %result = alloca [7 x i32], align 4
   %1 = call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !1238
   %2 = lshr i32 %1, 23, !dbg !1242
@@ -2476,7 +2476,7 @@ define float @__internal_trig_reduction_slowpath(float %a, i32* nocapture %quadr
   ret float %115, !dbg !1297
 }
 
-define float @__internal_trig_reduction_kernel(float %a, i32* nocapture %quadrant) nounwind alwaysinline alignstack(1) {
+define float @__internal_trig_reduction_kernel(float %a, i32* nocapture %quadrant) nounwind alignstack(1) {
   %result.i = alloca [7 x i32], align 4
   %1 = fmul float %a, 0x3FE45F3060000000, !dbg !1298
   %2 = call i32 @llvm.nvvm.f2i.rn(float %1) nounwind, !dbg !1301
@@ -2654,7 +2654,7 @@ __internal_trig_reduction_slowpath.exit:          ; preds = %108, %111
   ret float %t.0, !dbg !1360
 }
 
-define float @__internal_expf_arg_reduction(float %a, float* nocapture %i) nounwind alwaysinline alignstack(1) {
+define float @__internal_expf_arg_reduction(float %a, float* nocapture %i) nounwind alignstack(1) {
   %1 = fmul float %a, 0x3FF7154760000000, !dbg !1361
   %2 = tail call float @llvm.nvvm.trunc.f(float %1) nounwind, !dbg !1364
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float 0xBFE62E4000000000, float %a) nounwind, !dbg !1365
@@ -2664,7 +2664,7 @@ define float @__internal_expf_arg_reduction(float %a, float* nocapture %i) nounw
   ret float %5, !dbg !1373
 }
 
-define float @__internal_expf_kernel(float %a, float %scale) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_expf_kernel(float %a, float %scale) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x3FF7154760000000, !dbg !1374
   %2 = tail call float @llvm.nvvm.trunc.f(float %1) nounwind, !dbg !1378
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float 0xBFE62E4000000000, float %a) nounwind, !dbg !1379
@@ -2677,7 +2677,7 @@ define float @__internal_expf_kernel(float %a, float %scale) nounwind readnone a
   ret float %9, !dbg !1389
 }
 
-define float @__internal_expf_add_kernel(float %a, float %addend) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_expf_add_kernel(float %a, float %addend) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x3FF7154760000000, !dbg !1390
   %2 = tail call float @llvm.nvvm.trunc.f(float %1) nounwind, !dbg !1394
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float 0xBFE62E4000000000, float %a) nounwind, !dbg !1395
@@ -2689,7 +2689,7 @@ define float @__internal_expf_add_kernel(float %a, float %addend) nounwind readn
   ret float %8, !dbg !1407
 }
 
-define float @__internal_accurate_expf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_accurate_expf(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x3FF7154760000000, !dbg !1408
   %2 = tail call float @llvm.nvvm.trunc.f(float %1) nounwind, !dbg !1413
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float 0xBFE62E4000000000, float %a) nounwind, !dbg !1414
@@ -2713,7 +2713,7 @@ define float @__internal_accurate_expf(float %a) nounwind readnone alwaysinline 
   ret float %z.1, !dbg !1429
 }
 
-define float @__internal_accurate_exp10f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_accurate_exp10f(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x400A934F00000000, !dbg !1430
   %2 = tail call float @llvm.nvvm.trunc.f(float %1) nounwind, !dbg !1433
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float 0xBFD3441000000000, float %a) nounwind, !dbg !1434
@@ -2736,7 +2736,7 @@ define float @__internal_accurate_exp10f(float %a) nounwind readnone alwaysinlin
   ret float %z.1, !dbg !1449
 }
 
-define float @__internal_lgammaf_pos(float %a) nounwind alwaysinline alignstack(1) {
+define float @__internal_lgammaf_pos(float %a) nounwind alignstack(1) {
   %1 = fcmp ult float %a, 3.000000e+00, !dbg !1450
   br i1 %1, label %66, label %2, !dbg !1450
 
@@ -2948,7 +2948,7 @@ __internal_accurate_logf.exit:                    ; preds = %124, %.critedge.i
   ret float %t.0, !dbg !1687
 }
 
-define float @__internal_sin_kernel(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_sin_kernel(float %x) nounwind readnone alignstack(1) {
   %1 = fmul float %x, %x, !dbg !1688
   %2 = tail call float @llvm.nvvm.fma.rn.f(float 0xBF29943F20000000, float %1, float 0x3F811073C0000000) nounwind, !dbg !1691
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float %1, float 0xBFC5555460000000) nounwind, !dbg !1694
@@ -2957,7 +2957,7 @@ define float @__internal_sin_kernel(float %x) nounwind readnone alwaysinline ali
   ret float %5, !dbg !1703
 }
 
-define float @__internal_cos_kernel(float %x) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_cos_kernel(float %x) nounwind readnone alignstack(1) {
   %1 = fmul float %x, %x, !dbg !1704
   %2 = tail call float @llvm.nvvm.fma.rn.f(float 0x3EF99EB9C0000000, float %1, float 0xBF56C0C340000000) nounwind, !dbg !1707
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float %1, float 0x3FA55554A0000000) nounwind, !dbg !1710
@@ -2966,7 +2966,7 @@ define float @__internal_cos_kernel(float %x) nounwind readnone alwaysinline ali
   ret float %5, !dbg !1719
 }
 
-define float @__internal_sin_cos_kernel(float %x, i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_sin_cos_kernel(float %x, i32 %i) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.mul.rn.f(float %x, float %x) nounwind, !dbg !1720
   %2 = and i32 %i, 1, !dbg !1724
   %3 = icmp eq i32 %2, 0, !dbg !1724
@@ -3001,7 +3001,7 @@ define float @__internal_sin_cos_kernel(float %x, i32 %i) nounwind readnone alwa
   ret float %x.addr.1, !dbg !1760
 }
 
-define float @__internal_accurate_sinf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_accurate_sinf(float %a) nounwind readnone alignstack(1) {
   %result.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !1761
   %2 = call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !1767
@@ -3220,7 +3220,7 @@ __internal_sin_cos_kernel.exit:                   ; preds = %145, %148
   ret float %x.addr.1.i, !dbg !1860
 }
 
-define float @__internal_accurate_cosf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_accurate_cosf(float %a) nounwind readnone alignstack(1) {
   %result.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !1861
   %2 = call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !1867
@@ -3440,7 +3440,7 @@ __internal_sin_cos_kernel.exit:                   ; preds = %146, %149
   ret float %x.addr.1.i, !dbg !1961
 }
 
-define float @__cos_offset_f(float %a, float %offset) nounwind readnone alwaysinline alignstack(1) {
+define float @__cos_offset_f(float %a, float %offset) nounwind readnone alignstack(1) {
   %result.i.i = alloca [7 x i32], align 4
   %1 = fmul float %a, 0x3FE45F3060000000, !dbg !1962
   %2 = call i32 @llvm.nvvm.f2i.rn(float %1) nounwind, !dbg !1966
@@ -3837,7 +3837,7 @@ __internal_accurate_cosf.exit:                    ; preds = %276, %279
   ret float %x.addr.1.i.i, !dbg !2026
 }
 
-define float @sinf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @sinf(float %a) nounwind readnone alignstack(1) {
   %result.i.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2120
   %2 = call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !2126
@@ -4056,7 +4056,7 @@ __internal_accurate_sinf.exit:                    ; preds = %145, %148
   ret float %x.addr.1.i.i, !dbg !2123
 }
 
-define float @cosf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @cosf(float %a) nounwind readnone alignstack(1) {
   %result.i.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2218
   %2 = call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !2224
@@ -4276,7 +4276,7 @@ __internal_accurate_cosf.exit:                    ; preds = %146, %149
   ret float %x.addr.1.i.i, !dbg !2221
 }
 
-define void @sincosf(float %a, float* nocapture %sptr, float* nocapture %cptr) nounwind alwaysinline alignstack(1) {
+define void @sincosf(float %a, float* nocapture %sptr, float* nocapture %cptr) nounwind alignstack(1) {
   %result.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2317
   %2 = call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !2323
@@ -4500,7 +4500,7 @@ __internal_trig_reduction_kernel.exit:            ; preds = %6, %__internal_trig
   ret void, !dbg !2425
 }
 
-define float @sinpif(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @sinpif(float %a) nounwind readnone alignstack(1) {
   %1 = fadd float %a, %a, !dbg !2426
   %2 = tail call float @llvm.nvvm.round.f(float %1) nounwind, !dbg !2429
   %3 = fptosi float %2 to i32, !dbg !2431
@@ -4552,7 +4552,7 @@ __internal_sin_cos_kernel.exit:                   ; preds = %21, %24
   ret float %z.0, !dbg !2474
 }
 
-define float @cospif(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @cospif(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2475
   %2 = fcmp ogt float %1, 0x4170000000000000, !dbg !2476
   br i1 %2, label %3, label %5, !dbg !2476
@@ -4605,7 +4605,7 @@ __internal_sin_cos_kernel.exit:                   ; preds = %27, %30
   ret float %x.addr.1.i, !dbg !2524
 }
 
-define void @sincospif(float %a, float* nocapture %sptr, float* nocapture %cptr) nounwind alwaysinline alignstack(1) {
+define void @sincospif(float %a, float* nocapture %sptr, float* nocapture %cptr) nounwind alignstack(1) {
   %1 = fadd float %a, %a, !dbg !2525
   %2 = tail call float @llvm.nvvm.round.f(float %1) nounwind, !dbg !2528
   %3 = fptosi float %2 to i32, !dbg !2530
@@ -4672,7 +4672,7 @@ define void @sincospif(float %a, float* nocapture %sptr, float* nocapture %cptr)
   ret void, !dbg !2590
 }
 
-define float @tanf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @tanf(float %a) nounwind readnone alignstack(1) {
   %result.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2591
   %2 = call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !2597
@@ -4878,7 +4878,7 @@ __internal_trig_reduction_kernel.exit:            ; preds = %6, %__internal_trig
   ret float %z.0, !dbg !2675
 }
 
-define float @log2f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @log2f(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !2676
   %2 = fcmp ogt float %a, 0.000000e+00, !dbg !2682
   br i1 %2, label %3, label %.critedge.i.i, !dbg !2682
@@ -4943,7 +4943,7 @@ __internal_accurate_log2f.exit:                   ; preds = %21, %.critedge.i.i
   ret float %38, !dbg !2679
 }
 
-define float @expf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @expf(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x3FF7154760000000, !dbg !2722
   %2 = tail call float @llvm.nvvm.trunc.f(float %1) nounwind, !dbg !2728
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float 0xBFE62E4000000000, float %a) nounwind, !dbg !2729
@@ -4967,7 +4967,7 @@ __internal_accurate_expf.exit:                    ; preds = %0, %12
   ret float %z.1.i, !dbg !2725
 }
 
-define float @exp10f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @exp10f(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x400A934F00000000, !dbg !2742
   %2 = tail call float @llvm.nvvm.trunc.f(float %1) nounwind, !dbg !2746
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float 0xBFD3441000000000, float %a) nounwind, !dbg !2747
@@ -4990,7 +4990,7 @@ __internal_accurate_exp10f.exit:                  ; preds = %0, %11
   ret float %z.1.i, !dbg !2743
 }
 
-define float @coshf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @coshf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2760
   %2 = fmul float %1, 0x3FF7154760000000, !dbg !2764
   %3 = tail call float @llvm.nvvm.trunc.f(float %2) nounwind, !dbg !2767
@@ -5015,7 +5015,7 @@ define float @coshf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %z.0, !dbg !2787
 }
 
-define float @sinhf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @sinhf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2788
   %2 = fcmp ult float %1, 1.000000e+00, !dbg !2792
   br i1 %2, label %25, label %3, !dbg !2792
@@ -5063,7 +5063,7 @@ define float @sinhf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %z.1, !dbg !2836
 }
 
-define float @tanhf(float %a) nounwind alwaysinline alignstack(1) {
+define float @tanhf(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2837
   %2 = fcmp ult float %1, 0x3FE19999A0000000, !dbg !2841
   br i1 %2, label %21, label %3, !dbg !2841
@@ -5108,7 +5108,7 @@ define float @tanhf(float %a) nounwind alwaysinline alignstack(1) {
   ret float %s.1, !dbg !2887
 }
 
-define float @atan2f(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @atan2f(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %b) nounwind, !dbg !2888
   %2 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2892
   %3 = fcmp oeq float %2, 0.000000e+00, !dbg !2894
@@ -5194,7 +5194,7 @@ define float @atan2f(float %a, float %b) nounwind readnone alwaysinline alignsta
   ret float %t0.2, !dbg !2952
 }
 
-define float @atanf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @atanf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !2953
   %2 = fcmp ogt float %1, 1.000000e+00, !dbg !2957
   br i1 %2, label %3, label %5, !dbg !2957
@@ -5240,7 +5240,7 @@ define float @atanf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %t1.2, !dbg !2994
 }
 
-define float @__internal_asinf_kernel(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_asinf_kernel(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, %a, !dbg !2995
   %2 = tail call float @llvm.nvvm.fma.rn.f(float 0x3FAA7F2820000000, float %1, float 0x3F929A5D20000000) nounwind, !dbg !2998
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float %1, float 0x3FA7F083E0000000) nounwind, !dbg !3001
@@ -5251,7 +5251,7 @@ define float @__internal_asinf_kernel(float %a) nounwind readnone alwaysinline a
   ret float %7, !dbg !3014
 }
 
-define float @asinf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @asinf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3015
   %2 = fsub float 1.000000e+00, %1, !dbg !3019
   %3 = fmul float %2, 5.000000e-01, !dbg !3020
@@ -5284,7 +5284,7 @@ define float @asinf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %t1.1, !dbg !3054
 }
 
-define float @acosf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @acosf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3055
   %2 = fsub float 1.000000e+00, %1, !dbg !3059
   %3 = fmul float %2, 5.000000e-01, !dbg !3060
@@ -5323,7 +5323,7 @@ define float @acosf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %t1.0, !dbg !3088
 }
 
-define float @logf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @logf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !3089
   %2 = fcmp ogt float %a, 0.000000e+00, !dbg !3094
   br i1 %2, label %3, label %.critedge.i, !dbg !3094
@@ -5387,7 +5387,7 @@ __internal_accurate_logf.exit:                    ; preds = %21, %.critedge.i
   ret float %z.0.i, !dbg !3091
 }
 
-define float @log10f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @log10f(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !3134
   %2 = fcmp ogt float %a, 0.000000e+00, !dbg !3139
   br i1 %2, label %3, label %.critedge.i, !dbg !3139
@@ -5452,7 +5452,7 @@ __internal_accurate_logf.exit:                    ; preds = %21, %.critedge.i
   ret float %38, !dbg !3136
 }
 
-define float @log1pf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @log1pf(float %a) nounwind readnone alignstack(1) {
   %1 = fcmp oge float %a, 0xBFD9374BC0000000, !dbg !3179
   %2 = fcmp ole float %a, 0x3FE4CCCCC0000000, !dbg !3179
   %or.cond = and i1 %1, %2, !dbg !3179
@@ -5537,7 +5537,7 @@ __internal_accurate_logf.exit:                    ; preds = %.critedge.i, %36, %
   ret float %t.0, !dbg !3248
 }
 
-define float @acoshf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @acoshf(float %a) nounwind readnone alignstack(1) {
   %1 = fadd float %a, -1.000000e+00, !dbg !3249
   %2 = tail call float @llvm.nvvm.fabs.f(float %1) nounwind, !dbg !3252
   %3 = fcmp ogt float %2, 8.388608e+06, !dbg !3253
@@ -5696,7 +5696,7 @@ log1pf.exit:                                      ; preds = %.critedge.i.i, %83,
   ret float %t.0, !dbg !3369
 }
 
-define float @asinhf(float %a) nounwind alwaysinline alignstack(1) {
+define float @asinhf(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3370
   %2 = fcmp ogt float %1, 0x47D0000000000000, !dbg !3374
   br i1 %2, label %3, label %7, !dbg !3374
@@ -5812,7 +5812,7 @@ log1pf.exit:                                      ; preds = %.critedge.i.i, %49,
   ret float %t.1, !dbg !3461
 }
 
-define float @atanhf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @atanhf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3462
   %2 = fmul float %1, 2.000000e+00, !dbg !3466
   %3 = fsub float 1.000000e+00, %1, !dbg !3466
@@ -5917,7 +5917,7 @@ log1pf.exit:                                      ; preds = %7, %40, %.critedge.
   ret float %t.0, !dbg !3541
 }
 
-define float @expm1f(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @expm1f(float %a) nounwind readnone alignstack(1) {
   %1 = fmul float %a, 0x3FF7154760000000, !dbg !3542
   %2 = tail call float @llvm.nvvm.round.f(float %1) nounwind, !dbg !3545
   %3 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3547
@@ -5977,7 +5977,7 @@ define float @expm1f(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %u.3, !dbg !3593
 }
 
-define float @hypotf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @hypotf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3594
   %2 = tail call float @llvm.nvvm.fabs.f(float %b) nounwind, !dbg !3598
   %3 = tail call float @llvm.nvvm.fmax.f(float %1, float %2) nounwind, !dbg !3600
@@ -6030,7 +6030,7 @@ define float @hypotf(float %a, float %b) nounwind readnone alwaysinline alignsta
   ret float %t.3, !dbg !3629
 }
 
-define float @cbrtf(float %a) nounwind alwaysinline alignstack(1) {
+define float @cbrtf(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3630
   %2 = tail call float @llvm.nvvm.lg2.approx.f(float %1) nounwind, !dbg !3634
   %3 = fmul float %2, 0x3FD5555560000000, !dbg !3636
@@ -6056,7 +6056,7 @@ define float @cbrtf(float %a) nounwind alwaysinline alignstack(1) {
   ret float %t.1, !dbg !3654
 }
 
-define float @rcbrtf(float %a) nounwind alwaysinline alignstack(1) {
+define float @rcbrtf(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3655
   %2 = tail call float @llvm.nvvm.lg2.approx.f(float %1) nounwind, !dbg !3659
   %3 = fmul float %2, 0xBFD5555560000000, !dbg !3661
@@ -6090,7 +6090,7 @@ define float @rcbrtf(float %a) nounwind alwaysinline alignstack(1) {
   ret float %t.1, !dbg !3676
 }
 
-define float @j0f(float %a) nounwind alwaysinline alignstack(1) {
+define float @j0f(float %a) nounwind alignstack(1) {
   %result.i.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3677
   %2 = fcmp ugt float %1, 8.000000e+00, !dbg !3681
@@ -6540,7 +6540,7 @@ __cos_offset_f.exit:                              ; preds = %318, %321
   ret float %r.0, !dbg !3918
 }
 
-define float @j1f(float %a) nounwind alwaysinline alignstack(1) {
+define float @j1f(float %a) nounwind alignstack(1) {
   %result.i.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !3919
   %2 = fcmp ugt float %1, 0x401F666660000000, !dbg !3923
@@ -7010,7 +7010,7 @@ __cos_offset_f.exit:                              ; preds = %315, %318
   ret float %r.2, !dbg !4168
 }
 
-define float @y0f(float %a) nounwind alwaysinline alignstack(1) {
+define float @y0f(float %a) nounwind alignstack(1) {
   %result.i.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !4169
   %2 = fcmp ugt float %1, 0x3FDC982EC0000000, !dbg !4173
@@ -8019,7 +8019,7 @@ __cos_offset_f.exit:                              ; preds = %711, %714
   ret float %r.1, !dbg !4768
 }
 
-define float @y1f(float %a) nounwind alwaysinline alignstack(1) {
+define float @y1f(float %a) nounwind alignstack(1) {
   %result.i.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !4769
   %2 = fcmp olt float %1, 0x3810000000000000, !dbg !4773
@@ -9055,7 +9055,7 @@ __cos_offset_f.exit:                              ; preds = %724, %727
   ret float %r.1, !dbg !5369
 }
 
-define float @ynf(i32 %n, float %a) nounwind alwaysinline alignstack(1) {
+define float @ynf(i32 %n, float %a) nounwind alignstack(1) {
   %result.i.i.i.i = alloca [7 x i32], align 4
   %1 = call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !5370
   %2 = fcmp olt float %1, 0x3810000000000000, !dbg !5375
@@ -13178,7 +13178,7 @@ y0f.exit184:                                      ; preds = %._crit_edge, %2899,
   ret float %retval.0, !dbg !7725
 }
 
-define float @jnf(i32 %n, float %a) nounwind alwaysinline alignstack(1) {
+define float @jnf(i32 %n, float %a) nounwind alignstack(1) {
   %result.i.i.i.i = alloca [7 x i32], align 4
   switch i32 %n, label %1456 [
     i32 0, label %1
@@ -16227,7 +16227,7 @@ y0f.exit:                                         ; preds = %j0f.exit.preheader,
   ret float %retval.0, !dbg !9407
 }
 
-define float @erff(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @erff(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !9408
   %2 = fcmp ult float %1, 1.000000e+00, !dbg !9412
   br i1 %2, label %30, label %3, !dbg !9412
@@ -16277,7 +16277,7 @@ define float @erff(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %a.addr.0, !dbg !9472
 }
 
-define float @__internal_erfinv_poly(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_erfinv_poly(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rn.f(float 0xBDF14C6E00000000, float %a, float 0x3E443EC8A0000000) nounwind, !dbg !9473
   %2 = tail call float @llvm.nvvm.fma.rn.f(float %1, float %a, float 0xBE802DFB40000000) nounwind, !dbg !9478
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float %a, float 0x3E8D1F08C0000000) nounwind, !dbg !9481
@@ -16290,7 +16290,7 @@ define float @__internal_erfinv_poly(float %a) nounwind readnone alwaysinline al
   ret float %9, !dbg !9502
 }
 
-define float @erfinvf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @erfinvf(float %a) nounwind readnone alignstack(1) {
   %1 = fsub float -0.000000e+00, %a, !dbg !9503
   %2 = tail call float @llvm.nvvm.fma.rn.f(float %a, float %1, float 1.000000e+00) nounwind, !dbg !9506
   %3 = tail call float @llvm.nvvm.lg2.approx.f(float %2) nounwind, !dbg !9507
@@ -16332,7 +16332,7 @@ define float @erfinvf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %t.0, !dbg !9563
 }
 
-define float @__internal_erfcxf_kernel(float %a) nounwind alwaysinline alignstack(1) {
+define float @__internal_erfcxf_kernel(float %a) nounwind alignstack(1) {
   %1 = fadd float %a, -4.000000e+00, !dbg !9564
   %2 = fadd float %a, 4.000000e+00, !dbg !9567
   %3 = tail call float asm "rcp.approx.ftz.f32 $0,$1;", "=f,f"(float %2) nounwind, !dbg !9568
@@ -16362,7 +16362,7 @@ define float @__internal_erfcxf_kernel(float %a) nounwind alwaysinline alignstac
   ret float %26, !dbg !9609
 }
 
-define float @erfcf(float %a) nounwind alwaysinline alignstack(1) {
+define float @erfcf(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !9610
   %2 = fadd float %1, -4.000000e+00, !dbg !9614
   %3 = fadd float %1, 4.000000e+00, !dbg !9616
@@ -16419,7 +16419,7 @@ define float @erfcf(float %a) nounwind alwaysinline alignstack(1) {
   ret float %48, !dbg !9680
 }
 
-define float @erfcxf(float %a) nounwind alwaysinline alignstack(1) {
+define float @erfcxf(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !9681
   %2 = fcmp olt float %1, 0x40241C2900000000, !dbg !9685
   br i1 %2, label %3, label %30, !dbg !9685
@@ -16513,7 +16513,7 @@ __internal_accurate_expf.exit:                    ; preds = %.__internal_accurat
   ret float %t1.1, !dbg !9778
 }
 
-define float @erfcinvf(float %a) nounwind alwaysinline alignstack(1) {
+define float @erfcinvf(float %a) nounwind alignstack(1) {
   %1 = fsub float -0.000000e+00, %a, !dbg !9779
   %2 = tail call float @llvm.nvvm.add.rn.f(float 2.000000e+00, float %1) nounwind, !dbg !9782
   %3 = fcmp oge float %a, 0x3F6BDA5120000000, !dbg !9783
@@ -16564,7 +16564,7 @@ define float @erfcinvf(float %a) nounwind alwaysinline alignstack(1) {
   ret float %t.0, !dbg !9858
 }
 
-define float @normcdfinvf(float %a) nounwind alwaysinline alignstack(1) {
+define float @normcdfinvf(float %a) nounwind alignstack(1) {
   %1 = fadd float %a, %a, !dbg !9859
   %2 = fsub float -0.000000e+00, %1, !dbg !9862
   %3 = tail call float @llvm.nvvm.add.rn.f(float 2.000000e+00, float %2) nounwind, !dbg !9863
@@ -16617,7 +16617,7 @@ erfcinvf.exit:                                    ; preds = %6, %.critedge.i, %3
   ret float %36, !dbg !9859
 }
 
-define float @normcdff(float %a) nounwind alwaysinline alignstack(1) {
+define float @normcdff(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !9934
   %2 = fcmp ogt float %1, 1.450000e+01, !dbg !9935
   br i1 %2, label %3, label %10, !dbg !9935
@@ -16708,7 +16708,7 @@ erfcf.exit:                                       ; preds = %10, %60
   ret float %71, !dbg !10028
 }
 
-define float @lgammaf(float %a) nounwind alwaysinline alignstack(1) {
+define float @lgammaf(float %a) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !10029
   %2 = fcmp ult float %1, 3.000000e+00, !dbg !10033
   br i1 %2, label %67, label %3, !dbg !10033
@@ -17107,7 +17107,7 @@ __internal_accurate_logf.exit:                    ; preds = %237, %.critedge.i
   ret float %retval.0, !dbg !10389
 }
 
-define float @ldexpf(float %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define float @ldexpf(float %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !10390
   %2 = fcmp oeq float %1, 0.000000e+00, !dbg !10394
   br i1 %2, label %.critedge1, label %3, !dbg !10394
@@ -17172,7 +17172,7 @@ define float @ldexpf(float %a, i32 %b) nounwind readnone alwaysinline alignstack
   ret float %a.addr.0, !dbg !10424
 }
 
-define float @scalbnf(float %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define float @scalbnf(float %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !10425
   %2 = fcmp oeq float %1, 0.000000e+00, !dbg !10430
   br i1 %2, label %.critedge1.i, label %3, !dbg !10430
@@ -17237,7 +17237,7 @@ ldexpf.exit:                                      ; preds = %.critedge1.i, %8, %
   ret float %a.addr.0.i, !dbg !10427
 }
 
-define float @scalblnf(float %a, i64 %b) nounwind readnone alwaysinline alignstack(1) {
+define float @scalblnf(float %a, i64 %b) nounwind readnone alignstack(1) {
   %1 = icmp sgt i64 %b, 2147483647, !dbg !10450
   br i1 %1, label %5, label %2, !dbg !10450
 
@@ -17313,7 +17313,7 @@ scalbnf.exit:                                     ; preds = %.critedge1.i.i, %13
   ret float %a.addr.0.i.i, !dbg !10462
 }
 
-define float @frexpf(float %a, i32* nocapture %b) nounwind alwaysinline alignstack(1) {
+define float @frexpf(float %a, i32* nocapture %b) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !10483
   %2 = fcmp olt float %1, 0x3810000000000000, !dbg !10487
   br i1 %2, label %3, label %5, !dbg !10487
@@ -17352,7 +17352,7 @@ define float @frexpf(float %a, i32* nocapture %b) nounwind alwaysinline alignsta
   ret float %a.addr.1, !dbg !10503
 }
 
-define float @modff(float %a, float* nocapture %b) nounwind alwaysinline alignstack(1) {
+define float @modff(float %a, float* nocapture %b) nounwind alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !10504
   %2 = tail call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !10510
   %3 = fcmp olt float %1, %2, !dbg !10505
@@ -17390,7 +17390,7 @@ define float @modff(float %a, float* nocapture %b) nounwind alwaysinline alignst
   ret float %t.0, !dbg !10531
 }
 
-define float @fmodf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @fmodf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !10532
   %2 = tail call float @llvm.nvvm.fabs.f(float %b) nounwind, !dbg !10536
   %3 = tail call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !10538
@@ -17565,7 +17565,7 @@ ldexpf.exit:                                      ; preds = %.critedge1.i, %43, 
   ret float %retval.0, !dbg !10602
 }
 
-define float @remainderf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @remainderf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !10603
   %2 = tail call float @llvm.nvvm.fabs.f(float %b) nounwind, !dbg !10607
   %3 = tail call float @llvm.nvvm.bitcast.i2f(i32 2139095040) nounwind, !dbg !10609
@@ -17753,7 +17753,7 @@ ldexpf.exit:                                      ; preds = %.critedge1.i, %43, 
   ret float %retval.0, !dbg !10679
 }
 
-define float @remquof(float %a, float %b, i32* nocapture %quo) nounwind alwaysinline alignstack(1) {
+define float @remquof(float %a, float %b, i32* nocapture %quo) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !10680
   %2 = tail call i32 @llvm.nvvm.bitcast.f2i(float %b) nounwind, !dbg !10680
   %3 = xor i32 %2, %1, !dbg !10681
@@ -17958,12 +17958,12 @@ ldexpf.exit:                                      ; preds = %.critedge1.i, %47, 
   ret float %retval.0, !dbg !10766
 }
 
-define float @fmaf(float %a, float %b, float %c) nounwind readnone alwaysinline alignstack(1) {
+define float @fmaf(float %a, float %b, float %c) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rn.f(float %a, float %b, float %c) nounwind, !dbg !10767
   ret float %1, !dbg !10768
 }
 
-define float @__internal_accurate_powf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_accurate_powf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !10771
   %2 = lshr i32 %1, 23, !dbg !10772
   %3 = and i32 %2, 255, !dbg !10772
@@ -18110,7 +18110,7 @@ __internal_accurate_expf.exit:                    ; preds = %.__internal_accurat
   ret float %t.0, !dbg !10882
 }
 
-define float @powif(float %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define float @powif(float %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.abs.i(i32 %b) nounwind, !dbg !10883
   br label %2, !dbg !10887
 
@@ -18149,7 +18149,7 @@ define float @powif(float %a, i32 %b) nounwind readnone alwaysinline alignstack(
   br label %2, !dbg !10900
 }
 
-define double @powi(double %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define double @powi(double %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.abs.i(i32 %b) nounwind, !dbg !10902
   br label %2, !dbg !10906
 
@@ -18188,7 +18188,7 @@ define double @powi(double %a, i32 %b) nounwind readnone alwaysinline alignstack
   br label %2, !dbg !10918
 }
 
-define float @powf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @powf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = fcmp oeq float %a, 1.000000e+00, !dbg !10919
   %2 = fcmp oeq float %b, 0.000000e+00, !dbg !10919
   %or.cond = or i1 %1, %2, !dbg !10919
@@ -18455,7 +18455,7 @@ __internal_accurate_powf.exit:                    ; preds = %__internal_accurate
   ret float %retval.0, !dbg !11084
 }
 
-define float @__internal_tgammaf_kernel(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @__internal_tgammaf_kernel(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fma.rn.f(float 0xBF515433C0000000, float %a, float 0x3F7D0D5480000000) nounwind, !dbg !11085
   %2 = tail call float @llvm.nvvm.fma.rn.f(float %1, float %a, float 0xBF83C53300000000) nounwind, !dbg !11090
   %3 = tail call float @llvm.nvvm.fma.rn.f(float %2, float %a, float 0xBFA597C940000000) nounwind, !dbg !11093
@@ -18467,7 +18467,7 @@ define float @__internal_tgammaf_kernel(float %a) nounwind readnone alwaysinline
   ret float %8, !dbg !11111
 }
 
-define float @tgammaf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @tgammaf(float %a) nounwind readnone alignstack(1) {
   %1 = fcmp ult float %a, 0.000000e+00, !dbg !11112
   br i1 %1, label %31, label %2, !dbg !11112
 
@@ -18611,7 +18611,7 @@ define float @tgammaf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %retval.0, !dbg !11229
 }
 
-define float @roundf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @roundf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !11230
   %2 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !11234
   %3 = and i32 %2, -2147483648, !dbg !11235
@@ -18633,7 +18633,7 @@ define float @roundf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %u.1, !dbg !11244
 }
 
-define i64 @__internal_llroundf_kernel(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @__internal_llroundf_kernel(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !11245
   %2 = shl i32 %1, 1, !dbg !11249
   %3 = icmp ugt i32 %2, -16777216, !dbg !11249
@@ -18686,7 +18686,7 @@ define i64 @__internal_llroundf_kernel(float %a) nounwind readnone alwaysinline 
   ret i64 %retval.0, !dbg !11269
 }
 
-define i64 @llroundf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @llroundf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !11270
   %2 = shl i32 %1, 1, !dbg !11275
   %3 = icmp ugt i32 %2, -16777216, !dbg !11275
@@ -18739,7 +18739,7 @@ __internal_llroundf_kernel.exit:                  ; preds = %0, %4, %6, %26
   ret i64 %retval.0.i, !dbg !11272
 }
 
-define i64 @lroundf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @lroundf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.bitcast.f2i(float %a) nounwind, !dbg !11287
   %2 = shl i32 %1, 1, !dbg !11293
   %3 = icmp ugt i32 %2, -16777216, !dbg !11293
@@ -18792,14 +18792,14 @@ llroundf.exit:                                    ; preds = %0, %4, %6, %26
   ret i64 %retval.0.i.i, !dbg !11290
 }
 
-define float @fdimf(float %a, float %b) nounwind readnone alwaysinline alignstack(1) {
+define float @fdimf(float %a, float %b) nounwind readnone alignstack(1) {
   %1 = fsub float %a, %b, !dbg !11305
   %2 = fcmp ugt float %a, %b, !dbg !11308
   %t.0 = select i1 %2, float %1, float 0.000000e+00, !dbg !11308
   ret float %t.0, !dbg !11310
 }
 
-define i32 @ilogbf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @ilogbf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !11311
   %2 = tail call i32 @llvm.nvvm.bitcast.f2i(float %1) nounwind, !dbg !11315
   %3 = icmp ult i32 %2, 8388608, !dbg !11317
@@ -18823,7 +18823,7 @@ define i32 @ilogbf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %..1, !dbg !11330
 }
 
-define float @logbf(float %a) nounwind readnone alwaysinline alignstack(1) {
+define float @logbf(float %a) nounwind readnone alignstack(1) {
   %1 = tail call float @llvm.nvvm.fabs.f(float %a) nounwind, !dbg !11331
   %2 = tail call i32 @llvm.nvvm.bitcast.f2i(float %1) nounwind, !dbg !11335
   %3 = icmp ult i32 %2, 8388608, !dbg !11337
@@ -18858,33 +18858,33 @@ define float @logbf(float %a) nounwind readnone alwaysinline alignstack(1) {
   ret float %res.0, !dbg !11355
 }
 
-define double @rint(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @rint(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.round.d(double %a) nounwind, !dbg !11356
   ret double %1, !dbg !11357
 }
 
-define i64 @lrint(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @lrint(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ll.rn(double %a) nounwind, !dbg !11361
   ret i64 %1, !dbg !11362
 }
 
-define i64 @llrint(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @llrint(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.d2ll.rn(double %a) nounwind, !dbg !11365
   ret i64 %1, !dbg !11366
 }
 
-define double @nearbyint(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @nearbyint(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.round.d(double %a) nounwind, !dbg !11369
   ret double %1, !dbg !11370
 }
 
-define i32 @__signbitd(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__signbitd(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11373
   %2 = lshr i32 %1, 31, !dbg !11374
   ret i32 %2, !dbg !11374
 }
 
-define i32 @__isfinited(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isfinited(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11377
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11381
   %3 = fcmp olt double %1, %2, !dbg !11378
@@ -18892,7 +18892,7 @@ define i32 @__isfinited(double %a) nounwind readnone alwaysinline alignstack(1) 
   ret i32 %4, !dbg !11378
 }
 
-define i32 @__isinfd(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isinfd(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11382
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11386
   %3 = fcmp oeq double %1, %2, !dbg !11383
@@ -18900,7 +18900,7 @@ define i32 @__isinfd(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !11383
 }
 
-define i32 @__isnand(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isnand(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11387
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11391
   %3 = fcmp ugt double %1, %2, !dbg !11388
@@ -18908,19 +18908,19 @@ define i32 @__isnand(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !11388
 }
 
-define i32 @__signbit(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__signbit(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11392
   %2 = lshr i32 %1, 31, !dbg !11393
   ret i32 %2, !dbg !11394
 }
 
-define i32 @__signbitl(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__signbitl(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11397
   %2 = lshr i32 %1, 31, !dbg !11398
   ret i32 %2, !dbg !11400
 }
 
-define i32 @__finite(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__finite(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11403
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11408
   %3 = fcmp olt double %1, %2, !dbg !11404
@@ -18928,7 +18928,7 @@ define i32 @__finite(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !11405
 }
 
-define i32 @__finitel(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__finitel(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11409
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11415
   %3 = fcmp olt double %1, %2, !dbg !11410
@@ -18936,7 +18936,7 @@ define i32 @__finitel(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !11412
 }
 
-define i32 @__isinf(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isinf(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11416
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11421
   %3 = fcmp oeq double %1, %2, !dbg !11417
@@ -18944,7 +18944,7 @@ define i32 @__isinf(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !11418
 }
 
-define i32 @__isinfl(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isinfl(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11422
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11428
   %3 = fcmp oeq double %1, %2, !dbg !11423
@@ -18952,7 +18952,7 @@ define i32 @__isinfl(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !11425
 }
 
-define i32 @__isnan(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isnan(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11429
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11434
   %3 = fcmp ugt double %1, %2, !dbg !11430
@@ -18960,7 +18960,7 @@ define i32 @__isnan(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !11431
 }
 
-define i32 @__isnanl(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @__isnanl(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11435
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11441
   %3 = fcmp ugt double %1, %2, !dbg !11436
@@ -18968,7 +18968,7 @@ define i32 @__isnanl(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %4, !dbg !11438
 }
 
-define double @copysign(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @copysign(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %b) nounwind, !dbg !11442
   %2 = tail call i32 @llvm.nvvm.d2i.lo(double %a) nounwind, !dbg !11446
   %3 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11448
@@ -18979,7 +18979,7 @@ define double @copysign(double %a, double %b) nounwind readnone alwaysinline ali
   ret double %7, !dbg !11452
 }
 
-define double @__internal_copysign_pos(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_copysign_pos(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %b) nounwind, !dbg !11453
   %2 = tail call i32 @llvm.nvvm.d2i.lo(double %a) nounwind, !dbg !11457
   %3 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11459
@@ -18989,7 +18989,7 @@ define double @__internal_copysign_pos(double %a, double %b) nounwind readnone a
   ret double %6, !dbg !11463
 }
 
-define double @__internal_fast_rcp(double %a) nounwind alwaysinline alignstack(1) {
+define double @__internal_fast_rcp(double %a) nounwind alignstack(1) {
   %1 = tail call float asm "cvt.rn.f32.f64     $0,$1;", "=f,d"(double %a) nounwind, !dbg !11464
   %2 = tail call float asm "rcp.approx.f32.ftz $0,$1;", "=f,f"(float %1) nounwind, !dbg !11467
   %3 = tail call double asm "cvt.f64.f32        $0,$1;", "=d,f"(float %2) nounwind, !dbg !11468
@@ -19000,7 +19000,7 @@ define double @__internal_fast_rcp(double %a) nounwind alwaysinline alignstack(1
   ret double %7, !dbg !11475
 }
 
-define double @__internal_fast_rsqrt(double %a) nounwind alwaysinline alignstack(1) {
+define double @__internal_fast_rsqrt(double %a) nounwind alignstack(1) {
   %1 = tail call float asm "cvt.rn.f32.f64       $0, $1;", "=f,d"(double %a) nounwind, !dbg !11476
   %2 = tail call float asm "rsqrt.approx.f32.ftz $0, $1;", "=f,f"(float %1) nounwind, !dbg !11479
   %3 = tail call double asm "cvt.f64.f32          $0, $1;", "=d,f"(float %2) nounwind, !dbg !11480
@@ -19172,7 +19172,7 @@ define double @__internal_trig_reduction_slowpathd(double %a, i32* nocapture %qu
   ret double %106, !dbg !11558
 }
 
-define double @__internal_trig_reduction_kerneld(double %a, i32* nocapture %quadrant) nounwind alwaysinline alignstack(1) {
+define double @__internal_trig_reduction_kerneld(double %a, i32* nocapture %quadrant) nounwind alignstack(1) {
   %q = alloca i32, align 4
   %1 = fmul double %a, 0x3FE45F306DC9C883, !dbg !11559
   %2 = call i32 @llvm.nvvm.d2i.rn(double %1) nounwind, !dbg !11562
@@ -19198,7 +19198,7 @@ define double @__internal_trig_reduction_kerneld(double %a, i32* nocapture %quad
   ret double %t.0, !dbg !11576
 }
 
-define double @__internal_sin_cos_kerneld(double %x, i32 %i) nounwind readonly alwaysinline alignstack(1) {
+define double @__internal_sin_cos_kerneld(double %x, i32 %i) nounwind readonly alignstack(1) {
   %1 = and i32 %i, 1, !dbg !11577
   %2 = shl nuw nsw i32 %1, 3, !dbg !11577
   %3 = zext i32 %2 to i64, !dbg !11577
@@ -19249,7 +19249,7 @@ define double @__internal_sin_cos_kerneld(double %x, i32 %i) nounwind readonly a
 
 declare double* @llvm.nvvm.ptr.constant.to.gen.p0f64.p4f64(double addrspace(4)* nocapture) nounwind readnone
 
-define double @__internal_sin_kerneld(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_sin_kerneld(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.mul.rn.d(double %x, double %x) nounwind, !dbg !11604
   %2 = tail call double @llvm.nvvm.fma.rn.d(double 0x3DE5DB65F9785EBA, double %1, double 0xBE5AE5F12CB0D246) nounwind, !dbg !11608
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %1, double 0x3EC71DE369ACE392) nounwind, !dbg !11610
@@ -19261,7 +19261,7 @@ define double @__internal_sin_kerneld(double %x) nounwind readnone alwaysinline 
   ret double %8, !dbg !11622
 }
 
-define double @__internal_cos_kerneld(double %x) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_cos_kerneld(double %x) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.mul.rn.d(double %x, double %x) nounwind, !dbg !11623
   %2 = tail call double @llvm.nvvm.fma.rn.d(double 0xBDA8FF8320FD8164, double %1, double 0x3E21EEA7C1EF8528) nounwind, !dbg !11627
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %1, double 0xBE927E4F8E06E6D9) nounwind, !dbg !11629
@@ -19273,7 +19273,7 @@ define double @__internal_cos_kerneld(double %x) nounwind readnone alwaysinline 
   ret double %8, !dbg !11641
 }
 
-define double @__internal_tan_kerneld(double %x, i32 %i) nounwind alwaysinline alignstack(1) {
+define double @__internal_tan_kerneld(double %x, i32 %i) nounwind alignstack(1) {
   %1 = fmul double %x, %x, !dbg !11642
   %2 = tail call double @llvm.nvvm.fma.rn.d(double 0x3EE48DAC2799BCB9, double %1, double 0xBEF9757C5B27EBB1) nounwind, !dbg !11645
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %1, double 0x3F0980E90FD91E04) nounwind, !dbg !11647
@@ -19316,7 +19316,7 @@ define double @__internal_tan_kerneld(double %x, i32 %i) nounwind alwaysinline a
   ret double %q.0, !dbg !11697
 }
 
-define double @__internal_expm1_kernel(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_expm1_kernel(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rn.d(double 0x3E21F07FCCF58BAD, double %a, double 0x3E5AFD81DA6C3BAF) nounwind, !dbg !11698
   %2 = tail call double @llvm.nvvm.fma.rn.d(double %1, double %a, double 0x3E927E55F60F80E6) nounwind, !dbg !11702
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %a, double 0x3EC71DDA8F02D666) nounwind, !dbg !11704
@@ -19332,7 +19332,7 @@ define double @__internal_expm1_kernel(double %a) nounwind readnone alwaysinline
   ret double %12, !dbg !11723
 }
 
-define double @__internal_atanh_kernel(double %a_1, double %a_2) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_atanh_kernel(double %a_1, double %a_2) nounwind readnone alignstack(1) {
   %1 = fadd double %a_1, %a_2, !dbg !11724
   %2 = fmul double %1, %1, !dbg !11727
   %3 = tail call double @llvm.nvvm.fma.rn.d(double 0x3EB372FB2FBE14B5, double %2, double 0x3ED087FFCEB2DC44) nounwind, !dbg !11728
@@ -19348,7 +19348,7 @@ define double @__internal_atanh_kernel(double %a_1, double %a_2) nounwind readno
   ret double %12, !dbg !11746
 }
 
-define double @__internal_fast_log(double %a) nounwind alwaysinline alignstack(1) {
+define double @__internal_fast_log(double %a) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11747
   %2 = tail call i32 @llvm.nvvm.d2i.lo(double %a) nounwind, !dbg !11751
   %3 = lshr i32 %1, 20, !dbg !11753
@@ -19389,14 +19389,14 @@ define double @__internal_fast_log(double %a) nounwind alwaysinline alignstack(1
   ret double %36, !dbg !11800
 }
 
-define double @__internal_exp2i_kernel(i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_exp2i_kernel(i32 %b) nounwind readnone alignstack(1) {
   %1 = shl i32 %b, 20, !dbg !11801
   %2 = add i32 %1, 1072693248, !dbg !11801
   %3 = tail call double @llvm.nvvm.lohi.i2d(i32 0, i32 %2) nounwind, !dbg !11804
   ret double %3, !dbg !11801
 }
 
-define double @__internal_half(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_half(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.lo(double %a) nounwind, !dbg !11805
   %2 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11809
   %3 = add i32 %2, -1048576, !dbg !11811
@@ -19404,7 +19404,7 @@ define double @__internal_half(double %a) nounwind readnone alwaysinline alignst
   ret double %4, !dbg !11811
 }
 
-define double @__internal_twice(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_twice(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.lo(double %a) nounwind, !dbg !11813
   %2 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11817
   %3 = add i32 %2, 1048576, !dbg !11819
@@ -19412,7 +19412,7 @@ define double @__internal_twice(double %a) nounwind readnone alwaysinline aligns
   ret double %4, !dbg !11819
 }
 
-define double @sin(double %a) nounwind alwaysinline alignstack(1) {
+define double @sin(double %a) nounwind alignstack(1) {
   %q.i = alloca i32, align 4
   %1 = call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11821
   %2 = call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11827
@@ -19496,7 +19496,7 @@ __internal_sin_cos_kerneld.exit:                  ; preds = %47, %50
   ret double %x.addr.1.i, !dbg !11869
 }
 
-define double @cos(double %a) nounwind alwaysinline alignstack(1) {
+define double @cos(double %a) nounwind alignstack(1) {
   %q.i = alloca i32, align 4
   %1 = call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11870
   %2 = call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !11876
@@ -19581,7 +19581,7 @@ __internal_sin_cos_kerneld.exit:                  ; preds = %48, %51
   ret double %x.addr.1.i, !dbg !11919
 }
 
-define double @sinpi(double %a) nounwind readonly alwaysinline alignstack(1) {
+define double @sinpi(double %a) nounwind readonly alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.lo(double %a) nounwind, !dbg !11920
   %2 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !11925
   %3 = add i32 %2, 1048576, !dbg !11927
@@ -19651,7 +19651,7 @@ __internal_sin_cos_kerneld.exit:                  ; preds = %40, %43
   ret double %z.0, !dbg !11966
 }
 
-define double @cospi(double %a) nounwind readonly alwaysinline alignstack(1) {
+define double @cospi(double %a) nounwind readonly alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !11967
   %2 = fcmp ogt double %1, 0x4340000000000000, !dbg !11968
   br i1 %2, label %3, label %5, !dbg !11968
@@ -19722,7 +19722,7 @@ __internal_sin_cos_kerneld.exit:                  ; preds = %46, %49
   ret double %x.addr.1.i, !dbg !12014
 }
 
-define void @sincospi(double %a, double* nocapture %sptr, double* nocapture %cptr) nounwind alwaysinline alignstack(1) {
+define void @sincospi(double %a, double* nocapture %sptr, double* nocapture %cptr) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !12015
   %2 = fcmp ogt double %1, 0x4340000000000000, !dbg !12016
   br i1 %2, label %3, label %5, !dbg !12016
@@ -19799,7 +19799,7 @@ define void @sincospi(double %a, double* nocapture %sptr, double* nocapture %cpt
   ret void, !dbg !12090
 }
 
-define double @__cos_offset(double %a, double %offset) nounwind alwaysinline alignstack(1) {
+define double @__cos_offset(double %a, double %offset) nounwind alignstack(1) {
   %q.i.i = alloca i32, align 4
   %q.i = alloca i32, align 4
   %1 = bitcast i32* %q.i to i8*, !dbg !12091
@@ -19913,7 +19913,7 @@ cos.exit:                                         ; preds = %65, %68
   ret double %x.addr.1.i.i, !dbg !12112
 }
 
-define void @sincos(double %a, double* nocapture %sptr, double* nocapture %cptr) nounwind alwaysinline alignstack(1) {
+define void @sincos(double %a, double* nocapture %sptr, double* nocapture %cptr) nounwind alignstack(1) {
   %q.i = alloca i32, align 4
   %1 = call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !12155
   %2 = call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !12161
@@ -19994,7 +19994,7 @@ __internal_trig_reduction_kerneld.exit:           ; preds = %6, %17
   ret void, !dbg !12225
 }
 
-define double @tan(double %a) nounwind alwaysinline alignstack(1) {
+define double @tan(double %a) nounwind alignstack(1) {
   %q.i = alloca i32, align 4
   %1 = call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !12226
   %2 = call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !12232
@@ -20073,7 +20073,7 @@ __internal_tan_kerneld.exit:                      ; preds = %__internal_trig_red
   ret double %q.0.i, !dbg !12303
 }
 
-define double @log(double %a) nounwind alwaysinline alignstack(1) {
+define double @log(double %a) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !12304
   %2 = fcmp ogt double %a, 0.000000e+00, !dbg !12308
   %3 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !12310
@@ -20182,7 +20182,7 @@ define double @log(double %a) nounwind alwaysinline alignstack(1) {
   ret double %q.0, !dbg !12400
 }
 
-define %struct.double2.1 @__internal_ddadd_xgty(%struct.double2.1 %x, %struct.double2.1 %y) nounwind readnone alwaysinline alignstack(1) {
+define %struct.double2.1 @__internal_ddadd_xgty(%struct.double2.1 %x, %struct.double2.1 %y) nounwind readnone alignstack(1) {
   %x5 = extractvalue %struct.double2.1 %x, 0
   %x6 = extractvalue %struct.double2.1 %x, 1
   %y3 = extractvalue %struct.double2.1 %y, 0
@@ -20200,7 +20200,7 @@ define %struct.double2.1 @__internal_ddadd_xgty(%struct.double2.1 %x, %struct.do
   ret %struct.double2.1 %insert2, !dbg !12408
 }
 
-define %struct.double2.1 @__internal_ddmul(%struct.double2.1 %x, %struct.double2.1 %y) nounwind readnone alwaysinline alignstack(1) {
+define %struct.double2.1 @__internal_ddmul(%struct.double2.1 %x, %struct.double2.1 %y) nounwind readnone alignstack(1) {
   %x5 = extractvalue %struct.double2.1 %x, 0
   %x6 = extractvalue %struct.double2.1 %x, 1
   %y3 = extractvalue %struct.double2.1 %y, 0
@@ -20218,7 +20218,7 @@ define %struct.double2.1 @__internal_ddmul(%struct.double2.1 %x, %struct.double2
   ret %struct.double2.1 %insert2, !dbg !12421
 }
 
-define %struct.double2.1 @__internal_log_ext_prec(double %a) nounwind alwaysinline alignstack(1) {
+define %struct.double2.1 @__internal_log_ext_prec(double %a) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !12422
   %2 = tail call i32 @llvm.nvvm.d2i.lo(double %a) nounwind, !dbg !12426
   %3 = lshr i32 %1, 20, !dbg !12428
@@ -20337,7 +20337,7 @@ define %struct.double2.1 @__internal_log_ext_prec(double %a) nounwind alwaysinli
   ret %struct.double2.1 %insert2.i, !dbg !12542
 }
 
-define double @log2(double %a) nounwind alwaysinline alignstack(1) {
+define double @log2(double %a) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !12543
   %2 = fcmp ogt double %a, 0.000000e+00, !dbg !12548
   %3 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !12549
@@ -20448,7 +20448,7 @@ log.exit:                                         ; preds = %25, %63, %67, %69, 
   ret double %74, !dbg !12625
 }
 
-define double @log10(double %a) nounwind alwaysinline alignstack(1) {
+define double @log10(double %a) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !12627
   %2 = fcmp ogt double %a, 0.000000e+00, !dbg !12632
   %3 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !12633
@@ -20559,7 +20559,7 @@ log.exit:                                         ; preds = %25, %63, %67, %69, 
   ret double %74, !dbg !12709
 }
 
-define double @log1p(double %a) nounwind alwaysinline alignstack(1) {
+define double @log1p(double %a) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !12711
   %2 = icmp ult i32 %1, 1071994197, !dbg !12715
   %3 = icmp slt i32 %1, -1076258407, !dbg !12715
@@ -20695,7 +20695,7 @@ log.exit:                                         ; preds = %93, %91, %89, %85, 
   ret double %t.0, !dbg !12823
 }
 
-define double @__internal_exp_poly(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_exp_poly(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rn.d(double 0x3E5AE6449C0686C0, double %a, double 0x3E928A27E30F5561) nounwind, !dbg !12824
   %2 = tail call double @llvm.nvvm.fma.rn.d(double %1, double %a, double 0x3EC71DE8E6486D6B) nounwind, !dbg !12828
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %a, double 0x3EFA019A6B2464C5) nounwind, !dbg !12830
@@ -20710,7 +20710,7 @@ define double @__internal_exp_poly(double %a) nounwind readnone alwaysinline ali
   ret double %11, !dbg !12848
 }
 
-define double @__internal_exp_scale(double %a, i32 %i) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_exp_scale(double %a, i32 %i) nounwind readnone alignstack(1) {
   %1 = shl i32 %i, 20, !dbg !12849
   %2 = add nsw i32 %1, 1072693248, !dbg !12849
   %3 = tail call i32 @llvm.nvvm.abs.i(i32 %i) nounwind, !dbg !12852
@@ -20741,7 +20741,7 @@ define double @__internal_exp_scale(double %a, i32 %i) nounwind readnone alwaysi
   ret double %z.0, !dbg !12871
 }
 
-define double @__internal_exp_kernel(double %a, i32 %scale) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_exp_kernel(double %a, i32 %scale) nounwind readnone alignstack(1) {
   %1 = fmul double %a, 0x3FF71547652B82FE, !dbg !12872
   %2 = tail call double @llvm.nvvm.round.d(double %1) nounwind, !dbg !12875
   %3 = fptosi double %2 to i32, !dbg !12877
@@ -20789,7 +20789,7 @@ __internal_exp_scale.exit:                        ; preds = %22, %25
   ret double %z.0.i, !dbg !12921
 }
 
-define double @__internal_old_exp_kernel(double %a, i32 %scale) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_old_exp_kernel(double %a, i32 %scale) nounwind readnone alignstack(1) {
   %1 = fmul double %a, 0x3FF71547652B82FE, !dbg !12922
   %2 = tail call double @llvm.nvvm.round.d(double %1) nounwind, !dbg !12925
   %3 = fptosi double %2 to i32, !dbg !12927
@@ -20838,7 +20838,7 @@ define double @__internal_old_exp_kernel(double %a, i32 %scale) nounwind readnon
   ret double %z.0, !dbg !12978
 }
 
-define double @exp(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @exp(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !12979
   %2 = icmp ult i32 %1, 1082535491, !dbg !12983
   %3 = icmp slt i32 %1, -1064875759, !dbg !12983
@@ -20904,7 +20904,7 @@ __internal_exp_kernel.exit:                       ; preds = %38, %27, %24, %42
   ret double %t.0, !dbg !13043
 }
 
-define double @exp2(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @exp2(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !13044
   %2 = icmp ult i32 %1, 1083179008, !dbg !13048
   %3 = icmp slt i32 %1, -1064252416, !dbg !13048
@@ -20970,7 +20970,7 @@ __internal_exp_scale.exit:                        ; preds = %38, %27, %24, %42
   ret double %t.0, !dbg !13106
 }
 
-define double @exp10(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @exp10(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !13107
   %2 = icmp ult i32 %1, 1081295892, !dbg !13111
   %3 = icmp slt i32 %1, -1066124872, !dbg !13111
@@ -21038,7 +21038,7 @@ __internal_exp_scale.exit:                        ; preds = %40, %29, %26, %44
   ret double %t.0, !dbg !13172
 }
 
-define double @__internal_expm1_scaled(double %a, i32 %scale) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_expm1_scaled(double %a, i32 %scale) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !13173
   %2 = fmul double %a, 0x3FF71547652B82FE, !dbg !13177
   %3 = tail call double @llvm.nvvm.round.d(double %2) nounwind, !dbg !13178
@@ -21086,7 +21086,7 @@ define double @__internal_expm1_scaled(double %a, i32 %scale) nounwind readnone 
   ret double %a.call3.t.0, !dbg !13226
 }
 
-define double @expm1(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @expm1(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !13227
   %2 = icmp ult i32 %1, 1082535491, !dbg !13231
   %3 = icmp slt i32 %1, -1068859392, !dbg !13231
@@ -21153,7 +21153,7 @@ __internal_expm1_scaled.exit:                     ; preds = %.critedge, %31
   ret double %t.0, !dbg !13289
 }
 
-define double @cosh(double %a) nounwind alwaysinline alignstack(1) {
+define double @cosh(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !13290
   %2 = tail call i32 @llvm.nvvm.d2i.hi(double %1) nounwind, !dbg !13294
   %3 = icmp ult i32 %2, 1082536911, !dbg !13296
@@ -21234,7 +21234,7 @@ __internal_exp_kernel.exit:                       ; preds = %26, %29
   ret double %z.0, !dbg !13364
 }
 
-define double @sinh(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @sinh(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !13365
   %2 = tail call i32 @llvm.nvvm.d2i.hi(double %1) nounwind, !dbg !13369
   %3 = icmp slt i32 %2, 1072693248, !dbg !13370
@@ -21314,7 +21314,7 @@ __internal_expm1_scaled.exit:                     ; preds = %13, %42
   ret double %57, !dbg !13451
 }
 
-define double @tanh(double %a) nounwind alwaysinline alignstack(1) {
+define double @tanh(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !13452
   %2 = fcmp ult double %1, 5.500000e-01, !dbg !13456
   br i1 %2, label %57, label %3, !dbg !13456
@@ -21411,7 +21411,7 @@ __internal_old_exp_kernel.exit:                   ; preds = %26, %29
   ret double %a.addr.0, !dbg !13565
 }
 
-define double @__internal_atan_kernel(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_atan_kernel(double %a) nounwind readnone alignstack(1) {
   %1 = fmul double %a, %a, !dbg !13566
   %2 = tail call double @llvm.nvvm.fma.rn.d(double 0xBEF53E1D2A25FF7E, double %1, double 0x3F2D3B63DBB65B49) nounwind, !dbg !13569
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %1, double 0xBF5312788DDE082E) nounwind, !dbg !13571
@@ -21436,7 +21436,7 @@ define double @__internal_atan_kernel(double %a) nounwind readnone alwaysinline 
   ret double %21, !dbg !13608
 }
 
-define double @atan2(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @atan2(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !13609
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !13615
   %3 = fcmp ugt double %1, %2, !dbg !13610
@@ -21535,7 +21535,7 @@ define double @atan2(double %a, double %b) nounwind readnone alwaysinline aligns
   ret double %retval.0, !dbg !13692
 }
 
-define double @atan(double %a) nounwind alwaysinline alignstack(1) {
+define double @atan(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !13693
   %2 = fcmp ogt double %1, 1.000000e+00, !dbg !13697
   br i1 %2, label %3, label %14, !dbg !13697
@@ -21595,7 +21595,7 @@ define double @atan(double %a) nounwind alwaysinline alignstack(1) {
   ret double %44, !dbg !13760
 }
 
-define double @__internal_asin_kernel(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_asin_kernel(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rn.d(double 0x3FB0066BDC1895E9, double %a, double 0xBFB3823B180754AF) nounwind, !dbg !13768
   %2 = tail call double @llvm.nvvm.fma.rn.d(double %1, double %a, double 0x3FB11E52CC2F79AE) nounwind, !dbg !13772
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %a, double 0xBF924EAF3526861B) nounwind, !dbg !13774
@@ -21612,7 +21612,7 @@ define double @__internal_asin_kernel(double %a) nounwind readnone alwaysinline 
   ret double %13, !dbg !13795
 }
 
-define double @asin(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @asin(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !13796
   %2 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !13800
   %3 = tail call i32 @llvm.nvvm.d2i.hi(double %2) nounwind, !dbg !13802
@@ -21679,7 +21679,7 @@ define double @asin(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret double %t1.0, !dbg !13892
 }
 
-define double @acos(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @acos(double %a) nounwind readnone alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !13893
   %2 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !13897
   %3 = tail call i32 @llvm.nvvm.d2i.hi(double %2) nounwind, !dbg !13899
@@ -21748,7 +21748,7 @@ define double @acos(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret double %t0.0, !dbg !13986
 }
 
-define double @acosh(double %a) nounwind alwaysinline alignstack(1) {
+define double @acosh(double %a) nounwind alignstack(1) {
   %1 = fadd double %a, -1.000000e+00, !dbg !13987
   %2 = tail call double @llvm.nvvm.fabs.d(double %1) nounwind, !dbg !13990
   %3 = fcmp ogt double %2, 0x4330000000000000, !dbg !13991
@@ -22002,7 +22002,7 @@ log1p.exit:                                       ; preds = %174, %172, %170, %1
   ret double %t.0, !dbg !14186
 }
 
-define double @asinh(double %a) nounwind alwaysinline alignstack(1) {
+define double @asinh(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !14187
   %2 = tail call i32 @llvm.nvvm.d2i.hi(double %1) nounwind, !dbg !14191
   %3 = icmp sgt i32 %2, 1609564159, !dbg !14192
@@ -22251,7 +22251,7 @@ log1p.exit:                                       ; preds = %170, %168, %166, %1
   ret double %177, !dbg !14380
 }
 
-define double @atanh(double %a) nounwind alwaysinline alignstack(1) {
+define double @atanh(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !14388
   %2 = fmul double %1, 2.000000e+00, !dbg !14392
   %3 = fsub double 1.000000e+00, %1, !dbg !14392
@@ -22402,7 +22402,7 @@ log1p.exit:                                       ; preds = %8, %51, %89, %93, %
   ret double %t.0, !dbg !14506
 }
 
-define double @hypot(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @hypot(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !14507
   %2 = tail call double @llvm.nvvm.fabs.d(double %b) nounwind, !dbg !14511
   %3 = tail call double @llvm.nvvm.fmax.d(double %1, double %2) nounwind, !dbg !14513
@@ -22444,7 +22444,7 @@ define double @hypot(double %a, double %b) nounwind readnone alwaysinline aligns
   ret double %t.2, !dbg !14535
 }
 
-define double @cbrt(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @cbrt(double %a) nounwind readnone alignstack(1) {
   %1 = fcmp oeq double %a, 0.000000e+00, !dbg !14536
   br i1 %1, label %.critedge, label %2, !dbg !14536
 
@@ -22522,7 +22522,7 @@ define double @cbrt(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret double %t.0, !dbg !14588
 }
 
-define double @rcbrt(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @rcbrt(double %a) nounwind readnone alignstack(1) {
   %1 = fcmp oeq double %a, 0.000000e+00, !dbg !14589
   br i1 %1, label %.critedge1, label %2, !dbg !14589
 
@@ -22621,7 +22621,7 @@ define double @rcbrt(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret double %t.1, !dbg !14658
 }
 
-define double @__internal_accurate_pow(double %a, double %b) nounwind alwaysinline alignstack(1) {
+define double @__internal_accurate_pow(double %a, double %b) nounwind alignstack(1) {
   %1 = tail call i32 @llvm.nvvm.d2i.hi(double %a) nounwind, !dbg !14659
   %2 = tail call i32 @llvm.nvvm.d2i.lo(double %a) nounwind, !dbg !14664
   %3 = lshr i32 %1, 20, !dbg !14666
@@ -22828,7 +22828,7 @@ exp.exit:                                         ; preds = %133, %136, %147, %1
   ret double %tmp.0, !dbg !14852
 }
 
-define double @pow(double %a, double %b) nounwind alwaysinline alignstack(1) {
+define double @pow(double %a, double %b) nounwind alignstack(1) {
   %1 = fcmp oeq double %a, 1.000000e+00, !dbg !14853
   %2 = fcmp oeq double %b, 0.000000e+00, !dbg !14853
   %or.cond = or i1 %1, %2, !dbg !14853
@@ -23151,7 +23151,7 @@ __internal_accurate_pow.exit:                     ; preds = %exp.exit.i, %214
   ret double %retval.0, !dbg !15099
 }
 
-define double @j0(double %a) nounwind alwaysinline alignstack(1) {
+define double @j0(double %a) nounwind alignstack(1) {
   %q.i.i.i = alloca i32, align 4
   %q.i.i = alloca i32, align 4
   %1 = call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !15100
@@ -23381,7 +23381,7 @@ __cos_offset.exit:                                ; preds = %162, %165
   ret double %r.0, !dbg !15330
 }
 
-define double @j1(double %a) nounwind alwaysinline alignstack(1) {
+define double @j1(double %a) nounwind alignstack(1) {
   %q.i.i.i = alloca i32, align 4
   %q.i.i = alloca i32, align 4
   %1 = call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !15331
@@ -23625,7 +23625,7 @@ __cos_offset.exit:                                ; preds = %158, %161
   ret double %r.2, !dbg !15564
 }
 
-define double @y0(double %a) nounwind alwaysinline alignstack(1) {
+define double @y0(double %a) nounwind alignstack(1) {
   %q.i.i.i.i = alloca i32, align 4
   %q.i.i.i1 = alloca i32, align 4
   %q.i.i.i = alloca i32, align 4
@@ -24231,7 +24231,7 @@ __cos_offset.exit:                                ; preds = %431, %434
   ret double %r.1, !dbg !16146
 }
 
-define double @y1(double %a) nounwind alwaysinline alignstack(1) {
+define double @y1(double %a) nounwind alignstack(1) {
   %q.i.i.i.i = alloca i32, align 4
   %q.i.i.i1 = alloca i32, align 4
   %q.i.i.i = alloca i32, align 4
@@ -24864,7 +24864,7 @@ __cos_offset.exit:                                ; preds = %435, %438
   ret double %r.1, !dbg !16730
 }
 
-define double @yn(i32 %n, double %a) nounwind alwaysinline alignstack(1) {
+define double @yn(i32 %n, double %a) nounwind alignstack(1) {
   %q.i.i.i.i.i91 = alloca i32, align 4
   %q.i.i.i1.i92 = alloca i32, align 4
   %q.i.i.i.i93 = alloca i32, align 4
@@ -27379,7 +27379,7 @@ y0.exit90:                                        ; preds = %._crit_edge, %1772,
   ret double %retval.0, !dbg !19009
 }
 
-define double @jn(i32 %n, double %a) nounwind alwaysinline alignstack(1) {
+define double @jn(i32 %n, double %a) nounwind alignstack(1) {
   %q.i.i.i.i62 = alloca i32, align 4
   %q.i.i.i63 = alloca i32, align 4
   %q.i.i.i.i45 = alloca i32, align 4
@@ -29178,7 +29178,7 @@ y0.exit:                                          ; preds = %j0.exit.preheader, 
   ret double %retval.0, !dbg !20614
 }
 
-define double @erf(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @erf(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !20615
   %2 = fcmp ult double %1, 1.000000e+00, !dbg !20619
   br i1 %2, label %76, label %3, !dbg !20619
@@ -29289,7 +29289,7 @@ __internal_exp_kernel.exit:                       ; preds = %53, %56
   ret double %a.addr.0, !dbg !20763
 }
 
-define double @__internal_erfinv_polyd(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_erfinv_polyd(double %a) nounwind readnone alignstack(1) {
   %1 = fadd double %a, -3.125000e+00, !dbg !20764
   %2 = tail call double @llvm.nvvm.fma.rn.d(double 0xBBB135D2E746E627, double %1, double 0xBC08DDF93324D327) nounwind, !dbg !20767
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %1, double 0x3C37B83EEF0B7C9F) nounwind, !dbg !20769
@@ -29316,7 +29316,7 @@ define double @__internal_erfinv_polyd(double %a) nounwind readnone alwaysinline
   ret double %23, !dbg !20811
 }
 
-define double @erfinv(double %a) nounwind alwaysinline alignstack(1) {
+define double @erfinv(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !20812
   %2 = fcmp olt double %1, 1.000000e+00, !dbg !20813
   br i1 %2, label %3, label %111, !dbg !20813
@@ -29469,7 +29469,7 @@ define double @erfinv(double %a) nounwind alwaysinline alignstack(1) {
   ret double %r.1, !dbg !21014
 }
 
-define double @erfcinv(double %a) nounwind alwaysinline alignstack(1) {
+define double @erfcinv(double %a) nounwind alignstack(1) {
   %1 = fsub double -0.000000e+00, %a, !dbg !21015
   %2 = tail call double @llvm.nvvm.add.rn.d(double 2.000000e+00, double %1) nounwind, !dbg !21018
   %3 = fcmp oge double %a, 0x3F4FA4D2AD8F904D, !dbg !21019
@@ -29765,7 +29765,7 @@ log.exit:                                         ; preds = %166, %204, %208, %2
   ret double %t.1, !dbg !21357
 }
 
-define double @normcdfinv(double %a) nounwind alwaysinline alignstack(1) {
+define double @normcdfinv(double %a) nounwind alignstack(1) {
   %1 = fadd double %a, %a, !dbg !21358
   %2 = fsub double -0.000000e+00, %1, !dbg !21361
   %3 = tail call double @llvm.nvvm.add.rn.d(double 2.000000e+00, double %2) nounwind, !dbg !21362
@@ -30064,7 +30064,7 @@ erfcinv.exit:                                     ; preds = %6, %236, %237
   ret double %240, !dbg !21693
 }
 
-define double @__internal_erfcx_kernel(double %a) nounwind alwaysinline alignstack(1) {
+define double @__internal_erfcx_kernel(double %a) nounwind alignstack(1) {
   %1 = fadd double %a, -4.000000e+00, !dbg !21695
   %2 = fadd double %a, 4.000000e+00, !dbg !21698
   %3 = tail call float asm "cvt.rn.f32.f64     $0,$1;", "=f,d"(double %2) nounwind, !dbg !21699
@@ -30119,7 +30119,7 @@ define double @__internal_erfcx_kernel(double %a) nounwind alwaysinline alignsta
   ret double %51, !dbg !21781
 }
 
-define double @erfc(double %a) nounwind alwaysinline alignstack(1) {
+define double @erfc(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !21782
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !21788
   %3 = fcmp ugt double %1, %2, !dbg !21783
@@ -30246,7 +30246,7 @@ __internal_exp_kernel.exit:                       ; preds = %78, %81
   ret double %t1.1, !dbg !21936
 }
 
-define double @erfcx(double %a) nounwind alwaysinline alignstack(1) {
+define double @erfcx(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !21937
   %2 = tail call i32 @llvm.nvvm.d2i.hi(double %1) nounwind, !dbg !21941
   %3 = icmp ult i32 %2, 1077936128, !dbg !21942
@@ -30405,7 +30405,7 @@ exp.exit:                                         ; preds = %96, %99, %110, %114
   ret double %t1.1, !dbg !22117
 }
 
-define double @normcdf(double %a) nounwind alwaysinline alignstack(1) {
+define double @normcdf(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !22118
   %2 = fcmp ogt double %1, 3.850000e+01, !dbg !22119
   br i1 %2, label %3, label %11, !dbg !22119
@@ -30567,7 +30567,7 @@ erfc.exit:                                        ; preds = %__internal_exp_kern
   ret double %128, !dbg !22297
 }
 
-define double @__internal_tgamma_kernel(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @__internal_tgamma_kernel(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rn.d(double 0xBDFE6BDF8CC487CD, double %a, double 0xBE8B338C457183B6) nounwind, !dbg !22298
   %2 = tail call double @llvm.nvvm.fma.rn.d(double %1, double %a, double 0x3EB31831766A0388) nounwind, !dbg !22302
   %3 = tail call double @llvm.nvvm.fma.rn.d(double %2, double %a, double 0xBEB4FC07FC9F1563) nounwind, !dbg !22304
@@ -30586,7 +30586,7 @@ define double @__internal_tgamma_kernel(double %a) nounwind readnone alwaysinlin
   ret double %15, !dbg !22330
 }
 
-define double @__internal_stirling_poly(double %a) nounwind alwaysinline alignstack(1) {
+define double @__internal_stirling_poly(double %a) nounwind alignstack(1) {
   %1 = tail call float asm "cvt.rn.f32.f64     $0,$1;", "=f,d"(double %a) nounwind, !dbg !22331
   %2 = tail call float asm "rcp.approx.f32.ftz $0,$1;", "=f,f"(float %1) nounwind, !dbg !22335
   %3 = tail call double asm "cvt.f64.f32        $0,$1;", "=d,f"(float %2) nounwind, !dbg !22336
@@ -30607,7 +30607,7 @@ define double @__internal_stirling_poly(double %a) nounwind alwaysinline alignst
   ret double %17, !dbg !22363
 }
 
-define double @__internal_tgamma_stirling(double %a) nounwind alwaysinline alignstack(1) {
+define double @__internal_tgamma_stirling(double %a) nounwind alignstack(1) {
   %1 = fcmp olt double %a, 0x406573FAE561F648, !dbg !22364
   br i1 %1, label %2, label %187, !dbg !22364
 
@@ -30845,7 +30845,7 @@ exp.exit:                                         ; preds = %158, %161, %172, %1
   ret double %a.addr.1, !dbg !22601
 }
 
-define double @tgamma(double %a) nounwind alwaysinline alignstack(1) {
+define double @tgamma(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !22602
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !22608
   %3 = fcmp ugt double %1, %2, !dbg !22603
@@ -31567,7 +31567,7 @@ __internal_tgamma_stirling.exit:                  ; preds = %248, %66, %266, %25
   ret double %retval.0, !dbg !23278
 }
 
-define double @__internal_lgamma_pos(double %a) nounwind alwaysinline alignstack(1) {
+define double @__internal_lgamma_pos(double %a) nounwind alignstack(1) {
   %1 = fcmp ult double %a, 3.000000e+00, !dbg !23279
   br i1 %1, label %119, label %2, !dbg !23279
 
@@ -31916,7 +31916,7 @@ log.exit:                                         ; preds = %209, %247, %251, %2
   ret double %t.0, !dbg !23639
 }
 
-define double @lgamma(double %a) nounwind alwaysinline alignstack(1) {
+define double @lgamma(double %a) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !23640
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !23646
   %3 = fcmp ugt double %1, %2, !dbg !23641
@@ -32562,7 +32562,7 @@ log.exit:                                         ; preds = %410, %448, %452, %4
   ret double %retval.0, !dbg !24198
 }
 
-define double @ldexp(double %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define double @ldexp(double %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24199
   %2 = tail call i32 @llvm.nvvm.min.i(i32 %b, i32 2200) nounwind, !dbg !24203
   %3 = tail call i32 @llvm.nvvm.max.i(i32 -2200, i32 %2) nounwind, !dbg !24205
@@ -32634,7 +32634,7 @@ define double @ldexp(double %a, i32 %b) nounwind readnone alwaysinline alignstac
   ret double %a.addr.0, !dbg !24236
 }
 
-define double @scalbn(double %a, i32 %b) nounwind readnone alwaysinline alignstack(1) {
+define double @scalbn(double %a, i32 %b) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24237
   %2 = tail call i32 @llvm.nvvm.min.i(i32 %b, i32 2200) nounwind, !dbg !24242
   %3 = tail call i32 @llvm.nvvm.max.i(i32 -2200, i32 %2) nounwind, !dbg !24244
@@ -32706,7 +32706,7 @@ ldexp.exit:                                       ; preds = %.critedge1.i, %10, 
   ret double %a.addr.0.i, !dbg !24239
 }
 
-define double @scalbln(double %a, i64 %b) nounwind readnone alwaysinline alignstack(1) {
+define double @scalbln(double %a, i64 %b) nounwind readnone alignstack(1) {
   %1 = icmp slt i64 %b, -2147483648, !dbg !24265
   %.b = select i1 %1, i64 -2147483648, i64 %b, !dbg !24265
   %2 = icmp sgt i64 %.b, 2147483647, !dbg !24269
@@ -32783,7 +32783,7 @@ scalbn.exit:                                      ; preds = %.critedge1.i.i, %14
   ret double %a.addr.0.i.i, !dbg !24271
 }
 
-define double @frexp(double %a, i32* nocapture %b) nounwind alwaysinline alignstack(1) {
+define double @frexp(double %a, i32* nocapture %b) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24298
   %2 = fcmp olt double %1, 0x10000000000000, !dbg !24302
   br i1 %2, label %3, label %5, !dbg !24302
@@ -32823,7 +32823,7 @@ define double @frexp(double %a, i32* nocapture %b) nounwind alwaysinline alignst
   ret double %a.addr.1, !dbg !24319
 }
 
-define double @modf(double %a, double* nocapture %b) nounwind alwaysinline alignstack(1) {
+define double @modf(double %a, double* nocapture %b) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24320
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !24326
   %3 = fcmp olt double %1, %2, !dbg !24321
@@ -32865,7 +32865,7 @@ define double @modf(double %a, double* nocapture %b) nounwind alwaysinline align
   ret double %a.addr.0, !dbg !24361
 }
 
-define double @fmod(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @fmod(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24362
   %2 = tail call double @llvm.nvvm.fabs.d(double %b) nounwind, !dbg !24366
   %3 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !24368
@@ -32976,7 +32976,7 @@ define double @fmod(double %a, double %b) nounwind readnone alwaysinline alignst
   ret double %retval.0, !dbg !24427
 }
 
-define double @remainder(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @remainder(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24429
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !24435
   %3 = fcmp ugt double %1, %2, !dbg !24430
@@ -33117,7 +33117,7 @@ define double @remainder(double %a, double %b) nounwind readnone alwaysinline al
   ret double %retval.0, !dbg !24498
 }
 
-define double @remquo(double %a, double %b, i32* nocapture %c) nounwind alwaysinline alignstack(1) {
+define double @remquo(double %a, double %b, i32* nocapture %c) nounwind alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24499
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !24505
   %3 = fcmp ugt double %1, %2, !dbg !24500
@@ -33271,7 +33271,7 @@ define double @remquo(double %a, double %b, i32* nocapture %c) nounwind alwaysin
   ret double %retval.0, !dbg !24575
 }
 
-define double @nextafter(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @nextafter(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = tail call i64 @llvm.nvvm.bitcast.d2ll(double %a) nounwind, !dbg !24576
   %2 = tail call i64 @llvm.nvvm.bitcast.d2ll(double %b) nounwind, !dbg !24580
   %3 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24582
@@ -33334,7 +33334,7 @@ define double @nextafter(double %a, double %b) nounwind readnone alwaysinline al
   ret double %retval.0, !dbg !24613
 }
 
-define double @nan(i8* %tagp) nounwind readonly alwaysinline alignstack(1) {
+define double @nan(i8* %tagp) nounwind readonly alignstack(1) {
   %1 = icmp eq i8* %tagp, null, !dbg !24614
   br i1 %1, label %__internal_nan_kernel.exit, label %2, !dbg !24614
 
@@ -33502,7 +33502,7 @@ __internal_nan_kernel.exit:                       ; preds = %.critedge5.i, %.pre
   ret double %62, !dbg !24651
 }
 
-define double @round(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @round(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24652
   %2 = fcmp ult double %1, 0x4330000000000000, !dbg !24656
   br i1 %2, label %3, label %13, !dbg !24656
@@ -33525,7 +33525,7 @@ define double @round(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret double %u.1, !dbg !24673
 }
 
-define i64 @llround(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @llround(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24674
   %2 = fcmp ult double %1, 0x4330000000000000, !dbg !24679
   br i1 %2, label %3, label %round.exit, !dbg !24679
@@ -33549,7 +33549,7 @@ round.exit:                                       ; preds = %0, %3
   ret i64 %13, !dbg !24676
 }
 
-define i64 @lround(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i64 @lround(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24693
   %2 = fcmp ult double %1, 0x4330000000000000, !dbg !24699
   br i1 %2, label %3, label %llround.exit, !dbg !24699
@@ -33573,14 +33573,14 @@ llround.exit:                                     ; preds = %0, %3
   ret i64 %13, !dbg !24696
 }
 
-define double @fdim(double %a, double %b) nounwind readnone alwaysinline alignstack(1) {
+define double @fdim(double %a, double %b) nounwind readnone alignstack(1) {
   %1 = fsub double %a, %b, !dbg !24713
   %2 = fcmp ugt double %a, %b, !dbg !24716
   %t.0 = select i1 %2, double %1, double 0.000000e+00, !dbg !24716
   ret double %t.0, !dbg !24718
 }
 
-define i32 @ilogb(double %a) nounwind readnone alwaysinline alignstack(1) {
+define i32 @ilogb(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24719
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !24725
   %3 = fcmp ugt double %1, %2, !dbg !24720
@@ -33620,7 +33620,7 @@ define i32 @ilogb(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret i32 %retval.0, !dbg !24741
 }
 
-define double @logb(double %a) nounwind readnone alwaysinline alignstack(1) {
+define double @logb(double %a) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fabs.d(double %a) nounwind, !dbg !24743
   %2 = tail call double @llvm.nvvm.bitcast.ll2d(i64 9218868437227405312) nounwind, !dbg !24749
   %3 = fcmp ugt double %1, %2, !dbg !24744
@@ -33670,7 +33670,7 @@ define double @logb(double %a) nounwind readnone alwaysinline alignstack(1) {
   ret double %retval.0, !dbg !24766
 }
 
-define double @fma(double %a, double %b, double %c) nounwind readnone alwaysinline alignstack(1) {
+define double @fma(double %a, double %b, double %c) nounwind readnone alignstack(1) {
   %1 = tail call double @llvm.nvvm.fma.rn.d(double %a, double %b, double %c) nounwind, !dbg !24767
   ret double %1, !dbg !24768
 }
