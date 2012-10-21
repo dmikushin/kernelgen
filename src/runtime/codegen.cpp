@@ -43,6 +43,7 @@
 #include <fstream>
 #include <gelf.h>
 #include <link.h>
+#include <map>
 #include <sstream>
 #include <vector>
 
@@ -58,8 +59,110 @@ static bool debug = false;
 // Target machines for runmodes.
 auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
 
+// Function-address mapping of main kernel.
+static map<string, size_t> funcmap;
+
+// Export the function-address mapping from the given cubin image.
+static void cubin_export_funcmap(const char* cubin, map<string, size_t>& funcmap)
+{
+	int fd = -1;
+	Elf* e = NULL;
+	try
+	{
+		//
+		// 1) First, load the ELF file.
+		//
+                if ((fd = open(cubin, O_RDWR)) < 0)
+                {
+			fprintf(stderr, "Cannot open file %s\n", cubin);
+			throw;
+                }
+
+                if ((e = elf_begin(fd, ELF_C_RDWR, e)) == 0)
+                {
+			fprintf(stderr, "Cannot read ELF image from %s\n", cubin);
+			throw;
+                }
+
+		//
+		// 2) Find ELF section containing the symbol table and
+		// load its data.
+		//
+		size_t shstrndx;
+		if (elf_getshdrstrndx(e, &shstrndx))
+		{
+			fprintf(stderr, "elf_getshdrstrndx() failed for %s: %s\n",
+				cubin, elf_errmsg(-1));
+			throw;
+		}
+		GElf_Shdr shdr;
+		Elf_Data* symbols = NULL;
+		int nsymbols = 0, nsections = 0;
+		Elf_Scn* scn = elf_nextscn(e, NULL);
+		for (int i = 1; scn != NULL; scn = elf_nextscn(e, scn), i++, nsections++)
+		{		
+			if (!gelf_getshdr(scn, &shdr))
+			{
+				fprintf(stderr, "gelf_getshdr() failed for %s: %s\n",
+					cubin, elf_errmsg(-1));
+				throw;
+			}
+
+			if (shdr.sh_type == SHT_SYMTAB)
+			{
+				symbols = elf_getdata(scn, NULL);
+				if (!symbols)
+				{
+					fprintf(stderr, "elf_getdata() failed for %s: %s\n",
+						cubin, elf_errmsg(-1));
+					throw;
+				}
+				if (shdr.sh_entsize)
+					nsymbols = shdr.sh_size / shdr.sh_entsize;
+				break;
+			}
+		}
+		if (!symbols)
+		{
+			fprintf(stderr, "Cannot find symbols table in %s\n", cubin);
+			throw;
+		}
+		
+		//
+		// 3) Find function symbols and record them into map.
+		//
+		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
+		{
+			GElf_Sym symbol;
+			gelf_getsym(symbols, isymbol, &symbol);
+			
+			if (ELF32_ST_TYPE(symbol.st_info) != STT_FUNC) continue;
+
+			char* name = elf_strptr(e, shdr.sh_link, symbol.st_name);
+			funcmap.insert(pair<string, size_t>(name, symbol.st_value));
+			
+			//cout << name << " -> " << symbol.st_value << endl;
+		}
+		
+		elf_end(e);
+		close(fd);
+		e = NULL;
+	}
+	catch (...)
+	{
+		if (e) elf_end(e);
+		if (fd >= 0) close(fd);
+                throw;
+        }
+}
+
+// Import the function-address mapping to the given cubin image.
+static void cubin_import_funcmap(const char* cubin, const map<string, size_t> funcmap)
+{
+}
+
 // Align cubin global data to the specified boundary.
-static void cubin_align_data(const char* cubin, size_t align, list<string>* names)
+static void cubin_align_data(const char* cubin, size_t align)
 {
 	int fd = -1;
 	Elf* e = NULL;
@@ -162,18 +265,18 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
 		// global symbols, if they were aligned. Also update the sizes
 		// and offsets for individual initialized symbols.
 		//
-                vector<char>::size_type szglobal_new = 0, szglobal_init_new = 0;
-                for (int isymbol = 0; isymbol < nsymbols; isymbol++)
-                {
-                        GElf_Sym symbol;
-                        gelf_getsym(symbols, isymbol, &symbol);
+		vector<char>::size_type szglobal_new = 0, szglobal_init_new = 0;
+		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
+		{
+			GElf_Sym symbol;
+			gelf_getsym(symbols, isymbol, &symbol);
 
-                        if (symbol.st_shndx == iglobal)
-                        {
-                                symbol.st_value = szglobal_new;
-                                if (symbol.st_size % align)
-                                        symbol.st_size += align - symbol.st_size % align;
-                                szglobal_new += symbol.st_size;
+			if (symbol.st_shndx == iglobal)
+			{
+				symbol.st_value = szglobal_new;
+				if (symbol.st_size % align)
+					symbol.st_size += align - symbol.st_size % align;
+				szglobal_new += symbol.st_size;
 
 				if (!gelf_update_sym(symbols, isymbol, &symbol))
 				{
@@ -181,15 +284,15 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
 						cubin, elf_errmsg(-1));
 					throw;
 				}
-                        }
-                        else if (symbol.st_shndx == iglobal_init)
-                        {
+			}
+			else if (symbol.st_shndx == iglobal_init)
+			{
 				size_t szaligned = symbol.st_size;
-                                if (szaligned % align)
-                                        szaligned += align - szaligned % align;
-                                szglobal_init_new += szaligned;
-                        }
-                }
+				if (szaligned % align)
+					szaligned += align - szaligned % align;
+				szglobal_init_new += szaligned;
+			}
+		}
                 
                 //
                 // 4) Add new data for aligned globals section.
@@ -234,13 +337,13 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
 		char* pglobal_init_new = (char*)&vglobal_init_new[0];
 		memset(pglobal_init_new, 0, szglobal_init_new);
 		szglobal_init_new = 0;
-                for (int isymbol = 0; isymbol < nsymbols; isymbol++)
-                {
-                        GElf_Sym symbol;
-                        gelf_getsym(symbols, isymbol, &symbol);
+		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
+		{
+			GElf_Sym symbol;
+			gelf_getsym(symbols, isymbol, &symbol);
 
-                        if (symbol.st_shndx == iglobal_init)
-                        {
+			if (symbol.st_shndx == iglobal_init)
+			{
 				memcpy(pglobal_init_new, pglobal_init + symbol.st_value, symbol.st_size);
 
 				symbol.st_value = szglobal_init_new;
@@ -280,7 +383,6 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
                 elf_end(e);
                 close(fd);
                 e = NULL;
-
 	}
 	catch (...)
 	{
@@ -539,10 +641,20 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
         	        	execute(ptxas, ptxas_args, "", NULL, NULL);
 			}
 
-			// Align cubin global data to the virtual memory page boundary.
-			std::list<string> names;
 			if (name == "__kernelgen_main")
-				cubin_align_data(tmp3.getFilename().c_str(), 4096, &names);
+			{
+				// Align main kernel cubin global data to the virtual memory
+				// page boundary.
+				cubin_align_data(tmp3.getFilename().c_str(), 4096);
+				
+				// Export main kernel cubin function-address map.
+				cubin_export_funcmap(tmp3.getFilename().c_str(), funcmap);
+			}
+			else
+			{
+				// Import main kernel cubin function-address map.
+				cubin_import_funcmap(tmp3.getFilename().c_str(), funcmap);
+			}
 
 			// Dump Fermi assembly from CUBIN.
 			if (verbose & KERNELGEN_VERBOSE_ISA)
