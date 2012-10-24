@@ -31,7 +31,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "elf.h"
+#include "Elf.h"
 #include "util.h"
 #include "runtime.h"
 #include "kernelgen_interop.h"
