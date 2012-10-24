@@ -85,7 +85,15 @@ foreach(DEFINE ${LLVM_MACROS})
 endforeach()
 target_link_libraries(kernelgen-rt bugpoint kernelgen-gpu LLVM-${LLVM_VERSION}svn LLVMPolly)
 
-#frontend
+#
+# SIMPLE FRONTEND & LTO LINKER BACKEND
+#
+aux_source_directory(src/simple simple_sources)
+add_executable(kernelgen-simple ${simple_sources})
+foreach(DEFINE ${LLVM_MACROS})
+	set_property(TARGET kernelgen-simple APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
+endforeach()
+target_link_libraries(kernelgen-simple bugpoint LLVM-${LLVM_VERSION}svn)
 
 #
 # VERSION PRINTER
@@ -93,4 +101,9 @@ target_link_libraries(kernelgen-rt bugpoint kernelgen-gpu LLVM-${LLVM_VERSION}sv
 aux_source_directory(src/version version_sources)
 add_executable(kernelgen-version ${version_sources})
 set_property(TARGET kernelgen-version APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_VERSION=\"${KERNELGEN_VERSION}\"")
+
+#
+# DRAGONEGG WRAPPER
+#
+add_custom_target(kernelgen-dragonegg ALL DEPENDS src/dragonegg/kernelgen-dragonegg)
 

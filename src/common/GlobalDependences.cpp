@@ -6,8 +6,7 @@
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Instructions.h>
 #include <llvm/Module.h>
-#include "LinkFunctionBody.h"
-#include "llvm/Transforms/Utils/Cloning.h"
+#include <llvm/Transforms/Utils/Cloning.h>
 
 using namespace llvm;
 using namespace kernelgen;

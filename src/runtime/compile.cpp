@@ -65,8 +65,6 @@
 #include <set>
 #include <stdio.h>
 
-#include "LinkFunctionBody.h"
-
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;
@@ -409,7 +407,6 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				if (verbose)
 					cout << "Device call: " << callee->getName().data()<< endl;
 				call->setCallingConv(CallingConv::PTX_Device);					
-				//LinkFunctionBody(Dst, Src);
 				linkFunctionWithAllDependendes(Src,Dst);
 				Dst->setName(Dst->getName());
 				
@@ -604,7 +601,6 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 				if (verbose)
 					cout << "Device call: " << callee->getName().data()<< endl;
 				call->setCallingConv(CallingConv::PTX_Device);					
-				//LinkFunctionBody(Dst, Src);
 				linkFunctionWithAllDependendes(Src, Dst);
 				Dst->setName(Dst->getName());
 				//Dst->setAttributes(Src -> getAttributes());

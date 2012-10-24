@@ -69,10 +69,8 @@
 #include "llvm/Support/MDBuilder.h"
 
 #include "BranchedLoopExtractor.h"
-#include "LinkFunctionBody.h"
 #include "TrackedPassManager.h"
 
-using namespace kernelgen;
 using namespace llvm;
 using namespace llvm::object;
 using namespace llvm::sys;
