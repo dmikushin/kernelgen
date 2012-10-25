@@ -11,7 +11,6 @@ namespace kernelgen {
 /// Also insert the used functions declarations.
 void LinkFunctionBody(llvm::Function *Dst, llvm::Function *Src);
 void LinkFunctionBody(Function *Dst, Function *Src, ValueToValueMapTy & ValueMap );
-void linkFunctionWithAllDependendes(Function *srcFunction, Function * dstFunction);
 
 typedef std::list<llvm::GlobalVariable *>::iterator variable_iter;
 typedef std::list<llvm::Function *>::iterator function_iter;

@@ -211,6 +211,8 @@ public:
 class SizeOfLoops : public ScopPass
 {
 	vector<Size3> * sizeOfLoops;
+	bool *isThereAtLeastOneParallelLoop;
+	Dependences *DP;
 public:
 	static char ID;
 	void printCloogAST(CloogInfo &C) {
@@ -243,8 +245,8 @@ public:
 		sizeOfLoops = memForSizes;
 		return;
 	}
-	SizeOfLoops(vector<Size3> *memForSizes=0)
-		:sizeOfLoops(memForSizes), ScopPass(ID) {}
+	SizeOfLoops(vector<Size3> *memForSizes=0,bool *_isThereAtLeastOneParallelLoop = NULL)
+		:sizeOfLoops(memForSizes), ScopPass(ID), isThereAtLeastOneParallelLoop(_isThereAtLeastOneParallelLoop) {}
 	bool runOnScop(Scop &scop);
 	int GoodNestedParallelLoops(const clast_stmt * stmt, int CurrentCount);
 	int GoodNestedParallelLoops(const clast_stmt * stmt);
@@ -255,6 +257,7 @@ public:
 		AU.addRequired<Dependences>();
         AU.setPreservesAll();
 	}
+	void findParallelLoop(const clast_stmt * stmt);
 };
 bool isaGoodListOfStatements(const clast_stmt * stmt, const clast_for * &nested_for, bool & user_or_assignment)
 {
@@ -281,7 +284,7 @@ bool isaGoodListOfStatements(const clast_stmt * stmt, const clast_for * &nested_
 }
 int SizeOfLoops::GoodNestedParallelLoops(const clast_stmt * stmt)
 {
-	Dependences *DP = &getAnalysis<Dependences>();
+	
 	int goodLoops = 0;
 	while(goodLoops < 3) {
 		const clast_for * nested_for = NULL;
@@ -316,6 +319,20 @@ Size3 SizeOfLoops::retrieveSize3FromCloogLoopAST(const clast_root * CloogAST, in
 	interpreter.interpret(CloogAST);
 	return Size3(interpreter.numberOfIterations);
 }
+void SizeOfLoops::findParallelLoop(const clast_stmt * stmt)
+{
+	while(stmt!=NULL && !*isThereAtLeastOneParallelLoop) {
+		if(CLAST_STMT_IS_A(stmt, stmt_for)) {
+		    const clast_for *for_loop = (const clast_for *)stmt;
+			if(DP->isParallelFor(for_loop)) {
+				*isThereAtLeastOneParallelLoop = true;
+				return;
+			} else
+				findParallelLoop(for_loop->body);
+		}
+		stmt=stmt->next;
+	}
+}
 bool SizeOfLoops::runOnScop(Scop &scop)
 {
 	assert(sizeOfLoops && "memory for vector<Size3> not set!");
@@ -323,6 +340,7 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 	       "only one scop allowed!");
 
 	CloogInfo &C = getAnalysis<CloogInfo>();
+	DP = &getAnalysis<Dependences>();
 	const clast_root *root = C.getClast();
 		
 	//if there are some not substituted parameters then we can not compute size of loops 
@@ -345,19 +363,23 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 		    retrieveSize3FromCloogLoopAST(root, goodLoopsCount));
 	else
 		sizeOfLoops->push_back(Size3());
-    
+		
+	if(isThereAtLeastOneParallelLoop) {	
+	   *isThereAtLeastOneParallelLoop = false;
+	   findParallelLoop(stmt->next);
+    }
 	printSizeOfLoops( (*sizeOfLoops)[0], goodLoopsCount);
     //printCloogAST(C);
         if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
 		outs() << "\n<------------------------------ Scop: end ----------------------------------->\n";
-	return true;
+	return false;
 }
 
 char SizeOfLoops::ID = 0;
 static RegisterPass<SizeOfLoops>
 Z("Size3-scop", "Compute Size3 structure for scops");
 
-Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL)
+Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL, bool *isThereAtLeastOneParallelLoop = NULL)
 {
-	return new SizeOfLoops(memForSize3);
+	return new SizeOfLoops(memForSize3 , isThereAtLeastOneParallelLoop);
 }

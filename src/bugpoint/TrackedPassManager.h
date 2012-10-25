@@ -47,7 +47,7 @@ class PassTracker
 	string input;
 	PassTrackerCallback callback;
 	void* callback_arg;
-	Module* module;
+	OwningPtr<Module> module;
 
 	// Run the same passes in the bugpoint.
 	static void handler(void* instance)
@@ -74,7 +74,6 @@ class PassTracker
 			bool UseValgrind = false;
 			BugDriver D("kernelgen-simple", FindBugs, TimeoutValue, MemoryLimit,
 				UseValgrind, getGlobalContext());
-			D.setNewProgram(tracker->module);
 
 			// Add currently tracked passes.
 			for (list<Pass*>::iterator i = tracker->passes.begin(),
@@ -95,7 +94,7 @@ class PassTracker
 
 			// We don't delete module here, since it could get
 			// trashed by buggy passes and deletion may fail.
-			Module* module_to_break = CloneModule(tracker->module);
+			Module* module_to_break = CloneModule(tracker->module.get());
 			D.setNewProgram(module_to_break);
 
 			// Reduce the test case.
@@ -129,8 +128,8 @@ public:
 		passes.clear();
 		if (module)
 		{
-			delete module;
-			module = NULL;
+			Module* m = module.take();
+			delete m;
 		}
 	}
 
@@ -141,7 +140,7 @@ public:
 
 	void run(Module* M)
 	{
-		module = CloneModule(M);
+		module.reset(CloneModule(M));
 	}
 };
 

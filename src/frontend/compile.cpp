@@ -78,6 +78,11 @@ Pass* createMoveUpCastsPass();
 
 extern string dragonegg_result;
 
+extern cl::opt<bool> EnablePRE;
+extern cl::opt<bool> EnableLoadPRE;
+extern cl::opt<bool> DisableLoadsDeletion;
+extern cl::opt<bool> DisablePromotion;
+
 static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
 	PM.add(createFixPointersPass());
@@ -85,7 +90,8 @@ static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBas
 	PM.add(createMoveUpCastsPass());
 	PM.add(createInstructionCombiningPass());
 	PM.add(createBasicAliasAnalysisPass());
-	PM.add(createGVNPass());  
+	PM.add(createGVNPass()); 
+	//PM.add(createEarlyCSEPass());
 	PM.add(createBranchedLoopExtractorPass());
 	PM.add(createVerifierPass());
 }
@@ -102,68 +108,50 @@ extern "C" void callback (void*, void*)
 {
 	PassTracker* tracker = new PassTracker(main_input_filename, &fallback, NULL);
 
-	//
-	// 1) Append "always inline" attribute to all existing functions.
-	//
 	LLVMContext &context = getGlobalContext();
 	SMDiagnostic diag;
 	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(dragonegg_result);
 	Module* m = ParseIR(buffer1, diag, context);
-	for (Module::iterator f = m->begin(), fe = m->end(); f != fe; f++)
-	{
-		Function* func = f;
-		if (func->isDeclaration()) continue;
 
-		const AttrListPtr attr = func->getAttributes();
-		const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::AlwaysInline);
-		func->setAttributes(attr_new);
+	//
+	// 1) Extract loops into new functions. Apply some optimization
+	// passes to the resulting module.
+	//
+	{
+		PassManager manager;
+		manager.add(new TargetData(m));
+		manager.add(createFixPointersPass());
+		manager.add(createInstructionCombiningPass());
+		manager.add(createMoveUpCastsPass());
+		manager.add(createInstructionCombiningPass());
+		manager.add(createEarlyCSEPass());
+		manager.add(createCFGSimplificationPass());
+		manager.run(*m);
 	}
-
-	/*//
-	// Add noalias for all used functions arguments (dirty hack).
-	//
-	for(Module::iterator function = m.get()->begin(), function_end = m.get()->end();
-	    function != function_end; function++) {
-		Function * f = function;
-		int i = 1;
-		for(Function::arg_iterator arg_iter = f -> arg_begin(), arg_iter_end = f -> arg_end();
-		    arg_iter != arg_iter_end; arg_iter++) {
-			Argument * arg = arg_iter;
-			if(isa<PointerType>(*(arg -> getType())))
-				if(arg -> getType() -> getSequentialElementType() -> isSingleValueType() )
-					f -> setDoesNotAlias(i);
-			i++;
-		}
-	}*/
-	
-	//
-	// 2) Inline calls and extract loops into new functions.
-	// Apply optimization passes to the resulting common module.
-	//
 	{
-		int optLevel = 3;
+		EnableLoadPRE.setValue(false);
+		DisableLoadsDeletion.setValue(true);
+		DisablePromotion.setValue(true);
+		PassManager manager;
+		manager.add(new TargetData(m));
+		manager.add(createBasicAliasAnalysisPass());
+		manager.add(createLICMPass());
+		manager.add(createGVNPass());
+		manager.run(*m);
 		
-		PassManagerBuilder builder;
-		builder.Inliner = createFunctionInliningPass();
-		builder.OptLevel = optLevel;
-		builder.DisableSimplifyLibCalls = true;
-		
-		TrackedPassManager manager(tracker);
-		
-		if (optLevel == 0)
-			addKernelgenPasses(builder,manager);
-		else
-			builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly,
-				addKernelgenPasses);
-		
-		builder.populateModulePassManager(manager);
+	}
+	{
+		PassManager manager;
+		manager.add(createBranchedLoopExtractorPass());
+		manager.add(createCFGSimplificationPass());
 		manager.run(*m);
 	}
 
+	verifyModule(*m);
 	if (verbose) m->dump();
 
 	//
-	// 3) Embed the resulting module into object file.
+	// 2) Embed the resulting module into object file.
 	//
 	{
 		// The name of the symbol to hold LLVM IR source.

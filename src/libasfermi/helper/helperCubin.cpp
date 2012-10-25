@@ -153,7 +153,7 @@ void hpCubinStage1()
 	{
 		cubinSectionConstant2.SectionIndex = cubinCurrentSectionIndex++;
 		cubinSectionConstant2.SHStrTabOffset = cubinCurrentSHStrTabOffset;
-		cubinCurrentSHStrTabOffset += strlen(cubin_str_constant2) + 1;
+		cubinCurrentSHStrTabOffset += strlen(cubin_str_constant) + 2;
 	}
 
 	cubinSectionNVInfo.SectionIndex = cubinCurrentSectionIndex++;
@@ -226,7 +226,15 @@ inline void hpCubinStage2SetSHStrTabSectionContent()
 	}
 	//tail sections
 	if(cubinConstant2Size)
-		hpCubinAddSectionName2(cubinSectionSHStrTab.SectionContent, currentOffset, cubin_str_constant2);
+	{
+		// Switch between .nv.constant2 and .nv.constant3, depending on target architecture.
+		string name = cubin_str_constant;
+		if(cubinArchitecture == sm_20||cubinArchitecture ==sm_21)
+			name += "2";
+		else if(cubinArchitecture ==sm_30)
+			name += "3";
+		hpCubinAddSectionName2(cubinSectionSHStrTab.SectionContent, currentOffset, name.c_str());
+	}
 	hpCubinAddSectionName2(cubinSectionSHStrTab.SectionContent, currentOffset, cubin_str_nvinfo);
 }
 inline void hpCubinStage2SetStrTabSectionContent()
@@ -394,9 +402,16 @@ void hpCubinStage3()
 		}
 
 		//.constant0
-		kernel->Constant0Section.SectionSize = 0x20 + kernel->ParamTotalSize;
-		kernel->Constant0Section.SectionContent = new unsigned char[kernel->Constant0Section.SectionSize];
-		memset(kernel->Constant0Section.SectionContent, 0, kernel->Constant0Section.SectionSize); //just set it all to 0
+		if(cubinArchitecture == sm_20||cubinArchitecture ==sm_21) {
+			kernel->Constant0Section.SectionSize = 0x20 + kernel->ParamTotalSize;
+			kernel->Constant0Section.SectionContent = new unsigned char[kernel->Constant0Section.SectionSize];
+			memset(kernel->Constant0Section.SectionContent, 0, kernel->Constant0Section.SectionSize); //just set it all to 0
+		}
+		else if(cubinArchitecture ==sm_30) {
+			kernel->Constant0Section.SectionSize = 0x140 + kernel->ParamTotalSize;
+			kernel->Constant0Section.SectionContent = new unsigned char[kernel->Constant0Section.SectionSize];
+			memset(kernel->Constant0Section.SectionContent, 0, kernel->Constant0Section.SectionSize); //just set it all to 0
+		}
 
 		//.info
 		if(kernel->Parameters.size()==0) //no param
@@ -411,19 +426,33 @@ void hpCubinStage3()
 		}
 		else
 		{
-			kernel->InfoSection.SectionSize = 0x14 * (kernel->Parameters.size() + 1);//size = (n+1)(0x14)
-			kernel->InfoSection.SectionContent = new unsigned char[kernel->InfoSection.SectionSize]; 
+			if(cubinArchitecture ==sm_21) {
+				kernel->InfoSection.SectionSize = 0x14 * (kernel->Parameters.size() + 1);//size = (n+1)(0x14)
+			}
+			else if(cubinArchitecture == sm_20||cubinArchitecture == sm_30) {
+				kernel->InfoSection.SectionSize = 0x10 * (kernel->Parameters.size() + 1);//size = (n+1)(0x14)
+			}
+			kernel->InfoSection.SectionContent = new unsigned char[kernel->InfoSection.SectionSize];
 			offset = (unsigned int *)kernel->InfoSection.SectionContent;
-			//---cbank_param_offsets
-			*offset++ = 0x00000c04 | kernel->Parameters.size()*4 << 16; //04 0c aa bb: bbaa is paramcount * 4
-			//offset of each argument
-			for(list<KernelParameter>::iterator param = kernel->Parameters.begin(); param != kernel->Parameters.end(); param++)
-				*offset++ = param->Offset;
+
+			if(cubinArchitecture ==sm_21) {
+				//---cbank_param_offsets
+				*offset++ = 0x00000c04 | kernel->Parameters.size()*4 << 16; //04 0c aa bb: bbaa is paramcount * 4
+				//offset of each argument
+				for(list<KernelParameter>::iterator param = kernel->Parameters.begin();
+					param != kernel->Parameters.end(); param++)
+					*offset++ = param->Offset;
+			}
 
 			//---param_cbank
 			*offset++ = 0x00080a04; //size to follow is always 08
 			*offset++ = kernel->Constant0Section.SymbolIndex;
-			*offset++ = kernel->ParamTotalSize << 16 | 0x0020; //0x00aa0020: 0xaaaa: total parameter size
+			if(cubinArchitecture == sm_20||cubinArchitecture ==sm_21) {
+				*offset++ = kernel->ParamTotalSize << 16 | 0x0020; //0x00aa0020: 0xaaaa: total parameter size
+			}
+			else if(cubinArchitecture ==sm_30) {
+				*offset++ = kernel->ParamTotalSize << 16 | 0x0140; //0x00aa0140: 0xaaaa: total parameter size
+			}
 
 			//---cbank_param_size
 			*offset++ = 0x00001903 | kernel->ParamTotalSize << 16; //03 19 aa bb: 0xbbaa: total param size
@@ -433,7 +462,8 @@ void hpCubinStage3()
 			for(list<KernelParameter>::reverse_iterator param = kernel->Parameters.rbegin(); param != kernel->Parameters.rend(); param++)
 			{
 				*offset++ = 0x000c1704; //identifier: 04 17 0c 00
-				*offset++ = 0xffffffff; //index, always -0x1
+				*offset++ = 0x0; //index, always -0x1
+				//*offset++ = 0xffffffff; //index, always -0x1
 				*offset++ = ( ordinal-- )| (param->Offset<<16); // aa bb cc dd: bbaa is ordinal, ddcc is offset
 				*offset++ = (((param->Size+3)/4)<<20)|0x0001f000; //aaa b c b dd: aaa is size of param/4, bb is cbank, c is space, dd is logAlignment
 			}
@@ -628,11 +658,13 @@ void hpCubinStage5()
 //Stage6: Setup ELF header
 void hpCubinStage6()
 {
-	
+	//issue: supports only sm_20, sm_21 & sm_30
 	if(cubinArchitecture == sm_20)
 		ELFH32.Flags = ELFFlagsForsm_20;
-	else //issue: supports only sm_20 and sm_21
+	else if (cubinArchitecture == sm_21) 
 		ELFH32.Flags = ELFFlagsForsm_21;
+	else 
+		ELFH32.Flags = ELFFlagsForsm_30;
 
 	if(cubin64Bit)
 	{

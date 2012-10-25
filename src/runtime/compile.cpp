@@ -50,6 +50,8 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/IRBuilder.h"
+#include "polly/ScopInfo.h"
 
 #include "io.h"
 #include "util.h"
@@ -67,6 +69,7 @@
 
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
+using namespace kernelgen::runtime;
 using namespace util::io;
 using namespace llvm;
 using namespace polly;
@@ -82,8 +85,14 @@ namespace llvm
 extern cl::opt<bool> IgnoreAliasing;
 
 void ConstantSubstitution( Function * func, void * args);
-Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL);
+Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL, bool * isThereAtLeastOneParallelLoop = NULL);
 Pass* createRuntimeAliasAnalysisPass();
+
+Pass* createTransformAccessesPass();
+Pass* createInspectDependencesPass();
+Pass* createScopDescriptionPass();
+Pass* createSetRelationTypePass(MemoryAccess::RelationType relationType = MemoryAccess::RelationType_polly);
+
 Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 {
 	int64_t sizes[3];
@@ -119,45 +128,77 @@ void printSpecifiedStatistics(vector<string> statisticsNames)
 	outs().resetColor();
 }
 
-static void registerPollyPreoptPasses(llvm::PassManagerBase &PM) {
-  // A standard set of optimization passes partially taken/copied from the
-  // set of default optimization passes. It is used to bring the code into
-  // a canonical form that can than be analyzed by Polly. This set of passes is
-  // most probably not yet optimal. TODO: Investigate optimal set of passes.
-  PM.add(llvm::createPromoteMemoryToRegisterPass());
-  PM.add(llvm::createInstructionCombiningPass());  // Clean up after IPCP & DAE
-  PM.add(llvm::createCFGSimplificationPass());     // Clean up after IPCP & DAE
-  PM.add(llvm::createTailCallEliminationPass());   // Eliminate tail calls
-  PM.add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
-  PM.add(llvm::createReassociatePass());           // Reassociate expressions
-  PM.add(llvm::createLoopRotatePass());            // Rotate Loop
-  PM.add(llvm::createInstructionCombiningPass());
-  PM.add(polly::createIndVarSimplifyPass());        // Canonicalize indvars
+static void registerPollyPreoptPasses(llvm::PassManagerBase &PM)
+{
+	// A standard set of optimization passes partially taken/copied from the
+	// set of default optimization passes. It is used to bring the code into
+	// a canonical form that can than be analyzed by Polly. This set of passes is
+	// most probably not yet optimal. TODO: Investigate optimal set of passes.
+	PM.add(llvm::createPromoteMemoryToRegisterPass());
+	PM.add(llvm::createInstructionCombiningPass());  // Clean up after IPCP & DAE
+	PM.add(llvm::createCFGSimplificationPass());     // Clean up after IPCP & DAE
+	PM.add(llvm::createTailCallEliminationPass());   // Eliminate tail calls
+	PM.add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
+	PM.add(llvm::createReassociatePass());           // Reassociate expressions
+	PM.add(llvm::createLoopRotatePass());            // Rotate Loop
+	PM.add(llvm::createInstructionCombiningPass());
+	PM.add(polly::createIndVarSimplifyPass());        // Canonicalize indvars
 
-  PM.add(polly::createCodePreparationPass());
-  PM.add(polly::createRegionSimplifyPass());
-  // FIXME: The next two passes should not be necessary here. They are currently
-  //        because of two problems:
-  //
-  //        1. The RegionSimplifyPass destroys the canonical form of induction
-  //           variables,as it produces PHI nodes with incorrectly ordered
-  //           operands. To fix this we run IndVarSimplify.
-  //
-  //        2. IndVarSimplify does not preserve the region information and
-  //           the regioninfo pass does currently not recover simple regions.
-  //           As a result we need to run the RegionSimplify pass again to
-  //           recover them
-  PM.add(polly::createIndVarSimplifyPass());
-  PM.add(polly::createRegionSimplifyPass());
+	PM.add(polly::createCodePreparationPass());
+	PM.add(polly::createRegionSimplifyPass());
+
+	// FIXME: The next two passes should not be necessary here. They are currently
+	//        because of two problems:
+	//
+	//        1. The RegionSimplifyPass destroys the canonical form of induction
+	//           variables,as it produces PHI nodes with incorrectly ordered
+	//           operands. To fix this we run IndVarSimplify.
+	//
+	//        2. IndVarSimplify does not preserve the region information and
+	//           the regioninfo pass does currently not recover simple regions.
+	//           As a result we need to run the RegionSimplify pass again to
+	//           recover them
+	PM.add(polly::createIndVarSimplifyPass());
+	PM.add(polly::createRegionSimplifyPass());
 }
 
-static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
+void getAllocasAndMaximumSize(Function *f,list<Value *> *allocasForArgs, unsigned long long * maximumSizeOfData )
+{
+	Value *tmpArg=NULL;
+	if (f && allocasForArgs && maximumSizeOfData) {
+		for (Value::use_iterator UI = f->use_begin(), UE = f->use_end(); UI != UE; UI++) {
+			CallInst* call = dyn_cast<CallInst>(*UI);
+			if(!call) continue;
+
+			//retrive size of data
+			tmpArg = call -> getArgOperand(1);
+			assert( isa<ConstantInt>(*tmpArg) && "by this time, after targetData,"
+			        "second parameter of kernelgen functions "
+			        "must be ConstantInt");
+
+			//get maximum size of data
+			uint64_t sizeOfData = ((ConstantInt*)tmpArg)->getZExtValue();
+			if(*maximumSizeOfData < sizeOfData)
+				*maximumSizeOfData=sizeOfData;
+
+			tmpArg = call -> getArgOperand(3)->stripPointerCasts();
+			/*while(!isa<AllocaInst>(*tmpArg)) {
+				assert(isa<BitCastInst>(*tmpArg));
+				tmpArg=cast<BitCastInst>(tmpArg)->getOperand(0);
+			}*/
+			assert(isa<AllocaInst>(*tmpArg));
+			allocasForArgs->push_back(tmpArg);
+		}
+	}
+}
+
+static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode, bool *isThereAtLeastOneParallelLoop)
 {
 	{
 		PassManager polly;
 		polly.add(new TargetData(kernel->module));
 		registerPollyPreoptPasses(polly);
-		polly.add(polly::createIslScheduleOptimizerPass());
+		//polly.add(polly::createIslScheduleOptimizerPass());
 		polly.run(*kernel->module);
 	}
 
@@ -176,10 +217,21 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 		//registerPollyPreoptPasses(polly);
 		//polly.add(polly::createIslScheduleOptimizerPass());
 		if (kernel->name != "__kernelgen_main") {
-			polly.add(createRuntimeAliasAnalysisPass());
-			polly.add(createSizeOfLoopsPass(&sizes));
+			//polly.add(createRuntimeAliasAnalysisPass());
+		    polly.add(createScopDescriptionPass());   // print scop description
+		    polly.add(createTransformAccessesPass()); // create General Form for each scop's memory Access
+			                                          // set their current relation types to RelationType_general
+		    //polly.add(createScopDescriptionPass());
+		    polly.add(createInspectDependencesPass()); // Dependences run and compute dependences 
+			                                           // before InspectDependences, but after TransformAccesses
+                                                       // and use general form of memory accesses
+			polly.add(createSizeOfLoopsPass(&sizes, isThereAtLeastOneParallelLoop));  // compute size of loops
+		    polly.add(createSetRelationTypePass()); // set current relation types in scop's memory Accesses back to 
+			                                        // RelationType_polly
+		    //polly.add(createScopDescriptionPass());
 		}
 		polly.add(polly::createCodeGenerationPass()); // -polly-codegenn
+													  // use polly's representation of Memory Accesses
 		polly.add(createCFGSimplificationPass());
 		polly.run(*kernel->module);
 	}
@@ -227,27 +279,28 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode)
 }
 static void runPollyNATIVE(kernel_t *kernel, Size3 *sizeOfLoops)
 {
-	return runPolly(kernel, sizeOfLoops, false);
+	return runPolly(kernel, sizeOfLoops, false, NULL);
 }
-static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops)
+static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops, bool *isThereAtLeastOneParallelLoop)
 {
-	return runPolly(kernel, sizeOfLoops, true);
+	return runPolly(kernel, sizeOfLoops, true, isThereAtLeastOneParallelLoop);
 }
 void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 {
-	Module * m = kernel-> module;
+	Module * m = kernel->module;
 	vector<string> dimensions, parameters;
 
 	dimensions.push_back("x");
 	dimensions.push_back("y");
 	dimensions.push_back("z");
 
-	parameters.push_back("gridDim");
-	parameters.push_back("blockDim");
 
-	string prefix1("kernelgen_");
-	string prefix2("_");
-	string prefix3(".");
+	parameters.push_back("nctaid");
+	parameters.push_back("ntid");
+
+	string prefix1("llvm.nvvm.read.ptx.sreg.");
+	string dot(".");
+	
 
 	unsigned int * gridParams[2];
 	gridParams[0] = (unsigned int *)&gridDim;
@@ -255,7 +308,7 @@ void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 
 	for(int parameter =0; parameter < parameters.size(); parameter++)
 		for(int dimension=0; dimension < dimensions.size(); dimension++) {
-			string functionName = prefix1 + parameters[parameter] + prefix2 + dimensions[dimension];
+			string functionName = prefix1 + parameters[parameter] + dot + dimensions[dimension];
 			Function* function = m->getFunction(functionName);
 			if(function && function->getNumUses() > 0) {
 				assert(function->getNumUses() == 1);
@@ -267,6 +320,311 @@ void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
 				functionCall->eraseFromParent();
 			}
 		}
+}
+
+static void substituteGlobalsByTheirAddresses(Module *m)
+{
+	list<GlobalVariable *> globalVariables;
+	LLVMContext & context = m->getContext(); 
+	for(Module::global_iterator iter=m->global_begin(), iter_end=m->global_end();
+	     iter!=iter_end; iter++)
+	{
+	
+		 GlobalVariable *globalVar = iter;
+		 string globalName = globalVar->getName();
+		 
+		 if(!globalName.compare("__kernelgen_callback") || !globalName.compare("__kernelgen_memory"))
+		 {
+			 assert(globalVar->getNumUses() == 0);
+			 globalVariables.push_back(globalVar);
+			 continue;
+		 }
+		 std::map<llvm::StringRef, uint64_t>::const_iterator tuple;
+		 tuple = orderOfGlobals.find(globalVar->getName());
+		 assert(tuple != orderOfGlobals.end());
+		
+		 int index = tuple->second;
+		 /* int offset = strlen("global.");
+		 assert(!globalName.substr(0,offset).compare("global."));
+		 int index = atoi(globalName.substr(offset, globalName.length() - offset).c_str());*/
+		 
+		 uint64_t address = addressesOfGlobalVariables[index];
+		 Constant *replacement = ConstantExpr::getIntToPtr(
+				  ConstantInt::get(Type::getInt64Ty(context),address),
+				  globalVar->getType());
+				  
+		globalVar->replaceAllUsesWith(replacement);
+		globalVariables.push_back(globalVar);
+	}
+	for(list<GlobalVariable *>::iterator iter=globalVariables.begin(), iter_end = globalVariables.end();
+	     iter!=iter_end; iter++)
+			 (*iter)->eraseFromParent();
+}
+
+static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
+{
+	list<AllocaInst*> allocas;
+	list<CallInst*> erase_calls;
+	for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+		for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++)
+		{
+			AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
+			if(alloca) {
+				// handle alloca later
+				allocas.push_back(alloca);
+				continue;
+			}
+					
+			// Check if instruction in focus is a call.
+			CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+			if (!call) continue;
+			
+			// Mark all calls as calls to device functions. 
+			call->setCallingConv(CallingConv::PTX_Device);
+
+			// Check if function is called (needs -instcombine pass).
+			// Could be also a function called inside a bitcast.
+			// So try to extract function from the underlying constant expression.
+			// Required to workaround GCC/DragonEGG issue:
+			// http://lists.cs.uiuc.edu/pipermail/llvmdev/2012-July/051786.html
+			Function* callee = dyn_cast<Function>(
+				call->getCalledValue()->stripPointerCasts());
+			if (!callee) continue;
+
+			call->setAttributes(callee->getAttributes());
+			// If function is defined (has body),
+			// it will be handled in another call of processCallTreeMain
+			if (!callee->isDeclaration())
+				continue;
+
+			string name = callee->getName();
+
+			// If function is only declared, then try to find and
+			// insert its implementation from the CUDA runtime module.
+			Function* Dst = callee;
+			Function* Src = cuda_module->getFunction(callee->getName());
+			if (Src && (Src != Dst))
+				if (!Src->isDeclaration())
+			{
+				if (verbose)
+					cout << "Device call: " << callee->getName().data()<< endl;
+				call->setCallingConv(CallingConv::PTX_Device);					
+				//LinkFunctionBody(Dst, Src);
+				linkFunctionWithAllDependendes(Src,Dst);
+				Dst->setName(Dst->getName());
+				
+				Dst->setAttributes(Src->getAttributes());
+				for (Value::use_iterator use_iter = Dst->use_begin(),
+					use_iter_end = Dst->use_end(); use_iter != use_iter_end; use_iter++)
+				{
+					CallInst * call = cast<CallInst>(*use_iter);
+					call->setAttributes(Dst->getAttributes());
+				}
+				continue;
+			}
+
+			if (callee->isIntrinsic()) continue;
+
+			// Check if function is malloc or free.
+			// In case it is, replace it with kernelgen_* variant.
+			if ((name == "malloc") || (name == "posix_memalign") || (name == "free")) {
+				string rename = "kernelgen_";
+				rename += callee->getName();
+				Function* replacement = m->getFunction(rename);
+				if (!replacement) {
+					replacement = Function::Create(callee->getFunctionType(),
+						GlobalValue::ExternalLinkage, rename, m);
+				}
+				call->setCalledFunction(replacement);
+				if (verbose)
+					cout << "replacement: " << name << " -> " << rename << endl;
+				continue;
+			}
+
+			// Also record hostcall to the kernels map.
+			kernel_t* hostcall = kernels[name];
+			if (!hostcall) {
+				hostcall = new kernel_t();
+				hostcall->name = name;
+				hostcall->source = "";
+
+				// No targets supported, except NATIVE.
+				for (int i = 0; i < KERNELGEN_RUNMODE_COUNT; i++) {
+					hostcall->target[i].supported = false;
+					hostcall->target[i].binary = NULL;
+				}
+				hostcall->target[KERNELGEN_RUNMODE_NATIVE].supported = true;
+
+				hostcall->target[runmode].monitor_kernel_stream =
+				    kernel->target[runmode].monitor_kernel_stream;
+				hostcall->module = kernel->module;
+
+				kernels[name] = hostcall;
+			}
+
+			// Replace entire call with hostcall and set old
+			// call for erasing.
+			wrapCallIntoHostcall(call, hostcall);
+			erase_calls.push_back(call);
+		}
+		
+		for (list<CallInst*>::iterator i = erase_calls.begin(),
+			ie = erase_calls.end(); i != ie; i++)
+			   (*i)->eraseFromParent();
+
+		// Replace static alloca-s with global variables.
+		// Replace dynamic alloca-s with kernelgen_malloc.
+		Type* i1Ty = Type::getInt1Ty(m->getContext());
+		for (list<AllocaInst*>::iterator i = allocas.begin(),
+			ie = allocas.end(); i != ie; i++) {
+			AllocaInst *alloca = *i;
+			Type* Ty = alloca->getAllocatedType();
+
+			// Use of i1 is not supported by NVPTX.
+			assert(Ty != i1Ty);
+
+			if(!alloca->isArrayAllocation()) {
+				// Allocation of single element:
+				// Replace "alloca type" with "@a = type".
+				GlobalVariable* GV = new GlobalVariable(
+					*m, Ty, false, GlobalValue::PrivateLinkage,
+					Constant::getNullValue(Ty), "replacementOfAlloca");
+				GV->setAlignment(alloca->getAlignment());
+				alloca->replaceAllUsesWith(GV);
+				if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
+					outs().changeColor(raw_ostream::RED);
+					outs() << "Replace \"" << *alloca << "\" with \n  " << *GV;
+					outs().resetColor();
+				}
+			} 
+			else if(isa<ConstantInt>(*alloca->getArraySize())) {
+				// Allocation of array of elements:
+				// simple case: array size is the ConstantInt and we can retrive actual size as uint64_t
+				// Replace "alloca type, 10" with "@a=[type x 10]; bitcast [type x 10]* @a to type*"
+				uint64_t numElements = cast<ConstantInt>(alloca->getArraySize())->getZExtValue();
+				ArrayType *arrayType = ArrayType::get(alloca->getAllocatedType(),numElements);
+				GlobalVariable* GV = new GlobalVariable(
+					*m, arrayType, false, GlobalValue::PrivateLinkage,
+					Constant::getNullValue(arrayType), "memoryForAlloca");
+				GV->setAlignment(alloca->getAlignment());
+				BitCastInst* bitcast = new BitCastInst(GV,alloca->getType(),
+					"replacementOfAlloca", alloca);
+				alloca->replaceAllUsesWith(bitcast);
+
+				if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
+					outs().changeColor(raw_ostream::GREEN);
+					outs() << "Replace \"" << *alloca << "\" with \n  " << *GV << *bitcast << "\n";
+					outs().resetColor();
+				}
+			} 
+			else  {
+				// More complex case: array size is a common value and unknown at compile-time
+				// Replace "alloca type, count" with "%0=call i8* kernelgen_malloc(sizeof(type)*count)
+				// %1 = bitcast i8* %0 to type*"
+
+				IRBuilder<> Builder(alloca);
+				Constant *sizeOfElement = ConstantExpr::getSizeOf(alloca->getAllocatedType());
+				Value *sizeOfAllocation = Builder.CreateMul(alloca->getArraySize(),sizeOfElement, "allocationSize");
+				Function *kernelgenMalloc =  m->getFunction("kernelgen_malloc");
+				assert(kernelgenMalloc && sizeOfAllocation->getType()->isIntegerTy());
+				CallInst *callOfMalloc = (CallInst *)Builder.CreateCall(
+					kernelgenMalloc, sizeOfAllocation, "memoryForAlloca");
+				callOfMalloc->setCallingConv(llvm::CallingConv::PTX_Device);
+				
+				if(callOfMalloc->getType() == alloca->getType()) {
+     				callOfMalloc->setName("replacementOfAlloca");
+					alloca->replaceAllUsesWith(callOfMalloc);
+					if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
+						outs().changeColor(raw_ostream::GREEN);
+						outs() << "Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n";
+						outs().resetColor();
+					}
+				} 
+				else {
+					Value * bitcast = Builder.CreateBitCast(callOfMalloc, alloca->getType(), "replacementOfAlloca");
+					alloca->replaceAllUsesWith(bitcast);
+					if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
+						outs().changeColor(raw_ostream::GREEN);
+						outs() << "Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n" << *bitcast << "\"\n";
+						outs().resetColor();
+					}
+				}
+			}
+			alloca->eraseFromParent();
+		}
+}
+
+static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
+{
+	for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
+		for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
+			
+			// Check if instruction in focus is a AllocaInst.
+			AllocaInst *alloca = dyn_cast<AllocaInst>(ii);
+			if(alloca)
+				if(alloca->isArrayAllocation())
+					if(!isa<Constant>(*alloca->getArraySize())) {
+						if (verbose) {
+							outs().changeColor(raw_ostream::RED);
+							outs() << "\n    FAIL: Not allowed dynamic alloca in loop: " << *alloca << "\n";
+							outs().resetColor();
+						}
+						kernel->target[runmode].supported = false;
+						return false;
+					}
+				
+			// Check if instruction in focus is a call.
+			CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+			if (!call) continue;
+
+			// Mark all calls as calls to device functions. 
+			call->setCallingConv(CallingConv::PTX_Device);
+
+			// Check if function is called (needs -instcombine pass).
+			Function* callee = dyn_cast<Function>(
+				call->getCalledValue()->stripPointerCasts());
+			if (!callee) continue;
+
+			// If function is defined (not declared), then recursively
+			// process its body.
+			if (!callee->isDeclaration())
+			{
+				if (!processCallTreeLoop(kernel, m, callee))
+					return false;
+				//call -> setAttributes(callee -> getAttributes());
+				continue;
+			} 
+		
+			// If function is only declared, then try to find and
+			// insert its implementation from the CUDA runtime module.
+			Function* Dst = callee;
+			Function* Src = cuda_module->getFunction(callee->getName());
+			if (Src)
+			{
+				if (verbose)
+					cout << "Device call: " << callee->getName().data()<< endl;
+				call->setCallingConv(CallingConv::PTX_Device);					
+				//LinkFunctionBody(Dst, Src);
+				linkFunctionWithAllDependendes(Src, Dst);
+				Dst->setName(Dst->getName());
+				//Dst->setAttributes(Src -> getAttributes());
+				continue;
+			}
+
+			if (callee->isIntrinsic()) continue;
+
+			// Loop kernel contains non-native calls, and therefore
+			// cannot be executed on GPU.
+			if (verbose)
+			{
+				outs().changeColor(raw_ostream::RED);
+			    outs() <<  "\n    FAIL: Not allowed host call in loop: " << callee->getName().data()<< "\n";
+			    outs().resetColor();
+			}
+			kernel->target[runmode].supported = false;
+			return false;
+		}
+	return true;
 }
 
 kernel_func_t kernelgen::runtime::compile(
@@ -296,6 +654,14 @@ kernel_func_t kernelgen::runtime::compile(
 		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
 	}
+    
+	if (kernel->name != "__kernelgen_main")
+		substituteGlobalsByTheirAddresses(m);
+	
+	// Add signature record.
+	Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
+	GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),
+		true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version", 0, false);
 
 	// Emit target assembly and binary image, depending
 	// on runmode.
@@ -339,12 +705,11 @@ kernel_func_t kernelgen::runtime::compile(
 
 		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
-
+ 
 		return codegen(runmode, kernel, m);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 
-		// Change the target triple for entire module to be the same
 		// as for KernelGen device runtime module.
 		m->setTargetTriple(runtime_module->getTargetTriple());
 		m->setDataLayout(runtime_module->getDataLayout());
@@ -356,53 +721,58 @@ kernel_func_t kernelgen::runtime::compile(
 		// Mark kernel as GPU global function.
 		f->setCallingConv(CallingConv::PTX_Kernel);
 
+		// Copy attributes for declarations from cuda_module.
+		for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+			if(func->isDeclaration()) {
+				Function *Src = cuda_module->getFunction(func->getName());
+				if(!Src) continue;
+
+				func->setAttributes(Src->getAttributes());
+			}
+		}
+
 		dim3 blockDim(1, 1, 1);
 		dim3 gridDim(1, 1, 1);
 		if (kernel->name != "__kernelgen_main")  {	
-			// If the target kernel is loop, do not allow host calls in it.
-			// Also do not allow malloc/free, probably support them later.
-			// TODO: kernel *may* have kernelgen_launch called, but it must
-			// always evaluate to -1.
-			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-					// Check if instruction in focus is a call.
-					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-					if (!call) continue;
-
-					// Check if function is called (needs -instcombine pass).
-					Function* callee = call->getCalledFunction();
-					if (!callee) continue;
-					if (!callee->isDeclaration()) continue;
-				
-					// If function is only declared, then try to find and
-					// insert its implementation from the CUDA runtime module.
-					Function* Dst = callee;
-					Function* Src = cuda_module->getFunction(callee->getName());
-					if (Src)
-					{
-						if (verbose)
-							cout << "Device call: " << callee->getName().data()<< endl;
-						call->setCallingConv(CallingConv::PTX_Device);					
-						LinkFunctionBody(Dst, Src);
-						continue;
-					}
-
-					if (callee->isIntrinsic()) continue;
-
-					// Loop kernel contains non-native calls, and therefore
-					// cannot be executed on GPU.
-					if (verbose)
-						cout << "Host call: " << callee->getName().data()<< endl;
-					kernel->target[runmode].supported = false;
-					return NULL;
-				}
-
+		
 			// Substitute integer and pointer arguments.
 			if (szdatai != 0) ConstantSubstitution(f, data);
+            
+			// Add ReadNone attribute to calls (Polly workaround).
+			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+				if(func->isDeclaration()) {
+  					Function *Src = cuda_module->getFunction(func->getName());
+					if(!Src) continue;
 
+					for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+						use_iter != use_iter_end; use_iter++)
+					{
+						CallInst* call = cast<CallInst>(*use_iter);
+
+						const AttrListPtr attr = func->getAttributes();
+						const AttrListPtr attr_new = attr.addAttr(
+							~0U /*attr.getNumSlots()*/, Attribute::ReadNone);
+						call->setAttributes(attr_new);
+					}
+				}
+			}
+
+			//printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
+			
 			// Apply the Polly codegen for CUDA target.
 			Size3 sizeOfLoops;
-			runPollyCUDA(kernel, &sizeOfLoops);
+			bool isThereAtLeastOneParallelLoop = false;
+			runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
+
+			// Remove ReadNone attribute from calls (Polly workaround).
+			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+				for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+					use_iter != use_iter_end; use_iter++)
+				{
+					CallInst* call = cast<CallInst>(*use_iter);
+					call->setAttributes(func->getAttributes());
+				}
+			}
 
 			// Do not compile the loop kernel if no grid detected.
 			// Important to place this condition *after* hostcalls check
@@ -411,6 +781,7 @@ kernel_func_t kernelgen::runtime::compile(
 			// hostcalls on each individual iteration, which will be terribly slow.
 			if (sizeOfLoops.x == -1)
 			{
+				
 				// Dump the LLVM IR Polly has failed to create
 				// gird in for futher analysis with kernelgen-polly.
 				/*if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
@@ -496,10 +867,19 @@ kernel_func_t kernelgen::runtime::compile(
 			
 				// XXX Turn off future kernel analysis, if it has been detected as
 				// non-parallel at least once. This behavior is subject for change in future.
-				kernel->target[runmode].supported = false;
+				if(!isThereAtLeastOneParallelLoop)
+				    kernel->target[runmode].supported = false;
 				return NULL;
 			}
+			assert(isThereAtLeastOneParallelLoop);
 
+			// If the target kernel is loop, do not allow host calls in it.
+			// Also do not allow malloc/free, probably support them later.
+			// TODO: kernel *may* have kernelgen_launch called, but it must
+			// always evaluate to -1.
+			if (!processCallTreeLoop(kernel, m, f))
+				return NULL;
+	
 			int device;
 			CUresult err = cuDeviceGet(&device, 0);
 			if (err)
@@ -523,6 +903,8 @@ kernel_func_t kernelgen::runtime::compile(
 			err = cuDeviceGetProperties((void*)&props, device);
 			if (err)
 				THROW("Error in cuDeviceGetProperties " << err);
+
+			//printModuleToFile(m, kernel->name + (string)"_after_polly.txt" );
 
 			// x   y     z         x     y     z
 			// 123 13640   -1  ->  13640 123   1     two loops
@@ -567,6 +949,7 @@ kernel_func_t kernelgen::runtime::compile(
 			// Substitute grid parameters to reduce amount of instructions
 			// and used registers.
 			substituteGridParams(kernel, gridDim, blockDim);
+			//printModuleToFile(m, kernel->name + (string)"_after_substitution.txt" );
 		}
 
 		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
@@ -576,19 +959,6 @@ kernel_func_t kernelgen::runtime::compile(
 		// host callback form. Do not convert CallInst-s
 		// to intrinsics and calls linked from the CUDA device runtime module.
 		if (kernel->name == "__kernelgen_main") {
-			// Mark all calls as calls to device functions.
-			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-					// Check if instruction in focus is a call.
-					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-					if (!call) continue;
-
-					// Check if function is called (needs -instcombine pass).
-					Function* callee = call->getCalledFunction();
-					if (!callee) continue;
-
-					call->setCallingConv(CallingConv::PTX_Device);
-				}
 
 			// Link entire module with the KernelGen device runtime module.
 			string linker_err;
@@ -597,132 +967,101 @@ kernel_func_t kernelgen::runtime::compile(
 				THROW("Error linking runtime with kernel " << kernel->name << " : " << linker_err);
 			}
 
-			vector<CallInst*> erase_calls;
-			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-					// Check if instruction in focus is a call.
-					CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-					if (!call) continue;
+			// Process the function calls tree with main function in root.
+			for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+			    processFunctionFromMain(kernel, m, F);
 
-					// Check if function is called (needs -instcombine pass).
-					// Could be also a function called inside a bitcast.
-					// So try to extract function from the underlying constant expression.
-					// Required to workaround GCC/DragonEGG issue:
-					// http://lists.cs.uiuc.edu/pipermail/llvmdev/2012-July/051786.html
-					Function* callee = dyn_cast<Function>(
-						call->getCalledValue()->stripPointerCasts());
-					if (!callee) continue;
-					if (!callee->isDeclaration()) continue;
-
-					string name = callee->getName();
-
-					// If function is only declared, then try to find and
-					// insert its implementation from the CUDA runtime module.
-					Function* Dst = callee;
-					Function* Src = cuda_module->getFunction(callee->getName());
-					if (Src)
-					{
-						if (verbose)
-							cout << "Device call: " << callee->getName().data()<< endl;
-						call->setCallingConv(CallingConv::PTX_Device);					
-						LinkFunctionBody(Dst, Src);
-						continue;
-					}
-
-					if (callee->isIntrinsic()) continue;
-
-					// Check if function is malloc or free.
-					// In case it is, replace it with kernelgen_* variant.
-					if ((name == "malloc") || (name == "posix_memalign") || (name == "free")) {
-						string rename = "kernelgen_";
-						rename += callee->getName();
-						Function* replacement = m->getFunction(rename);
-						if (!replacement) {
-							replacement = Function::Create(callee->getFunctionType(),
-								GlobalValue::ExternalLinkage, rename, m);
-						}
-						call->setCalledFunction(replacement);
-						if (verbose)
-							cout << "replacement: " << name << " -> " << rename << endl;
-						continue;
-					}
-
-					// Also record hostcall to the kernels map.
-					kernel_t* hostcall = kernels[name];
-					if (!hostcall) {
-						hostcall = new kernel_t();
-						hostcall->name = name;
-						hostcall->source = "";
-
-						// No targets supported, except NATIVE.
-						for (int i = 0; i < KERNELGEN_RUNMODE_COUNT; i++) {
-							hostcall->target[i].supported = false;
-							hostcall->target[i].binary = NULL;
-						}
-						hostcall->target[KERNELGEN_RUNMODE_NATIVE].supported = true;
-
-						hostcall->target[runmode].monitor_kernel_stream =
-						    kernel->target[runmode].monitor_kernel_stream;
-						hostcall->module = kernel->module;
-
-						kernels[name] = hostcall;
-					}
-
-					// Replace entire call with hostcall and set old
-					// call for erasing.
-					wrapCallIntoHostcall(call, hostcall);
-					erase_calls.push_back(call);
-				}
-			for (vector<CallInst*>::iterator i = erase_calls.begin(),
-				ie = erase_calls.end(); i != ie; i++)
-				(*i)->eraseFromParent();
-
-			// Replace alloca-s with global variables.
-			vector<AllocaInst*> erase_allocas;
-			for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
-				for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
-					// Check if instruction in focus is an alloca.
-					AllocaInst* alloca = dyn_cast<AllocaInst>(cast<Value>(ii));
-					if (!alloca) continue;
+			// Evaluate ConstantExpr::SizeOf to integer number ConstantInt
+			PassManager manager;
+			manager.add(new TargetData(m));
+			manager.add(createInstructionCombiningPass());
+			manager.run(*m);
+			
+			// Replace all allocas for kernelgen_hostcalls by one big global variable
+			Function* kernelgenFunction = NULL;
+			kernelgenFunction = m->getFunction("kernelgen_hostcall");
+			if(kernelgenFunction)
+			{				
+				Value * tmpArg = NULL;
+				unsigned long long maximumSizeOfData = 0;
 				
-					// Replace alloca with global variable.
-					GlobalVariable* GV = new GlobalVariable(
-						*m, alloca->getAllocatedType(), false, GlobalValue::PrivateLinkage,
-						Constant::getNullValue(alloca->getAllocatedType()), "");
-					GV->setAlignment(alloca->getAlignment());
-					alloca->replaceAllUsesWith(GV);
-					erase_allocas.push_back(alloca);
+				// Set of allocas we want to collect together
+				list<Value *> allocasForArgs;
+				allocasForArgs.clear();
+
+				// Collect allocas for kernelgen_hostcall-s
+				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
+
+				// Allocate array [i8 x maximumSizeOfData]
+				Type* allocatedType = ArrayType::get(Type::getInt8Ty(context),maximumSizeOfData);
+				GlobalVariable *collectiveAlloca = new GlobalVariable(
+					*m, allocatedType, false, GlobalValue::PrivateLinkage,
+					Constant::getNullValue(allocatedType), "memoryForHostcallArgs");
+				collectiveAlloca->setAlignment(4096);
+					
+				for(list<Value *>::iterator iter = allocasForArgs.begin(),
+					iter_end = allocasForArgs.end(); iter != iter_end; iter++ ) {
+					AllocaInst* allocaInst = cast<AllocaInst>(*iter);
+
+					// Get type of old alloca
+					Type* structPtrType = allocaInst->getType();
+
+					// Create bit cast of created alloca for specified type
+					BitCastInst* bitcast = new BitCastInst(collectiveAlloca,
+						structPtrType, "ptrToArgsStructure");
+
+					// Insert after old alloca
+					bitcast->insertAfter(allocaInst);
+
+					// Replace uses of old alloca with created bit cast
+					allocaInst->replaceAllUsesWith(bitcast);
+
+					// Erase old alloca from parent basic block
+					allocaInst->eraseFromParent();
 				}
-			for (vector<AllocaInst*>::iterator i = erase_allocas.begin(),
-				ie = erase_allocas.end(); i != ie; i++)
-				(*i)->eraseFromParent();
-		
+			}
+
 			// Align all globals to 4096.
 			for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
 				GV->setAlignment(4096);
 		}
 
-		// Optimize module.
+		// Optimize only loop kernels.
+		if (kernel->name != "__kernelgen_main")
 		{
+			// Internalize globals in order to let them get removed from
+			// the optimized module.
+			for (Module::iterator iter = m->begin(), iter_end = m->end();
+				iter != iter_end; iter++)
+				if (!iter->isDeclaration() && cast<Function>(iter) != f)
+					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+			for (Module::global_iterator iter = m->global_begin(),
+				iter_end = m->global_end();  iter != iter_end; iter++)
+				if (!iter->isDeclaration() && cast<GlobalVariable>(iter) != GVSig)
+					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+						  
 			PassManager manager;
 			PassManagerBuilder builder;
-			builder.Inliner = createFunctionInliningPass();
+
+			// Do not inline anything in loop kernels. All kernel function
+			// dependencies will be taken from the main kernel module.
+			builder.Inliner = 0;
+			
 			builder.OptLevel = 3;
+			builder.SizeLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
-			builder.DisableUnrollLoops = true;
 			builder.Vectorize = false;
 			builder.populateModulePassManager(manager);
+	
 			manager.run(*m);
 		}
-
-		// Erase all defined functions, except the kernel.
-		vector<Function*> erase_funcs;
-		for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
-			if (!F->isDeclaration() && (F->getName() != kernel->name))
-				erase_funcs.push_back(F);
-		for (vector<Function*>::iterator i = erase_funcs.begin(),
-                        ie = erase_funcs.end(); i != ie; i++)
-                        (*i)->eraseFromParent();
+		else
+		{
+			PassManager MPM;
+			MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
+			MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+			MPM.run(*m);
+		}
 
 		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();

@@ -120,11 +120,22 @@ void FixPointers::FixPointersInModule(Module *m)
 						}*/
 
 						if(typeAllocSize == 0) {
-							outs().changeColor(raw_ostream::BLUE);
-							outs() << "KernelGen can not remove bit cast: "
-							       "typeAlloc size is zero (possibly it is cast to variable sized array)\n";
-							outs().resetColor();
-							continue;
+
+							Type * elementType = newPointerType -> getElementType();
+							if(elementType->isArrayTy())
+							{
+								while(elementType->isArrayTy())
+									elementType = cast<ArrayType>(elementType)->getElementType();
+								typeAllocSize=targetData.getTypeAllocSize(elementType);
+								newPointerType = PointerType::getUnqual(elementType);
+							}
+							else
+							{
+							    outs().changeColor(raw_ostream::BLUE);
+							    outs() << "KernelGen can not remove bit cast: typeAlloc size is zero\n";
+							    outs().resetColor();
+							    continue;
+							}
 						}
 						//create newBitCast : (newPointerType)ptr, if there is no such
 						Instruction* newBitCast = new BitCastInst(GEPInst->getOperand(0),newPointerType,"newBitCast");
@@ -150,7 +161,15 @@ void FixPointers::FixPointersInModule(Module *m)
 						}
 						if(newGEPInst) {
 							newGEPInst -> insertAfter(GEPInst);
-							castInst -> replaceAllUsesWith(newGEPInst);
+							if(newPointerType != castInst -> getDestTy())
+							{
+								// bit cast to array
+								Instruction* newBitCastToArray = new BitCastInst(newGEPInst,castInst -> getDestTy(),"newBitCastToArray");
+							    newBitCastToArray->insertAfter(newGEPInst);
+								castInst -> replaceAllUsesWith(newBitCastToArray);
+							}
+							else
+							    castInst -> replaceAllUsesWith(newGEPInst);
 						} else {
 
 							outs().changeColor(raw_ostream::BLUE);

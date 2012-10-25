@@ -42,6 +42,7 @@ my($LIB64) = $ARGV[2];
 my(@binaries) = (
 	"frontend/kernelgen-simple",
 	"frontend/kernelgen-dragonegg",
+	"frontend/kernelgen-version",
 	"runtime/kernelgen-inspector");
 foreach $binary (@binaries)
 {

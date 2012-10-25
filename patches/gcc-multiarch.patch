@@ -39,8 +39,8 @@
 	* config/ia64/t-glibc: Define MULTIARCH_DIRNAME for linux target.
 
 
---- a/gcc-4.6.3/gcc/incpath.c
-+++ b/gcc-4.6.3/gcc/incpath.c
+--- a/gcc-snapshot/gcc/incpath.c
++++ b/gcc-snapshot/gcc/incpath.c
 @@ -150,8 +150,14 @@
  	      if (!strncmp (p->fname, cpp_GCC_INCLUDE_DIR, len))
  		{
@@ -73,8 +73,8 @@
  
  	  add_path (str, SYSTEM, p->cxx_aware, false);
  	}
---- a/gcc-4.6.3/gcc/gcc.c
-+++ b/gcc-4.6.3/gcc/gcc.c
+--- a/gcc-snapshot/gcc/gcc.c
++++ b/gcc-snapshot/gcc/gcc.c
 @@ -1136,6 +1136,11 @@
     set_multilib_dir based on the compilation options.  */
  
@@ -234,8 +234,8 @@
  	skip = 1;
  
        /* Check for matches with the multilib_exclusions. We don't bother
---- a/gcc-4.6.3/gcc/genmultilib
-+++ b/gcc-4.6.3/gcc/genmultilib
+--- a/gcc-snapshot/gcc/genmultilib
++++ b/gcc-snapshot/gcc/genmultilib
 @@ -73,6 +73,8 @@
  # the os directory names are used exclusively.  Use the mapping when
  # there is no one-to-one equivalence between GCC levels and the OS.
@@ -291,8 +291,8 @@
      if [ "x${enable_multilib}" != xyes ]; then
        dirout=".:${osdirout}"
        disable_multilib=yes
---- a/gcc-4.6.3/gcc/cppdefault.c
-+++ b/gcc-4.6.3/gcc/cppdefault.c
+--- a/gcc-snapshot/gcc/cppdefault.c
++++ b/gcc-snapshot/gcc/cppdefault.c
 @@ -64,6 +64,7 @@
  #endif
  #ifdef LOCAL_INCLUDE_DIR
@@ -309,8 +309,8 @@
      { STANDARD_INCLUDE_DIR, STANDARD_INCLUDE_COMPONENT, 0, 0, 1, 0 },
  #endif
      { 0, 0, 0, 0, 0, 0 }
---- a/gcc-4.6.3/gcc/cppdefault.h
-+++ b/gcc-4.6.3/gcc/cppdefault.h
+--- a/gcc-snapshot/gcc/cppdefault.h
++++ b/gcc-snapshot/gcc/cppdefault.h
 @@ -43,9 +43,11 @@
  				   C++.  */
    const char add_sysroot;	/* FNAME should be prefixed by
@@ -326,8 +326,8 @@
  };
  
  extern const struct default_include cpp_include_defaults[];
---- a/gcc-4.6.3/gcc/common.opt
-+++ b/gcc-4.6.3/gcc/common.opt
+--- a/gcc-snapshot/gcc/common.opt
++++ b/gcc-snapshot/gcc/common.opt
 @@ -334,6 +334,9 @@
  -print-multi-os-directory
  Driver Alias(print-multi-os-directory)
@@ -359,8 +359,8 @@
  
  print-prog-name=
  Driver JoinedOrMissing Var(print_prog_name)
---- a/gcc-4.6.3/gcc/Makefile.in
-+++ b/gcc-4.6.3/gcc/Makefile.in
+--- a/gcc-snapshot/gcc/Makefile.in
++++ b/gcc-snapshot/gcc/Makefile.in
 @@ -338,6 +338,8 @@
  
  enable_plugin = @enable_plugin@
@@ -383,22 +383,22 @@
  	    > tmp-mlib.h; \
  	fi
  	$(SHELL) $(srcdir)/../move-if-change tmp-mlib.h multilib.h
---- a/gcc-4.6.3/gcc/config/alpha/t-linux
-+++ b/gcc-4.6.3/gcc/config/alpha/t-linux
+--- a/gcc-snapshot/gcc/config/alpha/t-linux
++++ b/gcc-snapshot/gcc/config/alpha/t-linux
 @@ -1 +1,3 @@
  SHLIB_MAPFILES += $(srcdir)/config/alpha/libgcc-alpha-ldbl.ver
 +
 +MULTIARCH_DIRNAME = alpha-linux-gnu
---- a/gcc-4.6.3/gcc/config/s390/t-linux64
-+++ b/gcc-4.6.3/gcc/config/s390/t-linux64
+--- a/gcc-snapshot/gcc/config/s390/t-linux64
++++ b/gcc-snapshot/gcc/config/s390/t-linux64
 @@ -7,4 +7,4 @@
  
  MULTILIB_OPTIONS = m64/m31
  MULTILIB_DIRNAMES = 64 32
 -MULTILIB_OSDIRNAMES = ../lib64 $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib)
 +MULTILIB_OSDIRNAMES = ../lib64:s390x-linux-gnu $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib):s390-linux-gnu
---- a/gcc-4.6.3/gcc/config/sparc/t-linux64
-+++ b/gcc-4.6.3/gcc/config/sparc/t-linux64
+--- a/gcc-snapshot/gcc/config/sparc/t-linux64
++++ b/gcc-snapshot/gcc/config/sparc/t-linux64
 @@ -26,7 +26,7 @@
  
  MULTILIB_OPTIONS = m64/m32
@@ -408,24 +408,24 @@
  
  LIBGCC = stmp-multilib
  INSTALL_LIBGCC = install-multilib
---- a/gcc-4.6.3/gcc/config/sparc/t-linux
-+++ b/gcc-4.6.3/gcc/config/sparc/t-linux
+--- a/gcc-snapshot/gcc/config/sparc/t-linux
++++ b/gcc-snapshot/gcc/config/sparc/t-linux
 @@ -3,3 +3,5 @@
  # Avoid the t-linux version file.
  SHLIB_MAPFILES = $(srcdir)/libgcc-std.ver \
  		 $(srcdir)/config/sparc/libgcc-sparc-glibc.ver
 +
 +MULTIARCH_DIRNAME = sparc-linux-gnu
---- a/gcc-4.6.3/gcc/config/i386/t-linux
-+++ b/gcc-4.6.3/gcc/config/i386/t-linux
+--- a/gcc-snapshot/gcc/config/i386/t-linux
++++ b/gcc-snapshot/gcc/config/i386/t-linux
 @@ -3,3 +3,5 @@
  # t-slibgcc-elf-ver and t-linux
  SHLIB_MAPFILES = $(srcdir)/libgcc-std.ver \
  		 $(srcdir)/config/i386/libgcc-glibc.ver
 +
 +MULTIARCH_DIRNAME = i386-linux-gnu
---- a/gcc-4.6.3/gcc/config/i386/t-linux64
-+++ b/gcc-4.6.3/gcc/config/i386/t-linux64
+--- a/gcc-snapshot/gcc/config/i386/t-linux64
++++ b/gcc-snapshot/gcc/config/i386/t-linux64
 @@ -25,7 +25,11 @@
  
  MULTILIB_OPTIONS = m64/m32
@@ -439,8 +439,8 @@
  
  LIBGCC = stmp-multilib
  INSTALL_LIBGCC = install-multilib
---- a/gcc-4.6.3/gcc/config/ia64/t-glibc
-+++ b/gcc-4.6.3/gcc/config/ia64/t-glibc
+--- a/gcc-snapshot/gcc/config/ia64/t-glibc
++++ b/gcc-snapshot/gcc/config/ia64/t-glibc
 @@ -3,3 +3,7 @@
    $(srcdir)/unwind-compat.c
  
@@ -449,8 +449,8 @@
 +ifneq (,$(findstring linux, $(target)))
 +MULTIARCH_DIRNAME = ia64-linux-gnu
 +endif
---- a/gcc-4.6.3/gcc/config/m68k/t-linux
-+++ b/gcc-4.6.3/gcc/config/m68k/t-linux
+--- a/gcc-snapshot/gcc/config/m68k/t-linux
++++ b/gcc-snapshot/gcc/config/m68k/t-linux
 @@ -21,6 +21,9 @@
  # Only include multilibs for 680x0 CPUs with an MMU.
  M68K_MLIB_CPU += && (CPU ~ "^m680") && (FLAGS ~ "FL_MMU")
@@ -461,8 +461,8 @@
  # This rule uses MULTILIB_MATCHES to generate a definition of
  # SYSROOT_SUFFIX_SPEC.
  sysroot-suffix.h: $(srcdir)/config/m68k/print-sysroot-suffix.sh
---- a/gcc-4.6.3/gcc/config/rs6000/t-linux64
-+++ b/gcc-4.6.3/gcc/config/rs6000/t-linux64
+--- a/gcc-snapshot/gcc/config/rs6000/t-linux64
++++ b/gcc-snapshot/gcc/config/rs6000/t-linux64
 @@ -36,7 +36,7 @@
  MULTILIB_EXTRA_OPTS     = fPIC mstrict-align
  MULTILIB_EXCEPTIONS     = m64/msoft-float
@@ -472,16 +472,16 @@
  MULTILIB_MATCHES        = $(MULTILIB_MATCHES_FLOAT)
  
  softfp_wrap_start := '\#ifndef __powerpc64__'
---- a/gcc-4.6.3/gcc/config/pa/t-linux
-+++ b/gcc-4.6.3/gcc/config/pa/t-linux
+--- a/gcc-snapshot/gcc/config/pa/t-linux
++++ b/gcc-snapshot/gcc/config/pa/t-linux
 @@ -35,3 +35,5 @@
  
  # Compile crtbeginS.o and crtendS.o as PIC.
  CRTSTUFF_T_CFLAGS_S = -fPIC
 +
 +MULTIARCH_DIRNAME = hppa-linux-gnu
---- a/gcc-4.6.3/gcc/config/mips/t-linux64
-+++ b/gcc-4.6.3/gcc/config/mips/t-linux64
+--- a/gcc-snapshot/gcc/config/mips/t-linux64
++++ b/gcc-snapshot/gcc/config/mips/t-linux64
 @@ -18,7 +18,11 @@
  
  MULTILIB_OPTIONS = mabi=n32/mabi=32/mabi=64
@@ -495,8 +495,8 @@
  
  EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
  
---- a/gcc-4.6.3/gcc/config.gcc
-+++ b/gcc-4.6.3/gcc/config.gcc
+--- a/gcc-snapshot/gcc/config.gcc
++++ b/gcc-snapshot/gcc/config.gcc
 @@ -2180,6 +2180,7 @@
  		;;
  	    *)
@@ -531,15 +531,15 @@
  	i[34567]86-*-solaris2*)
  		tmake_file="${tmake_file} i386/t-fprules-softfp soft-fp/t-softfp"
 --- /dev/null
-+++ b/gcc-4.6.3/gcc/config/i386/t-gnu
++++ b/gcc-snapshot/gcc/config/i386/t-gnu
 @@ -0,0 +1 @@
 +MULTIARCH_DIRNAME = i386-gnu
 --- /dev/null
-+++ b/gcc-4.6.3/gcc/config/i386/t-kfreebsd
++++ b/gcc-snapshot/gcc/config/i386/t-kfreebsd
 @@ -0,0 +1 @@
 +MULTIARCH_DIRNAME = i386-kfreebsd-gnu
---- a/gcc-4.6.3/gcc/config/arm/t-linux-eabi
-+++ b/gcc-4.6.3/gcc/config/arm/t-linux-eabi
+--- a/gcc-snapshot/gcc/config/arm/t-linux-eabi
++++ b/gcc-snapshot/gcc/config/arm/t-linux-eabi
 @@ -42,6 +42,8 @@
  #MULTILIB_DIRNAMES    += fa606te fa626te fmp626 fa726te
  #MULTILIB_EXCEPTIONS  += *mthumb/*mcpu=fa606te *mthumb/*mcpu=fa626te *mthumb/*mcpu=fmp626 *mthumb/*mcpu=fa726te*
@@ -549,16 +549,16 @@
  # Use a version of div0 which raises SIGFPE, and a special __clear_cache.
  LIB1ASMFUNCS := $(filter-out _dvmd_tls,$(LIB1ASMFUNCS)) _dvmd_lnx _clear_cache
  
---- a/gcc-4.6.3/gcc/config/sh/t-linux
-+++ b/gcc-4.6.3/gcc/config/sh/t-linux
+--- a/gcc-snapshot/gcc/config/sh/t-linux
++++ b/gcc-snapshot/gcc/config/sh/t-linux
 @@ -6,3 +6,5 @@
  MULTILIB_MATCHES = 
  
  EXTRA_MULTILIB_PARTS= crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
 +
 +MULTILIB_OSDIRNAMES = sh4-linux-gnu:sh4-linux-gnu sh4_nofpu-linux-gnu:sh4-linux-gnu
---- a/gcc-4.6.3/gcc/configure.ac
-+++ b/gcc-4.6.3/gcc/configure.ac
+--- a/gcc-snapshot/gcc/configure.ac
++++ b/gcc-snapshot/gcc/configure.ac
 @@ -606,6 +606,9 @@
  [], [enable_multilib=yes])
  AC_SUBST(enable_multilib)
@@ -570,19 +570,19 @@
  AC_ARG_ENABLE(__cxa_atexit,
  [  --enable-__cxa_atexit   enable __cxa_atexit for C++],
 --- /dev/null
-+++ b/gcc-4.6.3/gcc/config/rs6000/t-linux
++++ b/gcc-snapshot/gcc/config/rs6000/t-linux
 @@ -0,0 +1 @@
 +MULTIARCH_DIRNAME = powerpc-linux-gnu
 --- /dev/null
-+++ b/gcc-4.6.3/gcc/config/s390/t-linux
++++ b/gcc-snapshot/gcc/config/s390/t-linux
 @@ -0,0 +1 @@
 +MULTIARCH_DIRNAME = s390-linux-gnu
 --- /dev/null
-+++ b/gcc-4.6.3/gcc/config/rs6000/t-linux-spe
++++ b/gcc-snapshot/gcc/config/rs6000/t-linux-spe
 @@ -0,0 +1 @@
 +MULTIARCH_DIRNAME = powerpc-linux-gnuspe
---- a/gcc-4.6.3/libstdc++-v3/python/hook.in
-+++ b/gcc-4.6.3/libstdc++-v3/python/hook.in
+--- a/gcc-snapshot/libstdc++-v3/python/hook.in
++++ b/gcc-snapshot/libstdc++-v3/python/hook.in
 @@ -47,7 +47,10 @@
      libdir = libdir[len (prefix):]
  

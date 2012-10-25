@@ -24,8 +24,11 @@
 
 #include <mhash.h>
 
+#include "llvm/Constants.h"
 #include "llvm/Function.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/Support/IRReader.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Support/raw_os_ostream.h"
@@ -36,11 +39,81 @@ using namespace kernelgen::runtime;
 using namespace llvm;
 using namespace std;
 
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+// Read source into LLVM module for the specified kernel.
+void load_kernel(kernel_t* kernel)
+{
+	LLVMContext& context = getGlobalContext();
+
+	SMDiagnostic diag;
+	if (!kernel) THROW("Invalid kernel item");
+			
+	// Load IR from source.
+	MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
+	Module* m = ParseIR(buffer, diag, context);
+	if (!m)
+		THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
+			diag.getLineContents() << ": " << diag.getMessage());
+	m->setModuleIdentifier(kernel->name + "_module");
+		
+	for (Module::iterator fi = m->begin(), fe = m->end(); fi != fe; fi++)
+		for (Function::iterator bi = fi->begin(), be = fi->end(); bi != be; bi++)
+			for (BasicBlock::iterator ii = bi->begin(), ie = bi->end(); ii != ie; ii++)
+			{
+				// Check if instruction in focus is a call.
+				CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
+				if (!call) continue;
+					
+				// Check if function is called (needs -instcombine pass).
+				Function* callee = call->getCalledFunction();
+				if (!callee) continue;
+				if (!callee->isDeclaration()) continue;
+				if (callee->getName() != "kernelgen_launch") continue;
+
+				// Get the called function name from the metadata node.
+				MDNode* nameMD = call->getMetadata("kernelgen_launch");
+				if (!nameMD)
+					THROW("Cannot find kernelgen_launch metadata");
+				if (nameMD->getNumOperands() != 1)
+					THROW("Unexpected kernelgen_launch metadata number of operands");
+				ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
+					nameMD->getOperand(0));
+				if (!nameArray)
+					THROW("Invalid kernelgen_launch metadata operand");
+				if (!nameArray->isCString())
+					THROW("Invalid kernelgen_launch metadata operand");
+				string name = "__kernelgen_" + (string)nameArray->getAsCString();
+				if (verbose)
+					cout << "Launcher invokes kernel " << name << endl;
+						
+				// Permanently assign launcher first argument with the address
+				// of the called kernel function structure (for fast access).
+				kernel_t* kernel = kernels[name];
+				if (!kernel)
+					THROW("Cannot get the name of kernel invoked by kernelgen_launch");
+				call->setArgOperand(0, ConstantExpr::getIntToPtr(
+					ConstantInt::get(Type::getInt64Ty(context), (uint64_t)kernel),
+					Type::getInt8PtrTy(context)));
+			}
+
+	kernel->source = "";
+	raw_string_ostream ir(kernel->source);
+	ir << (*m);
+	kernel->loaded = true;
+	kernel->module = m;
+	//m->dump();
+}
+#endif
+
 // Launch the specified kernel.
 int kernelgen_launch(kernel_t* kernel,
 	unsigned long long szdata, unsigned long long szdatai,
 	kernelgen_callback_data_t* data)
 {
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+	// Load kernel source, if lazy load is enabled.
+	if (!kernel->loaded) load_kernel(kernel);
+#endif
 	if (!kernel->target[runmode].supported)
 		return -1;
 
@@ -73,19 +146,28 @@ int kernelgen_launch(kernel_t* kernel,
 			{
 				void* monitor_stream =
 					kernel->target[runmode].monitor_kernel_stream;
-				char* content = (char*)malloc(szdatai);
-				int err = cuMemHostRegister(content, szdatai, 0);
+
+				// Copy launch arguments from host to device.
+				// In order to determine the precompiled kernel hash,
+				// only integer arguments are needed (first szdatai bytes).
+				// In order to perform verbose pointers tracking for
+				// debug purposes, all arguments are needed.
+				size_t size = verbose ? szdata : szdatai;
+				char* content = (char*)malloc(size);
+				int err = cuMemHostRegister(content, size, 0);
 				if (err) THROW("Error in cuMemHostRegister " << err);
-				err = cuMemcpyDtoHAsync(content, &data->args, szdatai, monitor_stream);
+				err = cuMemcpyDtoHAsync(content, &data->args, size, monitor_stream);
 				if (err) THROW("Error in cuMemcpyDtoHAsync " << err);
 				err = cuStreamSynchronize(monitor_stream);
 				if (err) THROW("Error in cuStreamSynchronize " << err);
 				mhash(td, content, szdatai);
+
+				// TODO: Unpin and free the device buffer?
 				//err = cuMemFreeHost(content);
 				if (err) THROW("Error in cuMemFreeHost " << err);
 				
-				args = malloc(2*sizeof(void *) + szdatai);//malloc(szdata)
-				memcpy((char *)args + 2*sizeof(void *), content, szdatai);
+				args = malloc(2 * sizeof(void *) + szdatai);
+				memcpy((char *)args + 2 * sizeof(void *), content, szdatai);
 				
 				break;
 			}
@@ -178,6 +260,7 @@ int kernelgen_launch(kernel_t* kernel,
                         		"    blockDim = " << blockDim << "\n" <<
 					"    gridDim = " << gridDim << "\n";
 				outs().resetColor();
+				outs().flush();
 				timer t;
 				float kernel_time;
 				{
@@ -200,6 +283,7 @@ int kernelgen_launch(kernel_t* kernel,
 				outs().changeColor(raw_ostream::CYAN);
 				outs() << "Finishing kernel " << kernel->name << "\n";
 				outs().resetColor();
+				outs().flush();
 
 				if (verbose & KERNELGEN_VERBOSE_TIMEPERF)
 				{
@@ -217,6 +301,22 @@ int kernelgen_launch(kernel_t* kernel,
 				sizeof(struct kernelgen_callback_t), 0);
 			if (err) THROW("Error in cuMemHostRegister " << err);
 
+			// Launch main GPU kernel.
+			{
+				struct { unsigned int x, y, z; } gridDim, blockDim;
+				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
+				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
+				size_t szshmem = 0;
+				void* kernel_func_args[] = { (void*)&data };
+				int err = cuLaunchKernel((void*)kernel_func,
+					gridDim.x, gridDim.y, gridDim.z,
+					blockDim.x, blockDim.y, blockDim.z, szshmem,
+					kernel->target[runmode].kernel_stream,
+					kernel_func_args, NULL);
+				if (err)
+					THROW("Error in cuLaunchKernel " << err);
+			}
+
 			// Launch monitor GPU kernel.
 			{
 				struct { unsigned int x, y, z; } gridDim, blockDim;
@@ -230,22 +330,6 @@ int kernelgen_launch(kernel_t* kernel,
 					gridDim.x, gridDim.y, gridDim.z,
 					blockDim.x, blockDim.y, blockDim.z, szshmem, args,
 					kernel->target[runmode].monitor_kernel_stream, NULL);
-				if (err)
-					THROW("Error in cudyLaunch " << err);
-			}
-	
-			// Launch main GPU kernel.
-			{
-				struct { unsigned int x, y, z; } gridDim, blockDim;
-				gridDim.x = 1; gridDim.y = 1; gridDim.z = 1;
-				blockDim.x = 1; blockDim.y = 1; blockDim.z = 1;
-				size_t szshmem = 0;
-				void* kernel_func_args[] = { (void*)&data };
-				int err = cuLaunchKernel((void*)kernel_func,
-					gridDim.x, gridDim.y, gridDim.z,
-					blockDim.x, blockDim.y, blockDim.z, szshmem,
-					kernel->target[runmode].kernel_stream,
-					kernel_func_args, NULL);
 				if (err)
 					THROW("Error in cudyLaunch " << err);
 			}

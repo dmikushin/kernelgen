@@ -37,12 +37,13 @@
 
 #include "BranchedLoopExtractor.h"
 
+#include <stack>
 #include <algorithm>
 #include <set>
 #include <fstream>
 #include <vector>
 
-#define KERNELGEN_PRIVATIZE
+//#define KERNELGEN_PRIVATIZE
 
 using namespace llvm;
 
@@ -58,16 +59,16 @@ namespace
 
 		SetVector<BasicBlock*> OriginalLoopBlocks;
 		SetVector<BasicBlock*> ClonedLoopBlocks;
-
+        bool makeBranch;
 		DominatorTree* DT;
 		unsigned NumExitBlocks;
 		Type *RetTy;
 
 		public:
-			BranchedCodeExtractor(DominatorTree* dt = 0)
-				: DT(dt), NumExitBlocks(~0U), OriginalLoopBlocks(BlocksToExtract) {}
+			BranchedCodeExtractor(DominatorTree* dt = 0, bool _makeBranch=0)
+				: makeBranch(_makeBranch), DT(dt), NumExitBlocks(~0U)/*, OriginalLoopBlocks(BlocksToExtract)*/ {}
 
-			CallInst *ExtractCodeRegion(Loop *L, LoopInfo &LI );
+			CallInst *ExtractCodeRegion(Loop *L, LoopInfo &LI);
 
 			bool isEligible(const std::vector<BasicBlock*> &code);
 
@@ -286,28 +287,43 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 					break;
 				}
 #ifdef KERNELGEN_PRIVATIZE			
-			for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O)
-			{
-				if (isa<GlobalVariable>(*O) || (isa<Constant>(*O) && !isa<Function>(*O)))
-				{
-					std::cout << "Seen global variable or constant: " << endl;
-					(*O)->dump();
-					if ((*O)->getType()->isIntegerTy() || (*O)->getType()->isPointerTy())
-					{
-						if(!setOfIntegerInputs.count(*O))
-							setOfIntegerInputs.insert(*O);
+	        for (User::op_iterator O = I->op_begin(), E = I->op_end(); O != E; ++O) {
+				Value *operand = O->get();
+				bool needToPrivatize;
+
+				needToPrivatize = false;
+				if (isa<GlobalValue>(*operand) && !isa<Function>(*operand))
+					needToPrivatize=true;
+				else if(isa<Constant>(*operand)) {
+					stack<User*> notHandled;
+					notHandled.push(cast<User>(operand));
+					while(!notHandled.empty() && !needToPrivatize) {
+						//get next operand and remove it from stack
+						User *current = notHandled.top();
+						notHandled.pop();
+						// walk on it's operands
+						int numOfCurrentOperands = current->getNumOperands();
+						for(int operandIndex = 0; operandIndex < numOfCurrentOperands; operandIndex++) {
+							// if it is a global - break, else save operand
+							Value * operandVal = current->getOperand(operandIndex);
+							if(isa<GlobalValue>(*operandVal) && !isa<Function>(*operandVal)) {
+								needToPrivatize=true;
+								break;
+							} else if(isa<User>(*operandVal))
+								notHandled.push(cast<User>(operandVal));
+						}
 					}
+				}
+				if(needToPrivatize) {
+					outs() << "Seen global variable or constant: \n";
+					outs().indent(4) << *operand << "\n";
+					if (operand->getType()->isIntegerTy() || operand->getType()->isPointerTy())
+						setOfIntegerInputs.insert(operand);
 					else
-					{
-						if(!setOfNonIntegerInputs.count(*O))
-							setOfNonIntegerInputs.insert(*O);
-					}
+						setOfNonIntegerInputs.insert(operand);
 				}
-				if (isa<GlobalVariable>(*O))
-				{				
-					if (!outputs.count(*O))
-						outputs.insert(*O);
-				}
+				if (isa<GlobalVariable>(*operand))
+					outputs.insert(operand);
 			}
 #endif
 		} // for: insts
@@ -324,6 +340,7 @@ void BranchedCodeExtractor::findInputsOutputs(Values &inputs, Values &outputs)
 
 	NumExitBlocks = ExitBlocks.size();
 }
+
 
 /// FindPhiPredForUseInBlock - Given a value and a basic block, find a PHI
 /// that uses the value within the basic block, and return the predecessor
@@ -414,6 +431,7 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 	for (SetVector<BasicBlock*>::const_iterator i = ClonedLoopBlocks.begin(),
 	     e = ClonedLoopBlocks.end(); i != e; ++i) {
 		// Insert this basic block into the loop function
+		if(!makeBranch) (*i)->removeFromParent();
 		functionBlocks.push_back(*i);
 	}
 
@@ -562,13 +580,21 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 						if (outputs[out]->getType() == i1Ty)
 						{
 							// Special case: cast i1 to i8, if output type is i1.
-							CastInst* CI = CastInst::CreateIntegerCast(
-								allToAllMap[outputs[out]], i8Ty, false, "", NTRet);
+							CastInst* CI;
+							if(makeBranch)
+							    CI = CastInst::CreateIntegerCast(
+								   allToAllMap[outputs[out]], i8Ty, false, "", NTRet);
+							else
+								 CI = CastInst::CreateIntegerCast(
+								   outputs[out], i8Ty, false, "", NTRet);
+								   
 							new StoreInst(CI, GEP, NTRet);
 							continue;
 						}
-
-						new StoreInst(allToAllMap[outputs[out]], GEP, NTRet);
+                        if(makeBranch)
+ 						    new StoreInst(allToAllMap[outputs[out]], GEP, NTRet);
+						else
+							new StoreInst(outputs[out], GEP, NTRet);
 					}
 				}
 				// rewrite the original branch instruction with this new target
@@ -634,7 +660,7 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	StructType* StructArgTy = StructType::get(
 		context, ArgTypes, false /* isPacked */);
 								  
-	IRBuilder<> Builder(callAndBranchBlock->getParent()->begin()->getTerminator());
+	IRBuilder<> Builder(callAndBranchBlock->getParent()->begin()->begin());
 	Struct = Builder.CreateAlloca(StructArgTy, 0, "");
 
 	// Initially, fill struct with zeros.
@@ -708,10 +734,15 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 
 	// Attach metadata node with the called function name.
 	call->setMetadata("kernelgen_launch", nameMD);
-
-	Value* Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
-		call, ConstantInt::get(Type::getInt32Ty(context), -1));
-	BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
+    
+	if(makeBranch)
+	{
+	    Value* Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
+		   call, ConstantInt::get(Type::getInt32Ty(context), -1));
+	    BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
+	} else
+		BranchInst::Create(loadAndSwitchExitBlock, callAndBranchBlock);
+	
 #ifdef KERNELGEN_PRIVATIZE
 	// Restore output values just after the exit
 	unsigned FirstOut = inputs.size() + 2;
@@ -731,11 +762,16 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 		{
 			// Special case: cast i1 to i8, if input type is i1.
 			CastInst* CI = CastInst::CreateIntegerCast(GEP, i8Ty, false, "", loadAndSwitchExitBlock);
-			new StoreInst(allToAllMap[outputs[out]], CI, loadAndSwitchExitBlock);
+			if(makeBranch)
+			    new StoreInst(allToAllMap[outputs[out]], CI, loadAndSwitchExitBlock);
+			else
+				new StoreInst(outputs[out], CI, loadAndSwitchExitBlock);
 			continue;
 		}
-
-		new StoreInst(allToAllMap[outputs[out]], GEP, loadAndSwitchExitBlock);
+        if(makeBranch)
+		    new StoreInst(allToAllMap[outputs[out]], GEP, loadAndSwitchExitBlock);
+		else
+			new StoreInst(outputs[out], GEP, loadAndSwitchExitBlock);
 	}
 #endif
 	return call;
@@ -909,7 +945,7 @@ void BranchedCodeExtractor::updatePhiNodes(
 /// computed result back into memory.
 ///
 CallInst *BranchedCodeExtractor::
-ExtractCodeRegion(Loop *L, LoopInfo &LI )
+ExtractCodeRegion(Loop *L, LoopInfo &LI)
 {
 	const std::vector<BasicBlock*> &code = L->getBlocks();
 	if (!isEligible(code)) return NULL;
@@ -965,10 +1001,13 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	ClonedCodeInfo CodeInfo;
 	ValueToValueMapTy VMap;
 	auto_ptr<SetVector<BasicBlock*> > clonedCode;
-	clonedCode.reset(CloneCodeRegion(BlocksToExtract,
+	if(makeBranch) {
+	    clonedCode.reset(CloneCodeRegion(BlocksToExtract,
 	                                 RF_IgnoreMissingEntries, VMap, ".cloned", &CodeInfo));
-
-	ClonedLoopBlocks.insert(clonedCode.get()->begin(),clonedCode.get()->end());
+	    ClonedLoopBlocks.insert(clonedCode.get()->begin(),clonedCode.get()->end());
+	}
+	else
+		ClonedLoopBlocks.insert(BlocksToExtract.begin(), BlocksToExtract.end());
 	OriginalLoopBlocks.insert(BlocksToExtract.begin(), BlocksToExtract.end());
 
 
@@ -985,6 +1024,23 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 	if((parentLoop = (L -> getParentLoop()))) {
 		parentLoop -> addBasicBlockToLoop(loadAndSwitchExitBlock,LI.getBase());
 		parentLoop -> addBasicBlockToLoop(callAndBranchBlock, LI.getBase());
+		if(!makeBranch)
+		{
+		   std::vector<Loop *> loops = parentLoop -> getSubLoops();
+		   Loop::iterator I= std::find(loops.begin(), loops.end(), L);
+		   assert(I != loops.end());
+
+		   for(SetVector<BasicBlock*>	::iterator iter = BlocksToExtract.begin(), iter_end = BlocksToExtract.end();
+		   iter != iter_end; iter++)
+		   {
+			     // parentLoop->removeBlockFromLoop(*iter);
+			   LI.removeBlock(*iter);
+		   }
+		    //parentLoop->removeChildLoop(I);
+			//L->releaseMemory();
+			//delete L;
+			//L = NULL;
+		}
 	}
 
 	// Add launch function declaration to module, if it is not already there.
@@ -1031,8 +1087,12 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 		(*BB)->setName((*BB)->getName() + "_orig");
 
 	header->setName(header->getName() + ".header");
-	BasicBlock* clonedHeader = cast<BasicBlock>(VMap[header]);
-	clonedHeader->setName(clonedHeader->getName() + ".header");
+	
+	BasicBlock* clonedHeader = NULL;
+	if(makeBranch) {
+	    clonedHeader = cast<BasicBlock>(VMap[header]);
+	    clonedHeader->setName(clonedHeader->getName() + ".header");
+	} else clonedHeader = header;
 
 	// Make function body.
 	std::vector<BasicBlock*> ExitBlocks;
@@ -1085,21 +1145,54 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 			for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; i++)
 				if (OriginalLoopBlocks.count(PN->getIncomingBlock(i)) &&
 				    !outputs.count(PN -> getIncomingValue(i))) {
-					PN->addIncoming(PN->getIncomingValue(i),
-					                loadAndSwitchExitBlock);
+					
+					if(makeBranch)
+					    PN->addIncoming(PN->getIncomingValue(i), loadAndSwitchExitBlock);
+					else
+						PN->setIncomingBlock(i,loadAndSwitchExitBlock);
 					break;
 				}
 		}
 	}
 
-	// Create or update PHI-nodes for each output
-	// It's wery important, because we added new way in CFG to compute outputs
-	updatePhiNodes(outputs, OutputsToLoadInstMap, loadAndSwitchExitBlock, ExitBlocks);
 
+    if(makeBranch) {
+	    // Create or update PHI-nodes for each output
+	    // It's wery important, because we added new way in CFG to compute outputs
+	    updatePhiNodes(outputs, OutputsToLoadInstMap, loadAndSwitchExitBlock, ExitBlocks);
+    }
+	else
+	{
+		//BlocksToExtract.insert(ExitBlocks.begin(),ExitBlocks.end());
+		SetVector<BasicBlock *> blocksOfLoopFunction;
+		for(Function::iterator iter = loopFunction->begin(), iter_end = loopFunction->end();
+		 iter != iter_end; iter++)
+			 blocksOfLoopFunction.insert(iter);
+		list<Instruction *> needToReplaceUses;
+		// replace uses of outputs by loads
+		for (Values::iterator Out = outputs.begin(), Outputs_end = outputs.end(); Out != Outputs_end; Out++)
+		{
+			needToReplaceUses.clear();
+			for(Value::use_iterator iter = (*Out)->use_begin(), iter_end = (*Out)->use_end();
+			 iter!=iter_end; iter++)
+				 if(isa<Instruction>(**iter))
+				 {
+					 Instruction *user = cast<Instruction>(*iter);
+					 if(!blocksOfLoopFunction.count(user->getParent()))
+						 needToReplaceUses.push_back(user);
+					     //user->replaceUsesOfWith(*Out,OutputsToLoadInstMap[*Out]);
+				 }
+				 
+			for(list<Instruction *>::iterator iter = needToReplaceUses.begin(), iter_end = needToReplaceUses.end();
+			iter!=iter_end; iter++)
+			   (*iter)->replaceUsesOfWith(*Out,OutputsToLoadInstMap[*Out]);
+		}
+	}
+	
 	DT->DT->recalculate(*parentFunction);
 	//DT->DT->recalculate(*loopFunction);
 
-	if (verifyFunction(*loopFunction))
+	if (verifyFunction(*loopFunction) || verifyFunction(*parentFunction))
 		cout << "verifyFunction failed!";
 
 	return callLoopFuctionInst;
@@ -1108,9 +1201,9 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI )
 namespace llvm
 {
 // ExtractBasicBlock - slurp a natural loop into a brand new function.
- CallInst* BranchedExtractLoop(DominatorTree& DT,LoopInfo &LI, Loop *L)
+ CallInst* BranchedExtractLoop(DominatorTree& DT,LoopInfo &LI, Loop *L, bool isBranched)
 {
-	return BranchedCodeExtractor(&DT).ExtractCodeRegion(L,LI);
+	return BranchedCodeExtractor(&DT, isBranched ).ExtractCodeRegion(L,LI);
 }
 
 }

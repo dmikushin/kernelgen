@@ -41,4 +41,82 @@
 +    { "internal-output", &InternalOutput },
      { NULL, NULL } // Terminator.
  };
- 
+
+--- a/dragonegg/src/Convert.cpp	2012-09-06 19:33:07.362601226 +0200
++++ b/dragonegg/src/Convert.cpp	2012-09-06 19:33:48.630599469 +0200
+@@ -4362,11 +4359,13 @@
+   case BUILT_IN_POWI:
+   case BUILT_IN_POWIF:
+   case BUILT_IN_POWIL:
++    break;
+     Result = EmitBuiltinPOWI(stmt);
+     return true;
+   case BUILT_IN_POW:
+   case BUILT_IN_POWF:
+   case BUILT_IN_POWL:
++    break;
+     // If errno math has been disabled, expand these to llvm.pow calls.
+     if (!flag_errno_math) {
+       Result = EmitBuiltinPOW(stmt);
+@@ -4376,6 +4375,7 @@
+   case BUILT_IN_LOG:
+   case BUILT_IN_LOGF:
+   case BUILT_IN_LOGL:
++    break;
+     // If errno math has been disabled, expand these to llvm.log calls.
+     if (!flag_errno_math) {
+       Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
+@@ -4387,6 +4387,7 @@
+   case BUILT_IN_LOG2:
+   case BUILT_IN_LOG2F:
+   case BUILT_IN_LOG2L:
++    break;
+     // If errno math has been disabled, expand these to llvm.log2 calls.
+     if (!flag_errno_math) {
+       Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
+@@ -4398,6 +4399,7 @@
+   case BUILT_IN_LOG10:
+   case BUILT_IN_LOG10F:
+   case BUILT_IN_LOG10L:
++    break;
+     // If errno math has been disabled, expand these to llvm.log10 calls.
+     if (!flag_errno_math) {
+       Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
+@@ -4409,6 +4411,7 @@
+   case BUILT_IN_EXP:
+   case BUILT_IN_EXPF:
+   case BUILT_IN_EXPL:
++    break;
+     // If errno math has been disabled, expand these to llvm.exp calls.
+     if (!flag_errno_math) {
+       Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
+@@ -4420,6 +4423,7 @@
+   case BUILT_IN_EXP2:
+   case BUILT_IN_EXP2F:
+   case BUILT_IN_EXP2L:
++    break;
+     // If errno math has been disabled, expand these to llvm.exp2 calls.
+     if (!flag_errno_math) {
+       Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
+@@ -4456,6 +4460,7 @@
+   case BUILT_IN_LLCEIL:
+   case BUILT_IN_LLCEILF:
+   case BUILT_IN_LLCEILL:
++    break;
+     Result = EmitBuiltinLCEIL(stmt);
+     return true;
+   case BUILT_IN_LFLOOR:
+@@ -4464,11 +4469,13 @@
+   case BUILT_IN_LLFLOOR:
+   case BUILT_IN_LLFLOORF:
+   case BUILT_IN_LLFLOORL:
++    break;
+     Result = EmitBuiltinLFLOOR(stmt);
+     return true;
+   case BUILT_IN_CEXPI:
+   case BUILT_IN_CEXPIF:
+   case BUILT_IN_CEXPIL:
++    break;
+     Result = EmitBuiltinCEXPI(stmt);
+     return true;
+ //TODO  case BUILT_IN_FLT_ROUNDS: {

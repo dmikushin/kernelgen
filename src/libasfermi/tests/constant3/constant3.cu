@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 
 	// Load module.
 	CUmodule module;
-	cuerr = cuModuleLoad(&module, "constant2.cubin");
+	cuerr = cuModuleLoad(&module, "constant3.cubin");
 	assert(cuerr == CUDA_SUCCESS);
 
 	// Load the unnamed constant (that is given a name, anyway).

@@ -88,6 +88,9 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 		ArgTypes.push_back(retTy);
 	}
 
+	// Load/store of i1 is not supported by NVPTX.
+	assert(retTy != Type::getInt1Ty(context));
+
 	// Allocate memory for the struct.
 	StructType *StructArgTy = StructType::get(
 		context, ArgTypes, false /* isPacked */);
@@ -171,7 +174,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 	// Emit call to kernelgen_hostcall.
 	CallInst *newcall = CallInst::Create(hostcall, call_args, "", call);
 	newcall->setCallingConv(call->getCallingConv());
-	newcall->setAttributes(call->getAttributes());
+	//newcall->setAttributes(call->getAttributes());
 	newcall->setDebugLoc(call->getDebugLoc());
 	newcall->setOnlyReadsMemory(false);
 

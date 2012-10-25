@@ -45,6 +45,7 @@ typedef void*			CUdeviceptr;
 
 namespace kernelgen { namespace bind { namespace cuda {
 
+typedef CUresult (*cuDeviceComputeCapability_t)(int*, int*, int);
 typedef CUresult (*cuDeviceGetProperties_t)(void*, int);
 typedef CUresult (*cuInit_t)(unsigned int);
 typedef CUresult (*cuDeviceGet_t)(int*, int);
@@ -77,6 +78,7 @@ typedef CUresult (*cuEventRecord_t)(CUevent, CUstream);
 typedef CUresult (*cuEventSynchronize_t)(CUevent);
 typedef CUresult (*cuFuncGetAttribute_t)(int*, int, CUfunction);
 
+extern cuDeviceComputeCapability_t cuDeviceComputeCapability;
 extern cuDeviceGetProperties_t cuDeviceGetProperties;
 extern cuInit_t cuInit;
 extern cuDeviceGet_t cuDeviceGet;

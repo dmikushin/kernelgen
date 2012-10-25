@@ -41,7 +41,7 @@
 #include <iostream>
 #include <cstdlib>
 
-#include "TrackedPassManager.h"
+//#include "TrackedPassManager.h"
 
 // Regular main entry.
 extern "C" int __regular_main(int argc, char* argv[]);
@@ -69,6 +69,13 @@ bool kernelgen::debug = true;
 // for futher references.
 std::map<string, kernel_t*> kernelgen::kernels;
 
+// The array contains addresses of globalVatiables
+uint64_t *kernelgen::addressesOfGlobalVariables;
+int kernelgen::numberOfGlobalVariables;
+
+// order of globals in which they were stored in addressesOfGlobalVariables
+std::map<llvm::StringRef, uint64_t> kernelgen::orderOfGlobals;
+
 // CUDA runtime context.
 // TODO: sort out how to turn it into auto_ptr.
 kernelgen::bind::cuda::context* kernelgen::runtime::cuda_context = NULL;
@@ -83,9 +90,11 @@ Module* kernelgen::runtime::runtime_module = NULL;
 // CUDA module (applicable for some targets).
 Module* kernelgen::runtime::cuda_module = NULL;
 
+void load_kernel(kernel_t* kernel);
+
 int main(int argc, char* argv[], char* envp[])
 {
-	tracker = new PassTracker("codegen", NULL, NULL);
+	//tracker = new PassTracker("codegen", NULL, NULL);
 
 	LLVMContext& context = getGlobalContext();
 
@@ -93,7 +102,7 @@ int main(int argc, char* argv[], char* envp[])
 	// the internal table.
 	Function* regular_main = NULL;
 	celf e("/proc/self/exe", "");
-	//celf e("/home/marcusmae/Programming/kernelgen/tests/perf/polybench-3.1/atax_base", "");
+	//celf e("/RHM/users/work/dmikushin/forge/kernelgen/tests/behavior/hello_c/hello_c", "");
 	cregex regex("^__kernelgen_main$", REG_EXTENDED | REG_NOSUB);
 	vector<csymbol*> symbols = e.getSymtab()->find(regex);
 	if (!symbols.size())
@@ -128,6 +137,7 @@ int main(int argc, char* argv[], char* envp[])
 	// structure we define the maximum possible parameter list.
 	struct main_args_t
 	{
+		uint64_t* addressesOfGlobalVariables;
 		kernelgen_callback_t* callback;
 		kernelgen_memory_t* memory;
 		int argc;
@@ -175,6 +185,7 @@ int main(int argc, char* argv[], char* envp[])
 			kernel_t* kernel =  new kernel_t();
 			kernel->name = name;
 			kernel->source = data;
+			kernel->loaded = false;
 
 			// Initially, all targets are supported.
 			for (int ii = 0; ii < KERNELGEN_RUNMODE_COUNT; ii++)
@@ -198,7 +209,7 @@ int main(int argc, char* argv[], char* envp[])
 		// Walk through kernel index and replace
 		// all names with kernel structure addresses
 		// for each kernelgen_launch call.
-		SMDiagnostic diag;
+		//SMDiagnostic diag;
 		for (map<string, kernel_t*>::iterator i = kernels.begin(),
 			e = kernels.end(); i != e; i++)
 		{
@@ -206,59 +217,29 @@ int main(int argc, char* argv[], char* envp[])
 			
 			if (!kernel) THROW("Invalid kernel item");
 			
-			// Load IR from source.
-			MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
-			Module* m = ParseIR(buffer, diag, context);
-			if (!m)
-				THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
-					diag.getLineContents() << ": " << diag.getMessage());
-			m->setModuleIdentifier(kernel->name + "_module");
-		
-			for (Module::iterator fi = m->begin(), fe = m->end(); fi != fe; fi++)
-				for (Function::iterator bi = fi->begin(), be = fi->end(); bi != be; bi++)
-					for (BasicBlock::iterator ii = bi->begin(), ie = bi->end(); ii != ie; ii++)
-					{
-						// Check if instruction in focus is a call.
-						CallInst* call = dyn_cast<CallInst>(cast<Value>(ii));
-						if (!call) continue;
-					
-						// Check if function is called (needs -instcombine pass).
-						Function* callee = call->getCalledFunction();
-						if (!callee) continue;
-						if (!callee->isDeclaration()) continue;
-						if (callee->getName() != "kernelgen_launch") continue;
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+			if(kernel->name != "__kernelgen_main") continue;
+#endif			
 
-						// Get the called function name from the metadata node.
-						MDNode* nameMD = call->getMetadata("kernelgen_launch");
-						if (!nameMD)
-							THROW("Cannot find kernelgen_launch metadata");
-						if (nameMD->getNumOperands() != 1)
-							THROW("Unexpected kernelgen_launch metadata number of operands");
-						ConstantDataArray* nameArray = dyn_cast<ConstantDataArray>(
-							nameMD->getOperand(0));
-						if (!nameArray)
-							THROW("Invalid kernelgen_launch metadata operand");
-						if (!nameArray->isCString())
-							THROW("Invalid kernelgen_launch metadata operand");
-						string name = "__kernelgen_" + (string)nameArray->getAsCString();
-						if (verbose)
-							cout << "Launcher invokes kernel " << name << endl;
-						
-						// Permanently assign launcher first argument with the address
-						// of the called kernel function structure (for fast access).
-						kernel_t* kernel = kernels[name];
-						if (!kernel)
-							THROW("Cannot get the name of kernel invoked by kernelgen_launch");
-						call->setArgOperand(0, ConstantExpr::getIntToPtr(
-							ConstantInt::get(Type::getInt64Ty(context), (uint64_t)kernel),
-							Type::getInt8PtrTy(context)));
-					}
+			load_kernel(kernel);
+		}
 
-			kernel->source = "";
-			raw_string_ostream ir(kernel->source);
-			ir << (*m);
-			
-			//m->dump();
+		kernel = kernels["__kernelgen_main"];
+		assert(kernel->module && "main module must be loaded");
+		assert(sizeof(void *) == sizeof(uint64_t));
+
+		NamedMDNode *orderOfGlobalsMD = kernel->module->getNamedMetadata("OrderOfGlobals");
+		assert(orderOfGlobalsMD);
+		numberOfGlobalVariables = orderOfGlobalsMD->getNumOperands();
+		addressesOfGlobalVariables = NULL;
+		for(int i = 0; i < numberOfGlobalVariables; i++)
+		{
+			MDNode *mdNode = orderOfGlobalsMD->getOperand(i);
+			assert(mdNode->getNumOperands() == 2);
+			assert(isa<MDString>(*(mdNode->getOperand(0))) && isa<ConstantInt>(*(mdNode->getOperand(1))));
+			StringRef name = cast<MDString>(mdNode -> getOperand(0)) -> getString();
+			uint64_t index = cast<ConstantInt>(mdNode -> getOperand(1))-> getZExtValue();
+			orderOfGlobals[name] = index;
 		}
 		
 		// Load arguments, depending on the target runmode
@@ -267,7 +248,9 @@ int main(int argc, char* argv[], char* envp[])
 		{
 			case KERNELGEN_RUNMODE_NATIVE :
 			{
+				addressesOfGlobalVariables =(uint64_t *)(calloc(numberOfGlobalVariables, sizeof(void*)));
 				main_args_t args;
+				args.addressesOfGlobalVariables = addressesOfGlobalVariables;
 				args.argc = argc;
 				args.argv = argv;
 				args.envp = envp;
@@ -282,13 +265,21 @@ int main(int argc, char* argv[], char* envp[])
 					kernelgen::bind::cuda::context::init(8192);
 
 				// Create streams where monitoring and target kernels
-				// will be executed.
-				int err = cuStreamCreate(
-					&kernel->target[runmode].monitor_kernel_stream, 0);
+				// will be executed and assign them to every kernel.
+				CUstream monitor_kernel_stream = NULL, kernel_stream = NULL;
+				int err = cuStreamCreate(&monitor_kernel_stream, 0);
 				if (err) THROW("Error in cuStreamCreate " << err);
-				err = cuStreamCreate(
-					&kernel->target[runmode].kernel_stream, 0);
+				err = cuStreamCreate(&kernel_stream, 0);
 				if (err) THROW("Error in cuStreamCreate " << err);
+				for (map<string, kernel_t*>::iterator i = kernels.begin(),
+					e = kernels.end(); i != e; i++)
+				{
+					kernel_t* kernel = (*i).second;
+					kernel->target[KERNELGEN_RUNMODE_CUDA].monitor_kernel_stream =
+						monitor_kernel_stream;
+					kernel->target[KERNELGEN_RUNMODE_CUDA].kernel_stream =
+						kernel_stream;
+				}
 				
 				// Load LLVM IR for kernel monitor, if not yet loaded.
 				if (!monitor_module)
@@ -334,9 +325,13 @@ int main(int argc, char* argv[], char* envp[])
 					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
 						runtime_source);
 					runtime_module = ParseIR(buffer1, diag, context);
+					if (!runtime_module)
+						THROW("Cannot load KernelGen runtime functions module: " <<
+							diag.getMessage());
                                 }
 
 				// Load LLVM IR for CUDA runtime functions, if not yet loaded.
+				
 				if (!cuda_module)
 				{
 					string cuda_source = "";
@@ -354,6 +349,9 @@ int main(int argc, char* argv[], char* envp[])
 					MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
 						cuda_source);
 					cuda_module = ParseIR(buffer1, diag, context);
+					if (!cuda_module)
+						THROW("Cannot load CUDA math functions module: " <<
+							diag.getMessage());
 
 					// Mark all module functions as device functions.
 			                for (Module::iterator F = cuda_module->begin(), FE = cuda_module->end(); F != FE; F++)
@@ -361,9 +359,8 @@ int main(int argc, char* argv[], char* envp[])
                                 }
 
 				// Initialize callback structure.
-				// Initial lock state is "locked". It will be dropped
-				// by GPU side monitor that must be started *before*
-				// target GPU kernel.
+				// Initial lock state is "locked". It will be dropped by
+				// special GPU monitor kernel, upon its launch.
 				kernelgen_callback_t callback;
 				callback.lock = 1;
 				callback.state = KERNELGEN_STATE_INACTIVE;
@@ -440,9 +437,21 @@ int main(int argc, char* argv[], char* envp[])
 					if (err) THROW("Error in cuMemsetD8 " << err);
 				}
 
+				// Allocate page-locked memory for globals addresses.
+				{
+					
+					CUresult err = cuMemAllocHost((void **)&addressesOfGlobalVariables,
+						numberOfGlobalVariables * sizeof(void*));
+					if (err) THROW("Error in cuMemAllocHost " << err);
+					CUdeviceptr pointerOnDevice = (CUdeviceptr)addressesOfGlobalVariables;
+					err = cuMemsetD8(pointerOnDevice, 0, numberOfGlobalVariables*sizeof(void*));
+					if (err) THROW("Error in cuMemsetD8 " << err);
+				}
+				
 				// Setup argerator structure and fill it with the main
 				// entry arguments.
 				main_args_t args_host;
+				args_host.addressesOfGlobalVariables = addressesOfGlobalVariables;
 				args_host.argc = argc;
 				args_host.argv = argv_dev;
 				args_host.callback = callback_dev;

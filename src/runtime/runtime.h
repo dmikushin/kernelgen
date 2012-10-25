@@ -124,6 +124,12 @@ extern bool debug;
 #define KERNELGEN_VERBOSE_HOSTCALL	1 << 4
 #define KERNELGEN_VERBOSE_POLLYGEN	1 << 5
 #define KERNELGEN_VERBOSE_TIMEPERF	1 << 6
+#define KERNELGEN_VERBOSE_ALLOCA	1 << 7
+
+// Define to load kernels lazily. Means instead of reading and verifying
+// modules during application startup, they are instead loaded in the place
+// of first use.
+#define KERNELGEN_LOAD_KERNELS_LAZILY
 
 // The prototype of kernel function.
 // Thanks to arguments aggregation, all
@@ -150,7 +156,10 @@ struct kernel_t
 
 	// Kernel LLVM IR source code.
 	std::string source;
-
+#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
+	// Kernel loaded marker (for lazy processing).
+	bool loaded;
+#endif
 	// Target-specific configuration.
 	struct
 	{
@@ -201,6 +210,13 @@ struct kernel_t
 // for futher references.
 extern std::map<std::string, kernel_t*> kernels;
 
+// The array contains addresses of globalVatiables
+extern uint64_t *addressesOfGlobalVariables;
+extern int numberOfGlobalVariables;
+
+// order of globals in which they were stored in addressesOfGlobalVariables
+extern std::map<llvm::StringRef, uint64_t> orderOfGlobals;
+
 // Target machines for runmodes.
 extern std::auto_ptr<llvm::TargetMachine> targets[KERNELGEN_RUNMODE_COUNT];
 
@@ -239,6 +255,9 @@ extern llvm::Module* cuda_module;
 extern "C" int kernelgen_launch(kernelgen::kernel_t* kernel,
 	unsigned long long szdata, unsigned long long szdatai,
 	kernelgen_callback_data_t* data);
+
+// Start kernel execution.
+extern "C" void kernelgen_start();
 
 // Finish kernel execution.
 extern "C" void kernelgen_finish();

@@ -19,16 +19,20 @@
 ## 3. This notice may not be removed or altered from any source distribution.
 ##
 
+.PHONY: compile.o
+
 OPT ?= 0
 
+ROOT ?= /opt/kernelgen
+
 LLVM_ROOT ?= ${HOME}/rpmbuild/BUILD/llvm
-LLVM_MODE ?= Debug+Asserts
 LLVM_VERSION ?= 3.2
-LLVMDEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
-LLVMINC = \
+LLVM_DEF = -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
+LLVM_INC = \
 	-I/usr/include/i686-linux-gnu \
 	-I/usr/include/x86_64-linux-gnu \
 	-I/usr/lib64/libffi-3.0.9/include \
+	-I/usr/lib64/libffi-3.0.10/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/include \
 	-I${HOME}/rpmbuild/BUILD/llvm/tools/polly/include \
 	-I${HOME}/rpmbuild/BUILD/cloog/include \
@@ -36,8 +40,8 @@ LLVMINC = \
 	-I${HOME}/rpmbuild/BUILD/llvm/build/tools/polly/include
 LLVM_LIB = \
 	-Wl,-rpath $(RPATH) -L../bindings -lkernelgen-gpu \
-	-L$(LLVM_ROOT)/build/$(LLVM_MODE)/lib -lLLVM-$(LLVM_VERSION)svn \
-	-L$(LLVM_ROOT)/build/tools/polly/$(LLVM_MODE)/lib -lLLVMPolly
+	-L$(ROOT)/lib -lLLVM-$(LLVM_VERSION)svn \
+	-L$(ROOT)/lib -lLLVMPolly
 
 ELF_INC = /usr/include/libelf
 
@@ -47,12 +51,13 @@ BUGPOINT_LIBS = -L../bugpoint -lbugpoint
 
 CXXFLAGS = \
 	-g -fPIC -O$(OPT) -I../include -I../bindings \
-	-I../libasfermi/tests/dyloader $(LLVMINC) $(LLVMDEF)
+	-I../libasfermi/tests/dyloader $(LLVM_INC) $(LLVM_DEF)
 
 OBJECTS := \
-	entry compile launch finish timer io elf execute codegen \
+	entry compile start launch finish timer io elf execute codegen \
 	memory hostcall wrappers \
-        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody
+        ConstantSubstitution SizeOfLoops RuntimeAliasAnalysis LinkFunctionBody GlobalDependences\
+    ScopInspection TransformAccesses
 
 OBJECTS := $(addsuffix .o, $(OBJECTS))
 
@@ -66,8 +71,13 @@ libkernelgen-rt.so: $(OBJECTS)
 entry.o: entry.cpp $(BUGPOINT_INC)/TrackedPassManager.h
 	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) -c $< -o $@
 
+KERNELGEN_VERSION = $(shell perl kernelgen-version.pl)
+
 compile.o: compile.cpp runtime.h
-	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -DKERNELGEN_VERSION=\"$(KERNELGEN_VERSION)\" -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
+
+start.o: start.cpp runtime.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 launch.o: launch.cpp runtime.h
 	$(CXX) -I$(ELF_INC) $(CXXFLAGS) -c $< -o $@
@@ -115,8 +125,17 @@ kernelgen-inspector: inspector.cpp libkernelgen-rt.so
 	$(CXX) -I$(ELF_INC) -I$(BUGPOINT_ROOT) -I$(BUGPOINT_INC) $(CXXFLAGS) $< -o $@ \
 	-L. -lkernelgen-rt $(BUGPOINT_LIBS) $(LLVM_LIB) -L../bindings -lkernelgen-gpu \
 	-L../libasfermi/ -L../libasfermi/tests/dyloader -ldyloader -lasfermi -lelf -lrt \
-	-lgmp -lmhash -ldl -lffi -L/RHM/users/work/dmikushin/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
-	-L/RHM/users/work/dmikushin/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl
+	-lgmp -lmhash -ldl -lffi -L${HOME}/rpmbuild/BUILD/cloog/isl/.libs/ -lisl \
+	-L${HOME}/rpmbuild/BUILD/cloog/.libs/ -lcloog-isl
+
+ScopInspection.o: ScopInspection.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+
+TransformAccesses.o : TransformAccesses.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
+
+GlobalDependences.o : GlobalDependences.cpp
+	$(CXX) $(CXXFLAGS) -fno-rtti -c $< -o  $@
 
 clean:
 	rm -rf *.o libkernelgen-rt.so kernelgen-inspector

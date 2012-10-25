@@ -43,10 +43,9 @@
 #include <fstream>
 #include <gelf.h>
 #include <link.h>
+#include <map>
 #include <sstream>
 #include <vector>
-
-#include "TrackedPassManager.h"
 
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
@@ -60,8 +59,130 @@ static bool debug = false;
 // Target machines for runmodes.
 auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
 
+// Function-address mapping of main kernel.
+static map<string, size_t> funcmap;
+
+// Export the function-address mapping from the given cubin image.
+static void cubin_export_funcmap(const char* cubin, map<string, size_t>& funcmap)
+{
+	int fd = -1;
+	Elf* e = NULL;
+	try
+	{
+		//
+		// 1) First, load the ELF file.
+		//
+                if ((fd = open(cubin, O_RDWR)) < 0)
+                {
+			fprintf(stderr, "Cannot open file %s\n", cubin);
+			throw;
+                }
+
+                if ((e = elf_begin(fd, ELF_C_RDWR, e)) == 0)
+                {
+			fprintf(stderr, "Cannot read ELF image from %s\n", cubin);
+			throw;
+                }
+
+		//
+		// 2) Find ELF section containing the symbol table and
+		// load its data.
+		//
+		size_t shstrndx;
+		if (elf_getshdrstrndx(e, &shstrndx))
+		{
+			fprintf(stderr, "elf_getshdrstrndx() failed for %s: %s\n",
+				cubin, elf_errmsg(-1));
+			throw;
+		}
+		GElf_Shdr shdr;
+		Elf_Data* symbols = NULL;
+		int nsymbols = 0, nsections = 0;
+		Elf_Scn* scn = elf_nextscn(e, NULL);
+		for (int i = 1; scn != NULL; scn = elf_nextscn(e, scn), i++, nsections++)
+		{		
+			if (!gelf_getshdr(scn, &shdr))
+			{
+				fprintf(stderr, "gelf_getshdr() failed for %s: %s\n",
+					cubin, elf_errmsg(-1));
+				throw;
+			}
+
+			if (shdr.sh_type == SHT_SYMTAB)
+			{
+				symbols = elf_getdata(scn, NULL);
+				if (!symbols)
+				{
+					fprintf(stderr, "elf_getdata() failed for %s: %s\n",
+						cubin, elf_errmsg(-1));
+					throw;
+				}
+				if (shdr.sh_entsize)
+					nsymbols = shdr.sh_size / shdr.sh_entsize;
+				break;
+			}
+		}
+		if (!symbols)
+		{
+			fprintf(stderr, "Cannot find symbols table in %s\n", cubin);
+			throw;
+		}
+		
+		//
+		// 3) Find function symbols and record them into map.
+		//
+		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
+		{
+			GElf_Sym symbol;
+			gelf_getsym(symbols, isymbol, &symbol);
+			
+			if (ELF32_ST_TYPE(symbol.st_info) != STT_FUNC) continue;
+
+			char* name = elf_strptr(e, shdr.sh_link, symbol.st_name);
+			funcmap.insert(pair<string, size_t>(name, symbol.st_value));
+			
+			// cout << name << " -> " << symbol.st_value << endl;
+		}
+		
+		elf_end(e);
+		close(fd);
+		e = NULL;
+	}
+	catch (...)
+	{
+		if (e) elf_end(e);
+		if (fd >= 0) close(fd);
+                throw;
+        }
+}
+
+// Import the function-address mapping to the given cubin image.
+static void cubin_import_funcmap(const char* cubin, const map<string, size_t> funcmap)
+{
+	// Retrieve the current cubin function-address mapping.
+	map<string, size_t> funcmap_old;
+	cubin_export_funcmap(cubin, funcmap_old);
+
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
+	// Merge mappings.
+	vector<pair<size_t, size_t> > addrmap;
+	addrmap.resize(MAX(funcmap.size(), funcmap_old.size()));
+	for (map<string, size_t>::iterator I1 = funcmap_old.begin(), IE1 = funcmap_old.end(); I1 != IE1; I1++)
+	{
+		pair<string, size_t> item_old = *I1;
+		map<string, size_t>::const_iterator I2 = funcmap.find(item_old.first);
+		if (I2 == funcmap.end()) continue;
+		pair<string, size_t> item = *I2;
+		addrmap.push_back(pair<size_t, size_t>(item_old.second, item.second));
+		//cout << item_old.second << " -> " << item.second << endl;
+	}
+	
+	// TODO: call libasfermi to replace JCALs according to address-address mapping.
+}
+
 // Align cubin global data to the specified boundary.
-static void cubin_align_data(const char* cubin, size_t align, list<string>* names)
+static void cubin_align_data(const char* cubin, size_t align)
 {
 	int fd = -1;
 	Elf* e = NULL;
@@ -148,24 +269,34 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
 			fprintf(stderr, "Cannot find symbols table in %s\n", cubin);
 			throw;
 		}
+		if (iglobal == -1)
+		{
+			fprintf(stderr, "Cannot find the global symbols section in %s\n", cubin);
+			throw;
+		}
+		if (iglobal_init == -1)
+		{
+			fprintf(stderr, "Cannot find the initialized global symbols section in %s\n", cubin);
+			throw;
+		}
 		
 		//
 		// 3) Count what size is needed to keep initialized
 		// global symbols, if they were aligned. Also update the sizes
 		// and offsets for individual initialized symbols.
 		//
-                int szglobal_new = 0, szglobal_init_new = 0;
-                for (int isymbol = 0; isymbol < nsymbols; isymbol++)
-                {
-                        GElf_Sym symbol;
-                        gelf_getsym(symbols, isymbol, &symbol);
+		vector<char>::size_type szglobal_new = 0, szglobal_init_new = 0;
+		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
+		{
+			GElf_Sym symbol;
+			gelf_getsym(symbols, isymbol, &symbol);
 
-                        if (symbol.st_shndx == iglobal)
-                        {
-                                symbol.st_value = szglobal_new;
-                                if (symbol.st_size % align)
-                                        symbol.st_size += align - symbol.st_size % align;
-                                szglobal_new += symbol.st_size;
+			if (symbol.st_shndx == iglobal)
+			{
+				symbol.st_value = szglobal_new;
+				if (symbol.st_size % align)
+					symbol.st_size += align - symbol.st_size % align;
+				szglobal_new += symbol.st_size;
 
 				if (!gelf_update_sym(symbols, isymbol, &symbol))
 				{
@@ -173,98 +304,91 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
 						cubin, elf_errmsg(-1));
 					throw;
 				}
-                        }
-                        else if (symbol.st_shndx == iglobal_init)
-                        {
+			}
+			else if (symbol.st_shndx == iglobal_init)
+			{
 				size_t szaligned = symbol.st_size;
-                                if (szaligned % align)
-                                        szaligned += align - szaligned % align;
-                                szglobal_init_new += szaligned;
-                        }
-                }
+				if (szaligned % align)
+					szaligned += align - szaligned % align;
+				szglobal_init_new += szaligned;
+			}
+		}
                 
                 //
                 // 4) Add new data for aligned globals section.
                 //
-                if (iglobal != -1)
-                {
-		        vector<char> vglobal_new;
-			vglobal_new.resize(szglobal_new);
+                vector<char> vglobal_new;
+		vglobal_new.resize(szglobal_new);
 
-			Elf_Data* data = elf_getdata(sglobal, NULL);
-			if (!data)
-			{
-				fprintf(stderr, "elf_newdata() failed: %s\n",
-					elf_errmsg(-1));
-				throw;
-			}
+		Elf_Data* data = elf_getdata(sglobal, NULL);
+		if (!data)
+		{
+			fprintf(stderr, "elf_newdata() failed: %s\n",
+				elf_errmsg(-1));
+			throw;
+		}
 	
-			data->d_buf = (char*)&vglobal_new[0];
-			data->d_size = szglobal_new;
+		data->d_buf = (char*)&vglobal_new[0];
+		data->d_size = szglobal_new;
 
-			if (!gelf_update_shdr(sglobal, &shglobal))
-			{
-				fprintf(stderr, "gelf_update_shdr() failed: %s\n",
-					elf_errmsg (-1));
-				throw;
-			}
+		if (!gelf_update_shdr(sglobal, &shglobal))
+		{
+			fprintf(stderr, "gelf_update_shdr() failed: %s\n",
+				elf_errmsg (-1));
+			throw;
 		}
 		
 		//
 		// 5) Add new data for aligned initialized globals section.
 		//
-		if (iglobal_init != -1)
+		vector<char> vglobal_init_new;
+		vglobal_init_new.resize(szglobal_init_new);
+
+		data = elf_getdata(sglobal_init, NULL);
+		if (!data)
 		{
-			vector<char> vglobal_init_new;
-			vglobal_init_new.resize(szglobal_init_new);
-
-			Elf_Data* data = elf_getdata(sglobal_init, NULL);
-			if (!data)
-			{
-				fprintf(stderr, "elf_newdata() failed: %s\n",
-					elf_errmsg(-1));
-				throw;
-			}
-			char* dglobal_init = (char*)data->d_buf;
+			fprintf(stderr, "elf_newdata() failed: %s\n",
+				elf_errmsg(-1));
+			throw;
+		}
+		char* dglobal_init = (char*)data->d_buf;
 		
-			char* pglobal_init = (char*)dglobal_init;
-			char* pglobal_init_new = (char*)&vglobal_init_new[0];
-			memset(pglobal_init_new, 0, szglobal_init_new);
-			szglobal_init_new = 0;
-		        for (int isymbol = 0; isymbol < nsymbols; isymbol++)
-		        {
-		                GElf_Sym symbol;
-		                gelf_getsym(symbols, isymbol, &symbol);
+		char* pglobal_init = (char*)dglobal_init;
+		char* pglobal_init_new = (char*)&vglobal_init_new[0];
+		memset(pglobal_init_new, 0, szglobal_init_new);
+		szglobal_init_new = 0;
+		for (int isymbol = 0; isymbol < nsymbols; isymbol++)
+		{
+			GElf_Sym symbol;
+			gelf_getsym(symbols, isymbol, &symbol);
 
-		                if (symbol.st_shndx == iglobal_init)
-		                {
-					memcpy(pglobal_init_new, pglobal_init, symbol.st_size);
-					pglobal_init += symbol.st_size;
-
-					symbol.st_value = szglobal_init_new;
-					if (symbol.st_size % align)
-						symbol.st_size += align - symbol.st_size % align;
-					szglobal_init_new += symbol.st_size;
-					pglobal_init_new += symbol.st_size;
-
-					if (!gelf_update_sym(symbols, isymbol, &symbol))
-					{
-						fprintf(stderr, "gelf_update_sym() failed for %s: %s\n",
-							cubin, elf_errmsg(-1));
-						throw;
-					}
-				}
-		        }	
-
-			data->d_buf = (char*)&vglobal_init_new[0];
-			data->d_size = szglobal_init_new;
-
-			if (!gelf_update_shdr(sglobal_init, &shglobal_init))
+			if (symbol.st_shndx == iglobal_init)
 			{
-				fprintf(stderr, "gelf_update_shdr() failed: %s\n",
-					elf_errmsg (-1));
-				throw;
+				memcpy(pglobal_init_new, pglobal_init + symbol.st_value, symbol.st_size);
+
+				symbol.st_value = szglobal_init_new;
+				if (symbol.st_size % align)
+					symbol.st_size += align - symbol.st_size % align;
+				szglobal_init_new += symbol.st_size;
+				pglobal_init_new += symbol.st_size;
+
+				if (!gelf_update_sym(symbols, isymbol, &symbol))
+				{
+					fprintf(stderr, "gelf_update_sym() failed for %s: %s\n",
+						cubin, elf_errmsg(-1));
+					throw;
+				}
 			}
+                }	
+
+		data->d_buf = (char*)&vglobal_init_new[0];
+		data->d_size = szglobal_init_new;
+
+		if (!gelf_update_shdr(sglobal_init, &shglobal_init))
+		{
+			fprintf(stderr, "gelf_update_shdr() failed: %s\n",
+				elf_errmsg (-1));
+			throw;
 		}
 
 		//
@@ -279,7 +403,6 @@ static void cubin_align_data(const char* cubin, size_t align, list<string>* name
                 elf_end(e);
                 close(fd);
                 e = NULL;
-
 	}
 	catch (...)
 	{
@@ -390,6 +513,16 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 	
 		case KERNELGEN_RUNMODE_CUDA : {
 
+			int device;
+			CUresult err = cuDeviceGet(&device, 0);
+			if (err)
+				THROW("Error in cuDeviceGet " << err);
+
+			int major = 2, minor = 0;
+			err = cuDeviceComputeCapability(&major, &minor, device);
+			if (err)
+				THROW("Cannot get the CUDA device compute capability" << err);
+
 			// Create target machine for CUDA target and get its target data.
 			if (!targets[KERNELGEN_RUNMODE_CUDA].get()) {
 				InitializeAllTargets();
@@ -412,8 +545,10 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 				if (!target)
 					THROW("LLVM is built without NVPTX Backend support");
 
+				stringstream sarch;
+				sarch << "sm_" << (major * 10 + minor);
 				targets[KERNELGEN_RUNMODE_CUDA].reset(target->createTargetMachine(
-					triple.getTriple(), "sm_20", "", TargetOptions(),
+					triple.getTriple(), sarch.str(), "", TargetOptions(),
 						Reloc::PIC_, CodeModel::Default, CodeGenOpt::Aggressive));
 				if (!targets[KERNELGEN_RUNMODE_CUDA].get())
 					THROW("Could not allocate target machine");
@@ -428,7 +563,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
         	        formatted_raw_ostream ptx_raw_stream(ptx_stream);
 
 			// Ask the target to add backend passes as necessary.
-			TrackedPassManager manager(tracker);
+			PassManager manager;
 			const TargetData* tdata =
 				targets[KERNELGEN_RUNMODE_CUDA].get()->getTargetData();
 			manager.add(new TargetData(*tdata));
@@ -459,18 +594,15 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 				string ptxas = "ptxas";
 				std::list<string> ptxas_args;
 				if (verbose) ptxas_args.push_back("-v");
-				ptxas_args.push_back("-arch=sm_20");
+                                stringstream sarch;
+                                sarch << "-arch=sm_" << (major * 10 + minor);
+                                ptxas_args.push_back(sarch.str().c_str());
 				ptxas_args.push_back("-m64");
 				ptxas_args.push_back(tmp2.getFilename());
 				ptxas_args.push_back("-o");
 				ptxas_args.push_back(tmp3.getFilename());
 				if (name != "__kernelgen_main")
 				{
-					int device;
-					CUresult err = cuDeviceGet(&device, 0);
-					if (err)
-						THROW("Error in cuDeviceGet " << err);
-
 					typedef struct
 					{
 						int maxThreadsPerBlock;
@@ -492,17 +624,25 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 
 					dim3 blockDim = kernel->target[runmode].blockDim;
 					int maxregcount = props.regsPerBlock / (blockDim.x * blockDim.y * blockDim.z) - 4;
-					if (maxregcount > 63) maxregcount = 63;
+					if ((major == 3) && (minor >= 5))
+					{
+						if (maxregcount > 128) maxregcount = 128;
+					}
+					else
+					{
+						if (maxregcount > 63) maxregcount = 63;
+					}
 					ptxas_args.push_back("--maxrregcount");
 					std::ostringstream smaxregcount;
 					smaxregcount << maxregcount;
 					ptxas_args.push_back(smaxregcount.str().c_str());
 				}
-				if (debug)
+
+				if (::debug)
 				{
 					ptxas_args.push_back("-g");
-					ptxas_args.push_back("--dont-merge-basicblocks");
 					ptxas_args.push_back("--return-at-end");
+					ptxas_args.push_back("--dont-merge-basicblocks");
 				}
 				if (verbose)
 				{
@@ -515,10 +655,20 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
         	        	execute(ptxas, ptxas_args, "", NULL, NULL);
 			}
 
-			// Align cubin global data to the virtual memory page boundary.
-			std::list<string> names;
 			if (name == "__kernelgen_main")
-				cubin_align_data(tmp3.getFilename().c_str(), 4096, &names);
+			{
+				// Align main kernel cubin global data to the virtual memory
+				// page boundary.
+				cubin_align_data(tmp3.getFilename().c_str(), 4096);
+				
+				// Export main kernel cubin function-address map.
+				cubin_export_funcmap(tmp3.getFilename().c_str(), funcmap);
+			}
+			else
+			{
+				// Import main kernel cubin function-address map.
+				cubin_import_funcmap(tmp3.getFilename().c_str(), funcmap);
+			}
 
 			// Dump Fermi assembly from CUBIN.
 			if (verbose & KERNELGEN_VERBOSE_ISA)
@@ -555,18 +705,22 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel, Module*
 				err = cuModuleGetFunction(&kernel_func, module, name.c_str());
 				if (err)
 					THROW("Error in cuModuleGetFunction " << err);
-		
-				// Check data objects are aligned
-				for (list<string>::iterator i = names.begin(), e = names.end(); i != e; i++)
-				{
-					const char* name = i->c_str();
-					void* ptr; size_t size = 0;
-					err = cuModuleGetGlobal(&ptr, &size, module, name);
-					printf("%s\t%p\t%04zu\n", name, ptr, size);
-				}
 			}
 			else
 			{
+				// FIXME: The following ugly fix mimics the backend asm printer
+				// mangler behavior. We should instead get names from the real
+				// mangler, but currently it is unclear how to instantiate it,
+				// since it needs MCContext, which is not available here.
+				string dot = "2E_";
+				for (size_t index = name.find(".", 0);
+					index = name.find(".", index); index++)
+				{
+					if (index == string::npos) break;
+					name.replace(index, 1, "_");
+					name.insert(index + 1, dot);
+				}
+
 				// Load kernel function from the binary opcodes.
 				CUstream stream = kernel->target[runmode].monitor_kernel_stream;
 				CUresult err = cudyLoadCubin((CUDYfunction*)&kernel_func,

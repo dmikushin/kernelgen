@@ -37,7 +37,7 @@ __attribute__((device)) int __iAtomicCAS(volatile int *p, int compare, int val)
 {
 	int ret;
 	asm volatile (
-		"atom.cas.b32    %0, [%1], %2, %3; \n\t"
+		"atom.global.cas.b32    %0, [%1], %2, %3; \n\t"
 		: "=r"(ret) : "l"(p), "r"(compare), "r"(val)
 	);
 	return ret;
@@ -60,6 +60,14 @@ __attribute__((device)) __attribute__((always_inline)) void kernelgen_hostcall(u
 	callback->szdatai = szdatai;
 	callback->data = (struct kernelgen_callback_data_t*)data;
 	__iAtomicCAS(&callback->lock, 0, 1);
+	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
+}
+
+__attribute__((device)) __attribute__((always_inline)) void kernelgen_start()
+{
+	// Wait for being unblocked by an instance of monitor.
+	struct kernelgen_callback_t* callback =
+		(struct kernelgen_callback_t*)__kernelgen_callback;
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
 

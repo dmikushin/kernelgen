@@ -44,17 +44,21 @@ using namespace std;
 using namespace kernelgen::bind::cuda;
 
 // The maximum number of registers per thread.
-#define MAX_REGCOUNT	63
+#define MAX_REGCOUNT		63
 
 // The register footprint of uberkern loader code itself.
 // Engine still should be able to run dynamic kernels with
 // smaller footprints, but when loader code is running, this
 // number is a must.
-#define LOADER_REGCOUNT	7
+#define LOADER_REGCOUNT		7
+
+// Ad extra offset between the end of uberkerel loader code
+// and the first dynamic kernel code
+#define BASE_EXTRA_OFFSET	1024
 
 // An extra offset between loaded dynamic kernels codes to
 // force no caching/prefetching.
-#define EXTRA_OFFSET	512
+#define EXTRA_OFFSET		512
 
 namespace kernelgen
 {
@@ -276,9 +280,31 @@ struct CUDYloader_t
 	
 	list<CUDYfunction_t*> functions;
 	
-	CUDYloader_t(int capacity) : offset(0), capacity(capacity * 8), buffer(0)
+	CUDYloader_t(int capacity) : offset(BASE_EXTRA_OFFSET), capacity(BASE_EXTRA_OFFSET + capacity * 8), buffer(0)
 	{
 		int ntokens = sizeof(uberkern) / sizeof(const char*);
+
+		int device;
+		CUresult curesult = cuDeviceGet(&device, 0);
+		if (curesult != CUDA_SUCCESS)
+		{
+			if (verbose)
+				cerr << "Cannot get the CUDA device" << endl;
+			throw curesult;
+		}
+		int major = 2, minor = 0;
+		curesult = cuDeviceComputeCapability(&major, &minor, device);
+		if (curesult != CUDA_SUCCESS)
+		{
+			if (verbose)
+				cerr << "Cannot get the CUDA device compute capability" << endl;
+			throw curesult;
+		}
+
+		// Select the bank number: differs between Fermi and Kepler.
+		string bank = "";
+		if (major == 2) bank = "[0x2]";
+		if (major == 3) bank = "[0x3]";
 
 		stringstream stream;
 		stream << setfill('0');
@@ -290,6 +316,14 @@ struct CUDYloader_t
 			{
 				stream << "\t\t" << line << endl;
 				continue;
+			}
+
+			// Replace $BANK with [0x2] or [0x3], depending on target architecture.
+			for (size_t index = line.find("$BANK", 0);
+				index = line.find("$BANK", index); index++)
+			{
+				if (index == string::npos) break;
+				line.replace(index, bank.length(), bank);
 			}
 
 			// Output the specified number of NOPs in place of $BUF.
@@ -314,7 +348,7 @@ struct CUDYloader_t
 			stream << "\t\t!Kernel uberkern" << regcount << endl;
 			stream << "\t\t!RegCount " << regcount << endl;
 			stream << "\t\t!Param 256 1" << endl;
-			stream << "/* 0x0000 */\tJMP c[0x2][0x8];" << endl;
+			stream << "/* 0x0000 */\tJMP c" << bank << "[0x8];" << endl;
 			stream << "\t\t!EndKernel" << endl;
 		}
 
@@ -332,8 +366,9 @@ struct CUDYloader_t
 
 		try
 		{
-			// Emit cubin.
-			cubin = asfermi_encode_cubin(csource, 20, 0, NULL);
+			// Emit cubin for the current device architecture.
+			size_t size;
+			cubin = asfermi_encode_cubin(csource, major * 10 + minor, 0, &size);
 			if (!cubin)
 			{
 				if (verbose)
@@ -342,7 +377,7 @@ struct CUDYloader_t
 			}
 
 			// Load binary containing uberkernel to deivce memory.
-			CUresult curesult = cuModuleLoadData(&module, cubin);
+			curesult = cuModuleLoadData(&module, cubin);
 			if (curesult != CUDA_SUCCESS)
 			{
 				if (verbose)
@@ -420,7 +455,7 @@ struct CUDYloader_t
 					cerr << "Cannot allocate the uberkern memory buffer" << endl;
 				throw curesult;
 			}
-			binary = (char*)buffer + sizeof(buffer_t);
+			binary = (CUdeviceptr)((char*)buffer + sizeof(buffer_t));
 
 			// Fill the structure address constant with the address value.
 			curesult = cuMemcpyHtoD(config, &buffer, sizeof(CUdeviceptr*));
@@ -473,7 +508,7 @@ struct CUDYloader_t
 				cout << "LEPC = 0x" << hex << lepc << dec << endl;
 
 			// Set binary pointer in buffer.
-			curesult = cuMemcpyHtoD((char*)buffer + 8, &binary, sizeof(CUdeviceptr*));
+			curesult = cuMemcpyHtoD((CUdeviceptr)((char*)buffer + 8), &binary, sizeof(CUdeviceptr*));
 			if (curesult != CUDA_SUCCESS)
 			{
 				if (verbose)
