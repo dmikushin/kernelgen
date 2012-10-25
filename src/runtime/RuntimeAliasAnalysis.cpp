@@ -22,6 +22,9 @@
 
 #include "runtime.h"
 
+#ifdef DEBUG_TYPE
+#undef DEBUG_TYPE
+#endif
 #define DEBUG_TYPE "runtime-AA"
 
 STATISTIC(Readings,  "Number of readings");

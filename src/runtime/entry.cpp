@@ -31,7 +31,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "elf.h"
+#include "Elf.h"
 #include "util.h"
 #include "runtime.h"
 #include "kernelgen_interop.h"
@@ -285,7 +285,7 @@ int main(int argc, char* argv[], char* envp[])
 				if (!monitor_module)
 				{
 					string monitor_source = "";
-					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_monitor.bc");
+					std::ifstream tmp_stream("/opt/kernelgen/include/cuda/monitor.bc");
 					tmp_stream.seekg(0, std::ios::end);
 					monitor_source.reserve(tmp_stream.tellg());
 					tmp_stream.seekg(0, std::ios::beg);
@@ -311,7 +311,7 @@ int main(int argc, char* argv[], char* envp[])
 				if (!runtime_module)
 				{
 					string runtime_source = "";
-					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_runtime.bc");
+					std::ifstream tmp_stream("/opt/kernelgen/include/cuda/runtime.bc");
 					tmp_stream.seekg(0, std::ios::end);
 					runtime_source.reserve(tmp_stream.tellg());
 					tmp_stream.seekg(0, std::ios::beg);
@@ -335,7 +335,7 @@ int main(int argc, char* argv[], char* envp[])
 				if (!cuda_module)
 				{
 					string cuda_source = "";
-					std::ifstream tmp_stream("/opt/kernelgen/include/kernelgen_cuda.bc");
+					std::ifstream tmp_stream("/opt/kernelgen/include/cuda/math.bc");
 					tmp_stream.seekg(0, std::ios::end);
 					cuda_source.reserve(tmp_stream.tellg());
 					tmp_stream.seekg(0, std::ios::beg);

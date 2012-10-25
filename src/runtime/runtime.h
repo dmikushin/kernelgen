@@ -22,7 +22,7 @@
 #ifndef KERNELGEN_RUNTIME_H
 #define KERNELGEN_RUNTIME_H
 
-#include "cuda.h"
+#include "Cuda.h"
 #include "llvm/Instructions.h"
 #include "llvm/Module.h"
 #include "llvm/Support/raw_os_ostream.h"
