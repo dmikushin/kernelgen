@@ -33,7 +33,8 @@ execute_process(COMMAND svnversion -n ${PROJECT_SOURCE_DIR}/src OUTPUT_VARIABLE 
 message("Compiling KernelGen version ${KERNELGEN_VERSION}")
 
 set(OPT 0 CACHE STRING "Optimization level (0-3)")
-set(INSTALL_ROOT "/opt/kernelgen" CACHE STRING "The KernelGen install root")
+set(INSTALL_ROOT "/usr/local/kernelgen" CACHE STRING "The KernelGen install root")
+set(BOOTSTRAP_ROOT "/opt/kernelgen" CACHE STRING "The KernelGen bootsrap root")
 set(RPM_ROOT "$ENV{HOME}/rpmbuild/BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
 set(LLVM_MODE "Debug+Asserts" CACHE STRING "The LLVM build mode")
@@ -83,8 +84,8 @@ endforeach()
 
 link_directories("${LLVM_ROOT}/build/${LLVM_MODE}/lib")
 link_directories("${POLLY_ROOT}/${LLVM_MODE}/lib")
-link_directories("${INSTALL_ROOT}/lib")
-link_directories("${INSTALL_ROOT}/lib64")
+link_directories("${BOOTSTRAP_ROOT}/lib")
+link_directories("${BOOTSTRAP_ROOT}/lib64")
 
 set(CMAKE_INSTALL_RPATH "/opt/kernelgen/lib")
 
@@ -191,10 +192,22 @@ file(COPY ${PROJECT_SOURCE_DIR}/src/dragonegg/kernelgen-dragonegg DESTINATION ${
 #
 # INSTALL
 #
-FILE(GLOB binaries "${PROJECT_BINARY_DIR}/kernelgen-*")
-INSTALL(FILES ${binaries} DESTINATION ${INSTALL_ROOT}/bin)
-FILE(GLOB libraries "${PROJECT_BINARY_DIR}/*.so")
-INSTALL(FILES ${libraries} DESTINATION ${INSTALL_ROOT}/lib)
-FILE(GLOB cuda_headers "${PROJECT_BINARY_DIR}/cuda/*.bc")
-INSTALL(FILES ${cuda_headers} DESTINATION ${INSTALL_ROOT}/include/cuda)
-
+# bin
+INSTALL(TARGETS
+	kernelgen-simple kernelgen-version
+	DESTINATION ${INSTALL_ROOT}/bin)
+INSTALL(FILES
+	${PROJECT_BINARY_DIR}/kernelgen-dragonegg
+	DESTINATION ${INSTALL_ROOT}/bin)
+# lib
+INSTALL(TARGETS
+	kernelgen-ct kernelgen-rt kernelgen-cuda
+	DESTINATION ${INSTALL_ROOT}/lib)
+# include/cuda
+INSTALL(FILES
+	${PROJECT_BINARY_DIR}/cuda/math.bc
+	DESTINATION ${INSTALL_ROOT}/include/cuda)
+INSTALL(FILES
+	${PROJECT_BINARY_DIR}/cuda/monitor.bc
+	${PROJECT_BINARY_DIR}/cuda/runtime.bc
+	DESTINATION ${INSTALL_ROOT}/include/cuda)
