@@ -68,9 +68,11 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Support/MDBuilder.h"
 
+#include "GlobalDependences.h"
 #include "BranchedLoopExtractor.h"
 #include "TrackedPassManager.h"
 
+using namespace kernelgen;
 using namespace llvm;
 using namespace llvm::object;
 using namespace llvm::sys;

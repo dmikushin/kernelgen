@@ -8,9 +8,10 @@
 #include <llvm/Module.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
-using namespace llvm;
+#include "GlobalDependences.h"
+
 using namespace kernelgen;
-//struct globalDepsMap { typedef std::map<T *, globalDeps> Type;};
+using namespace llvm;
 
 class GlobalDependences;
 //void GlobalDependences::getAllDependencesForValue(llvm::GlobalValue * value, DepsByType & dependencesByType);

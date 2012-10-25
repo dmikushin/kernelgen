@@ -1,4 +1,14 @@
-#include "kernelgen_runtime.h"
+#include "kernelgen_interop.h"
+
+__attribute__((device)) int __iAtomicCAS(volatile int *p, int compare, int val)
+{
+	int ret;
+	asm volatile (
+		"atom.global.cas.b32    %0, [%1], %2, %3; \n\t"
+		: "=r"(ret) : "l"(p), "r"(compare), "r"(val)
+	);
+	return ret;
+}
 
 extern "C" __attribute__((global)) void kernelgen_monitor(int* callback)
 {

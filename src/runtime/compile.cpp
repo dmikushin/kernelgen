@@ -65,6 +65,8 @@
 #include <set>
 #include <stdio.h>
 
+#include "GlobalDependences.h"
+
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;

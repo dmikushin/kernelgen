@@ -1,3 +1,24 @@
+#
+# KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+#
+# Copyright (c) 2011 Dmitry Mikushin
+#
+# This software is provided 'as-is', without any express or implied warranty.
+# In no event will the authors be held liable for any damages arising 
+# from the use of this software.
+# Permission is granted to anyone to use this software for any purpose, 
+# including commercial applications, and to alter it and redistribute it freely,
+# subject to the following restrictions:
+#
+# 1. The origin of this software must not be misrepresented;
+# you must not claim that you wrote the original software.
+# If you use this software in a product, an acknowledgment
+# in the product documentation would be appreciated but is not required.
+# 2. Altered source versions must be plainly marked as such,
+# and must not be misrepresented as being the original software.
+# 3. This notice may not be removed or altered from any source distribution.
+#
+
 cmake_minimum_required (VERSION 2.6)
 project (kernelgen)
 
@@ -12,6 +33,7 @@ execute_process(COMMAND svnversion -n ${PROJECT_SOURCE_DIR}/src OUTPUT_VARIABLE 
 message("Compiling KernelGen version ${KERNELGEN_VERSION}")
 
 set(OPT 0 CACHE STRING "Optimization level (0-3)")
+set(INSTALL_ROOT "/opt/kernelgen" CACHE STRING "The KernelGen install root")
 set(RPM_ROOT "$ENV{HOME}/rpmbuild/BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
 set(LLVM_MODE "Debug+Asserts" CACHE STRING "The LLVM build mode")
@@ -23,13 +45,19 @@ set(POLLY_INCLUDE "${LLVM_ROOT}/tools/polly/include" CACHE STRING "The LLVM/Poll
 set(CLOOG_INCLUDE "${RPM_ROOT}/cloog/include" CACHE STRING "The CLooG include root")
 set(ISL_INCLUDE "${RPM_ROOT}/cloog/isl/include" CACHE STRING "The ISL include root")
 set(BUGPOINT_ROOT "${LLVM_ROOT}/tools/bugpoint" CACHE STRING "The LLVM/bugpoint source root")
+set(GCC_ROOT "${RPM_ROOT}/gcc-snapshot" CACHE STRING "The GCC source root")
 
 include_directories("${PROJECT_SOURCE_DIR}/src")
 include_directories("${PROJECT_SOURCE_DIR}/src/bugpoint")
+include_directories("${PROJECT_SOURCE_DIR}/src/common")
+include_directories("${PROJECT_SOURCE_DIR}/src/cuda")
 include_directories("${PROJECT_SOURCE_DIR}/src/frontend")
-include_directories("${PROJECT_SOURCE_DIR}/src/gpu")
 include_directories("${PROJECT_SOURCE_DIR}/src/include")
 include_directories("${PROJECT_SOURCE_DIR}/src/runtime")
+include_directories("${GCC_ROOT}/gcc/")
+include_directories("${GCC_ROOT}/build/gcc/")
+include_directories("${GCC_ROOT}/include/")
+include_directories("${GCC_ROOT}/libcpp/include/")
 
 include_directories("${LLVM_INCLUDE}")
 include_directories("${BUGPOINT_ROOT}")
@@ -44,6 +72,8 @@ include_directories("/usr/lib64/libffi-3.0.10/include")
 
 link_directories("${LLVM_ROOT}/build/${LLVM_MODE}/lib")
 link_directories("${POLLY_ROOT}/${LLVM_MODE}/lib")
+link_directories("${INSTALL_ROOT}/lib")
+link_directories("${INSTALL_ROOT}/lib64")
 
 set(CMAKE_INSTALL_RPATH "/opt/kernelgen/lib")
 
@@ -69,10 +99,52 @@ foreach(DEFINE ${LLVM_MACROS})
 endforeach()
 
 #
-# GPU BINDINGS
+# COMMON LIBRARY
 #
-file(GLOB_RECURSE gpu_sources "src/gpu/*.cpp")
-add_library(kernelgen-gpu SHARED ${gpu_sources})
+aux_source_directory(src/common common_sources)
+add_library(common STATIC ${common_sources})
+foreach(DEFINE ${LLVM_MACROS})
+	set_property(TARGET common APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
+endforeach()
+
+#
+# FRONTEND LIBRARY
+#
+aux_source_directory(src/frontend frontend_sources)
+add_library(frontend STATIC ${frontend_sources})
+set_property(SOURCE src/frontend/BranchedLoopExtractor.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
+foreach(DEFINE ${LLVM_MACROS})
+	set_property(TARGET frontend APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
+endforeach()
+
+#
+# SIMPLE FRONTEND & LTO LINKER BACKEND
+#
+aux_source_directory(src/simple simple_sources)
+add_executable(kernelgen-simple ${simple_sources})
+foreach(DEFINE ${LLVM_MACROS})
+	set_property(TARGET kernelgen-simple APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
+endforeach()
+target_link_libraries(kernelgen-simple bugpoint common frontend LLVM-${LLVM_VERSION}svn elf iberty)
+
+#
+# GCC COMPILE-TIME PLUGIN
+#
+aux_source_directory(src/plugin plugin_sources)
+add_library(kernelgen-ct SHARED ${plugin_sources})
+foreach(DEFINE ${LLVM_MACROS})
+	set_property(TARGET kernelgen-ct APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
+endforeach()
+target_link_libraries(kernelgen-ct bugpoint frontend LLVM-${LLVM_VERSION}svn)
+
+#
+# CUDA BINDINGS
+#
+file(GLOB_RECURSE cuda_sources "src/cuda/*.cpp")
+add_library(kernelgen-cuda SHARED ${cuda_sources})
+file(COPY ${PROJECT_SOURCE_DIR}/src/cuda/include/math.bc DESTINATION ${PROJECT_BINARY_DIR}/cuda)
+#file(COPY ${PROJECT_SOURCE_DIR}/src/cuda/include/monitor.bc DESTINATION ${PROJECT_BINARY_DIR}/cuda)
+#file(COPY ${PROJECT_SOURCE_DIR}/src/cuda/include/runtime.bc DESTINATION ${PROJECT_BINARY_DIR}/cuda)
 
 #
 # RUNTIME LIBRARY
@@ -83,17 +155,7 @@ set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-rt bugpoint kernelgen-gpu LLVM-${LLVM_VERSION}svn LLVMPolly)
-
-#
-# SIMPLE FRONTEND & LTO LINKER BACKEND
-#
-aux_source_directory(src/simple simple_sources)
-add_executable(kernelgen-simple ${simple_sources})
-foreach(DEFINE ${LLVM_MACROS})
-	set_property(TARGET kernelgen-simple APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
-endforeach()
-target_link_libraries(kernelgen-simple bugpoint LLVM-${LLVM_VERSION}svn)
+target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVM-${LLVM_VERSION}svn LLVMPolly elf rt gmp mhash dl ffi)
 
 #
 # VERSION PRINTER
@@ -105,5 +167,14 @@ set_property(TARGET kernelgen-version APPEND PROPERTY COMPILE_DEFINITIONS "KERNE
 #
 # DRAGONEGG WRAPPER
 #
-add_custom_target(kernelgen-dragonegg ALL DEPENDS src/dragonegg/kernelgen-dragonegg)
+file(COPY ${PROJECT_SOURCE_DIR}/src/dragonegg/kernelgen-dragonegg DESTINATION ${PROJECT_BINARY_DIR})
 
+#
+# INSTALL
+#
+FILE(GLOB binaries "${PROJECT_BINARY_DIR}/kernelgen-*")
+INSTALL(FILES ${binaries} DESTINATION ${INSTALL_ROOT}/bin)
+FILE(GLOB libraries "${PROJECT_BINARY_DIR}/*.so")
+INSTALL(FILES ${libraries} DESTINATION ${INSTALL_ROOT}/lib)
+FILE(GLOB cuda_headers "${PROJECT_BINARY_DIR}/cuda/*.bc")
+#INSTALL(FILES ${cuda_headers} DESTINATION ${INSTALL_ROOT}/include/cuda)
