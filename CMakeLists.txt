@@ -46,6 +46,8 @@ set(CLOOG_INCLUDE "${RPM_ROOT}/cloog/include" CACHE STRING "The CLooG include ro
 set(ISL_INCLUDE "${RPM_ROOT}/cloog/isl/include" CACHE STRING "The ISL include root")
 set(BUGPOINT_ROOT "${LLVM_ROOT}/tools/bugpoint" CACHE STRING "The LLVM/bugpoint source root")
 set(GCC_ROOT "${RPM_ROOT}/gcc-snapshot" CACHE STRING "The GCC source root")
+set(CULANG clang -cc1 -emit-llvm -fcuda-is-device -triple nvptx64-unknown-unknown CACHE STRING
+	"Clang command to compile CUDA-specific LLVM IR modules")
 
 include_directories("${PROJECT_SOURCE_DIR}/src")
 include_directories("${PROJECT_SOURCE_DIR}/src/bugpoint")
@@ -69,6 +71,15 @@ include_directories("/usr/include/i686-linux-gnu")
 include_directories("/usr/include/x86_64-linux-gnu")
 include_directories("/usr/lib64/libffi-3.0.9/include")
 include_directories("/usr/lib64/libffi-3.0.10/include")
+
+#
+# DUPLICATE INCLUDES FOR CLANG CUSTOM RULE
+#
+set(CULANG_INCLUDE_ARGS)
+get_property(INCLUDES DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
+foreach(dir ${INCLUDES})
+	list(APPEND CULANG_INCLUDE_ARGS -I${dir})
+endforeach()
 
 link_directories("${LLVM_ROOT}/build/${LLVM_MODE}/lib")
 link_directories("${POLLY_ROOT}/${LLVM_MODE}/lib")
@@ -142,9 +153,17 @@ target_link_libraries(kernelgen-ct bugpoint frontend LLVM-${LLVM_VERSION}svn)
 #
 file(GLOB_RECURSE cuda_sources "src/cuda/*.cpp")
 add_library(kernelgen-cuda SHARED ${cuda_sources})
+
+#
+# CUDA LLVM IR -LEVEL INCLUDES
+#
 file(COPY ${PROJECT_SOURCE_DIR}/src/cuda/include/math.bc DESTINATION ${PROJECT_BINARY_DIR}/cuda)
-#file(COPY ${PROJECT_SOURCE_DIR}/src/cuda/include/monitor.bc DESTINATION ${PROJECT_BINARY_DIR}/cuda)
-#file(COPY ${PROJECT_SOURCE_DIR}/src/cuda/include/runtime.bc DESTINATION ${PROJECT_BINARY_DIR}/cuda)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/cuda/monitor.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
+	${PROJECT_SOURCE_DIR}/src/cuda/include/monitor.cu -o ${PROJECT_BINARY_DIR}/cuda/monitor.bc)
+add_custom_target(cuda_monitor ALL DEPENDS ${PROJECT_BINARY_DIR}/cuda/monitor.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/cuda/runtime.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
+	${PROJECT_SOURCE_DIR}/src/cuda/include/runtime.cu -o ${PROJECT_BINARY_DIR}/cuda/runtime.bc)
+add_custom_target(cuda_runtime ALL DEPENDS ${PROJECT_BINARY_DIR}/cuda/runtime.bc)
 
 #
 # RUNTIME LIBRARY
@@ -177,4 +196,5 @@ INSTALL(FILES ${binaries} DESTINATION ${INSTALL_ROOT}/bin)
 FILE(GLOB libraries "${PROJECT_BINARY_DIR}/*.so")
 INSTALL(FILES ${libraries} DESTINATION ${INSTALL_ROOT}/lib)
 FILE(GLOB cuda_headers "${PROJECT_BINARY_DIR}/cuda/*.bc")
-#INSTALL(FILES ${cuda_headers} DESTINATION ${INSTALL_ROOT}/include/cuda)
+INSTALL(FILES ${cuda_headers} DESTINATION ${INSTALL_ROOT}/include/cuda)
+
