@@ -33,7 +33,7 @@ execute_process(COMMAND svnversion -n ${PROJECT_SOURCE_DIR}/src OUTPUT_VARIABLE 
 message("Compiling KernelGen version ${KERNELGEN_VERSION}")
 
 set(OPT 0 CACHE STRING "Optimization level (0-3)")
-set(INSTALL_ROOT "/usr/local/kernelgen" CACHE STRING "The KernelGen install root")
+set(INSTALL_ROOT "/opt/kernelgen" CACHE STRING "The KernelGen install root")
 set(BOOTSTRAP_ROOT "/opt/kernelgen" CACHE STRING "The KernelGen bootsrap root")
 set(RPM_ROOT "$ENV{HOME}/rpmbuild/BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
@@ -196,7 +196,7 @@ file(COPY ${PROJECT_SOURCE_DIR}/src/dragonegg/kernelgen-dragonegg DESTINATION ${
 INSTALL(TARGETS
 	kernelgen-simple kernelgen-version
 	DESTINATION ${INSTALL_ROOT}/bin)
-INSTALL(FILES
+INSTALL(PROGRAMS
 	${PROJECT_BINARY_DIR}/kernelgen-dragonegg
 	DESTINATION ${INSTALL_ROOT}/bin)
 # lib

@@ -1,3 +1,3 @@
 #include <stdio.h>
 
-int main(void) { printf("r0.2/" KERNELGEN_VERSION); return 0; }
+int main(void) { printf("0.2nvptx/" KERNELGEN_VERSION); return 0; }
