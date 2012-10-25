@@ -116,6 +116,7 @@ endforeach()
 #
 aux_source_directory(src/common common_sources)
 add_library(common STATIC ${common_sources})
+set_property(SOURCE src/common/GlobalDependences.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET common APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
@@ -173,11 +174,16 @@ add_custom_target(cuda_runtime ALL DEPENDS ${PROJECT_BINARY_DIR}/cuda/runtime.bc
 #
 aux_source_directory(src/runtime runtime_sources)
 add_library(kernelgen-rt SHARED ${runtime_sources})
+set_property(SOURCE src/runtime/ConstantSubstitution.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
+set_property(SOURCE src/runtime/SizeOfLoops.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
+set_property(SOURCE src/runtime/RuntimeAliasAnalysis.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
+set_property(SOURCE src/runtime/ScopInspection.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
+set_property(SOURCE src/runtime/TransformAccesses.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
 set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_VERSION=\"${KERNELGEN_VERSION}\"")
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVM-${LLVM_VERSION}svn LLVMPolly elf rt gmp mhash dl ffi)
+target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn elf rt gmp mhash dl ffi)
 
 #
 # VERSION PRINTER
