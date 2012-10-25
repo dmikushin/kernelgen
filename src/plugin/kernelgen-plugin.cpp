@@ -71,6 +71,14 @@ using namespace std;
 
 int plugin_is_GPL_compatible;
 
+// Information about this plugin.
+// Users can access this using "gcc --help -v".
+static struct plugin_info info = {
+	KERNELGEN_VERSION,
+	NULL
+};
+
+
 static int verbose = 0;
 
 Pass* createFixPointersPass();
@@ -199,11 +207,9 @@ extern "C" int plugin_init (
 	if (time_report || !quiet_flag || flag_detailed_statistics)
 		llvm::TimePassesIsEnabled = true;
 
-	PluginLoader loader;
-	loader.operator =("libkernelgen-opt.so");
-
-	// Register callback.
-	register_callback (info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
+	// Register callbacks.
+	register_callback(info->base_name, PLUGIN_INFO, NULL, &info);
+	register_callback(info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
 	
 	// Enable or disable verbose output.
 	char* cverbose = getenv("kernelgen_verbose");
