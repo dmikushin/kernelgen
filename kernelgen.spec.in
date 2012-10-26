@@ -225,6 +225,14 @@ KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disab
 rm -rf $RPM_BUILD_DIR/kernelgen
 cd $RPM_BUILD_DIR
 tar -xf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.gz
+cd $RPM_BUILD_DIR/kernelgen
+mkdir build
+cd build
+%if %debug
+cmake -DCMAKE_INSTALL_PREFIX=$RPM_BUILD_ROOT/opt/kernelgen ..
+%else
+cmake -DCMAKE_INSTALL_PREFIX=$RPM_BUILD_ROOT/opt/kernelgen -DOPT=3 ..
+%endif
 cd $RPM_BUILD_DIR
 
 
@@ -305,12 +313,8 @@ patch -p1 <$RPM_SOURCE_DIR/gcc.build.patch
 #
 # Build KernelGen
 #
-cd $RPM_BUILD_DIR/kernelgen
-%if %debug
-make src
-%else
-make src OPT=3
-%endif
+cd $RPM_BUILD_DIR/kernelgen/build
+make -j%{njobs}
 %endif
 
 
@@ -348,8 +352,8 @@ cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
 #
 # Install KernelGen
 #
-cd $RPM_BUILD_DIR/kernelgen
-ROOT=$RPM_BUILD_ROOT LIB32=lib LIB64=lib make install
+cd $RPM_BUILD_DIR/kernelgen/build
+make install
 %endif
 %if %binutils
 #
