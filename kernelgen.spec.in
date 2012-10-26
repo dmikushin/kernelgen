@@ -405,9 +405,9 @@ find $RPM_BUILD_ROOT/opt/kernelgen -name "*.la" -exec rm -f '{}' \;
 # Add paths for binaries and libraries into the system-wide configs.
 #
 %post
-echo "export PATH=\$PATH:/opt/kernelgen/bin" >>/etc/profile.d/kernelgen.sh
-echo "/opt/kernelgen/lib" >>/etc/ld.so.conf.d/kernelgen.conf
-echo "/opt/kernelgen/lib64" >>/etc/ld.so.conf.d/kernelgen.conf
+echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/opt/kernelgen/bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
+echo "$RPM_INSTALL_PREFIX/opt/kernelgen/lib" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
+echo "$RPM_INSTALL_PREFIX/opt/kernelgen/lib64" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
 
 
 %changelog
