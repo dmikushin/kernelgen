@@ -136,6 +136,8 @@ public :
 	// Dynamic loader.
 	CUDYloader loader;
 
+	int capacity;
+
 	~context();
 };
 

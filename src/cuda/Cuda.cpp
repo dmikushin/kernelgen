@@ -28,7 +28,9 @@
 using namespace kernelgen;
 using namespace std;
 
-namespace kernelgen { namespace bind { namespace cuda {
+namespace kernelgen {
+namespace bind {
+namespace cuda {
 
 cuDeviceComputeCapability_t cuDeviceComputeCapability;
 cuDeviceGetProperties_t cuDeviceGetProperties;
@@ -65,153 +67,168 @@ cuEventRecord_t cuEventRecord;
 cuEventSynchronize_t cuEventSynchronize;
 cuFuncGetAttribute_t cuFuncGetAttribute;
 
-CUresult cuMemAlloc(void** ptr, size_t size)
-{
+CUresult cuMemAlloc(void** ptr, size_t size) {
 	// Create a possibly unaligned base buffer and
 	// a strictly aligned return buffer on top of it.
 	void* base = NULL;
 	int err = cuMemAlloc_(&base, size + 4096);
-	if (err) return err;
-	*ptr = (char*)base + 4096 - (size_t)base % 4096;
+	if (err)
+		return err;
+	*ptr = (char*) base + 4096 - (size_t) base % 4096;
 	return CUDA_SUCCESS;
 }
 
-CUresult cuMemFree(void* ptr)
-{
+CUresult cuMemFree(void* ptr) {
 	// Unpack carrier for the specified aligned buffer.
 	void* base = NULL;
 	int err = cuMemGetAddressRange(&base, NULL, ptr);
-	if (err) return err;
+	if (err)
+		return err;
 	err = cuMemFree_(base);
 }
 
-context* context::init(int capacity)
-{
+context* context::init(int capacity) {
 	// Do not init again, if already bound.
-	if (cuInit) new context(NULL, capacity);
+	if (cuInit)
+		new context(NULL, capacity);
 
 	// Load CUDA Driver API shared library.
-	void* handle = dlopen("libcuda.so",
-		RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
+	void* handle = dlopen("libcuda.so", RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
 	if (!handle)
 		THROW("Cannot dlopen libcuda.so " << dlerror());
-	
+
 	return new context(handle, capacity);
 }
 
 context::context(void* handle, int capacity) :
 
-handle(handle)
+		handle(handle), capacity(capacity)
 
 {
-	if (handle)
-	{
-		cuDeviceComputeCapability = (cuDeviceComputeCapability_t)dlsym(handle, "cuDeviceComputeCapability");
+	if (handle) {
+		cuDeviceComputeCapability = (cuDeviceComputeCapability_t) dlsym(handle,
+				"cuDeviceComputeCapability");
 		if (!cuDeviceComputeCapability)
 			THROW("Cannot dlsym cuDeviceComputeCapability " << dlerror());
-		cuDeviceGetProperties = (cuDeviceGetProperties_t)dlsym(handle, "cuDeviceGetProperties");
+		cuDeviceGetProperties = (cuDeviceGetProperties_t) dlsym(handle,
+				"cuDeviceGetProperties");
 		if (!cuDeviceGetProperties)
 			THROW("Cannot dlsym cuDeviceGetProperties " << dlerror());
-		cuInit = (cuInit_t)dlsym(handle, "cuInit");
+		cuInit = (cuInit_t) dlsym(handle, "cuInit");
 		if (!cuInit)
 			THROW("Cannot dlsym cuInit " << dlerror());
-		cuDeviceGet = (cuDeviceGet_t)dlsym(handle, "cuDeviceGet");
+		cuDeviceGet = (cuDeviceGet_t) dlsym(handle, "cuDeviceGet");
 		if (!cuDeviceGet)
 			THROW("Cannot dlsym cuDeviceGet " << dlerror());
-		cuCtxCreate = (cuCtxCreate_t)dlsym(handle, "cuCtxCreate_v2");
+		cuCtxCreate = (cuCtxCreate_t) dlsym(handle, "cuCtxCreate_v2");
 		if (!cuCtxCreate)
 			THROW("Cannot dlsym cuCtxCreate " << dlerror());
-		cuCtxSynchronize = (cuCtxSynchronize_t)dlsym(handle, "cuCtxSynchronize");
+		cuCtxSynchronize = (cuCtxSynchronize_t) dlsym(handle,
+				"cuCtxSynchronize");
 		if (!cuCtxSynchronize)
 			THROW("Cannot dlsym cuCtxSynchronize " << dlerror());
-		cuMemAlloc_ = (cuMemAlloc_t)dlsym(handle, "cuMemAlloc_v2");
+		cuMemAlloc_ = (cuMemAlloc_t) dlsym(handle, "cuMemAlloc_v2");
 		if (!cuMemAlloc)
 			THROW("Cannot dlsym cuMemAlloc " << dlerror());
-		cuMemFree_ = (cuMemFree_t)dlsym(handle, "cuMemFree_v2");
+		cuMemFree_ = (cuMemFree_t) dlsym(handle, "cuMemFree_v2");
 		if (!cuMemFree)
 			THROW("Cannot dlsym cuMemFree " << dlerror());
-		cuMemAllocHost = (cuMemAlloc_t)dlsym(handle, "cuMemAllocHost_v2");
+		cuMemAllocHost = (cuMemAlloc_t) dlsym(handle, "cuMemAllocHost_v2");
 		if (!cuMemAllocHost)
 			THROW("Cannot dlsym cuMemAllocHost " << dlerror());
-		cuMemFreeHost = (cuMemFree_t)dlsym(handle, "cuMemFreeHost");
+		cuMemFreeHost = (cuMemFree_t) dlsym(handle, "cuMemFreeHost");
 		if (!cuMemFreeHost)
 			THROW("Cannot dlsym cuMemFreeHost " << dlerror());
-		cuMemcpyHtoD = (cuMemcpy_t)dlsym(handle, "cuMemcpyHtoD_v2");
+		cuMemcpyHtoD = (cuMemcpy_t) dlsym(handle, "cuMemcpyHtoD_v2");
 		if (!cuMemcpyHtoD)
 			THROW("Cannot dlsym cuMemcpyHtoD " << dlerror());
-		cuMemcpyDtoH = (cuMemcpy_t)dlsym(handle, "cuMemcpyDtoH_v2");
+		cuMemcpyDtoH = (cuMemcpy_t) dlsym(handle, "cuMemcpyDtoH_v2");
 		if (!cuMemcpyDtoH)
 			THROW("Cannot dlsym cuMemcpyDtoH " << dlerror());
-		cuMemcpyHtoDAsync = (cuMemcpyAsync_t)dlsym(handle, "cuMemcpyHtoDAsync_v2");
+		cuMemcpyHtoDAsync = (cuMemcpyAsync_t) dlsym(handle,
+				"cuMemcpyHtoDAsync_v2");
 		if (!cuMemcpyHtoDAsync)
 			THROW("Cannot dlsym cuMemcpyHtoDAsync " << dlerror());
-		cuMemcpyDtoHAsync = (cuMemcpyAsync_t)dlsym(handle, "cuMemcpyDtoHAsync_v2");
+		cuMemcpyDtoHAsync = (cuMemcpyAsync_t) dlsym(handle,
+				"cuMemcpyDtoHAsync_v2");
 		if (!cuMemcpyDtoHAsync)
 			THROW("Cannot dlsym cuMemcpyDtoHAsync " << dlerror());
-		cuMemGetAddressRange = (cuMemGetAddressRange_t)dlsym(handle, "cuMemGetAddressRange_v2");
+		cuMemGetAddressRange = (cuMemGetAddressRange_t) dlsym(handle,
+				"cuMemGetAddressRange_v2");
 		if (!cuMemGetAddressRange)
 			THROW("Cannot dlsym cuMemGetAddressRange " << dlerror());
-		cuMemsetD8 = (cuMemsetD8_t)dlsym(handle, "cuMemsetD8_v2");
+		cuMemsetD8 = (cuMemsetD8_t) dlsym(handle, "cuMemsetD8_v2");
 		if (!cuMemsetD8)
 			THROW("Cannot dlsym cuMemsetD8 " << dlerror());
-		cuMemsetD32 = (cuMemsetD32_t)dlsym(handle, "cuMemsetD32_v2");
+		cuMemsetD32 = (cuMemsetD32_t) dlsym(handle, "cuMemsetD32_v2");
 		if (!cuMemsetD32)
 			THROW("Cannot dlsym cuMemsetD32 " << dlerror());
-		cuMemsetD32Async = (cuMemsetD32Async_t)dlsym(handle, "cuMemsetD32Async");
+		cuMemsetD32Async = (cuMemsetD32Async_t) dlsym(handle,
+				"cuMemsetD32Async");
 		if (!cuMemsetD32Async)
 			THROW("Cannot dlsym cuMemsetD32Async " << dlerror());
-		cuMemHostRegister = (cuMemHostRegister_t)dlsym(handle, "cuMemHostRegister");
+		cuMemHostRegister = (cuMemHostRegister_t) dlsym(handle,
+				"cuMemHostRegister");
 		if (!cuMemHostRegister)
 			THROW("Cannot dlsym cuMemHostRegister " << dlerror());
-		cuMemHostGetDevicePointer = (cuMemHostGetDevicePointer_t)dlsym(handle, "cuMemHostGetDevicePointer");
+		cuMemHostGetDevicePointer = (cuMemHostGetDevicePointer_t) dlsym(handle,
+				"cuMemHostGetDevicePointer");
 		if (!cuMemHostGetDevicePointer)
 			THROW("Cannot dlsym cuMemHostGetDevicePointer " << dlerror());
-		cuMemHostUnregister = (cuMemHostUnregister_t)dlsym(handle, "cuMemHostUnregister");
+		cuMemHostUnregister = (cuMemHostUnregister_t) dlsym(handle,
+				"cuMemHostUnregister");
 		if (!cuMemHostUnregister)
 			THROW("Cannot dlsym cuMemHostUnregister " << dlerror());
-		cuModuleLoad = (cuModuleLoad_t)dlsym(handle, "cuModuleLoad");
+		cuModuleLoad = (cuModuleLoad_t) dlsym(handle, "cuModuleLoad");
 		if (!cuModuleLoad)
 			THROW("Cannot dlsym cuModuleLoad " << dlerror());
-		cuModuleLoadData = (cuModuleLoad_t)dlsym(handle, "cuModuleLoadData");
+		cuModuleLoadData = (cuModuleLoad_t) dlsym(handle, "cuModuleLoadData");
 		if (!cuModuleLoadData)
 			THROW("Cannot dlsym cuModuleLoadData " << dlerror());
-		cuModuleLoadDataEx = (cuModuleLoadDataEx_t)dlsym(handle, "cuModuleLoadDataEx");
+		cuModuleLoadDataEx = (cuModuleLoadDataEx_t) dlsym(handle,
+				"cuModuleLoadDataEx");
 		if (!cuModuleLoadDataEx)
 			THROW("Cannot dlsym cuModuleLoadDataEx " << dlerror());
-		cuModuleUnload = (cuModuleUnload_t)dlsym(handle, "cuModuleUnload");
+		cuModuleUnload = (cuModuleUnload_t) dlsym(handle, "cuModuleUnload");
 		if (!cuModuleUnload)
 			THROW("Cannot dlsym cuModuleUnload " << dlerror());
-		cuModuleGetFunction = (cuModuleGetFunction_t)dlsym(handle, "cuModuleGetFunction");
+		cuModuleGetFunction = (cuModuleGetFunction_t) dlsym(handle,
+				"cuModuleGetFunction");
 		if (!cuModuleGetFunction)
 			THROW("Cannot dlsym cuModuleGetFunction " << dlerror());
-		cuModuleGetGlobal = (cuModuleGetGlobal_t)dlsym(handle, "cuModuleGetGlobal_v2");
+		cuModuleGetGlobal = (cuModuleGetGlobal_t) dlsym(handle,
+				"cuModuleGetGlobal_v2");
 		if (!cuModuleGetGlobal)
 			THROW("Cannot dlsym cuModuleGetGlobal " << dlerror());
-		cuLaunchKernel = (cuLaunchKernel_t)dlsym(handle, "cuLaunchKernel");
+		cuLaunchKernel = (cuLaunchKernel_t) dlsym(handle, "cuLaunchKernel");
 		if (!cuLaunchKernel)
 			THROW("Cannot dlsym cuLaunchKernel " << dlerror());
-		cuStreamCreate = (cuStreamCreate_t)dlsym(handle, "cuStreamCreate");
+		cuStreamCreate = (cuStreamCreate_t) dlsym(handle, "cuStreamCreate");
 		if (!cuStreamCreate)
 			THROW("Cannot dlsym cuStreamCreate " << dlerror());
-		cuStreamSynchronize = (cuStreamSynchronize_t)dlsym(handle, "cuStreamSynchronize");
+		cuStreamSynchronize = (cuStreamSynchronize_t) dlsym(handle,
+				"cuStreamSynchronize");
 		if (!cuStreamSynchronize)
 			THROW("Cannot dlsym cuStreamSynchronize " << dlerror());
-		cuEventCreate = (cuEventCreate_t)dlsym(handle, "cuEventCreate");
+		cuEventCreate = (cuEventCreate_t) dlsym(handle, "cuEventCreate");
 		if (!cuEventCreate)
 			THROW("Cannot dlsym cuEventCreate " << dlerror());
-		cuEventDestroy = (cuEventDestroy_t)dlsym(handle, "cuEventDestroy");
+		cuEventDestroy = (cuEventDestroy_t) dlsym(handle, "cuEventDestroy");
 		if (!cuEventDestroy)
 			THROW("Cannot dlsym cuEventDestroy " << dlerror());
-		cuEventElapsedTime = (cuEventElapsedTime_t)dlsym(handle, "cuEventElapsedTime");
+		cuEventElapsedTime = (cuEventElapsedTime_t) dlsym(handle,
+				"cuEventElapsedTime");
 		if (!cuEventElapsedTime)
 			THROW("Cannot dlsym cuEventElapsedTime " << dlerror());
-		cuEventRecord = (cuEventRecord_t)dlsym(handle, "cuEventRecord");
+		cuEventRecord = (cuEventRecord_t) dlsym(handle, "cuEventRecord");
 		if (!cuEventRecord)
 			THROW("Cannot dlsym cuEventRecord " << dlerror());
-		cuEventSynchronize = (cuEventSynchronize_t)dlsym(handle, "cuEventSynchronize");
+		cuEventSynchronize = (cuEventSynchronize_t) dlsym(handle,
+				"cuEventSynchronize");
 		if (!cuEventSynchronize)
 			THROW("Cannot dlsym cuEventSynchronize " << dlerror());
-		cuFuncGetAttribute = (cuFuncGetAttribute_t)dlsym(handle, "cuFuncGetAttribute");
+		cuFuncGetAttribute = (cuFuncGetAttribute_t) dlsym(handle,
+				"cuFuncGetAttribute");
 		if (!cuFuncGetAttribute)
 			THROW("Cannot dlsym cuFuncGetAttribute " << dlerror());
 	}
@@ -219,25 +236,19 @@ handle(handle)
 	CUresult err = cuInit(0);
 	if (err)
 		THROW("Error in cuInit " << err);
-	
+
 	int device;
 	err = cuDeviceGet(&device, 0);
 	if (err)
 		THROW("Error in cuDeviceGet " << err);
-	
+
 #define CU_CTX_MAP_HOST 0x08
 	err = cuCtxCreate(&ctx, CU_CTX_MAP_HOST, device);
 	if (err)
 		THROW("Error in cuCtxCreate " << err);
-
-	// Initialize the dynamic kernels loader.
-	err = cudyInit(&loader, capacity);
-	if (err)
-		THROW("Cannot initialize the dynamic loader " << err);
 }
 
-context::~context()
-{
+context::~context() {
 	// TODO: destroy context, dlclose.
 
 	// Dispose the dynamic kernels loader.
@@ -246,5 +257,7 @@ context::~context()
 		THROW("Cannot dispose the dynamic loader " << err);
 }
 
-}}}
+}
+}
+}
 
