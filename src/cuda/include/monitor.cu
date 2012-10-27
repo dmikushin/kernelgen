@@ -1,6 +1,6 @@
 #include "kernelgen_interop.h"
 
-__attribute__((device)) int __iAtomicCAS(volatile int *p, int compare, int val)
+__attribute__((device)) __attribute__((always_inline)) int __iAtomicCAS(volatile int *p, int compare, int val)
 {
 	int ret;
 	asm volatile (

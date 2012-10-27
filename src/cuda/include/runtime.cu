@@ -128,7 +128,7 @@ __attribute__((device)) __attribute__((always_inline)) void kernelgen_free(void*
 	// to flush its contents to zero.
 }
 
-__attribute__((device)) int __iAtomicCAS(volatile int *p, int compare, int val)
+__attribute__((device)) __attribute__((always_inline)) int __iAtomicCAS(volatile int *p, int compare, int val)
 {
 	int ret;
 	asm volatile (
