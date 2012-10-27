@@ -20,10 +20,14 @@
  * THE SOFTWARE.
  */
 
+#include "llvm/Support/Program.h"
+
 #include "Cuda.h"
 #include "cuda_dyloader.h"
 #include "libasfermi.h"
 #include "loader.h"
+#include "Temp.h"
+#include "Verbose.h"
 
 #include <cstring>
 #include <elf.h>
@@ -40,8 +44,10 @@
 #include <sstream>
 #include <vector>
 
-using namespace std;
 using namespace kernelgen::bind::cuda;
+using namespace kernelgen::utils;
+using namespace llvm::sys;
+using namespace std;
 
 // The maximum number of registers per thread.
 #define MAX_REGCOUNT		63
@@ -383,11 +389,38 @@ struct CUDYloader_t
 			
 			if (host_cubin != "")
 			{
+				const char* linker = "nvlink";
+
 				// Save the dyloader cubin to disk.
+				TempFile file1 = Temp::getFile("%%%%%%%%.cubin");
+				file1.download(cubin, size);
 				
 				// Link dyloader cubin with host cubin.
+				TempFile file2 = Temp::getFile("%%%%%%%%.cubin");
+				vector<const char*> args;
+				args.push_back(linker);
+				stringstream sarch;
+				sarch << "-arch=sm_" << (major * 10 + minor);
+				string arch = sarch.str();
+				args.push_back(arch.c_str());
+				args.push_back(host_cubin.c_str());
+				args.push_back(file1.getName().c_str());
+				args.push_back("-o");
+				args.push_back(file2.getName().c_str());
+				args.push_back(NULL);
+				Verbose::cmd(args);
+				string err;
+				int status = Program::ExecuteAndWait(
+					Program::FindProgramByName("nvlink"), (const char**)&args[0], NULL, NULL, 0, 0, &err);
+				if (status)
+				{
+					cerr << err << endl;
+					throw status;
+				}
 				
 				// Replace the dyloader cubin with the resulting cubin.
+				free(cubin);
+				file2.upload(&cubin, &size);
 			}
 
 			// Load binary containing uberkernel to deivce memory.

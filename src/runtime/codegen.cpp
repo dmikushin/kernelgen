@@ -24,6 +24,7 @@
 #include "runtime.h"
 
 #include "cuda_dyloader.h"
+#include "Temp.h"
 
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
@@ -50,6 +51,7 @@
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;
+using namespace kernelgen::utils;
 using namespace llvm;
 using namespace util::io;
 using namespace std;
@@ -437,24 +439,20 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 		bin_raw_stream.flush();
 
 		// Dump generated kernel object to first temporary file.
-		cfiledesc tmp1 = cfiledesc::mktemp("/tmp/");
-		{
-			fstream tmp_stream;
-			tmp_stream.open(tmp1.getFilename().c_str(),
-					fstream::binary | fstream::out | fstream::trunc);
-			tmp_stream << bin_string;
-			tmp_stream.close();
-		}
+		TempFile tmp1 = Temp::getFile("%%%%%%%%.o");
+		if (verbose) tmp1.keep();
+		tmp1.download(bin_string.c_str(), bin_string.size());
 
 		// Link first and second objects together into third one.
-		cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
+		TempFile tmp2 = Temp::getFile("%%%%%%%%.so");
+		if (verbose) tmp2.keep();
 		{
 			string linker = "ld";
 			std::list<string> linker_args;
 			linker_args.push_back("-shared");
 			linker_args.push_back("-o");
-			linker_args.push_back(tmp2.getFilename());
-			linker_args.push_back(tmp1.getFilename());
+			linker_args.push_back(tmp2.getName());
+			linker_args.push_back(tmp1.getName());
 			if (verbose) {
 				cout << linker;
 				for (std::list<string>::iterator it = linker_args.begin();
@@ -466,7 +464,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 		}
 
 		// Load linked image and extract kernel entry point.
-		void* handle = dlopen(tmp2.getFilename().c_str(),
+		void* handle = dlopen(tmp2.getName().c_str(),
 				RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND);
 
 		if (!handle)
@@ -554,17 +552,13 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 			cout << ptx_string;
 
 		// Dump generated kernel object to first temporary file.
-		cfiledesc tmp2 = cfiledesc::mktemp("/tmp/");
-		{
-			fstream tmp_stream;
-			tmp_stream.open(tmp2.getFilename().c_str(),
-					fstream::binary | fstream::out | fstream::trunc);
-			tmp_stream << ptx_string;
-			tmp_stream.close();
-		}
+		TempFile tmp2 = Temp::getFile("%%%%%%%%.ptx");
+		if (verbose) tmp2.keep();
+		tmp2.download(ptx_string.c_str(), ptx_string.size());
 
 		// Compile PTX code in temporary file to CUBIN.
-		cfiledesc tmp3 = cfiledesc::mktemp("/tmp/");
+		TempFile tmp3 = Temp::getFile("%%%%%%%%.cubin");
+		if (verbose) tmp3.keep();
 		{
 			string ptxas = "ptxas";
 			std::list<string> ptxas_args;
@@ -574,10 +568,20 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 			sarch << "-arch=sm_" << (major * 10 + minor);
 			ptxas_args.push_back(sarch.str().c_str());
 			ptxas_args.push_back("-m64");
-			ptxas_args.push_back(tmp2.getFilename());
+			ptxas_args.push_back(tmp2.getName());
 			ptxas_args.push_back("-o");
-			ptxas_args.push_back(tmp3.getFilename());
-			if (name != "__kernelgen_main") {
+			ptxas_args.push_back(tmp3.getName());
+			if (name == "__kernelgen_main") {
+				// Create a relocatable cubin, to be later linked
+				// with dyloader cubin.
+				ptxas_args.push_back("--compile-only");
+			} else {
+				// Calculate and apply the maximum register count
+				// constraint, depending on used compute grid dimensions.
+				// TODO This constraint is here due to chicken&egg problem:
+				// grid dimensions are chosen before the register count
+				// becomes known. This thing should go away, once we get
+				// some time to work on it.
 				typedef struct {
 					int maxThreadsPerBlock;
 					int maxThreadsDim[3];
@@ -630,18 +634,18 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 		if (name == "__kernelgen_main") {
 			// Align main kernel cubin global data to the virtual memory
 			// page boundary.
-			cubin_align_data(tmp3.getFilename().c_str(), 4096);
+			cubin_align_data(tmp3.getName().c_str(), 4096);
 
 			// Export main kernel cubin function-address map.
-			cubin_export_funcmap(tmp3.getFilename().c_str(), funcmap);
+			cubin_export_funcmap(tmp3.getName().c_str(), funcmap);
 
 			// Initialize the dynamic kernels loader.
-			int err = cudyInit(&cuda_context->loader, cuda_context->capacity);
+			int err = cudyInit(&cuda_context->loader, cuda_context->capacity, tmp3.getName());
 			if (err)
 				THROW("Cannot initialize the dynamic loader " << err);
 		} else {
 			// Import main kernel cubin function-address map.
-			cubin_import_funcmap(tmp3.getFilename().c_str(), funcmap);
+			cubin_import_funcmap(tmp3.getName().c_str(), funcmap);
 		}
 
 		// Dump Fermi assembly from CUBIN.
@@ -649,14 +653,14 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 			string cuobjdump = "cuobjdump";
 			std::list<string> cuobjdump_args;
 			cuobjdump_args.push_back("-sass");
-			cuobjdump_args.push_back(tmp3.getFilename());
+			cuobjdump_args.push_back(tmp3.getName());
 			execute(cuobjdump, cuobjdump_args, "", NULL, NULL);
 		}
 
 		// Load CUBIN into string.
 		string cubin;
 		{
-			std::ifstream tmp_stream(tmp3.getFilename().c_str());
+			std::ifstream tmp_stream(tmp3.getName().c_str());
 			tmp_stream.seekg(0, std::ios::end);
 			cubin.reserve(tmp_stream.tellg());
 			tmp_stream.seekg(0, std::ios::beg);
@@ -670,7 +674,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 		if (name == "__kernelgen_main") {
 			// Load CUBIN from string into module.
 			CUmodule module;
-			int err = cuModuleLoad(&module, tmp3.getFilename().c_str());
+			int err = cuModuleLoad(&module, tmp3.getName().c_str());
 			if (err)
 				THROW("Error in cuModuleLoadData " << err);
 
@@ -694,7 +698,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 			// Load kernel function from the binary opcodes.
 			CUstream stream = kernel->target[runmode].monitor_kernel_stream;
 			CUresult err = cudyLoadCubin((CUDYfunction*) &kernel_func,
-					cuda_context->loader, (char*) tmp3.getFilename().c_str(),
+					cuda_context->loader, (char*) tmp3.getName().c_str(),
 					name.c_str(), stream);
 			if (err)
 				THROW("Error in cudyLoadCubin " << err);

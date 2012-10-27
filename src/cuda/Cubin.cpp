@@ -52,10 +52,10 @@ ELFHeader32::ELFHeader32()
 	//0x07
 	memset(&Padding, 0, 9);
 	Padding[0] = 0x33; //issue: same for all? any 
-	Padding[1] = 0x04;
+	Padding[1] = 0x05; // ABI version: was - 0x04;
 
 	//0x10
-	FileType = 0x0002;
+	FileType = 0x0001; // - relocatable; was 0x0002 - executable
 	Machine = 0x00BE;								
 		
 	//0x14

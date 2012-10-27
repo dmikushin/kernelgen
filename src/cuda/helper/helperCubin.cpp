@@ -658,7 +658,7 @@ void hpCubinStage5()
 //Stage6: Setup ELF header
 void hpCubinStage6()
 {
-	//issue: supports only sm_20, sm_21 & sm_30
+	// Supports only sm_20, sm_21 & sm_30
 	if(cubinArchitecture == sm_20)
 		ELFH32.Flags = ELFFlagsForsm_20;
 	else if (cubinArchitecture == sm_21) 
@@ -682,10 +682,7 @@ void hpCubinStage6()
 	ELFH32.PHSize = ELFSegmentHeaderSize;
 	ELFH32.PHCount = cubinPHCount;
 	ELFH32.SHSize = ELFSectionHeaderSize;
-	ELFH32.SHCount = cubinCurrentSectionIndex;
-	
-	
-	
+	ELFH32.SHCount = cubinCurrentSectionIndex;	
 }
 
 unsigned int pad0 = 0;
