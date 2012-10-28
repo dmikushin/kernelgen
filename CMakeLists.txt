@@ -157,7 +157,15 @@ add_library(kernelgen-cuda SHARED ${cuda_sources})
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-cuda APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-cuda common LLVM-${LLVM_VERSION}svn)
+target_link_libraries(kernelgen-cuda common LLVM-${LLVM_VERSION}svn elf)
+list(REMOVE_ITEM cuda_sources
+	"${PROJECT_SOURCE_DIR}/src/cuda/cuda_dyloader.cpp"
+	"${PROJECT_SOURCE_DIR}/src/cuda/Cuda.cpp")
+add_executable(kernelgen-asfermi ${cuda_sources})
+foreach(DEFINE ${LLVM_MACROS})
+	set_property(TARGET kernelgen-asfermi APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
+endforeach()
+target_link_libraries(kernelgen-asfermi)
 
 #
 # CUDA LLVM IR -LEVEL INCLUDES
@@ -203,7 +211,7 @@ file(COPY ${PROJECT_SOURCE_DIR}/src/dragonegg/kernelgen-dragonegg DESTINATION ${
 #
 # bin
 INSTALL(TARGETS
-	kernelgen-simple kernelgen-version
+	kernelgen-asfermi kernelgen-simple kernelgen-version
 	DESTINATION bin)
 INSTALL(PROGRAMS
 	${PROJECT_BINARY_DIR}/kernelgen-dragonegg
