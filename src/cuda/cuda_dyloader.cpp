@@ -26,8 +26,7 @@
 #include "cuda_dyloader.h"
 #include "libasfermi.h"
 #include "loader.h"
-#include "Temp.h"
-#include "Verbose.h"
+#include "KernelGen.h"
 
 #include <cstring>
 #include <elf.h>
@@ -418,6 +417,10 @@ struct CUDYloader_t
 					throw status;
 				}
 				
+				// Align main kernel cubin global data to the virtual memory
+				// page boundary.
+				ELF::AlignData(file2.getName().c_str(), 4096);
+
 				// Replace the dyloader cubin with the resulting cubin.
 				free(cubin);
 				file2.upload(&cubin, &size);

@@ -87,8 +87,6 @@ link_directories("${POLLY_ROOT}/${LLVM_MODE}/lib")
 link_directories("${BOOTSTRAP_ROOT}/lib")
 link_directories("${BOOTSTRAP_ROOT}/lib64")
 
-set(CMAKE_INSTALL_RPATH "/opt/kernelgen/lib")
-
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT}")
 
 #
