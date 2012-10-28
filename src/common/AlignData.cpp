@@ -105,21 +105,7 @@ void kernelgen::utils::ELF::AlignData(const char* cubin, size_t align) {
 			}
 		}
 
-		if (!symbols) {
-			fprintf(stderr, "Cannot find symbols table in %s\n", cubin);
-			throw;
-		}
-		if (iglobal == -1) {
-			fprintf(stderr, "Cannot find the global symbols section in %s\n",
-					cubin);
-			throw;
-		}
-		if (iglobal_init == -1) {
-			fprintf(stderr,
-					"Cannot find the initialized global symbols section in %s\n",
-					cubin);
-			throw;
-		}
+		if (!symbols) return;
 
 		//
 		// 3) Count what size is needed to keep initialized
@@ -153,68 +139,74 @@ void kernelgen::utils::ELF::AlignData(const char* cubin, size_t align) {
 		//
 		// 4) Add new data for aligned globals section.
 		//
-		vector<char> vglobal_new;
-		vglobal_new.resize(szglobal_new);
+		if (iglobal != -1)
+		{
+			vector<char> vglobal_new;
+			vglobal_new.resize(szglobal_new);
 
-		Elf_Data* data = elf_getdata(sglobal, NULL);
-		if (!data) {
-			fprintf(stderr, "elf_newdata() failed: %s\n", elf_errmsg(-1));
-			throw;
-		}
+			Elf_Data* data = elf_getdata(sglobal, NULL);
+			if (!data) {
+				fprintf(stderr, "elf_newdata() failed: %s\n", elf_errmsg(-1));
+				throw;
+			}
 
-		data->d_buf = (char*) &vglobal_new[0];
-		data->d_size = szglobal_new;
+			data->d_buf = (char*) &vglobal_new[0];
+			data->d_size = szglobal_new;
 
-		if (!gelf_update_shdr(sglobal, &shglobal)) {
-			fprintf(stderr, "gelf_update_shdr() failed: %s\n", elf_errmsg(-1));
-			throw;
+			if (!gelf_update_shdr(sglobal, &shglobal)) {
+				fprintf(stderr, "gelf_update_shdr() failed: %s\n", elf_errmsg(-1));
+				throw;
+			}
 		}
 
 		//
 		// 5) Add new data for aligned initialized globals section.
 		//
 		vector<char> vglobal_init_new;
-		vglobal_init_new.resize(szglobal_init_new);
+		if (iglobal_init != -1)
+		{
+			vglobal_init_new.resize(szglobal_init_new);
 
-		data = elf_getdata(sglobal_init, NULL);
-		if (!data) {
-			fprintf(stderr, "elf_newdata() failed: %s\n", elf_errmsg(-1));
-			throw;
-		}
-		char* dglobal_init = (char*) data->d_buf;
+			Elf_Data* data = elf_getdata(sglobal_init, NULL);
+			if (!data) {
+				fprintf(stderr, "elf_newdata() failed: %s\n", elf_errmsg(-1));
+				throw;
+			}
+			char* dglobal_init = (char*) data->d_buf;
 
-		char* pglobal_init = (char*) dglobal_init;
-		char* pglobal_init_new = (char*) &vglobal_init_new[0];
-		memset(pglobal_init_new, 0, szglobal_init_new);
-		szglobal_init_new = 0;
-		for (int isymbol = 0; isymbol < nsymbols; isymbol++) {
-			GElf_Sym symbol;
-			gelf_getsym(symbols, isymbol, &symbol);
+			char* pglobal_init = (char*) dglobal_init;
+			char* pglobal_init_new = (char*) &vglobal_init_new[0];
+			memset(pglobal_init_new, 0, szglobal_init_new);
+			szglobal_init_new = 0;
+			for (int isymbol = 0; isymbol < nsymbols; isymbol++) {
+				GElf_Sym symbol;
+				gelf_getsym(symbols, isymbol, &symbol);
 
-			if (symbol.st_shndx == iglobal_init) {
-				memcpy(pglobal_init_new, pglobal_init + symbol.st_value,
-						symbol.st_size);
+				if (symbol.st_shndx == iglobal_init) {
+					memcpy(pglobal_init_new, pglobal_init + symbol.st_value,
+							symbol.st_size);
 
-				symbol.st_value = szglobal_init_new;
-				if (symbol.st_size % align)
-					symbol.st_size += align - symbol.st_size % align;
-				szglobal_init_new += symbol.st_size;
-				pglobal_init_new += symbol.st_size;
+					symbol.st_value = szglobal_init_new;
+					if (symbol.st_size % align)
+						symbol.st_size += align - symbol.st_size % align;
+					szglobal_init_new += symbol.st_size;
+					pglobal_init_new += symbol.st_size;
 
-				if (!gelf_update_sym(symbols, isymbol, &symbol)) {
-					fprintf(stderr, "gelf_update_sym() failed for %s: %s\n",
-							cubin, elf_errmsg(-1));
-					throw;
+					if (!gelf_update_sym(symbols, isymbol, &symbol)) {
+						fprintf(stderr, "gelf_update_sym() failed for %s: %s\n",
+								cubin, elf_errmsg(-1));
+						throw;
+					}
 				}
 			}
-		}
 
-		data->d_buf = (char*) &vglobal_init_new[0];
-		data->d_size = szglobal_init_new;
+			data->d_buf = (char*) &vglobal_init_new[0];
+			data->d_size = szglobal_init_new;
 
-		if (!gelf_update_shdr(sglobal_init, &shglobal_init)) {
-			fprintf(stderr, "gelf_update_shdr() failed: %s\n", elf_errmsg(-1));
-			throw;
+			if (!gelf_update_shdr(sglobal_init, &shglobal_init)) {
+				fprintf(stderr, "gelf_update_shdr() failed: %s\n", elf_errmsg(-1));
+				throw;
+			}
 		}
 
 		//
