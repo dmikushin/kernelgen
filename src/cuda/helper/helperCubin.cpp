@@ -99,22 +99,18 @@ void hpCubinStage1()
 	cubinSectionSHStrTab.SectionIndex = cubinCurrentSectionIndex++;
 	cubinSectionSHStrTab.SHStrTabOffset = cubinCurrentSHStrTabOffset;
 	cubinCurrentSHStrTabOffset += strlen(cubin_str_shstrtab) + 1; //increment by length of name + length of the ending zero
-
 	
 	cubinSectionStrTab.SectionIndex = cubinCurrentSectionIndex++;
 	cubinSectionStrTab.SHStrTabOffset = cubinCurrentSHStrTabOffset;
 	cubinCurrentSHStrTabOffset += strlen(cubin_str_strtab) + 1;
-
 	
 	cubinSectionSymTab.SectionIndex = cubinCurrentSectionIndex++;
 	cubinSectionSymTab.SHStrTabOffset = cubinCurrentSHStrTabOffset;
 	cubinCurrentSHStrTabOffset += strlen(cubin_str_symtab) + 1;
 
-
 	//Setup SectionIndex, SHStrTabOffset for all sections of all kernels
 	//Setup StrTabOffset for all kernels
 	
-	cubinCurrentStrTabOffset = 1; //jump over first null character
 	for(list<Kernel>::iterator kernel = csKernelList.begin(),
 		kernele = csKernelList.end(); kernel != kernele; kernel++)
 	{
@@ -133,6 +129,25 @@ void hpCubinStage1()
 		//Local
 		if(kernel->LocalSize!=0)
 			hpCubinStage1SetSection(kernel->LocalSection, KernelLocal, kernel->KernelName.Length);
+	}
+	if(cubinConstant2Size)
+	{
+		cubinSectionConstant2.SectionIndex = cubinCurrentSectionIndex++;
+		cubinSectionConstant2.SHStrTabOffset = cubinCurrentSHStrTabOffset;
+		cubinCurrentSHStrTabOffset += strlen(cubin_str_constant) + 2;
+	}
+
+	cubinSectionNVInfo.SectionIndex = cubinCurrentSectionIndex++;
+	cubinSectionNVInfo.SHStrTabOffset = cubinCurrentSHStrTabOffset;
+	cubinCurrentSHStrTabOffset += strlen(cubin_str_nvinfo) + 1;
+	//cubinCurrentSHStrTabOffset:	size of shstrtab
+	//cubinCurrentStrTabOffset:		size of strtab
+	//cubinCurrentSectionIndex:		total section count
+
+	cubinCurrentStrTabOffset = cubinCurrentSHStrTabOffset; //jump over shstr length being duplicated
+	for(list<Kernel>::iterator kernel = csKernelList.begin(),
+		kernele = csKernelList.end(); kernel != kernele; kernel++)
+	{
 		//StrTabOffset
 		kernel->StrTabOffset = cubinCurrentStrTabOffset;
 
@@ -147,21 +162,6 @@ void hpCubinStage1()
 		//increment by length of constant name + length of endng zero
 		cubinCurrentStrTabOffset += constant2->Constant2Name.size() + 1;
 	}
-	//Setup SectionIndex, SHStrTabOffset for .nv.info, nv.constant2
-	
-	if(cubinConstant2Size)
-	{
-		cubinSectionConstant2.SectionIndex = cubinCurrentSectionIndex++;
-		cubinSectionConstant2.SHStrTabOffset = cubinCurrentSHStrTabOffset;
-		cubinCurrentSHStrTabOffset += strlen(cubin_str_constant) + 2;
-	}
-
-	cubinSectionNVInfo.SectionIndex = cubinCurrentSectionIndex++;
-	cubinSectionNVInfo.SHStrTabOffset = cubinCurrentSHStrTabOffset;
-	cubinCurrentSHStrTabOffset += strlen(cubin_str_nvinfo) + 1;
-	//cubinCurrentSHStrTabOffset:	size of shstrtab
-	//cubinCurrentStrTabOffset:		size of strtab
-	//cubinCurrentSectionIndex:		total section count
 }
 
 
@@ -205,7 +205,6 @@ inline void hpCubinAddSectionName3(unsigned char* sectionContent, int &offset, S
 inline void hpCubinStage2SetSHStrTabSectionContent()
 {
 	cubinSectionSHStrTab.SectionSize = cubinCurrentSHStrTabOffset;
-	cubinSectionSHStrTab.SectionContent = new unsigned char[cubinCurrentSHStrTabOffset];
 
 	cubinSectionSHStrTab.SectionContent[0] = 0;
 	int currentOffset = 1;
@@ -240,10 +239,9 @@ inline void hpCubinStage2SetSHStrTabSectionContent()
 inline void hpCubinStage2SetStrTabSectionContent()
 {
 	cubinSectionStrTab.SectionSize = cubinCurrentStrTabOffset;
-	cubinSectionStrTab.SectionContent = new unsigned char[cubinCurrentStrTabOffset];
 
 	cubinSectionStrTab.SectionContent[0] = 0;
-	int currentOffset = 1;
+	int currentOffset = cubinCurrentSHStrTabOffset;
 
 	// 1 entry for each kernel
 	for(list<Kernel>::iterator kernel = csKernelList.begin(),
@@ -260,39 +258,29 @@ inline void hpCubinStage2SetStrTabSectionContent()
 
 inline void hpCubinStage2AddSectionSymbol(ELFSection &section, ELFSymbolEntry &entry, int &index, unsigned int size)
 {
-		entry.Reset();
-		entry.Size = size;
-		entry.Info = 3;
-		entry.SHIndex = section.SectionIndex;
-		((ELFSymbolEntry*)cubinSectionSymTab.SectionContent)[index] = entry;
-		section.SymbolIndex = index++;
+	entry.Reset();
+	entry.Name = section.SHStrTabOffset;
+	entry.Size = size;
+	entry.Info = 3;
+	entry.SHIndex = section.SectionIndex;
+	((ELFSymbolEntry*)cubinSectionSymTab.SectionContent)[index] = entry;
+	section.SymbolIndex = index++;
 }
 inline void hpCubinStage2SetSymTabSectionContent()
 {
 	// 1 entry for each section, 1 entry for each kernel,
 	// 1 entry for each constant, 2 empty entries.		
-	int entryCount = cubinCurrentSectionIndex + csKernelList.size() +
-		+ csConstant2List.size() + 2;
+	int entryCount = cubinCurrentSectionIndex - 3 +
+		csKernelList.size() + csConstant2List.size();
 	cubinSectionSymTab.SectionSize = entryCount * ELFSymbolEntrySize;
 	ELFSymbolEntry* entries = new ELFSymbolEntry[cubinSectionSymTab.SectionSize];
 	cubinSectionSymTab.SectionContent = (unsigned char*)entries;
 
-	//first 6 entries
+	//first entry is empty
 	memset(cubinSectionSymTab.SectionContent, 0, cubinSectionSymTab.SectionSize); //clear everything to 0 first
-	//jump over the entry 0 (null), to directly to entry 1
-	//set symbol for head sections
-	entries[1].SHIndex = 1; //only setting section index and info, leaving other things zero
-	entries[2].SHIndex = 2;
-	entries[3].SHIndex = 3;
-
-	entries[1].Info = 3;
-	entries[2].Info = 3;
-	entries[3].Info = 3;
-	entries[4].Info = 3;
-	entries[5].Info = 3;
 
 	//one entry per kern section	
-	int index = 6; //jump over entry 4 and 5 which are empty
+	int index = 1;
 	ELFSymbolEntry entry;
 	for(list<Kernel>::iterator kernel = csKernelList.begin(); kernel != csKernelList.end(); kernel++)
 	{
@@ -357,11 +345,18 @@ inline void hpCubinStage2SetSymTabSectionContent()
 }
 void hpCubinStage2()
 {
+	cubinSectionSHStrTab.SectionContent = new unsigned char[cubinCurrentSHStrTabOffset];
+	cubinSectionStrTab.SectionContent = new unsigned char[cubinCurrentStrTabOffset];
+
 	//---.shstrtab
 	hpCubinStage2SetSHStrTabSectionContent();
 
-	//---.strtab	
+	//---.strtab
 	hpCubinStage2SetStrTabSectionContent();
+	unsigned char* swap = cubinSectionSHStrTab.SectionContent;
+	cubinSectionSHStrTab.SectionContent = cubinSectionStrTab.SectionContent;
+	hpCubinStage2SetSHStrTabSectionContent();
+	cubinSectionSHStrTab.SectionContent = swap;
 
 	//---.symtab
 	hpCubinStage2SetSymTabSectionContent();
