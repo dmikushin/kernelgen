@@ -597,7 +597,7 @@ void hpCubinStage5()
 	//kern segments
 	for(list<Kernel>::iterator kernel = csKernelList.begin(); kernel != csKernelList.end(); kernel++)
 	{
-		kernel->KernelSegmentHeader.Type = 0x60000000;
+		kernel->KernelSegmentHeader.Type = 1; // PT_LOAD, was 0x60000000;
 		kernel->KernelSegmentHeader.Offset = kernel->TextSection.SectionHeader.FileOffset;
 		kernel->KernelSegmentHeader.FileSize = kernel->TextSize + kernel->Constant0Section.SectionSize + kernel->InfoSection.SectionSize;
 		kernel->KernelSegmentHeader.MemSize = kernel->KernelSegmentHeader.FileSize;
@@ -609,7 +609,7 @@ void hpCubinStage5()
 
 		if(kernel->SharedSize != 0 || kernel->LocalSize !=0)
 		{
-			kernel->MemorySegmentHeader.Type = 0x60000000;
+			kernel->MemorySegmentHeader.Type = 1; // PT_LOAD, was 0x60000000;
 			if(kernel->SharedSize != 0)
 				kernel->MemorySegmentHeader.Offset = kernel->SharedSection.SectionHeader.FileOffset;
 			else
