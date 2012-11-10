@@ -55,7 +55,7 @@ ELFHeader32::ELFHeader32()
 	Padding[1] = 0x05; // ABI version: was - 0x04;
 
 	//0x10
-	FileType = 0x0001; // - relocatable; was 0x0002 - executable
+	FileType = 0x0002; // - relocatable; was 0x0002 - executable
 	Machine = 0x00BE;								
 		
 	//0x14

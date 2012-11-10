@@ -19,21 +19,19 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "KernelGen.h"
+#include "Cuda.h"
 
 #include <cstdio>
-//#include <cstdlib>
-//#include <cstring>
 #include <elf.h>
 #include <fcntl.h>
-//#include <fstream>
 #include <gelf.h>
+#include <string.h>
 #include <vector>
 
 using namespace std;
 
 // Align cubin global data to the specified boundary.
-void kernelgen::utils::ELF::AlignData(const char* cubin, size_t align) {
+void kernelgen::bind::cuda::CUBIN::AlignData(const char* cubin, size_t align) {
 	int fd = -1;
 	Elf* e = NULL;
 	try {

@@ -369,7 +369,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 			if (name == "__kernelgen_main") {
 				// Create a relocatable cubin, to be later linked
 				// with dyloader cubin.
-				ptxas_args.push_back("--compile-only");
+				// ptxas_args.push_back("--compile-only");
 			} else {
 				// Calculate and apply the maximum register count
 				// constraint, depending on used compute grid dimensions.
@@ -434,7 +434,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 
 			// Align main kernel cubin global data to the virtual memory
 			// page boundary.
-			ELF::AlignData(tmp3.getName().c_str(), 4096);
+			CUBIN::AlignData(tmp3.getName().c_str(), 4096);
 
 			// Export main kernel cubin function-address map.
 			cubin_export_funcmap(tmp3.getName().c_str(), funcmap);

@@ -141,7 +141,21 @@ public :
 	~context();
 };
 
-}}}
+class CUBIN {
+
+public:
+
+	// Align cubin global data to the specified boundary.
+	static void AlignData(const char* cubin, size_t align);
+
+	// Merge two input CUBIN ELF images into single output image.
+	static void Merge(const char* input1, const char* input2, const char* output);
+
+};
+
+} // namespace cuda
+} // namespace bind
+} // namespace kernelgen
 
 #endif // KERNELGEN_BIND_H
 

@@ -388,38 +388,17 @@ struct CUDYloader_t
 			
 			if (host_cubin != "")
 			{
-				const char* linker = "nvlink";
-
 				// Save the dyloader cubin to disk.
 				TempFile file1 = Temp::getFile("%%%%%%%%.cubin");
 				file1.download(cubin, size);
 				
-				// Link dyloader cubin with host cubin.
+				// Merge dyloader cubin with host cubin.
 				TempFile file2 = Temp::getFile("%%%%%%%%.cubin");
-				vector<const char*> args;
-				args.push_back(linker);
-				stringstream sarch;
-				sarch << "-arch=sm_" << (major * 10 + minor);
-				string arch = sarch.str();
-				args.push_back(arch.c_str());
-				args.push_back(host_cubin.c_str());
-				args.push_back(file1.getName().c_str());
-				args.push_back("-o");
-				args.push_back(file2.getName().c_str());
-				args.push_back(NULL);
-				Verbose::cmd(args);
-				string err;
-				int status = Program::ExecuteAndWait(
-					Program::FindProgramByName("nvlink"), (const char**)&args[0], NULL, NULL, 0, 0, &err);
-				if (status)
-				{
-					cerr << err << endl;
-					throw status;
-				}
+				CUBIN::Merge(host_cubin.c_str(), file1.getName().c_str(), file2.getName().c_str());
 				
 				// Align main kernel cubin global data to the virtual memory
 				// page boundary.
-				ELF::AlignData(file2.getName().c_str(), 4096);
+				CUBIN::AlignData(file2.getName().c_str(), 4096);
 
 				// Replace the dyloader cubin with the resulting cubin.
 				free(cubin);

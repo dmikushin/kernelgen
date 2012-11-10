@@ -30,7 +30,6 @@ class ELF
 {
 public :
 
-	static void AlignData(const char* cubin, size_t align);
 };
 
 } // namespace util

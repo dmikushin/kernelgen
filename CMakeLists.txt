@@ -160,7 +160,9 @@ endforeach()
 target_link_libraries(kernelgen-cuda common LLVM-${LLVM_VERSION}svn elf)
 list(REMOVE_ITEM cuda_sources
 	"${PROJECT_SOURCE_DIR}/src/cuda/cuda_dyloader.cpp"
-	"${PROJECT_SOURCE_DIR}/src/cuda/Cuda.cpp")
+	"${PROJECT_SOURCE_DIR}/src/cuda/Cuda.cpp"
+	"${PROJECT_SOURCE_DIR}/src/cuda/AlignData.cpp"
+	"${PROJECT_SOURCE_DIR}/src/cuda/MergeCubins.cpp")
 add_executable(kernelgen-asfermi ${cuda_sources})
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-asfermi APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
