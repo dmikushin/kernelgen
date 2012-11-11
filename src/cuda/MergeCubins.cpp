@@ -664,11 +664,11 @@ void kernelgen::bind::cuda::CUBIN::Merge(const char* input1, const char* input2,
 				input2, elf_errmsg(-1));
 			throw;
 		}
-		if (memcmp(&ehdr1.e_ident, &ehdr2.e_ident, sizeof(unsigned char) * EI_NIDENT))
+		/*if (memcmp(&ehdr1.e_ident, &ehdr2.e_ident, sizeof(unsigned char) * EI_NIDENT))
 		{
 			fprintf(stderr, "Idents of ELF images being merged mismatch\n");
 			throw;
-		}
+		}*/
 		unsigned char elfclass = ((unsigned char*)&ehdr1)[EI_CLASS];
 		switch (elfclass)
 		{
@@ -710,11 +710,11 @@ void kernelgen::bind::cuda::CUBIN::Merge(const char* input1, const char* input2,
 				fprintf(stderr, "Versions of ELF images being merged mismatch\n");
 				throw;
 			}
-			if (memcmp(&ehdr1.e_flags, &ehdr2.e_flags, sizeof(Elf64_Word)))
+			/*if (memcmp(&ehdr1.e_flags, &ehdr2.e_flags, sizeof(Elf64_Word)))
 			{
 				fprintf(stderr, "Flags of ELF images being merged mismatch\n");
 				throw;
-			}
+			}*/
 			break;
 		}
 
