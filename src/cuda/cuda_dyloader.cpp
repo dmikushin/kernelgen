@@ -393,6 +393,8 @@ struct CUDYloader_t
 				file1.download(cubin, size);
 				
 				// Merge dyloader cubin with host cubin.
+				if (verbose)
+					cout << "Merge: " << host_cubin << " " << file1.getName() << endl;
 				TempFile file2 = Temp::getFile("%%%%%%%%.cubin");
 				CUBIN::Merge(host_cubin.c_str(), file1.getName().c_str(), file2.getName().c_str());
 				
