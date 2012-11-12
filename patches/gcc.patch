@@ -1,0 +1,102 @@
+--- a/gcc-snapshot/gcc/gcc.c
++++ b/gcc-snapshot/gcc/gcc.c
+@@ -3925,6 +3925,27 @@
+       add_infile ("help-dummy", "c");
+     }
+ 
++  /* For KernelGen without fallback always add -fuse-linker-plugin,  
++     except if KERNELGEN_OLD_LINKER is given.  */
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  int fallback = 0;
++  if (cfallback) {
++    fallback = atoi(cfallback);
++  }
++  cfallback = getenv("KERNELGEN_OLD_LINKER");
++  if (cfallback) {
++    fallback = fallback || atoi(cfallback);
++  }
++  if (!fallback) {
++    alloc_switch ();
++    switches[n_switches].part1 = "fuse-linker-plugin";
++    switches[n_switches].args = 0;
++    switches[n_switches].live_cond = 0;
++    switches[n_switches].validated = 0;
++    switches[n_switches].ordering = 0;
++    n_switches++;
++  }
++
+   alloc_switch ();
+   switches[n_switches].part1 = 0;
+   alloc_infile ();
+--- a/gcc-snapshot/lto-plugin/lto-plugin.c	2015-10-02 01:59:07.000000000 +0400
++++ b/gcc-snapshot/lto-plugin/lto-plugin.c	2015-10-02 02:09:17.000000000 +0400
+@@ -549,22 +549,22 @@
+     }
+ 
+ 
+-  pex = pex_init (PEX_USE_PIPES, "lto-wrapper", NULL);
+-  check (pex != NULL, LDPL_FATAL, "could not pex_init lto-wrapper");
++  pex = pex_init (PEX_USE_PIPES, "kernelgen-simple", NULL);
++  check (pex != NULL, LDPL_FATAL, "could not pex_init kernelgen-simple");
+ 
+   errmsg = pex_run (pex, 0, new_argv[0], new_argv, NULL, NULL, &t);
+-  check (errmsg == NULL, LDPL_FATAL, "could not run lto-wrapper");
+-  check (t == 0, LDPL_FATAL, "could not run lto-wrapper");
++  check (errmsg == NULL, LDPL_FATAL, "could not run kernegen-simple");
++  check (t == 0, LDPL_FATAL, "could not run kernelgen-simple");
+ 
+   wrapper_output = pex_read_output (pex, 0);
+-  check (wrapper_output, LDPL_FATAL, "could not read lto-wrapper output");
++  check (wrapper_output, LDPL_FATAL, "could not read kernelgen-simple output");
+ 
+   add_output_files (wrapper_output);
+ 
+   t = pex_get_status (pex, 1, &status);
+-  check (t == 1, LDPL_FATAL, "could not get lto-wrapper exit status");
++  check (t == 1, LDPL_FATAL, "could not get kernelgen-simple exit status");
+   check (WIFEXITED (status) && WEXITSTATUS (status) == 0, LDPL_FATAL,
+-         "lto-wrapper failed");
++         "kernelgen-simple failed");
+ 
+   pex_free (pex);
+ 
+@@ -591,7 +591,7 @@
+ all_symbols_read_handler (void)
+ {
+   unsigned i;
+-  unsigned num_lto_args = num_claimed_files + lto_wrapper_num_args + 1;
++  unsigned num_lto_args = num_claimed_files + 2;
+   char **lto_argv;
+   const char **lto_arg_ptr;
+   if (num_claimed_files == 0)
+@@ -611,8 +611,7 @@
+ 
+   free_1 ();
+ 
+-  for (i = 0; i < lto_wrapper_num_args; i++)
+-    *lto_arg_ptr++ = lto_wrapper_argv[i];
++  *lto_arg_ptr++ = "/opt/kernelgen/bin/kernelgen-simple";
+ 
+   for (i = 0; i < num_claimed_files; i++)
+     {
+--- a/gcc-snapshot/gcc/tlink.c	2010-11-29 17:09:41.000000000 +0300
++++ b/gcc-snapshot/gcc/tlink.c	2015-10-01 18:47:58.000000000 +0400
+@@ -765,6 +765,18 @@
+ void
+ do_tlink (char **ld_argv, char **object_lst ATTRIBUTE_UNUSED)
+ {
++  if (tlink_verbose && ld_argv)
++  {
++    fprintf(stderr, _("ld command: "));
++    int i = 0;
++    while (ld_argv[i])
++    {
++      fprintf(stderr, "%s ", ld_argv[i]);
++      i++;
++    }
++    fprintf(stderr, "\n");
++  }
++
+   int exit = tlink_execute ("ld", ld_argv, ldout, lderrout);
+ 
+   tlink_init ();

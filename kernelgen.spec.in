@@ -1,0 +1,426 @@
+#define kernelgen revision
+%define kgen_rev KERNELGEN_REV
+
+#define llvm revision
+%define llvm_rev KERNELGEN_LLVM_REV
+
+#define openmpi revision
+%define openmpi_rev KERNELGEN_OPENMPI_REV
+
+# Release name
+%define release accurate
+
+# Target operating system
+%define target KERNELGEN_TARGET
+
+# Switch on or off the compilation of particular parts
+# of the package (for bootstrapping).
+%define cloog KERNELGEN_ENABLE_CLOOG
+%define llvm KERNELGEN_ENABLE_LLVM
+%define binutils KERNELGEN_ENABLE_BINUTILS
+%define gcc KERNELGEN_ENABLE_GCC
+%define netcdf KERNELGEN_ENABLE_NETCDF
+%define openmpi KERNELGEN_ENABLE_OPENMPI
+%define dragonegg KERNELGEN_ENABLE_DRAGONEGG
+%define kernelgen KERNELGEN_ENABLE_KERNELGEN
+
+%if (%target == "fedora")
+%define lib32 lib
+%define lib64 lib64
+%endif
+
+%if (%target == "debian")
+%define lib32 lib32
+%define lib64 lib
+%endif
+
+# Build unoptimized version with debug info
+%define debug KERNELGEN_ENABLE_DEBUG
+
+# Rebuild everything or only kernelgen
+%define fullrepack KERNELGEN_FULLREPACK
+
+# The number of parallel compilation jobs
+%define njobs KERNELGEN_NJOBS
+
+# Don't strip anything from binaries in case of debug
+%if %debug
+%define __os_install_post %{nil}
+%endif
+
+AutoReq: 0
+
+Name:           kernelgen
+Version:        0.2
+Release:        %{release}
+Summary:        Compiler with automatic generation of GPU kernels from the regular source code
+Source0:        ftp://upload.hpcforge.org/pub/kernelgen/llvm-r%{llvm_rev}.tar.gz
+Source1:        ftp://upload.hpcforge.org/pub/kernelgen/clang-r%{llvm_rev}.tar.gz
+Source2:	ftp://upload.hpcforge.org/pub/kernelgen/KERNELGEN_BINUTILS_SNAP.tar.bz2
+Source3:        ftp://upload.hpcforge.org/pub/kernelgen/KERNELGEN_GCC_SNAP.tar.bz2
+Source4:        ftp://upload.hpcforge.org/pub/kernelgen/dragonegg-r%{llvm_rev}.tar.gz
+Source5:        ftp://upload.hpcforge.org/pub/kernelgen/kernelgen-r%{kgen_rev}.tar.gz
+Source6:        ftp://upload.hpcforge.org/pub/kernelgen/polly-r%{llvm_rev}.tar.gz
+SOurce7:	ftp://upload.hpcforge.org/pub/kernelgen/openmpi-r%{openmpi_rev}.tar.gz
+Patch0:         dragonegg.ptx.patch
+Patch1:         dragonegg.patch
+Patch2:         llvm.polly.patch
+Patch3:         llvm.scev.patch
+Patch4:         llvm.statistic.patch
+Patch5:         llvm.opts.patch
+Patch6:         llvm.nvptx.patch
+Patch7:         llvm.clang.patch
+Patch8:		llvm.transforms.patch
+Patch9:		gcc.patch
+Patch10:	binutils.patch
+Patch11:	openmpi.cuda.patch
+Patch12:        gcc-multiarch.patch
+Patch13:        gcc.build.patch
+
+Group:          Applications/Engineering
+License:        GPL/BSD/Freeware
+URL:            http://kernelgen.org/
+
+%if (%target == fedora)
+#BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool bison texinfo
+#Requires:       elfutils-libelf libffi gmp mpfr libmpc
+%else
+#BuildRequires:	gcc g++ gfortran perl libelf-dev libffi-dev libgmp3-dev libmpfr-dev libmpc-dev flex libc6-dev libc6-dev-i386 gcc-multilib git autoconf automake libtool bison texinfo
+#Requires:	libelf ffi libgmp3 libmpfr libmpc g++-4.6-multilib
+%endif
+
+Packager:       Dmitry Mikushin <maemarcus@gmail.com>
+
+%description
+A tool for automatic generation of GPU kernels from CPU-targeted source code. From user's point of view it acts as regular GNU-compatible compiler.
+
+
+#
+# Remove old files, unpack fresh content from source archives.
+#
+%prep
+%if %fullrepack
+rm -rf $RPM_BUILD_DIR/llvm
+tar -xf $RPM_SOURCE_DIR/llvm-r%{llvm_rev}.tar.gz
+cd $RPM_BUILD_DIR/llvm/tools
+tar -xf $RPM_SOURCE_DIR/clang-r%{llvm_rev}.tar.gz
+tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
+cd $RPM_BUILD_DIR
+rm -rf $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
+rm -rf $RPM_BUILD_DIR/binutils-snapshot
+tar -xjf $RPM_SOURCE_DIR/KERNELGEN_BINUTILS_SNAP.tar.bz2
+rm -rf $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
+rm -rf $RPM_BUILD_DIR/gcc-snapshot
+tar -xjf $RPM_SOURCE_DIR/KERNELGEN_GCC_SNAP.tar.bz2
+ln -s $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP $RPM_BUILD_DIR/gcc-snapshot
+rm -rf $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
+rm -rf $RPM_BUILD_DIR/netcdf-snapshot
+tar -xf $RPM_SOURCE_DIR/KERNELGEN_NETCDF_SNAP.tar.gz
+ln -s $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP $RPM_BUILD_DIR/netcdf-snapshot
+rm -rf $RPM_BUILD_DIR/openmpi
+tar -xf $RPM_SOURCE_DIR/openmpi-r%{openmpi_rev}.tar.gz
+rm -rf $RPM_BUILD_DIR/dragonegg
+tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
+rm -rf $RPM_BUILD_DIR/cloog
+mkdir -p $RPM_BUILD_DIR/cloog
+sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
+#tar -xf $RPM_SOURCE_DIR/cloog-0.17.tar.gz
+%endif
+
+
+#
+# Apply all source code patches prior to configuring.
+#
+%if %fullrepack
+%patch0 -p1
+%patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
+%patch5 -p1
+%patch6 -p1
+%patch7 -p1
+%patch8 -p1
+%patch9 -p1
+%patch10 -p1
+%patch11 -p1
+%if (%target == debian)
+%patch12 -p1
+%endif
+%endif
+
+
+%build
+%if %fullrepack
+%if %cloog
+#
+# Configure and build CLooG.
+# Build CLooG now, as it is going to be used during LLVM's configure step.
+#
+cd $RPM_BUILD_DIR/cloog
+./autogen.sh
+./configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+make
+make install
+%endif
+%if %llvm
+#
+# Configure LLVM
+#
+cd $RPM_BUILD_DIR/llvm
+mkdir build
+cp -rf include/ build/include/
+cd build
+%if %debug
+../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
+%else
+../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
+%endif
+%endif
+%if %binutils
+#
+# Configure BinUtils
+#
+cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
+mkdir build
+cd build
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-gold=default --disable-ld --enable-plugins --enable-lto
+%endif
+%if %gcc
+#
+# Configure GCC
+#
+cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
+mkdir build
+cd build/
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin --enable-gold=default --disable-ld --with-ld=/opt/kernelgen/bin/kernelgen-ld
+%endif
+%if %netcdf
+#
+# Configure NetCDF
+#
+cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
+mkdir build
+cd build/
+KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disable-netcdf-4
+%endif
+%if %openmpi
+#
+# Configure OpenMPI
+#
+cd $RPM_BUILD_DIR/openmpi
+./autogen.pl
+mkdir build
+cd build
+%if %debug
+KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disable-mpi-interface-warning --with-cuda=/opt/cuda --with-cuda-libdir=/usr/%{lib64} --enable-debug
+%else
+KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disable-mpi-interface-warning --with-cuda=/opt/cuda --with-cuda-libdir=/usr/%{lib64}
+%endif
+%endif
+%endif
+#
+# Configure KernelGen
+#
+rm -rf $RPM_BUILD_DIR/kernelgen
+cd $RPM_BUILD_DIR
+tar -xf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.gz
+cd $RPM_BUILD_DIR/kernelgen
+mkdir build
+cd build
+%if %debug
+cmake -DCMAKE_INSTALL_PREFIX=$RPM_BUILD_ROOT/opt/kernelgen ..
+%else
+cmake -DCMAKE_INSTALL_PREFIX=$RPM_BUILD_ROOT/opt/kernelgen -DOPT=3 ..
+%endif
+cd $RPM_BUILD_DIR
+
+
+#
+# Build parts of the system
+#
+%if %fullrepack
+%if %llvm
+#
+# Build LLVM
+#
+cd $RPM_BUILD_DIR/llvm/build
+%if %debug
+make -j%{njobs} CXXFLAGS=-O0
+%else
+make -j%{njobs}
+%endif
+%endif
+%if %binutils
+#
+# Build BinUtils
+#
+cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
+%if %debug
+make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%else
+make -j%{njobs}
+%endif
+%endif
+%if %gcc
+#
+# Build GCC
+#
+cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+%endif
+%if %netcdf
+#
+# Build NetCDF
+#
+cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0" FFLAGS="-g -O0" FCFLAGS="-g -O0"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+%endif
+%if %openmpi
+#
+# Build OpenMPI
+#
+cd $RPM_BUILD_DIR/openmpi/build
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+%if %dragonegg
+#
+# Build DragonEgg
+#
+cd $RPM_BUILD_DIR/dragonegg
+%if %debug
+GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Debug+Asserts/bin/llvm-config make clean
+CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Debug+Asserts/bin/llvm-config make CXXFLAGS="-g -O0 -fPIC"
+%else
+GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make clean
+CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make
+%endif
+%endif
+%if %gcc
+cd $RPM_BUILD_DIR
+patch -p1 <$RPM_SOURCE_DIR/gcc.build.patch
+%endif
+%endif
+%if %kernelgen
+#
+# Build KernelGen
+#
+cd $RPM_BUILD_DIR/kernelgen/build
+make -j%{njobs}
+%endif
+
+
+#
+# Install software to the build root.
+#
+%install
+#
+# Create directories srtucture.
+#
+rm -rf $RPM_BUILD_ROOT
+mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/bin
+mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/%{lib64}/
+%if %cloog
+#
+# Reinstall CLooG
+#
+cd $RPM_BUILD_DIR/cloog
+make install -j%{njobs}
+%endif
+%if %llvm
+#
+# Install LLVM
+#
+cd $RPM_BUILD_DIR/llvm/build
+make install -j%{njobs}
+%endif
+%if %dragonegg
+#
+# Install DragonEgg
+#
+cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
+%endif
+%if %kernelgen
+#
+# Install KernelGen
+#
+cd $RPM_BUILD_DIR/kernelgen/build
+make install
+%endif
+%if %binutils
+#
+# Install BinUtils
+#
+cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
+make install -j%{njobs}
+%endif
+%if %gcc
+#
+# Install GCC
+#
+cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
+CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%endif
+%if %openmpi
+#
+# Install OpenMPI
+#
+cd $RPM_BUILD_DIR/openmpi/build
+KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%endif
+%if %netcdf
+#
+# Install NetCDF
+#
+cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build
+KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%endif
+
+#remove ".la" files to fix libtool builds
+find $RPM_BUILD_ROOT/opt/kernelgen -name "*.la" -exec rm -f '{}' \;
+
+
+#
+# Final cleanup (off for fast repack).
+#
+%clean
+
+
+#
+# Files included into binary distribution.
+#
+%files
+/opt/kernelgen/*
+
+
+#
+# Add paths for binaries and libraries into the system-wide configs.
+#
+%post
+mkdir -p $RPM_INSTALL_PREFIX/etc/profile.d
+mkdir -p $RPM_INSTALL_PREFIX/etc/ld.so.conf.d
+echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/opt/kernelgen/bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
+echo "$RPM_INSTALL_PREFIX/opt/kernelgen/lib" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
+echo "$RPM_INSTALL_PREFIX/opt/kernelgen/lib64" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
+
+
+%changelog
+* Sun Sep  2 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
+- added bundled CUDA-enabled OpenMPI
+* Sat Jul 21 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
+- added locally installed binutils with gold for default linker
+* Thu Jul 19 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
+- adopted 0.2 spec to use nvptx backend and automatic build bot
+* Tue Sep 13 2011 Dmitry Mikushin <maemarcus@gmail.com> 0.2
+- started preparing 0.2 "accurate" release
+* Sun Jul 10 2011 Dmitry Mikushin <dmikushin@nvidia.com> 0.1
+- initial release
+
