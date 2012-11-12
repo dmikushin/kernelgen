@@ -1,6 +1,24 @@
---- a/llvm/lib/Analysis/ScalarEvolution.cpp	2012-02-22 02:51:59.000000000 +0400
-+++ b/llvm/lib/Analysis/ScalarEvolution.cpp	2012-02-23 16:57:54.123210803 +0400
-@@ -4539,23 +4539,65 @@
+--- a/llvm/include/llvm/Analysis/ScalarEvolution.h	(revision 157485)
++++ b/llvm/include/llvm/Analysis/ScalarEvolution.h	(working copy)
+@@ -544,6 +544,15 @@
+     static char ID; // Pass identification, replacement for typeid
+     ScalarEvolution();
+ 
++
++    void setAnalysisData( LoopInfo *_LI, TargetData *_TD,TargetLibraryInfo *_TLI, DominatorTree *_DT);
++    void setFunction(Function *f);
++    void setSCEVForValue(Value *V, const SCEV * SCEVForValue);
++    void eraseSCEVForValue(Value *V);
++    void dumpAll();
++    void printAll(raw_ostream &OS);
++    void eraseSCEVsNotInFunction(Function *f);
++
+     LLVMContext &getContext() const { return F->getContext(); }
+ 
+     /// isSCEVable - Test if values of the given type are analyzable within
+--- a/llvm/lib/Analysis/ScalarEvolution.cpp	(revision 157485)
++++ b/llvm/lib/Analysis/ScalarEvolution.cpp	(working copy)
+@@ -4535,23 +4535,65 @@
      if (EL.hasAnyInfo()) return EL;
      break;
    }
@@ -66,7 +84,7 @@
    default:
  #if 0
      dbgs() << "ComputeBackedgeTakenCount ";
-@@ -6263,9 +6305,30 @@
+@@ -6285,9 +6327,30 @@
    if (AddRec->isAffine()) {
      unsigned BitWidth = getTypeSizeInBits(AddRec->getType());
      const SCEV *Step = AddRec->getStepRecurrence(*this);
@@ -97,7 +115,7 @@
      if (Step->isOne()) {
        // With unit stride, the iteration never steps past the limit value.
      } else if (isKnownPositive(Step)) {
-@@ -6297,26 +6360,11 @@
+@@ -6319,26 +6382,11 @@
      // Note that we cannot simply return max(m-n,0)/s because it's not safe to
      // treat m-n as signed nor unsigned due to overflow possibility.
  
@@ -124,3 +142,79 @@
      // Determine the maximum constant end value.
      const SCEV *MaxEnd = getConstant(isSigned ?
        getSignedRange(End).getSignedMax() :
+@@ -6944,3 +6992,75 @@
+   UnsignedRanges.erase(S);
+   SignedRanges.erase(S);
+ }
++
++void ScalarEvolution::setSCEVForValue(Value *V, const SCEV * SCEVForValue)
++{
++    ValueExprMap.insert(std::make_pair(SCEVCallbackVH(V, this), SCEVForValue));
++}
++
++void ScalarEvolution::setAnalysisData( LoopInfo *_LI, TargetData *_TD, TargetLibraryInfo *_TLI, DominatorTree *_DT)
++{
++    LI=_LI; TD=_TD; TLI=_TLI; DT=_DT;	
++}
++
++void ScalarEvolution::setFunction(Function *f)
++{ 
++	this->F=f;
++}
++void ScalarEvolution::eraseSCEVForValue(Value *V)
++{
++      for(ValueExprMapType::iterator iter=ValueExprMap.begin(), iterEnd = ValueExprMap.end();
++         iter != iterEnd; iter++) {  
++             SCEVCallbackVH &VH = iter->first;
++             if( ((Value *)VH) == V) {
++                forgetMemoizedResults(iter->second);
++                ValueExprMap.erase(iter);
++                break;  
++             }
++        } 
++}
++void ScalarEvolution::eraseSCEVsNotInFunction(Function *f)
++{
++   std::list<ValueExprMapType::iterator> iterators;
++   for(ValueExprMapType::iterator iter=ValueExprMap.begin(), iterEnd = ValueExprMap.end();
++         iter != iterEnd; iter++) {  
++             SCEVCallbackVH &VH = iter->first;
++             if( Instruction * inst = dyn_cast<Instruction>(((Value *)VH))) { 
++               if(inst -> getParent()->getParent() != f)
++                   iterators.push_back(iter);
++             }
++            if( Argument * arg = dyn_cast<Argument>(((Value *)VH))) { 
++               if(arg -> getParent() != f)
++                   iterators.push_back(iter);
++             }
++        } 
++  for(std::list<ValueExprMapType::iterator>::iterator iter = iterators.begin(), iterEnd = iterators.end();
++        iter != iterEnd; iter++)
++          ValueExprMap.erase(*iter);
++
++}
++void ScalarEvolution::printAll(raw_ostream &OS)
++{
++	for(ValueExprMapType::iterator iter =  ValueExprMap.begin(),
++	   iterEnd = ValueExprMap.end(); iter!= iterEnd; iter++)
++	   {
++		   Value *val = &(*iter->first);
++		   if(Instruction *inst = dyn_cast<Instruction>(val))
++		   {
++		        OS << inst->getParent()->getParent()->getName()<<":";
++                WriteAsOperand(OS,inst,false); 
++                OS <<" --> "<< *(iter->second) << "\n";
++		   }
++			if(Argument *arg = dyn_cast<Argument>(val))
++			{
++		        OS << arg->getParent()->getName() << ":"; 
++				WriteAsOperand(OS,arg,false); 
++				OS << " --> "<< *(iter->second)<< "\n";
++			}
++			
++	   }
++}
++void ScalarEvolution::dumpAll()
++{
++   printAll(dbgs());	
++}
