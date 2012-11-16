@@ -366,6 +366,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 			ptxas_args.push_back(tmp2.getName());
 			ptxas_args.push_back("-o");
 			ptxas_args.push_back(tmp3.getName());
+			ptxas_args.push_back("--cloning=no");
 			if (name == "__kernelgen_main") {
 				// Create a relocatable cubin, to be later linked
 				// with dyloader cubin.
