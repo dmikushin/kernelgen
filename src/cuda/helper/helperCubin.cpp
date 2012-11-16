@@ -107,6 +107,7 @@ void hpCubinStage1()
 	cubinSectionSymTab.SectionIndex = cubinCurrentSectionIndex++;
 	cubinSectionSymTab.SHStrTabOffset = cubinCurrentSHStrTabOffset;
 	cubinCurrentSHStrTabOffset += strlen(cubin_str_symtab) + 1;
+	cubinSectionNVInfo.SectionIndex = cubinCurrentSectionIndex++;
 
 	//Setup SectionIndex, SHStrTabOffset for all sections of all kernels
 	//Setup StrTabOffset for all kernels
@@ -137,7 +138,6 @@ void hpCubinStage1()
 		cubinCurrentSHStrTabOffset += strlen(cubin_str_constant) + 2;
 	}
 
-	cubinSectionNVInfo.SectionIndex = cubinCurrentSectionIndex++;
 	cubinSectionNVInfo.SHStrTabOffset = cubinCurrentSHStrTabOffset;
 	cubinCurrentSHStrTabOffset += strlen(cubin_str_nvinfo) + 1;
 	//cubinCurrentSHStrTabOffset:	size of shstrtab
@@ -547,6 +547,9 @@ void hpCubinStage4()
 	cubinSectionSymTab.SectionHeader.EntrySize = ELFSymbolEntrySize;
 	cubinSectionSymTab.SectionHeader.Info = cubinCurrentSectionIndex+2; //info is number of local symbols
 	cubinSectionSymTab.SectionHeader.Link = 2;
+	//.nv.info
+	hpCubinSetELFSectionHeader1(cubinSectionNVInfo, 1, 1, fileOffset);
+	cubinSectionNVInfo.SectionHeader.Flags = 2;
 
 	//---kern sections
 	for(list<Kernel>::iterator kernel = csKernelList.begin(); kernel != csKernelList.end(); kernel++)
@@ -583,9 +586,6 @@ void hpCubinStage4()
 	//nv.constant2
 	if(cubinConstant2Size)
 		hpCubinSetELFSectionHeader1(cubinSectionConstant2, 1, 4, fileOffset);
-	//.nv.info
-	hpCubinSetELFSectionHeader1(cubinSectionNVInfo, 1, 1, fileOffset);
-	cubinSectionNVInfo.SectionHeader.Flags = 2;
 
 	cubinPHTOffset = fileOffset;
 }
@@ -752,6 +752,7 @@ void hpCubinStage7(iostream& csOutput)
 	hpCubinWriteSectionHeader(cubinSectionSHStrTab.SectionHeader, csOutput);
 	hpCubinWriteSectionHeader(cubinSectionStrTab.SectionHeader, csOutput);
 	hpCubinWriteSectionHeader(cubinSectionSymTab.SectionHeader, csOutput);
+	hpCubinWriteSectionHeader(cubinSectionNVInfo.SectionHeader, csOutput);
 	//kern
 	for(list<Kernel>::iterator kernel = csKernelList.begin(); kernel != csKernelList.end(); kernel++)
 	{
@@ -766,7 +767,6 @@ void hpCubinStage7(iostream& csOutput)
 	//tail
 	if(cubinConstant2Size)
 		hpCubinWriteSectionHeader(cubinSectionConstant2.SectionHeader, csOutput);
-	hpCubinWriteSectionHeader(cubinSectionNVInfo.SectionHeader, csOutput);
 
 	//---Sections
 	//head
@@ -789,6 +789,7 @@ void hpCubinStage7(iostream& csOutput)
 			csOutput.write((char*)&pad0, 0x4);
 		}
 	}
+	csOutput.write((char*)cubinSectionNVInfo.SectionContent, cubinSectionNVInfo.SectionSize);
 	//kern
 	for(list<Kernel>::iterator kernel = csKernelList.begin(); kernel != csKernelList.end(); kernel++)
 	{
@@ -806,7 +807,6 @@ void hpCubinStage7(iostream& csOutput)
 	//tail
 	if(cubinConstant2Size)
 		csOutput.write((char*)cubinSectionConstant2.SectionContent, cubinSectionConstant2.SectionSize);
-	csOutput.write((char*)cubinSectionNVInfo.SectionContent, cubinSectionNVInfo.SectionSize);
 
 	//---PHT
 
