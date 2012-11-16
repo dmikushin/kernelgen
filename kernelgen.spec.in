@@ -122,7 +122,7 @@ tar -xf $RPM_SOURCE_DIR/openmpi-r%{openmpi_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
-mkdir -p $RPM_BUILD_DIR/cloog
+#mkdir -p $RPM_BUILD_DIR/cloog
 sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 #tar -xf $RPM_SOURCE_DIR/cloog-0.17.tar.gz
 %endif
