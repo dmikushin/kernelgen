@@ -255,12 +255,6 @@ static void parse_elf_sections(int elfclass,
 
 			// If section is a relocation table:
 			{
-				if (relocations.size())
-				{
-					fprintf(stderr, "Currently supports only single relocation section\n");
-					throw;
-				}
-
 				if (!symtab_data)
 				{
 					fprintf(stderr, "Cannot parse relocations, since .symtab is not found for %s\n",
@@ -282,7 +276,8 @@ static void parse_elf_sections(int elfclass,
 				int nrelocs = 0;
 				if (shdr.sh_entsize)
 					nrelocs = shdr.sh_size / shdr.sh_entsize;
-				relocations.resize(nrelocs);
+				size_t offset = relocations.size();
+				relocations.resize(offset + nrelocs);
 				for (int k = 0; k < nrelocs; k++)
 				{
 					GElf_Rel rel;
@@ -318,7 +313,7 @@ static void parse_elf_sections(int elfclass,
 							i, cubin, elf_errmsg(-1));
 						throw;
 					}
-					relocations[k] = name;
+					relocations[k + offset] = name;
 					//printf("reloc: \"%s\"\n", name);
 				}
 			}
@@ -664,11 +659,14 @@ void kernelgen::bind::cuda::CUBIN::Merge(const char* input1, const char* input2,
 				input2, elf_errmsg(-1));
 			throw;
 		}
-		/*if (memcmp(&ehdr1.e_ident, &ehdr2.e_ident, sizeof(unsigned char) * EI_NIDENT))
+		// Disregarding the 8th identity that is ABI version. Not clear now,
+		// when to use 5 and when to use 6.
+		ehdr1.e_ident[8] = ehdr2.e_ident[8];
+		if (memcmp(&ehdr1.e_ident, &ehdr2.e_ident, sizeof(unsigned char) * EI_NIDENT))
 		{
 			fprintf(stderr, "Idents of ELF images being merged mismatch\n");
 			throw;
-		}*/
+		}
 		unsigned char elfclass = ((unsigned char*)&ehdr1)[EI_CLASS];
 		switch (elfclass)
 		{
@@ -1076,6 +1074,7 @@ void kernelgen::bind::cuda::CUBIN::Merge(const char* input1, const char* input2,
 		pool.resize(szdata);
 		char* poolptr = &pool[0];
 		memset(poolptr, 0, szdata);
+		size_t relocations_offset = 0;
 		for (int i = 0, ie = sections_vector.size(); i != ie; i++)
 		{
 			Elf_Datas& content = sections_vector[i];
@@ -1141,7 +1140,6 @@ void kernelgen::bind::cuda::CUBIN::Merge(const char* input1, const char* input2,
 				int nrelocs = 0;
 				if (shdr.sh_entsize)
 					nrelocs = shdr.sh_size / shdr.sh_entsize;
-				relocations.resize(nrelocs);
 				for (int k = 0; k < nrelocs; k++)
 				{
 					GElf_Rel rel;
@@ -1156,11 +1154,13 @@ void kernelgen::bind::cuda::CUBIN::Merge(const char* input1, const char* input2,
 					{
 					case ELFCLASS32:
 						type = ELF32_R_TYPE(rel.r_info);
-						rel.r_info = ELF32_R_INFO(symbols[relocations[k]].new_index, type);
+						rel.r_info = ELF32_R_INFO(symbols[
+							relocations[k + relocations_offset]].new_index, type);
 						break;
 					case ELFCLASS64:
 						type = ELF64_R_TYPE(rel.r_info);
-						rel.r_info = ELF64_R_INFO(symbols[relocations[k]].new_index, type);
+						rel.r_info = ELF64_R_INFO(symbols[
+							relocations[k + relocations_offset]].new_index, type);
 						break;
 					}
 					if (!gelf_update_rel(data, k, &rel))
@@ -1170,6 +1170,7 @@ void kernelgen::bind::cuda::CUBIN::Merge(const char* input1, const char* input2,
 						throw;
 					}
 				}
+				relocations_offset += nrelocs;
 			}
 
 			// Update section header.
