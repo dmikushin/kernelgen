@@ -74,8 +74,9 @@ Patch8:		llvm.transforms.patch
 Patch9:		gcc.patch
 Patch10:	binutils.patch
 Patch11:	openmpi.cuda.patch
-Patch12:        gcc-multiarch.patch
-Patch13:        gcc.build.patch
+Patch12:	cloog.checkout.patch
+Patch13:        gcc-multiarch.patch
+Patch14:        gcc.build.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -122,9 +123,6 @@ tar -xf $RPM_SOURCE_DIR/openmpi-r%{openmpi_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
-#mkdir -p $RPM_BUILD_DIR/cloog
-sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
-#tar -xf $RPM_SOURCE_DIR/cloog-0.17.tar.gz
 %endif
 
 
@@ -144,8 +142,9 @@ sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 %patch9 -p1
 %patch10 -p1
 %patch11 -p1
-%if (%target == debian)
 %patch12 -p1
+%if (%target == debian)
+%patch13 -p1
 %endif
 %endif
 
@@ -157,6 +156,8 @@ sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 # Configure and build CLooG.
 # Build CLooG now, as it is going to be used during LLVM's configure step.
 #
+rm -rf $RPM_BUILD_DIR/cloog
+sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog 1
 cd $RPM_BUILD_DIR/cloog
 ./autogen.sh
 ./configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
