@@ -104,8 +104,16 @@ rm -rf $RPM_BUILD_DIR/binutils-snapshot
 tar -xjf $RPM_SOURCE_DIR/KERNELGEN_BINUTILS_SNAP.tar.bz2
 rm -rf $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
 tar -xjf $RPM_SOURCE_DIR/KERNELGEN_GMP_SNAP.tar.bz2
+cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
+mkdir build
+cd build/
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
 rm -rf $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
 tar -xf $RPM_SOURCE_DIR/KERNELGEN_MPFR_SNAP.tar.gz
+cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
+mkdir build
+cd build/
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
 rm -rf $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
 tar -xf $RPM_SOURCE_DIR/KERNELGEN_MPC_SNAP.tar.gz
 rm -rf $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
@@ -189,22 +197,36 @@ cd build
 #
 # Configure GCC
 #
-cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
-mkdir build
-cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
-cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
-mkdir build
-cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP/build
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP/build
+KERNELGEN_FALLBACK=1 make install
+cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP/build
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP/build
+KERNELGEN_FALLBACK=1 make install
 cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
 mkdir build
 cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --with-mpfr-include=$RPM_BUILD_ROOT/opt/kernelgen/include/ --with-mpfr-lib=$RPM_BUILD_ROOT/opt/kernelgen/lib --with-gmp-include=$RPM_BUILD_ROOT/opt/kernelgen/include/ --with-gmp-lib=$RPM_BUILD_ROOT/opt/kernelgen/lib
+cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP/build
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
 mkdir build
 cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=/usr/include/ --with-mpfr-lib=/usr/lib64 --with-gmp-include=/usr/include/ --with-gmp-lib=/usr/lib64 --enable-plugin --enable-gold=default --disable-ld --with-ld=/opt/kernelgen/bin/kernelgen-ld
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_BUILD_ROOT/opt/kernelgen/include/ --with-mpfr-lib=$RPM_BUILD_ROOT/opt/kernelgen/lib --with-gmp-include=$RPM_BUILD_ROOT/opt/kernelgen/include/ --with-gmp-lib=$RPM_BUILD_ROOT/opt/kernelgen/lib --with-mpc-include=$RPM_BUILD_ROOT/opt/kernelgen/include/ --with-mpc-lib=$RPM_BUILD_ROOT/opt/kernelgen/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=/opt/kernelgen/bin/kernelgen-ld
 %endif
 %if %netcdf
 #
@@ -277,24 +299,6 @@ make -j%{njobs}
 #
 # Build GCC
 #
-cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP/build
-%if %debug
-KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
-%else
-KERNELGEN_FALLBACK=1 make -j%{njobs}
-%endif
-cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP/build
-%if %debug
-KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
-%else
-KERNELGEN_FALLBACK=1 make -j%{njobs}
-%endif
-cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP/build
-%if %debug
-KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
-%else
-KERNELGEN_FALLBACK=1 make -j%{njobs}
-%endif
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
 %if %debug
 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
@@ -395,10 +399,6 @@ make install -j%{njobs}
 #
 # Install GCC
 #
-cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP/build
-KERNELGEN_FALLBACK=1 make install
-cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP/build
-KERNELGEN_FALLBACK=1 make install
 cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP/build
 KERNELGEN_FALLBACK=1 make install
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
