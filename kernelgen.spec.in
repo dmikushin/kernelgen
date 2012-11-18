@@ -431,9 +431,17 @@ cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build
 KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 
-#remove ".la" files to fix libtool builds
+#
+# Remove ".la" files to fix libtool builds
+#
 find $RPM_BUILD_ROOT/opt/kernelgen -name "*.la" -exec rm -f '{}' \;
 
+#
+# Replace GCC's standard LTO wrapper with a symbolic link on kernelgen-simple.
+#
+cd $RPM_BUILD_ROOT/opt/kernelgen/libexec/gcc/x86_64-unknown-linux-gnu/4.6.4
+rm -rf lto-wrapper
+ln -s ../../../../bin/kernelgen-simple lto-wrapper
 
 #
 # Final cleanup (off for fast repack).

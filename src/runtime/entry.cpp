@@ -277,13 +277,14 @@ int main(int argc, char* argv[], char* envp[]) {
 						kernel_stream;
 			}
 
-			Path kernelgenPath(Program::FindProgramByName("kernelgen-simple"));
-			if (kernelgenPath.empty())
+			Path kernelgenSimplePath(Program::FindProgramByName("kernelgen-simple"));
+			if (kernelgenSimplePath.empty())
 				THROW("Cannot locate kernelgen binaries folder, is it included into $PATH ?");
+			string kernelgenPath = kernelgenSimplePath.getDirname().str();
 
 			// Load LLVM IR for kernel monitor, if not yet loaded.
 			if (!monitor_module) {
-				string monitorModulePath = kernelgenPath.str() + "/../include/cuda/monitor.bc";
+				string monitorModulePath = kernelgenPath + "/../include/cuda/monitor.bc";
 				std::ifstream tmp_stream(monitorModulePath.c_str());
 				tmp_stream.seekg(0, std::ios::end);
 				string monitor_source = "";
@@ -303,7 +304,7 @@ int main(int argc, char* argv[], char* envp[]) {
 
 			// Load LLVM IR for KernelGen runtime functions, if not yet loaded.
 			if (!runtime_module) {
-				string runtimeModulePath = kernelgenPath.str() + "/../include/cuda/runtime.bc";
+				string runtimeModulePath = kernelgenPath + "/../include/cuda/runtime.bc";
 				std::ifstream tmp_stream(runtimeModulePath.c_str());
 				tmp_stream.seekg(0, std::ios::end);
 				string runtime_source = "";
@@ -326,7 +327,7 @@ int main(int argc, char* argv[], char* envp[]) {
 
 			// Load LLVM IR for CUDA runtime functions, if not yet loaded.
 			if (!cuda_module) {
-				string cudaModulePath = kernelgenPath.str() + "/../include/cuda/math.bc";
+				string cudaModulePath = kernelgenPath + "/../include/cuda/math.bc";
 				std::ifstream tmp_stream(cudaModulePath.c_str());
 				tmp_stream.seekg(0, std::ios::end);
 				string cuda_source = "";
