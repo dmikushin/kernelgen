@@ -407,6 +407,12 @@ make install -j%{njobs}
 #
 # Install GCC
 #
+cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP/build
+KERNELGEN_FALLBACK=1 make install
+cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP/build
+KERNELGEN_FALLBACK=1 make install
+cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP/build
+KERNELGEN_FALLBACK=1 make install
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
 CPLUS_INCLUDE_PATH=/usr/include/libelf KERNELGEN_FALLBACK=1 make install
 %endif
