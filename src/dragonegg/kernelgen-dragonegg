@@ -1,2 +1,2 @@
 #!/bin/sh
-KERNELGEN_FALLBACK=1 kernelgen-gfortran -fplugin=/opt/kernelgen/lib/dragonegg.so -fplugin-arg-dragonegg-emit-ir -fplugin-arg-dragonegg-llvm-ir-optimize=0 -S $@
+KERNELGEN_FALLBACK=1 kernelgen-gfortran -fplugin=dragonegg.so -fplugin-arg-dragonegg-emit-ir -fplugin-arg-dragonegg-llvm-ir-optimize=0 -S $@

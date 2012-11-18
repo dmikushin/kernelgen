@@ -1,6 +1,6 @@
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-snapshot/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
-@@ -0,0 +1,310 @@
+@@ -0,0 +1,304 @@
 +/* main.c: defines main() for cc1, cc1plus, etc.
 +   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
 +
@@ -185,12 +185,6 @@
 +    }
 +  }
 +
-+  // Check if environment defines KERNELGEN_PLUGINS_PATH.
-+  // If it does not, then use the default setting.
-+  string kernelgen_plugins_path = "/opt/kernelgen/lib/";
-+  const char* plugins_path = getenv("KERNELGEN_PLUGINS_PATH");
-+  if (plugins_path) kernelgen_plugins_path = plugins_path;
-+
 +  Elf* e;
 +  Elf_Data* symbols = NULL;
 +  int nsymbols = 0, idata = -1, ibss = -1;
@@ -249,7 +243,7 @@
 +    int i = 0; for (int k = 0; k < argc; k++)
 +      if (strcmp(argv[k], "-g"))
 +        compiler_argv[i++] = argv[k];
-+    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "dragonegg.so";
++    string plugin_path = "-fplugin=dragonegg.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
@@ -300,7 +294,7 @@
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
 +    int i = 0; for ( ; i < argc; i++)
 +      compiler_argv[i] = argv[i];
-+    string plugin_path = "-fplugin=" + kernelgen_plugins_path + "libkernelgen-ct.so";
++    string plugin_path = "-fplugin=libkernelgen-ct.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-D_KERNELGEN";
 +    compiler_argv[i++] = "-flto";
