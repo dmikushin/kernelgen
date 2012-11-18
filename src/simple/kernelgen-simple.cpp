@@ -245,7 +245,7 @@ static int compile(int argc, char** argv, const char* input,
 			}
 			args.push_back(argv[i]);
 		}
-		args.push_back("-fplugin=/opt/kernelgen/lib/dragonegg.so");
+		args.push_back("-fplugin=dragonegg.so");
 		args.push_back("-fplugin-arg-dragonegg-emit-ir");
 		args.push_back("-fplugin-arg-dragonegg-llvm-ir-optimize=0");
 		args.push_back("-fkeep-inline-functions");
@@ -1668,7 +1668,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		// Adding -rdynamic to use executable global symbols
 		// to resolve dependencies of subsequently loaded kernel objects.
 		args.push_back("-rdynamic");
-		args.push_back("/opt/kernelgen/lib/libkernelgen-rt.so");
+		args.push_back("libkernelgen-rt.so");
 		args.push_back(NULL);
 		args[0] = compiler;
 		if (verbose) {

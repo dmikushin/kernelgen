@@ -33,7 +33,7 @@ execute_process(COMMAND svnversion -n ${PROJECT_SOURCE_DIR}/src OUTPUT_VARIABLE 
 message("Compiling KernelGen version ${KERNELGEN_VERSION}")
 
 set(OPT 0 CACHE STRING "Optimization level (0-3)")
-set(BOOTSTRAP_ROOT "/opt/kernelgen" CACHE STRING "The KernelGen bootsrap root")
+set(BOOTSTRAP_ROOT "${CMAKE_INSTALL_PREFIX}" CACHE STRING "The KernelGen bootsrap root")
 set(RPM_ROOT "$ENV{HOME}/rpmbuild/BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
 set(LLVM_MODE "Debug+Asserts" CACHE STRING "The LLVM build mode")

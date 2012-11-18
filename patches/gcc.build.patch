@@ -435,7 +435,7 @@
 +     use executable global symbols for resolving dependencies of
 +     subsequently loaded kernel objects.  */
 +  const char* export_dynamic = "--export-dynamic";
-+  const char* kernelgen_rt = "/opt/kernelgen/lib/libkernelgen-rt.so";
++  const char* kernelgen_rt = "libkernelgen-rt.so";
 +  if (!fallback) {
 +    *ld1++ = *ld2++ = export_dynamic;
 +    *ld1++ = *ld2++ = kernelgen_rt;

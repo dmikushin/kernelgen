@@ -75,7 +75,7 @@
  
 -  for (i = 0; i < lto_wrapper_num_args; i++)
 -    *lto_arg_ptr++ = lto_wrapper_argv[i];
-+  *lto_arg_ptr++ = "/opt/kernelgen/bin/kernelgen-simple";
++  *lto_arg_ptr++ = "kernelgen-simple";
  
    for (i = 0; i < num_claimed_files; i++)
      {
