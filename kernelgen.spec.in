@@ -157,8 +157,11 @@ tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 # Apply all source code patches prior to configuring.
 #
 %if %fullrepack
+%if %dragonegg
 %patch0 -p1
 %patch1 -p1
+%endif
+%if %llvm
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
@@ -166,12 +169,23 @@ tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
+%endif
+%if %gcc
 %patch9 -p1
+%endif
+%if %binutils
 %patch10 -p1
+%endif
+%if %openmpi
 %patch11 -p1
+%endif
+%if %cloog
 %patch12 -p1
+%endif
 %if (%target == debian)
+%if %gcc
 %patch13 -p1
+%endif
 %endif
 %endif
 
