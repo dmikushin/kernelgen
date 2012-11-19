@@ -209,6 +209,13 @@ set_property(TARGET kernelgen-version APPEND PROPERTY COMPILE_DEFINITIONS "KERNE
 file(COPY ${PROJECT_SOURCE_DIR}/src/dragonegg/kernelgen-dragonegg DESTINATION ${PROJECT_BINARY_DIR})
 
 #
+# ENVIRONMENT VARS SCRIPT
+#
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/kernelgen-vars.sh
+	COMMAND sed s!CMAKE_INSTALL_PREFIX!${CMAKE_INSTALL_PREFIX}!g ${PROJECT_SOURCE_DIR}/src/vars/kernelgen-vars.sh >${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
+add_custom_target(kernelgen_vars ALL DEPENDS ${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
+
+#
 # INSTALL
 #
 # bin
@@ -217,6 +224,7 @@ INSTALL(TARGETS
 	DESTINATION bin)
 INSTALL(PROGRAMS
 	${PROJECT_BINARY_DIR}/kernelgen-dragonegg
+	${PROJECT_BINARY_DIR}/kernelgen-vars.sh
 	DESTINATION bin)
 # lib
 INSTALL(TARGETS
