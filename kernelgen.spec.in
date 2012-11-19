@@ -392,9 +392,9 @@ KERNELGEN_FALLBACK=1 make install
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
 %if %debug
-CPLUS_INCLUDE_PATH=$RPM_BUILD_ROOT/opt/kernelgen/include:$RPM_BUILD_ROOT/opt/kernelgen/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/opt/kernelgen/include:$RPM_INSTALL_PREFIX/opt/kernelgen/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-CPLUS_INCLUDE_PATH=$RPM_BUILD_ROOT/opt/kernelgen/include:$RPM_BUILD_ROOT/opt/kernelgen/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs}
+CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/opt/kernelgen/include:$RPM_INSTALL_PREFIX/opt/kernelgen/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
 %endif
 %if %netcdf
