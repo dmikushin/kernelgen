@@ -309,7 +309,6 @@ KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disab
 KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disable-mpi-interface-warning --with-cuda=/opt/cuda --with-cuda-libdir=/usr/%{lib64}
 %endif
 %endif
-%endif
 %if %libffi
 #
 # Configure LibFFI
