@@ -156,6 +156,7 @@ mkdir -p $RPM_BUILD_DIR/llvm/tools
 cd $RPM_BUILD_DIR/llvm/tools
 tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
+cd $RPM_BUILD_DIR
 %endif
 %if %libffi
 rm -rf $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
