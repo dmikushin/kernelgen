@@ -217,7 +217,7 @@ cd $RPM_BUILD_DIR/cloog
 ./autogen.sh
 mkdir build
 cd build
-./configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
 %endif
 %if %llvm
 #
