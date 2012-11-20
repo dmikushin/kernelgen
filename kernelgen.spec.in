@@ -325,9 +325,7 @@ cd build
 # Configure MHASH
 #
 cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
-mkdir build
-cd build
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+./configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
 %endif
 %endif
 %if %kernelgen
@@ -491,7 +489,7 @@ KERNELGEN_FALLBACK=1 make -j%{njobs}
 #
 # Build MHASH
 #
-cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP/build
+cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 %if %debug
 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
@@ -549,7 +547,7 @@ KERNELGEN_FALLBACK=1 make install
 #
 # Install MHASH
 #
-cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP/build
+cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 KERNELGEN_FALLBACK=1 make install
 %endif
 %if %kernelgen
