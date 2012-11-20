@@ -228,9 +228,9 @@ mkdir build
 cp -rf include/ build/include/
 cd build
 %if %debug
-../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
+../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/opt/kernelgen --with-isl=$RPM_INSTALL_PREFIX/opt/kernelgen
 %else
-../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_BUILD_ROOT/opt/kernelgen --with-isl=$RPM_BUILD_ROOT/opt/kernelgen
+../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/opt/kernelgen --with-isl=$RPM_INSTALL_PREFIX/opt/kernelgen
 %endif
 %endif
 %if %binutils
