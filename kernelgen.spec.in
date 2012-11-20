@@ -156,7 +156,6 @@ mkdir -p $RPM_BUILD_DIR/llvm/tools
 cd $RPM_BUILD_DIR/llvm/tools
 tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
 rm -rf $RPM_BUILD_DIR/cloog
-sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog 1
 %endif
 %if %libffi
 rm -rf $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
@@ -212,6 +211,7 @@ tar -xf $RPM_SOURCE_DIR/KERNELGEN_MHASH_SNAP.tar.gz
 #
 # Configure CLooG.
 #
+sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog 1
 cd $RPM_BUILD_DIR/cloog
 ./autogen.sh
 mkdir build
