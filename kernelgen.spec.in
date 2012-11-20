@@ -30,6 +30,8 @@
 %define netcdf KERNELGEN_ENABLE_NETCDF
 %define openmpi KERNELGEN_ENABLE_OPENMPI
 %define dragonegg KERNELGEN_ENABLE_DRAGONEGG
+%define libffi KERNELGEN_ENABLE_LIBFFI
+%define mhash KERNELGEN_ENABLE_MHASH
 %define kernelgen KERNELGEN_ENABLE_KERNELGEN
 
 %if (%target == "fedora")
@@ -106,7 +108,6 @@ rm -rf $RPM_BUILD_DIR/llvm
 tar -xf $RPM_SOURCE_DIR/llvm-r%{llvm_rev}.tar.gz
 cd $RPM_BUILD_DIR/llvm/tools
 tar -xf $RPM_SOURCE_DIR/clang-r%{llvm_rev}.tar.gz
-tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
 %endif
 cd $RPM_BUILD_DIR
 %if %binutils
@@ -149,6 +150,21 @@ tar -xf $RPM_SOURCE_DIR/openmpi-r%{openmpi_rev}.tar.gz
 %if %dragonegg
 rm -rf $RPM_BUILD_DIR/dragonegg
 tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
+%endif
+%if %cloog
+mkdir -p $RPM_BUILD_DIR/llvm/tools
+cd $RPM_BUILD_DIR/llvm/tools
+tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
+rm -rf $RPM_BUILD_DIR/cloog
+sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog 1
+%endif
+%if %libffi
+rm -rf $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
+tar -xf $RPM_SOURCE_DIR/KERNELGEN_LIBFFI_SNAP.tar.gz
+%endif
+%if %mhash
+rm -rf $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
+tar -xf $RPM_SOURCE_DIR/KERNELGEN_MHASH_SNAP.tar.gz
 %endif
 %endif
 
@@ -194,16 +210,13 @@ tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
 %if %fullrepack
 %if %cloog
 #
-# Configure and build CLooG.
-# Build CLooG now, as it is going to be used during LLVM's configure step.
+# Configure CLooG.
 #
-rm -rf $RPM_BUILD_DIR/cloog
-sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog 1
 cd $RPM_BUILD_DIR/cloog
 ./autogen.sh
+mkdir build
+cd build
 ./configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
-make
-make install
 %endif
 %if %llvm
 #
@@ -297,6 +310,25 @@ KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disab
 %endif
 %endif
 %endif
+%if %libffi
+#
+# Configure LibFFI
+#
+cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
+mkdir build
+cd build
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+%endif
+%if %mhash
+#
+# Configure MHASH
+#
+cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
+mkdir build
+cd build
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+%endif
+%endif
 %if %kernelgen
 #
 # Configure KernelGen
@@ -320,6 +352,17 @@ cd $RPM_BUILD_DIR
 # Build parts of the system
 #
 %if %fullrepack
+%if %cloog
+#
+# Build CLooG.
+#
+cd $RPM_BUILD_DIR/cloog/build
+%if %debug
+make -j%{njobs} CXXFLAGS=-O0
+%else
+make -j%{njobs}
+%endif
+%endif
 %if %llvm
 #
 # Build LLVM
@@ -432,6 +475,28 @@ CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELG
 cd $RPM_BUILD_DIR
 patch -p1 <$RPM_SOURCE_DIR/gcc.build.patch
 %endif
+%if %libffi
+#
+# Build LibFFI
+#
+cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP/build
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+%endif
+%if %mhash
+#
+# Build MHASH
+#
+cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP/build
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+%endif
 %endif
 %if %kernelgen
 #
@@ -454,9 +519,9 @@ mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/bin
 mkdir -p $RPM_BUILD_ROOT/opt/kernelgen/%{lib64}/
 %if %cloog
 #
-# Reinstall CLooG
+# Install CLooG
 #
-cd $RPM_BUILD_DIR/cloog
+cd $RPM_BUILD_DIR/cloog/build
 make install -j%{njobs}
 %endif
 %if %llvm
@@ -471,6 +536,20 @@ make install -j%{njobs}
 # Install DragonEgg
 #
 cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/opt/kernelgen/lib/
+%endif
+%if %libffi
+#
+# Install LibFFI
+#
+cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP/build
+KERNELGEN_FALLBACK=1 make install
+%endif
+%if %mhash
+#
+# Install MHASH
+#
+cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP/build
+KERNELGEN_FALLBACK=1 make install
 %endif
 %if %kernelgen
 #
@@ -509,7 +588,7 @@ KERNELGEN_FALLBACK=1 make install
 %endif
 %if %libelf
 #
-# Install LIBELF
+# Install LibELF
 #
 cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build
 KERNELGEN_FALLBACK=1 make install
