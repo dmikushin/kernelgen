@@ -68,10 +68,9 @@ include_directories("${POLLY_INCLUDE}")
 include_directories("${CLOOG_INCLUDE}")
 include_directories("${ISL_INCLUDE}")
 include_directories("${CMAKE_INSTALL_PREFIX}/include/libelf")
+include_directories("${CMAKE_INSTALL_PREFIX}/lib/libffi-3.0.11/include/ffi.h")
 include_directories("/usr/include/i686-linux-gnu")
 include_directories("/usr/include/x86_64-linux-gnu")
-include_directories("/usr/lib64/libffi-3.0.9/include")
-include_directories("/usr/lib64/libffi-3.0.10/include")
 
 #
 # DUPLICATE INCLUDES FOR CLANG CUSTOM RULE
