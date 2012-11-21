@@ -67,11 +67,11 @@ bool kernelgen::debug = true;
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
 // for futher references.
-std::map<string, kernel_t*> kernelgen::kernels;
+std::map<string, Kernel*> kernelgen::kernels;
 
 // The array contains addresses of globalVatiables
-uint64_t *kernelgen::addressesOfGlobalVariables;
-int kernelgen::numberOfGlobalVariables;
+uint64_t *kernelgen::AddressesOfGVars;
+int kernelgen::NumOfGVars;
 
 // order of globals in which they were stored in addressesOfGlobalVariables
 std::map<llvm::StringRef, uint64_t> kernelgen::orderOfGlobals;
@@ -82,7 +82,7 @@ kernelgen::bind::cuda::context* kernelgen::runtime::cuda_context = NULL;
 
 // Monitoring module and kernel (applicable for some targets).
 Module* kernelgen::runtime::monitor_module = NULL;
-kernel_func_t kernelgen::runtime::monitor_kernel;
+KernelFunc kernelgen::runtime::monitor_kernel;
 
 // Runtime module (applicable for some targets).
 Module* kernelgen::runtime::runtime_module = NULL;
@@ -90,7 +90,7 @@ Module* kernelgen::runtime::runtime_module = NULL;
 // CUDA module (applicable for some targets).
 Module* kernelgen::runtime::cuda_module = NULL;
 
-void load_kernel(kernel_t* kernel);
+void load_kernel(Kernel* kernel);
 
 int main(int argc, char* argv[], char* envp[]) {
 	//tracker = new PassTracker("codegen", NULL, NULL);
@@ -176,7 +176,7 @@ int main(int argc, char* argv[], char* envp[]) {
 			csymbol* symbol = *i;
 			const char* data = symbol->getData();
 			const string& name = symbol->getName();
-			kernel_t* kernel = new kernel_t();
+			Kernel* kernel = new Kernel();
 			kernel->name = name;
 			kernel->source = data;
 			kernel->loaded = false;
@@ -195,7 +195,7 @@ int main(int argc, char* argv[], char* envp[]) {
 			cout << endl;
 
 		// Check whether the internal table contains a main entry.
-		kernel_t* kernel = kernels["__kernelgen_main"];
+		Kernel* kernel = kernels["__kernelgen_main"];
 		if (!kernel) {
 			THROW("Cannot find the __kernelgen_main symbol");
 		}
@@ -204,9 +204,9 @@ int main(int argc, char* argv[], char* envp[]) {
 		// all names with kernel structure addresses
 		// for each kernelgen_launch call.
 		//SMDiagnostic diag;
-		for (map<string, kernel_t*>::iterator i = kernels.begin(), e =
+		for (map<string, Kernel*>::iterator i = kernels.begin(), e =
 				kernels.end(); i != e; i++) {
-			kernel_t* kernel = (*i).second;
+			Kernel* kernel = (*i).second;
 
 			if (!kernel)
 				THROW("Invalid kernel item");
@@ -226,9 +226,9 @@ int main(int argc, char* argv[], char* envp[]) {
 		NamedMDNode *orderOfGlobalsMD = kernel->module->getNamedMetadata(
 				"OrderOfGlobals");
 		assert(orderOfGlobalsMD);
-		numberOfGlobalVariables = orderOfGlobalsMD->getNumOperands();
-		addressesOfGlobalVariables = NULL;
-		for (int i = 0; i < numberOfGlobalVariables; i++) {
+		NumOfGVars = orderOfGlobalsMD->getNumOperands();
+		AddressesOfGVars = NULL;
+		for (int i = 0; i < NumOfGVars; i++) {
 			MDNode *mdNode = orderOfGlobalsMD->getOperand(i);
 			assert(mdNode->getNumOperands() == 2);
 			assert(
@@ -243,15 +243,15 @@ int main(int argc, char* argv[], char* envp[]) {
 		// and invoke the entry point kernel.
 		switch (runmode) {
 		case KERNELGEN_RUNMODE_NATIVE: {
-			addressesOfGlobalVariables = (uint64_t*) (calloc(
-					numberOfGlobalVariables, sizeof(void*)));
+			AddressesOfGVars = (uint64_t*) (calloc(
+					NumOfGVars, sizeof(void*)));
 			main_args_t args;
-			args.addressesOfGlobalVariables = addressesOfGlobalVariables;
+			args.addressesOfGlobalVariables = AddressesOfGVars;
 			args.argc = argc;
 			args.argv = argv;
 			args.envp = envp;
 			kernelgen_launch(kernel, sizeof(main_args_t), sizeof(int),
-					(kernelgen_callback_data_t*) &args);
+					(CallbackData*) &args);
 			return args.ret;
 		}
 		case KERNELGEN_RUNMODE_CUDA: {
@@ -268,12 +268,12 @@ int main(int argc, char* argv[], char* envp[]) {
 			err = cuStreamCreate(&kernel_stream, 0);
 			if (err)
 				THROW("Error in cuStreamCreate " << err);
-			for (map<string, kernel_t*>::iterator i = kernels.begin(), e =
+			for (map<string, Kernel*>::iterator i = kernels.begin(), e =
 					kernels.end(); i != e; i++) {
-				kernel_t* kernel = (*i).second;
-				kernel->target[KERNELGEN_RUNMODE_CUDA].monitor_kernel_stream =
+				Kernel* kernel = (*i).second;
+				kernel->target[KERNELGEN_RUNMODE_CUDA].MonitorStream =
 						monitor_kernel_stream;
-				kernel->target[KERNELGEN_RUNMODE_CUDA].kernel_stream =
+				kernel->target[KERNELGEN_RUNMODE_CUDA].KernelStream =
 						kernel_stream;
 			}
 
@@ -443,14 +443,14 @@ int main(int argc, char* argv[], char* envp[]) {
 			// Allocate page-locked memory for globals addresses.
 			{
 				CUresult err = cuMemAllocHost(
-						(void **) &addressesOfGlobalVariables,
-						numberOfGlobalVariables * sizeof(void*));
+						(void **) &AddressesOfGVars,
+						NumOfGVars * sizeof(void*));
 				if (err)
 					THROW("Error in cuMemAllocHost " << err);
 				CUdeviceptr pointerOnDevice =
-						(CUdeviceptr) addressesOfGlobalVariables;
+						(CUdeviceptr) AddressesOfGVars;
 				err = cuMemsetD8(pointerOnDevice, 0,
-						numberOfGlobalVariables * sizeof(void*));
+						NumOfGVars * sizeof(void*));
 				if (err)
 					THROW("Error in cuMemsetD8 " << err);
 			}
@@ -458,7 +458,7 @@ int main(int argc, char* argv[], char* envp[]) {
 			// Setup argerator structure and fill it with the main
 			// entry arguments.
 			main_args_t args_host;
-			args_host.addressesOfGlobalVariables = addressesOfGlobalVariables;
+			args_host.addressesOfGlobalVariables = AddressesOfGVars;
 			args_host.argc = argc;
 			args_host.argv = argv_dev;
 			args_host.callback = callback_dev;
@@ -471,7 +471,7 @@ int main(int argc, char* argv[], char* envp[]) {
 			if (err)
 				THROW("Error in cuMemcpyHtoD " << err);
 			kernelgen_launch(kernel, sizeof(main_args_t), sizeof(int),
-					(kernelgen_callback_data_t*) args_dev);
+					(CallbackData*) args_dev);
 
 			// Store back to host the return value, if present.
 			int ret = EXIT_SUCCESS;

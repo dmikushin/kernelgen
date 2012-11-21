@@ -35,7 +35,7 @@ using namespace llvm;
 using namespace std;
 
 // Wrap call instruction into host function call wrapper.
-CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* kernel)
+CallInst* kernelgen::runtime::WrapCallIntoHostcall(CallInst* call, Kernel* kernel)
 {
 	LLVMContext &context = getGlobalContext();
 
@@ -49,7 +49,7 @@ CallInst* kernelgen::runtime::wrapCallIntoHostcall(CallInst* call, kernel_t* ker
 	void* host_func = (void*)dlsym(NULL, callee->getName().data());
 	if (!host_func) THROW("Cannot dlsym " << dlerror());
 	
-	kernel->target[KERNELGEN_RUNMODE_NATIVE].binary = (kernel_func_t)host_func;
+	kernel->target[KERNELGEN_RUNMODE_NATIVE].binary = (KernelFunc)host_func;
 
 	// The host call launcher prototype to be added
 	// to entire module.

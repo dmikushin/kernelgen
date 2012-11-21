@@ -41,7 +41,7 @@
 #define KERNELGEN_RUNMODE_OPENCL	2
 
 // Unified kernel or hostcall arguments descriptor.
-struct kernelgen_callback_data_t
+struct CallbackData
 {
 	// The LLVM function type.
 	llvm::FunctionType* FunctionTy;
@@ -134,16 +134,16 @@ extern bool debug;
 // The prototype of kernel function.
 // Thanks to arguments aggregation, all
 // kernels could have the same prototype.
-typedef void (*kernel_func_t)(void* args);
+typedef void (*KernelFunc)(void* args);
 
 // The type of binaries map.
-typedef std::map<std::string, kernel_func_t> binaries_map_t;
+typedef std::map<std::string, KernelFunc> binaries_map_t;
 
 // Kernel configuration structure
 // containing pointer for original source code
 // and space to store specialized source and
 // binary variants for each target.
-struct kernel_t
+struct Kernel
 {
 	// Kernel name.
 	std::string name;
@@ -181,7 +181,7 @@ struct kernel_t
 		
 		// The universal binary, that is not optimized for
 		// any kernel arguments.
-		kernel_func_t binary;
+		KernelFunc binary;
 		
 		// Kernel callback structure.
 		kernelgen_callback_t* callback;
@@ -190,8 +190,8 @@ struct kernel_t
 		dim3 gridDim, blockDim;
 		
 		// Streams for work and monitor kernels.
-		CUstream monitor_kernel_stream;
-		CUstream kernel_stream;
+		CUstream MonitorStream;
+		CUstream KernelStream;
 
 		// Kernel execution statistics: min/max/avg time and
 		// the number of launches.
@@ -208,11 +208,11 @@ struct kernel_t
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
 // for futher references.
-extern std::map<std::string, kernel_t*> kernels;
+extern std::map<std::string, Kernel*> kernels;
 
 // The array contains addresses of globalVatiables
-extern uint64_t *addressesOfGlobalVariables;
-extern int numberOfGlobalVariables;
+extern uint64_t *AddressesOfGVars;
+extern int NumOfGVars;
 
 // order of globals in which they were stored in addressesOfGlobalVariables
 extern std::map<llvm::StringRef, uint64_t> orderOfGlobals;
@@ -224,11 +224,11 @@ namespace runtime {
 
 // Compile kernel with the specified arguments,
 // and return its handle.
-kernel_func_t compile(int runmode, kernel_t* kernel, llvm::Module* module = NULL, void* data = NULL, int szdata = 0, int szdatai = 0);
+KernelFunc Compile(int runmode, Kernel* kernel, llvm::Module* module = NULL, void* data = NULL, int szdata = 0, int szdatai = 0);
 
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.
-kernel_func_t codegen(int runmode, kernel_t* kernel, llvm::Module* module);
+KernelFunc Codegen(int runmode, Kernel* kernel, llvm::Module* module);
 
 // CUDA runtime context.
 extern kernelgen::bind::cuda::context* cuda_context;
@@ -237,11 +237,11 @@ extern kernelgen::bind::cuda::context* cuda_context;
 kernelgen_memory_t* init_memory_pool(size_t szpool);
 
 // Wrap call instruction into host function call wrapper.
-llvm::CallInst* wrapCallIntoHostcall(llvm::CallInst* call, kernel_t* kernel);
+llvm::CallInst* WrapCallIntoHostcall(llvm::CallInst* call, Kernel* kernel);
 
 // Monitoring module and kernel (applicable for some targets).
 extern llvm::Module* monitor_module;
-extern kernel_func_t monitor_kernel;
+extern KernelFunc monitor_kernel;
 
 // Runtime module (applicable for some targets).
 extern llvm::Module* runtime_module;
@@ -252,9 +252,9 @@ extern llvm::Module* cuda_module;
 } }
 
 // Launch the specified kernel.
-extern "C" int kernelgen_launch(kernelgen::kernel_t* kernel,
+extern "C" int kernelgen_launch(kernelgen::Kernel* kernel,
 	unsigned long long szdata, unsigned long long szdatai,
-	kernelgen_callback_data_t* data);
+	CallbackData* data);
 
 // Start kernel execution.
 extern "C" void kernelgen_start();
@@ -264,7 +264,7 @@ extern "C" void kernelgen_finish();
 
 // Launch function defined by the specified entry
 // point on host.
-extern "C" void kernelgen_hostcall(kernelgen::kernel_t* kernel,
+extern "C" void kernelgen_hostcall(kernelgen::Kernel* kernel,
 	llvm::FunctionType* FTy, llvm::StructType* StructTy, void* params);
 
 #endif // KERNELGEN_RUNTIME_H

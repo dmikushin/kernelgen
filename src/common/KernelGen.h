@@ -23,7 +23,14 @@
 #define KERNELGEN_H
 
 #include "ELF.h"
+#include "Settings.h"
 #include "Temp.h"
 #include "Verbose.h"
+
+namespace kernelgen {
+
+	extern Settings settings;
+
+} // kernelgen
 
 #endif // KERNELGEN_H

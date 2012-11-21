@@ -70,7 +70,7 @@ struct mmap_t
 
 static list<struct mmap_t> mmappings;
 
-static kernel_t* active_kernel;
+static Kernel* active_kernel;
 
 static long szpage = -1;
 
@@ -103,10 +103,10 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 		align << ") + " << size << endl;
 
 	err = cuMemcpyDtoHAsync(base, base, size,
-		active_kernel->target[runmode].monitor_kernel_stream);
+		active_kernel->target[runmode].MonitorStream);
 	if (err) THROW("Error in cuMemcpyDtoH " << err);
 	err = cuStreamSynchronize(
-		active_kernel->target[runmode].monitor_kernel_stream);
+		active_kernel->target[runmode].MonitorStream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
 	if (verbose & KERNELGEN_VERBOSE_DATAIO)
@@ -117,13 +117,13 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 typedef void (*func_t)();
 
 void kernelgen_hostcall(
-	kernel_t* kernel, FunctionType* FTy,
+	Kernel* kernel, FunctionType* FTy,
 	StructType* StructTy, void* params)
 {
 	// Compile native kernel, if there is source code.
-	kernel_func_t* func =
+	KernelFunc* func =
 		&kernel->target[KERNELGEN_RUNMODE_NATIVE].binary;
-	*func = compile(KERNELGEN_RUNMODE_NATIVE, kernel);
+	*func = Compile(KERNELGEN_RUNMODE_NATIVE, kernel);
 
 	Dl_info info;
 	if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
@@ -235,7 +235,7 @@ void kernelgen_hostcall(
 
 				// Copy device memory to host mapped memory.
 				int err = cuMemcpyDtoHAsync(base, base, size,
-					kernel->target[runmode].monitor_kernel_stream);
+					kernel->target[runmode].MonitorStream);
 				if (err) THROW("Error in cuMemcpyDtoHAsync");
 
 				if (verbose & KERNELGEN_VERBOSE_DATAIO)
@@ -281,7 +281,7 @@ void kernelgen_hostcall(
 
 	// Synchronize pending mmapped data transfers.
 	int err = cuStreamSynchronize(
-		kernel->target[runmode].monitor_kernel_stream);
+		kernel->target[runmode].MonitorStream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
 	ffi_call(&cif, (func_t)*func, ret, values.data());
@@ -314,7 +314,7 @@ void kernelgen_hostcall(
 		if (size % 16) size -= mmap.size % 16;
 		int err = cuMemcpyHtoDAsync(
 			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, size,
-			kernel->target[runmode].monitor_kernel_stream);
+			kernel->target[runmode].MonitorStream);
 		if (err) THROW("Error in cuMemcpyHtoDAsync " << err);
 		if (verbose & KERNELGEN_VERBOSE_DATAIO)
 			cout << "mmap.addr = " << mmap.addr << ", mmap.align = " <<
@@ -323,7 +323,7 @@ void kernelgen_hostcall(
 	
 	// Synchronize and unmap previously mapped host memory.
 	err = cuStreamSynchronize(
-		kernel->target[runmode].monitor_kernel_stream);
+		kernel->target[runmode].MonitorStream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
 	{

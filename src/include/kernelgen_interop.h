@@ -55,13 +55,13 @@
 #ifdef __cplusplus
 namespace kernelgen
 {
-	struct kernel_t;
+	struct Kernel;
 }
 #else
-struct kernel_t;
+struct Kernel;
 #endif
 
-struct kernelgen_callback_data_t;
+struct CallbackData;
 
 // Defines callback status structure.
 struct kernelgen_callback_t
@@ -76,9 +76,9 @@ struct kernelgen_callback_t
 	
 	// The callback kernel.
 #ifdef __cplusplus
-	kernelgen::kernel_t* kernel;
+	kernelgen::Kernel* kernel;
 #else
-	struct kernel_t* kernel;
+	struct Kernel* kernel;
 #endif
 	
 	// The size of callback data (see
@@ -90,7 +90,7 @@ struct kernelgen_callback_t
 	int szdatai;
 	
 	// The callback data.
-	struct kernelgen_callback_data_t* data;
+	struct CallbackData* data;
 };
 
 #include <string.h>

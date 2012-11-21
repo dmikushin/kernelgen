@@ -135,7 +135,7 @@ static void cubin_export_funcmap(const char* cubin,
 			char* name = elf_strptr(e, shdr.sh_link, symbol.st_name);
 			funcmap.insert(pair<string, size_t>(name, symbol.st_value));
 
-			// cout << name << " -> " << symbol.st_value << endl;
+			//cout << name << " -> " << symbol.st_value << endl;
 		}
 
 		elf_end(e);
@@ -170,6 +170,7 @@ static void cubin_import_funcmap(const char* cubin,
 			continue;
 		pair<string, size_t> item = *I2;
 		addrmap.push_back(pair<size_t, size_t>(item_old.second, item.second));
+
 		//cout << item_old.second << " -> " << item.second << endl;
 	}
 
@@ -178,7 +179,7 @@ static void cubin_import_funcmap(const char* cubin,
 
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.
-kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
+KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		Module* m) {
 	// Codegen LLVM IR into PTX or host, depending on the runmode.
 	string name = kernel->name;
@@ -265,7 +266,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 		if (!handle)
 			THROW("Cannot dlopen " << dlerror());
 
-		kernel_func_t kernel_func = (kernel_func_t) dlsym(handle, name.c_str());
+		KernelFunc kernel_func = (KernelFunc) dlsym(handle, name.c_str());
 		if (!kernel_func)
 			THROW("Cannot dlsym " << dlerror());
 
@@ -492,7 +493,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 			}
 
 			// Load kernel function from the binary opcodes.
-			CUstream stream = kernel->target[runmode].monitor_kernel_stream;
+			CUstream stream = kernel->target[runmode].MonitorStream;
 			CUresult err = cudyLoadCubin((CUDYfunction*) &kernel_func,
 					cuda_context->loader, (char*) tmp3.getName().c_str(),
 					name.c_str(), stream);
@@ -503,7 +504,7 @@ kernel_func_t kernelgen::runtime::codegen(int runmode, kernel_t* kernel,
 		if (verbose)
 			cout << "Loaded '" << name << "' at: " << kernel_func << endl;
 
-		return (kernel_func_t) kernel_func;
+		return (KernelFunc) kernel_func;
 	}
 	}
 }

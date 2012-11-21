@@ -192,7 +192,7 @@ void getAllocasAndMaximumSize(Function *f,list<Value *> *allocasForArgs, unsigne
 	}
 }
 
-static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode, bool *isThereAtLeastOneParallelLoop)
+static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThereAtLeastOneParallelLoop)
 {
 	{
 		PassManager polly;
@@ -277,15 +277,15 @@ static void runPolly(kernel_t *kernel, Size3 *sizeOfLoops,bool mode, bool *isThe
 		outs().resetColor();
 	}
 }
-static void runPollyNATIVE(kernel_t *kernel, Size3 *sizeOfLoops)
+static void runPollyNATIVE(Kernel *kernel, Size3 *sizeOfLoops)
 {
 	return runPolly(kernel, sizeOfLoops, false, NULL);
 }
-static void runPollyCUDA(kernel_t *kernel, Size3 *sizeOfLoops, bool *isThereAtLeastOneParallelLoop)
+static void runPollyCUDA(Kernel *kernel, Size3 *sizeOfLoops, bool *isThereAtLeastOneParallelLoop)
 {
 	return runPolly(kernel, sizeOfLoops, true, isThereAtLeastOneParallelLoop);
 }
-void substituteGridParams(kernel_t* kernel,dim3 & gridDim, dim3 & blockDim)
+void substituteGridParams(Kernel* kernel,dim3 & gridDim, dim3 & blockDim)
 {
 	Module * m = kernel->module;
 	vector<string> dimensions, parameters;
@@ -348,7 +348,7 @@ static void substituteGlobalsByTheirAddresses(Module *m)
 		 assert(!globalName.substr(0,offset).compare("global."));
 		 int index = atoi(globalName.substr(offset, globalName.length() - offset).c_str());*/
 		 
-		 uint64_t address = addressesOfGlobalVariables[index];
+		 uint64_t address = AddressesOfGVars[index];
 		 Constant *replacement = ConstantExpr::getIntToPtr(
 				  ConstantInt::get(Type::getInt64Ty(context),address),
 				  globalVar->getType());
@@ -361,7 +361,7 @@ static void substituteGlobalsByTheirAddresses(Module *m)
 			 (*iter)->eraseFromParent();
 }
 
-static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
+static void processFunctionFromMain(Kernel* kernel, Module* m, Function* f)
 {
 	list<AllocaInst*> allocas;
 	list<CallInst*> erase_calls;
@@ -441,9 +441,9 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 			}
 
 			// Also record hostcall to the kernels map.
-			kernel_t* hostcall = kernels[name];
+			Kernel* hostcall = kernels[name];
 			if (!hostcall) {
-				hostcall = new kernel_t();
+				hostcall = new Kernel();
 				hostcall->name = name;
 				hostcall->source = "";
 
@@ -454,8 +454,8 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 				}
 				hostcall->target[KERNELGEN_RUNMODE_NATIVE].supported = true;
 
-				hostcall->target[runmode].monitor_kernel_stream =
-				    kernel->target[runmode].monitor_kernel_stream;
+				hostcall->target[runmode].MonitorStream =
+				    kernel->target[runmode].MonitorStream;
 				hostcall->module = kernel->module;
 
 				kernels[name] = hostcall;
@@ -463,7 +463,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 
 			// Replace entire call with hostcall and set old
 			// call for erasing.
-			wrapCallIntoHostcall(call, hostcall);
+			WrapCallIntoHostcall(call, hostcall);
 			erase_calls.push_back(call);
 		}
 		
@@ -553,7 +553,7 @@ static void processFunctionFromMain(kernel_t* kernel, Module* m, Function* f)
 		}
 }
 
-static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
+static bool processCallTreeLoop(Kernel* kernel, Module* m, Function* f)
 {
 	for (Function::iterator bb = f->begin(); bb != f->end(); bb++)
 		for (BasicBlock::iterator ii = bb->begin(), ie = bb->end(); ii != ie; ii++) {
@@ -625,8 +625,8 @@ static bool processCallTreeLoop(kernel_t* kernel, Module* m, Function* f)
 	return true;
 }
 
-kernel_func_t kernelgen::runtime::compile(
-    int runmode, kernel_t* kernel, Module* module, void * data, int szdata, int szdatai)
+KernelFunc kernelgen::runtime::Compile(
+    int runmode, Kernel* kernel, Module* module, void * data, int szdata, int szdatai)
 {
 	// Do not compile, if no source.
 	if (kernel->source == "")
@@ -704,7 +704,7 @@ kernel_func_t kernelgen::runtime::compile(
 		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
  
-		return codegen(runmode, kernel, m);
+		return Codegen(runmode, kernel, m);
 	}
 	case KERNELGEN_RUNMODE_CUDA : {
 
@@ -1064,7 +1064,7 @@ kernel_func_t kernelgen::runtime::compile(
 		verifyModule(*m);
 		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
 
-		return codegen(runmode, kernel, m);
+		return Codegen(runmode, kernel, m);
 	}
 	case KERNELGEN_RUNMODE_OPENCL : {
 		THROW("Unsupported runmode" << runmode);

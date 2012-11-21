@@ -147,13 +147,13 @@ __attribute__((device)) __attribute__((always_inline)) void kernelgen_hostcall(u
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_HOSTCALL;
 #ifdef __cplusplus
-	callback->kernel = (kernelgen::kernel_t*)kernel;
+	callback->kernel = (kernelgen::Kernel*)kernel;
 #else
-	callback->kernel = (struct kernel_t*)kernel;
+	callback->kernel = (struct Kernel*)kernel;
 #endif 
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
-	callback->data = (struct kernelgen_callback_data_t*)data;
+	callback->data = (struct CallbackData*)data;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
@@ -178,13 +178,13 @@ __attribute__((device)) __attribute((always_inline)) int kernelgen_launch(unsign
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_LOOPCALL;
 #ifdef __cplusplus
-	callback->kernel = (kernelgen::kernel_t*)kernel;
+	callback->kernel = (kernelgen::Kernel*)kernel;
 #else
-	callback->kernel = (struct kernel_t*)kernel;
+	callback->kernel = (struct Kernel*)kernel;
 #endif
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
-	callback->data = (struct kernelgen_callback_data_t*)data;
+	callback->data = (struct CallbackData*)data;
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 

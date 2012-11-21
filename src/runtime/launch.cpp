@@ -41,7 +41,7 @@ using namespace std;
 
 #ifdef KERNELGEN_LOAD_KERNELS_LAZILY
 // Read source into LLVM module for the specified kernel.
-void load_kernel(kernel_t* kernel) {
+void load_kernel(Kernel* kernel) {
 	LLVMContext& context = getGlobalContext();
 
 	SMDiagnostic diag;
@@ -95,7 +95,7 @@ void load_kernel(kernel_t* kernel) {
 
 				// Permanently assign launcher first argument with the address
 				// of the called kernel function structure (for fast access).
-				kernel_t* kernel = kernels[name];
+				Kernel* kernel = kernels[name];
 				if (!kernel)
 					THROW(
 							"Cannot get the name of kernel invoked by kernelgen_launch");
@@ -116,8 +116,8 @@ void load_kernel(kernel_t* kernel) {
 #endif
 
 // Launch the specified kernel.
-int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
-		unsigned long long szdatai, kernelgen_callback_data_t* data) {
+int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
+		unsigned long long szdatai, CallbackData* data) {
 #ifdef KERNELGEN_LOAD_KERNELS_LAZILY
 	// Load kernel source, if lazy load is enabled.
 	if (!kernel->loaded)
@@ -132,7 +132,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 	// Lookup for kernel in table, only if it has at least
 	// one scalar to compute hash footprint. Otherwise, compile
 	// "generalized" kernel.
-	kernel_func_t kernel_func = kernel->target[runmode].binary;
+	KernelFunc kernel_func = kernel->target[runmode].binary;
 	if (szdatai && (kernel->name != "__kernelgen_main")) {
 		// Initialize hashing engine.
 		MHASH td = mhash_init(MHASH_MD5);
@@ -148,7 +148,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA: {
-			void* monitor_stream = kernel->target[runmode].monitor_kernel_stream;
+			void* monitor_stream = kernel->target[runmode].MonitorStream;
 
 			// Copy launch arguments from host to device.
 			// In order to determine the precompiled kernel hash,
@@ -206,7 +206,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 			// Function may return NULL in case the kernel is
 			// unexpected to be non-parallel - this must be
 			// recorded to cache as well.
-			kernel_func = compile(runmode, kernel, NULL, args, szdata, szdatai);
+			kernel_func = Compile(runmode, kernel, NULL, args, szdata, szdatai);
 			binaries[strhash] = kernel_func;
 		} else
 			kernel_func = (*binary).second;
@@ -219,7 +219,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 			// If the universal binary cannot be compiled or is
 			// not parallel, then mark kernel unsupported for
 			// entire target.
-			kernel_func = compile(runmode, kernel);
+			kernel_func = Compile(runmode, kernel);
 			kernel->target[runmode].binary = kernel_func;
 			if (!kernel_func)
 				kernel->target[runmode].supported = false;
@@ -232,7 +232,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 	// Execute kernel, depending on target.
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE: {
-		kernel_func_t native_kernel_func = (kernel_func_t) kernel_func;
+		KernelFunc native_kernel_func = (KernelFunc) kernel_func;
 		timer t;
 		{
 			native_kernel_func(data);
@@ -263,7 +263,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 				int err = cudyLaunch((CUDYfunction) kernel_func, gridDim.x,
 						gridDim.y, gridDim.z, blockDim.x, blockDim.y,
 						blockDim.z, szshmem, &data,
-						kernel->target[runmode].monitor_kernel_stream,
+						kernel->target[runmode].MonitorStream,
 						&kernel_time);
 				if (err)
 					THROW("Error in cudyLaunch " << err);
@@ -271,7 +271,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 
 			// Wait for loop kernel completion.
 			int err = cuStreamSynchronize(
-					kernel->target[runmode].monitor_kernel_stream);
+					kernel->target[runmode].MonitorStream);
 			if (err)
 				THROW("Error in cuStreamSynchronize " << err);
 
@@ -313,7 +313,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 			void* kernel_func_args[] = { (void*) &data };
 			int err = cuLaunchKernel((void*) kernel_func, gridDim.x, gridDim.y,
 					gridDim.z, blockDim.x, blockDim.y, blockDim.z, szshmem,
-					kernel->target[runmode].kernel_stream, kernel_func_args,
+					kernel->target[runmode].KernelStream, kernel_func_args,
 					NULL);
 			if (err)
 				THROW("Error in cuLaunchKernel " << err);
@@ -323,11 +323,11 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 		{
 			// Codegen monitor kernel module.
 			{
-				kernel_t monitor;
+				Kernel monitor;
 				monitor.name = "kernelgen_monitor";
-				monitor.target[KERNELGEN_RUNMODE_CUDA].monitor_kernel_stream =
-						kernel->target[runmode].monitor_kernel_stream;
-				monitor_kernel = kernelgen::runtime::codegen(KERNELGEN_RUNMODE_CUDA,
+				monitor.target[KERNELGEN_RUNMODE_CUDA].MonitorStream =
+						kernel->target[runmode].MonitorStream;
+				monitor_kernel = kernelgen::runtime::Codegen(KERNELGEN_RUNMODE_CUDA,
 						&monitor, monitor_module);
 			}
 
@@ -346,7 +346,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 			int err = cudyLaunch((CUDYfunction) monitor_kernel, gridDim.x,
 					gridDim.y, gridDim.z, blockDim.x, blockDim.y, blockDim.z,
 					szshmem, args,
-					kernel->target[runmode].monitor_kernel_stream, NULL);
+					kernel->target[runmode].MonitorStream, NULL);
 			if (err)
 				THROW("Error in cudyLaunch " << err);
 		}
@@ -354,7 +354,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 		while (1) {
 			// Wait for monitor kernel completion.
 			int err = cuStreamSynchronize(
-					kernel->target[runmode].monitor_kernel_stream);
+					kernel->target[runmode].MonitorStream);
 			if (err)
 				THROW("Error in cuStreamSynchronize " << err);
 
@@ -362,11 +362,11 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 			// check the state.
 			err = cuMemcpyDtoHAsync(callback, kernel->target[runmode].callback,
 					sizeof(struct kernelgen_callback_t),
-					kernel->target[runmode].monitor_kernel_stream);
+					kernel->target[runmode].MonitorStream);
 			if (err)
 				THROW("Error in cuMemcpyDtoHAsync");
 			err = cuStreamSynchronize(
-					kernel->target[runmode].monitor_kernel_stream);
+					kernel->target[runmode].MonitorStream);
 			if (err)
 				THROW("Error in cuStreamSynchronize " << err);
 			switch (callback->state) {
@@ -378,8 +378,8 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 			}
 			case KERNELGEN_STATE_LOOPCALL: {
 				// Launch the loop kernel.
-				callback->kernel->target[runmode].monitor_kernel_stream =
-						kernel->target[runmode].monitor_kernel_stream;
+				callback->kernel->target[runmode].MonitorStream =
+						kernel->target[runmode].MonitorStream;
 				if (kernelgen_launch(callback->kernel, callback->szdata,
 						callback->szdatai, callback->data) != -1)
 					break;
@@ -395,7 +395,7 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 							Type::getInt8PtrTy(context),
 							Type::getInt8PtrTy(context),
 							Type::getInt8PtrTy(context), NULL);
-					kernelgen_callback_data_t data;
+					CallbackData data;
 					data.args = callback->data;
 					kernelgen_hostcall(callback->kernel, FunctionTy, StructTy,
 							&data);
@@ -413,11 +413,11 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 				err = cuMemcpyHtoDAsync(
 						&kernel->target[runmode].callback->state, &state,
 						sizeof(int),
-						kernel->target[runmode].monitor_kernel_stream);
+						kernel->target[runmode].MonitorStream);
 				if (err)
 					THROW("Error in cuMemcpyDtoHAsync " << err);
 				err = cuStreamSynchronize(
-						kernel->target[runmode].monitor_kernel_stream);
+						kernel->target[runmode].MonitorStream);
 				if (err)
 					THROW("Error in cuStreamSynchronize " << err);
 
@@ -425,17 +425,17 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 			}
 			case KERNELGEN_STATE_HOSTCALL: {
 				// Copy arguments to the host memory.
-				kernelgen_callback_data_t* data =
-						(kernelgen_callback_data_t*) malloc(callback->szdata);
+				CallbackData* data =
+						(CallbackData*) malloc(callback->szdata);
 				int err = cuMemHostRegister(data, callback->szdata, 0);
 				if (err)
 					THROW("Error in cuMemHostRegister " << err);
 				err = cuMemcpyDtoHAsync(data, callback->data, callback->szdata,
-						kernel->target[runmode].monitor_kernel_stream);
+						kernel->target[runmode].MonitorStream);
 				if (err)
 					THROW("Error in cuMemcpyDtoHAsync " << err);
 				err = cuStreamSynchronize(
-						kernel->target[runmode].monitor_kernel_stream);
+						kernel->target[runmode].MonitorStream);
 				if (err)
 					THROW("Error in cuStreamSynchronize " << err);
 
@@ -477,14 +477,14 @@ int kernelgen_launch(kernel_t* kernel, unsigned long long szdata,
 				int err = cudyLaunch((CUDYfunction) monitor_kernel, gridDim.x,
 						gridDim.y, gridDim.z, blockDim.x, blockDim.y,
 						blockDim.z, szshmem, args,
-						kernel->target[runmode].monitor_kernel_stream, NULL);
+						kernel->target[runmode].MonitorStream, NULL);
 				if (err)
 					THROW("Error in cudyLaunch " << err);
 			}
 		}
 
 		// Finally, sychronize kernel stream.
-		err = cuStreamSynchronize(kernel->target[runmode].kernel_stream);
+		err = cuStreamSynchronize(kernel->target[runmode].KernelStream);
 		if (err)
 			THROW("Error in cuStreamSynchronize " << err);
 
