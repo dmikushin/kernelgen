@@ -433,10 +433,19 @@ KERNELGEN_FALLBACK=1 make -j%{njobs}
 # Build GCC
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
+
+# fix for "can't find crti.o, crtn.o, -lc"
+# find the lib64 folder. It can be present either in /usr/lib64, or in /usr/lib
+test -d /usr/lib64 && LIB64=/usr/lib64 || LIB64=/usr/lib
+# find all the paths of crt*.o (crti.o, crtn.o, ... - for -lc)
+CRT_LIB_PATHS_ALL=`find $LIB64 -iname "crt*.o" -exec dirname {} \;`
+# arrange them in column, select only unique and rewrite as path1:path2:path3
+CRT_LIB_PATH=`echo $CRT_LIB_PATHS_ALL | tr ' ' '\n' | sort | uniq | tr '\n' ':'`
+
 %if %debug
-CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/opt/kernelgen/include:$RPM_INSTALL_PREFIX/opt/kernelgen/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/opt/kernelgen/include:$RPM_INSTALL_PREFIX/opt/kernelgen/include/libelf LIBRARY_PATH=$CRT_LIB_PATH:$LIBRARY_PATH KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/opt/kernelgen/include:$RPM_INSTALL_PREFIX/opt/kernelgen/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs}
+CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/opt/kernelgen/include:$RPM_INSTALL_PREFIX/opt/kernelgen/include/libelf LIBRARY_PATH=$CRT_LIB_PATH:$LIBRARY_PATH KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
 %endif
 %if %netcdf
