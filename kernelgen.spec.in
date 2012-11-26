@@ -277,7 +277,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
 mkdir build
 cd build
-CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no
+CFLAGS="-g -O2 -fPIC -shared" ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no
 %endif
 %if %gcc
 #
@@ -423,9 +423,9 @@ KERNELGEN_FALLBACK=1 make -j%{njobs}
 #
 cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build
 %if %debug
-KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0 -fPIC"
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0 -fPIC -shared"
 %else
-KERNELGEN_FALLBACK=1 make -j%{njobs}
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -fPIC -shared"
 %endif
 %endif
 %if %gcc
