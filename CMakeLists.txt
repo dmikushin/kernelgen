@@ -67,6 +67,7 @@ include_directories("${POLLY_ROOT}/include")
 include_directories("${POLLY_INCLUDE}")
 include_directories("${CLOOG_INCLUDE}")
 include_directories("${ISL_INCLUDE}")
+include_directories("${BOOTSTRAP_ROOT}/include/")
 include_directories("${BOOTSTRAP_ROOT}/include/libelf")
 include_directories("${BOOTSTRAP_ROOT}/lib/libffi-3.0.11/include")
 include_directories("/usr/include/i686-linux-gnu")
@@ -87,6 +88,19 @@ link_directories("${BOOTSTRAP_ROOT}/lib")
 link_directories("${BOOTSTRAP_ROOT}/lib64")
 
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT}")
+
+#
+# IMPORT STATIC LIBRARIES
+#
+add_library(libelf STATIC IMPORTED)
+set_property(TARGET libelf PROPERTY
+	IMPORTED_LOCATION "${BOOTSTRAP_ROOT}/lib/libelf.a")
+add_library(libffi STATIC IMPORTED)
+set_property(TARGET libffi PROPERTY
+	IMPORTED_LOCATION "${BOOTSTRAP_ROOT}/lib/libffi.a")
+add_library(libmhash STATIC IMPORTED)
+set_property(TARGET libmhash PROPERTY
+	IMPORTED_LOCATION "${BOOTSTRAP_ROOT}/lib/libmhash.a")
 
 #
 # BUGPOINT AUTO-TESTING TOOL
@@ -135,7 +149,7 @@ add_executable(kernelgen-simple ${simple_sources})
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-simple APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-simple bugpoint common frontend LLVM-${LLVM_VERSION}svn elf iberty)
+target_link_libraries(kernelgen-simple bugpoint common frontend LLVM-${LLVM_VERSION}svn libelf iberty)
 
 #
 # GCC COMPILE-TIME PLUGIN
@@ -156,7 +170,7 @@ add_library(kernelgen-cuda SHARED ${cuda_sources})
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-cuda APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-cuda common LLVM-${LLVM_VERSION}svn elf)
+target_link_libraries(kernelgen-cuda common LLVM-${LLVM_VERSION}svn libelf)
 list(REMOVE_ITEM cuda_sources
 	"${PROJECT_SOURCE_DIR}/src/cuda/cuda_dyloader.cpp"
 	"${PROJECT_SOURCE_DIR}/src/cuda/Cuda.cpp"
@@ -193,7 +207,7 @@ set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn elf rt gmp mhash dl ffi)
+target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn libelf rt gmp libmhash dl libffi)
 
 #
 # VERSION PRINTER
