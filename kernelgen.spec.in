@@ -250,7 +250,7 @@ cd build
 cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
 mkdir build
 cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --with-pic
 %endif
 %if %mpfr
 #
@@ -259,7 +259,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
 mkdir build
 cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --with-pic
 %endif
 %if %mpc
 #
@@ -268,7 +268,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
 mkdir build
 cd build/
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --with-mpfr-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-gmp-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --with-pic --with-mpfr-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-gmp-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib
 %endif
 %if %libelf
 #
@@ -277,7 +277,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
 mkdir build
 cd build
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --with-pic
 %endif
 %if %gcc
 #
@@ -318,14 +318,14 @@ KERNELGEN_FALLBACK=1 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --disab
 cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
 mkdir build
 cd build
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --with-pic
 %endif
 %if %mhash
 #
 # Configure MHASH
 #
 cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
-./configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no
+./configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --with-pic
 %endif
 %endif
 %if %kernelgen
