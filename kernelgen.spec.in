@@ -77,8 +77,9 @@ Patch9:		gcc.patch
 Patch10:	binutils.patch
 Patch11:	openmpi.cuda.patch
 Patch12:	cloog.checkout.patch
-Patch13:        gcc-multiarch.patch
-Patch14:        gcc.build.patch
+Patch13:        libelf.patch
+Patch14:        gcc-multiarch.patch
+Patch15:        gcc.build.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -199,9 +200,12 @@ cd $RPM_BUILD_DIR
 %if %cloog
 %patch12 -p1
 %endif
+%if %libelf
+%patch13 -p1
+%endif
 %if (%target == debian)
 %if %gcc
-%patch13 -p1
+%patch14 -p1
 %endif
 %endif
 %endif
@@ -277,7 +281,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
 mkdir build
 cd build
-CFLAGS="-g -O2 -fPIC -shared" ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --enable-elf64=yes
+CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --enable-elf64=yes
 %endif
 %if %gcc
 #
