@@ -277,7 +277,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
 mkdir build
 cd build
-CFLAGS="-g -O2 -fPIC -shared" ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no
+CFLAGS="-g -O2 -fPIC -shared" ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enable-shared=no --enable-elf64=yes
 %endif
 %if %gcc
 #
