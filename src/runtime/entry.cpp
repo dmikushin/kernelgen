@@ -31,6 +31,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include "KernelGen.h"
+
 #include "Elf.h"
 #include "util.h"
 #include "runtime.h"
@@ -54,15 +56,6 @@ using namespace llvm::sys;
 using namespace llvm::sys::fs;
 using namespace std;
 using namespace util::elf;
-
-// Kernels runmode (target).
-int kernelgen::runmode = -1;
-
-// Verbose output.
-int kernelgen::verbose = 0;
-
-// Debug mode.
-bool kernelgen::debug = true;
 
 // The pool of already loaded kernels.
 // After kernel is loaded, we pin it here
@@ -142,33 +135,10 @@ int main(int argc, char* argv[], char* envp[]) {
 		int ret;
 	};
 
-	char* crunmode = getenv("kernelgen_runmode");
-	if (crunmode) {
-		runmode = atoi(crunmode);
-
-		// Check requested verbosity level.
-		char* cverbose = getenv("kernelgen_verbose");
-		if (cverbose)
-			verbose = atoi(cverbose);
-
-		if (verbose) {
-			switch (runmode) {
-			case KERNELGEN_RUNMODE_NATIVE:
-				cout << "Using KernelGen/NATIVE" << endl;
-				break;
-			case KERNELGEN_RUNMODE_CUDA:
-				cout << "Using KernelGen/CUDA" << endl;
-				break;
-			case KERNELGEN_RUNMODE_OPENCL:
-				cout << "Using KernelGen/OpenCL" << endl;
-				break;
-			}
-			cout << endl;
-		}
-
+	if (RUNMODE != KERNELGEN_RUNMODE_UNDEF)
+	{
 		// Build kernels index.
-		if (verbose)
-			cout << "Building kernels index ..." << endl;
+		VERBOSE("Building kernels index ...");
 		cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
 		vector<csymbol*> symbols = e.getSymtab()->find(regex);
 		for (vector<csymbol*>::iterator i = symbols.begin(), ie = symbols.end();
@@ -188,11 +158,9 @@ int main(int argc, char* argv[], char* envp[]) {
 			}
 
 			kernels[name] = kernel;
-			if (verbose)
-				cout << name << endl;
+			VERBOSE(name << "\n");
 		}
-		if (verbose)
-			cout << endl;
+		VERBOSE("\n");
 
 		// Check whether the internal table contains a main entry.
 		Kernel* kernel = kernels["__kernelgen_main"];
@@ -241,7 +209,7 @@ int main(int argc, char* argv[], char* envp[]) {
 
 		// Load arguments, depending on the target runmode
 		// and invoke the entry point kernel.
-		switch (runmode) {
+		switch (RUNMODE) {
 		case KERNELGEN_RUNMODE_NATIVE: {
 			AddressesOfGVars = (uint64_t*) (calloc(
 					NumOfGVars, sizeof(void*)));
@@ -370,7 +338,7 @@ int main(int argc, char* argv[], char* envp[]) {
 					sizeof(kernelgen_callback_t));
 			if (err)
 				THROW("Error in cuMemcpyHtoD " << err);
-			kernel->target[runmode].callback = callback_dev;
+			kernel->target[RUNMODE].callback = callback_dev;
 
 			// Setup device dynamic memory heap.
 			int szheap = 16 * 1024 * 1024;
@@ -504,10 +472,10 @@ int main(int argc, char* argv[], char* envp[]) {
 			return ret;
 		}
 		case KERNELGEN_RUNMODE_OPENCL: {
-			THROW("Unsupported runmode" << runmode);
+			THROW("Unsupported runmode" << RUNMODE);
 		}
 		default:
-			THROW("Unknown runmode " << runmode);
+			THROW("Unknown runmode " << RUNMODE);
 		}
 	}
 

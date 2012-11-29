@@ -100,7 +100,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 	TD = &getAnalysis<TargetData>();
 	C = &getAnalysis<CloogInfo>();
 
-	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	if (settings.getVerboseMode() & Verbose::Polly)
     {
 		outs() << "\n<------------------------------ Scop: start --------------------------------->\n";
         printCloogAST(*C);
@@ -116,8 +116,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 		ScopStmt * stmt = *stmt_iterator;
 		if(strcmp(stmt -> getBaseName(),"FinalRead")) {
 			isl_set *stmtDomain = stmt->getDomain();
-			if (verbose & KERNELGEN_VERBOSE_POLLYGEN) {
-
+			if (settings.getVerboseMode() & Verbose::Polly) {
 				outs().indent(8) << stmt -> getBaseName() << " domain := "<<"\n";// print name of statement
 				outs().indent(12) << stmt -> getDomainStr() << "\n\n";           // print domain of statement
 			}
@@ -182,7 +181,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 				int storeSize = memoryAccess -> getElemTypeSize();//TD->getTypeStoreSize(type);
 
 				// print information
-				if (verbose & KERNELGEN_VERBOSE_POLLYGEN) {
+				if (settings.getVerboseMode() & Verbose::Polly) {
 					memoryAccess -> print(outs());
 					outs().indent(16) << "Base address  =  " << baseAddress << "   SizeOfElement = " << storeSize <<"\n";
 					outs().indent(20) << "Minimum offset = " << min << "  Maximum offset = " << max << "\n";
@@ -211,7 +210,7 @@ bool RuntimeAliasAnalysis::runOnScop(Scop &scop)
 	Writings += writingMemoryRanges.size();//,   "Number of writings");
 
 #define PRINT_TESTING_PAIR(first, second, stream, flag) \
-	if (verbose & KERNELGEN_VERBOSE_POLLYGEN) { \
+	if (settings.getVerboseMode() & Verbose::Polly) { \
 		(stream).indent(8) << "Testing pair : "; \
 		printRange((first),(stream)); \
 		(stream) << " vs ";	\

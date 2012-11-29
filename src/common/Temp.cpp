@@ -26,7 +26,7 @@
 
 #include <iostream>
 
-#include "runtime.h"
+#include "KernelGen.h"
 
 using namespace kernelgen::utils;
 using namespace llvm;
@@ -41,11 +41,7 @@ TempFile Temp::getFile(string mask, bool closefd)
 	int fd;
 	SmallString<128> filename_vector;
 	if (error_code err = unique_file(mask, fd, filename_vector))
-	{
-		if (verbose)
-			cerr << "Error " << err.value() << " at " << __FILE__ << ":" << __LINE__ << endl;
-		throw err;
-	}
+		THROW("Cannot open unique temp file " << err, err.value());
 
 	// Store filename.
 	string filename = (StringRef)filename_vector;
@@ -56,11 +52,7 @@ TempFile Temp::getFile(string mask, bool closefd)
 	string err;
 	tool_output_file file(filename.c_str(), err, raw_fd_ostream::F_Binary);
 	if (!err.empty())
-	{
-		if (verbose)
-			cerr << "Error " << err.c_str() << " at " << __FILE__ << ":" << __LINE__ << endl;
-		throw err;
-	}
+		THROW("Cannot create output file tracker " << err, filename);
 
 	return TempFile(filename, fd, file);
 }

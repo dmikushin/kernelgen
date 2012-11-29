@@ -39,7 +39,7 @@ class TransformAccesses : public polly::ScopPass
 public:
 	static char ID;
 	TransformAccesses()
-		:ScopPass(ID) {
+		: ScopPass(ID) {
 		/*Readings=0;
 		Writings=0;
 		ReadWrite=0;
@@ -74,7 +74,7 @@ void copyIslAffToConstraint(isl_aff *affToCopy, isl_constraint *constraint)
 	isl_int tmp;
 	isl_int_init(tmp);
 
-	for(int i =0 ; i < nIn; i++) {
+	for (int i =0 ; i < nIn; i++) {
 		isl_aff_get_coefficient(affToCopy,isl_dim_in,i,&tmp);
 		constraint = isl_constraint_set_coefficient(constraint,isl_dim_in,i,tmp);
 	}
@@ -94,14 +94,14 @@ bool TransformAccesses::runOnScop(Scop &scop)
 	//<foreach statement in scop>
 
 
-	for(Scop::iterator stmt_iterator = S->begin(), stmt_iterator_end = S->end();
+	for (Scop::iterator stmt_iterator = S->begin(), stmt_iterator_end = S->end();
 	    stmt_iterator != stmt_iterator_end; stmt_iterator++) {
 
 		ScopStmt * stmt = *stmt_iterator;
 		assert(strcmp(stmt -> getBaseName(),"FinalRead"));
 
 
-		for(ScopStmt::memacc_iterator access_iterator=stmt->memacc_begin(), access_iterator_end = stmt->memacc_end();
+		for (ScopStmt::memacc_iterator access_iterator=stmt->memacc_begin(), access_iterator_end = stmt->memacc_end();
 		    access_iterator != access_iterator_end; access_iterator++) {
 
 			MemoryAccess* memoryAccess=*access_iterator;
@@ -111,29 +111,23 @@ bool TransformAccesses::runOnScop(Scop &scop)
 			isl_space * space = isl_map_get_space(accessRelation);
 			const Value * baseAddressValue = memoryAccess -> getBaseAddr();
 
-
 			assert((isl_map_dim(accessRelation, isl_dim_out) == 1)
 			       && "Only single dimensional access functions supported");
 
-			if(isa<AllocaInst>(*baseAddressValue)) {
-				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-				{
-					outs() << "MemoryAccess to alloca: " << *baseAddressValue <<"\n";
-					outs().indent(4) << memoryAccess->getAccessRelationStr() << "\n";
-					outs().indent(8) << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n";
-					//continue;
-				}
+			if (isa<AllocaInst>(*baseAddressValue)) {
+				VERBOSE(Verbose::Polly << "MemoryAccess to alloca: " << *baseAddressValue <<
+						"\n    " << memoryAccess->getAccessRelationStr() <<
+						"\n        " << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n" <<
+						Verbose::Default);
 				memoryAccess->setGeneralAccessRelation(accessRelation);
 				memoryAccess->setCurrentRelationType(MemoryAccess::RelationType_general);
 				isl_space_free(space);
 				isl_map_free(accessRelation);
 			} else {
-				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-				{
-					outs() << "MemoryAccess to pointer: " << *baseAddressValue <<"\n";
-					outs().indent(4) << memoryAccess->getAccessRelationStr() << "\n";
-					outs().indent(8) << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n";
-				}
+				VERBOSE(Verbose::Polly << "MemoryAccess to pointer: " << *baseAddressValue <<
+						"\n    " << memoryAccess->getAccessRelationStr() <<
+						"\n        " << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n" <<
+						Verbose::Default);
 
 				assert(isa<ConstantExpr>(*baseAddressValue)&&
 				       "that must be substituted constant expression");
@@ -153,10 +147,7 @@ bool TransformAccesses::runOnScop(Scop &scop)
 				assert(accessFunction &&
 				       "isl_pw_aff is empty?!");
 
-				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-				{
-					outs().changeColor(raw_ostream::RED);
-				}
+				VERBOSE(Verbose::Polly << Verbose::Red);
 
 				isl_local_space *affSpace = isl_aff_get_local_space(accessFunction);
 				isl_local_space * localSpace = isl_local_space_from_space(isl_space_copy(space));
@@ -198,11 +189,8 @@ bool TransformAccesses::runOnScop(Scop &scop)
 				memoryAccess->setGeneralAccessRelation(newMap);
 				memoryAccess->setCurrentRelationType(MemoryAccess::RelationType_general);
 
-				if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-				{
-					outs().indent(4) << "replacedBy: "  << stringFromIslObj(newMap) << "\n";
-					outs().resetColor();
-				}
+				VERBOSE(Verbose::Polly << "    replacedBy: "  << stringFromIslObj(newMap) << "\n" <<
+						Verbose::Reset << Verbose::Default);
 
 				isl_pw_aff_free(access);
 				isl_local_space_free(affSpace);

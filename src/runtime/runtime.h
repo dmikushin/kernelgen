@@ -33,12 +33,9 @@
 #include <ostream>
 #include <string>
 
-#include "kernelgen_interop.h"
+#include "KernelGen.h"
 
-#define KERNELGEN_RUNMODE_COUNT		3
-#define KERNELGEN_RUNMODE_NATIVE	0
-#define KERNELGEN_RUNMODE_CUDA		1
-#define KERNELGEN_RUNMODE_OPENCL	2
+#include "kernelgen_interop.h"
 
 // Unified kernel or hostcall arguments descriptor.
 struct CallbackData
@@ -106,30 +103,6 @@ struct dim3 {
 	};
 
 namespace kernelgen {
-
-// Kernels runmode (target).
-extern int runmode;
-
-// Verbose output.
-extern int verbose;
-
-// Debug mode.
-extern bool debug;
-
-#define KERNELGEN_VERBOSE_DISABLE	0
-#define KERNELGEN_VERBOSE_SUMMARY	1 << 0
-#define KERNELGEN_VERBOSE_SOURCES	1 << 1
-#define KERNELGEN_VERBOSE_ISA		1 << 2
-#define KERNELGEN_VERBOSE_DATAIO	1 << 3
-#define KERNELGEN_VERBOSE_HOSTCALL	1 << 4
-#define KERNELGEN_VERBOSE_POLLYGEN	1 << 5
-#define KERNELGEN_VERBOSE_TIMEPERF	1 << 6
-#define KERNELGEN_VERBOSE_ALLOCA	1 << 7
-
-// Define to load kernels lazily. Means instead of reading and verifying
-// modules during application startup, they are instead loaded in the place
-// of first use.
-#define KERNELGEN_LOAD_KERNELS_LAZILY
 
 // The prototype of kernel function.
 // Thanks to arguments aggregation, all

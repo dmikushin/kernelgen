@@ -205,8 +205,9 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 	IgnoreAliasing.setValue(true);
 	polly::CUDA.setValue(mode);
 
-	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	if (settings.getVerboseMode() & Verbose::Polly)
 		llvm::EnableStatistics();
+
 	//bool debug = ::llvm::DebugFlag;
 	//if (verbose)
 	//	::llvm::DebugFlag = true;
@@ -239,12 +240,9 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 		Size3 SizeOfLoops;
 		if(sizes.size() == 0)
 		{
-			if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-			{
-				outs().changeColor(raw_ostream::RED);
-				outs() << "\n    FAIL: No Valid Scops detected in kernel!!!\n\n";
-				outs().resetColor();
-			}
+			VERBOSE(Verbose::Polly << Verbose::Red <<
+					"\n    FAIL: No Valid Scops detected in kernel!!!\n\n" <<
+					Verbose::Default << Verbose::Reset);
 		}
 		else {
 			// non-negative define sizes
@@ -256,12 +254,12 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 			//	}
 			// }
 			// SizeOfLoops : 123 13640 -1
-			SizeOfLoops  = sizes[0]; // 3-dimensional
-			if(sizeOfLoops) *sizeOfLoops=SizeOfLoops;
+			SizeOfLoops = sizes[0]; // 3-dimensional
+			if (sizeOfLoops) *sizeOfLoops = SizeOfLoops;
 		}
 
 	}
-	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	if (settings.getVerboseMode() & Verbose::Polly)
 	{
 		vector<string> statisticsNames;
 		statisticsNames.push_back("polly-detect");
@@ -270,12 +268,9 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 		llvm::RemoveStatistics();
 	}
 	//::llvm::DebugFlag = debug;
-	
-        if (verbose) {
-		outs().changeColor(raw_ostream::BLUE);
-		outs() << "<------------------ "<< kernel->name << ": compile completed ------------------->\n\n";
-		outs().resetColor();
-	}
+	VERBOSE(Verbose::Blue <<
+			"<------------------ "<< kernel->name << ": compile completed ------------------->\n\n" <<
+			Verbose::Reset);
 }
 static void runPollyNATIVE(Kernel *kernel, Size3 *sizeOfLoops)
 {
@@ -406,8 +401,7 @@ static void processFunctionFromMain(Kernel* kernel, Module* m, Function* f)
 			if (Src && (Src != Dst))
 				if (!Src->isDeclaration())
 			{
-				if (verbose)
-					cout << "Device call: " << callee->getName().data()<< endl;
+				VERBOSE("Device call: " << callee->getName().data() << "\n");
 				call->setCallingConv(CallingConv::PTX_Device);					
 				linkFunctionWithAllDependendes(Src,Dst);
 				Dst->setName(Dst->getName());
@@ -435,8 +429,7 @@ static void processFunctionFromMain(Kernel* kernel, Module* m, Function* f)
 						GlobalValue::ExternalLinkage, rename, m);
 				}
 				call->setCalledFunction(replacement);
-				if (verbose)
-					cout << "replacement: " << name << " -> " << rename << endl;
+				VERBOSE("replacement: " << name << " -> " << rename << "\n");
 				continue;
 			}
 
@@ -454,8 +447,8 @@ static void processFunctionFromMain(Kernel* kernel, Module* m, Function* f)
 				}
 				hostcall->target[KERNELGEN_RUNMODE_NATIVE].supported = true;
 
-				hostcall->target[runmode].MonitorStream =
-				    kernel->target[runmode].MonitorStream;
+				hostcall->target[RUNMODE].MonitorStream =
+				    kernel->target[RUNMODE].MonitorStream;
 				hostcall->module = kernel->module;
 
 				kernels[name] = hostcall;
@@ -490,11 +483,9 @@ static void processFunctionFromMain(Kernel* kernel, Module* m, Function* f)
 					Constant::getNullValue(Ty), "replacementOfAlloca");
 				GV->setAlignment(alloca->getAlignment());
 				alloca->replaceAllUsesWith(GV);
-				if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
-					outs().changeColor(raw_ostream::RED);
-					outs() << "Replace \"" << *alloca << "\" with \n  " << *GV;
-					outs().resetColor();
-				}
+				VERBOSE(Verbose::Alloca << Verbose::Red <<
+						"Replace \"" << *alloca << "\" with \n  " << *GV <<
+						Verbose::Reset << Verbose::Default);
 			} 
 			else if(isa<ConstantInt>(*alloca->getArraySize())) {
 				// Allocation of array of elements:
@@ -510,11 +501,9 @@ static void processFunctionFromMain(Kernel* kernel, Module* m, Function* f)
 					"replacementOfAlloca", alloca);
 				alloca->replaceAllUsesWith(bitcast);
 
-				if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
-					outs().changeColor(raw_ostream::GREEN);
-					outs() << "Replace \"" << *alloca << "\" with \n  " << *GV << *bitcast << "\n";
-					outs().resetColor();
-				}
+				VERBOSE(Verbose::Alloca << Verbose::Green <<
+						"Replace \"" << *alloca << "\" with \n  " << *GV << *bitcast << "\n" <<
+						Verbose::Reset << Verbose::Default);
 			} 
 			else  {
 				// More complex case: array size is a common value and unknown at compile-time
@@ -533,20 +522,16 @@ static void processFunctionFromMain(Kernel* kernel, Module* m, Function* f)
 				if(callOfMalloc->getType() == alloca->getType()) {
      				callOfMalloc->setName("replacementOfAlloca");
 					alloca->replaceAllUsesWith(callOfMalloc);
-					if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
-						outs().changeColor(raw_ostream::GREEN);
-						outs() << "Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n";
-						outs().resetColor();
-					}
+					VERBOSE(Verbose::Alloca << Verbose::Green <<
+							"Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n" <<
+							Verbose::Reset << Verbose::Default);
 				} 
 				else {
 					Value * bitcast = Builder.CreateBitCast(callOfMalloc, alloca->getType(), "replacementOfAlloca");
 					alloca->replaceAllUsesWith(bitcast);
-					if (verbose & KERNELGEN_VERBOSE_ALLOCA) {
-						outs().changeColor(raw_ostream::GREEN);
-						outs() << "Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n" << *bitcast << "\"\n";
-						outs().resetColor();
-					}
+					VERBOSE(Verbose::Alloca << Verbose::Green <<
+							"Replace \"" << *alloca << "\" with \n" << *callOfMalloc << "\n" <<
+							*bitcast << "\"\n" << Verbose::Reset << Verbose::Default);
 				}
 			}
 			alloca->eraseFromParent();
@@ -563,12 +548,10 @@ static bool processCallTreeLoop(Kernel* kernel, Module* m, Function* f)
 			if(alloca)
 				if(alloca->isArrayAllocation())
 					if(!isa<Constant>(*alloca->getArraySize())) {
-						if (verbose) {
-							outs().changeColor(raw_ostream::RED);
-							outs() << "\n    FAIL: Not allowed dynamic alloca in loop: " << *alloca << "\n";
-							outs().resetColor();
-						}
-						kernel->target[runmode].supported = false;
+						VERBOSE(Verbose::Red <<
+								"\n    FAIL: Not allowed dynamic alloca in loop: " <<
+								*alloca << "\n" << Verbose::Reset);
+						kernel->target[RUNMODE].supported = false;
 						return false;
 					}
 				
@@ -600,8 +583,7 @@ static bool processCallTreeLoop(Kernel* kernel, Module* m, Function* f)
 			Function* Src = cuda_module->getFunction(callee->getName());
 			if (Src)
 			{
-				if (verbose)
-					cout << "Device call: " << callee->getName().data()<< endl;
+				VERBOSE("Device call: " << callee->getName().data() << "\n");
 				call->setCallingConv(CallingConv::PTX_Device);					
 				linkFunctionWithAllDependendes(Src, Dst);
 				Dst->setName(Dst->getName());
@@ -613,13 +595,10 @@ static bool processCallTreeLoop(Kernel* kernel, Module* m, Function* f)
 
 			// Loop kernel contains non-native calls, and therefore
 			// cannot be executed on GPU.
-			if (verbose)
-			{
-				outs().changeColor(raw_ostream::RED);
-			    outs() <<  "\n    FAIL: Not allowed host call in loop: " << callee->getName().data()<< "\n";
-			    outs().resetColor();
-			}
-			kernel->target[runmode].supported = false;
+			VERBOSE(Verbose::Red <<
+					"\n    FAIL: Not allowed host call in loop: " << callee->getName().data() <<
+					"\n" << Verbose::Reset);
+			kernel->target[RUNMODE].supported = false;
 			return false;
 		}
 	return true;
@@ -632,13 +611,10 @@ KernelFunc kernelgen::runtime::Compile(
 	if (kernel->source == "")
 		return kernel->target[runmode].binary;
 
-        if (verbose)
-	{
-		outs().changeColor(raw_ostream::BLUE);
-		outs() << "\n<------------------ "<< kernel->name << ": compile started --------------------->\n";
-		outs().resetColor();
-	}
-		
+	VERBOSE(Verbose::Blue <<
+			"\n<------------------ "<< kernel->name << ": compile started --------------------->\n" <<
+			Verbose::Reset);
+
 	Module* m = module;
 	LLVMContext &context = getGlobalContext();
 	if (!m) {
@@ -671,7 +647,7 @@ KernelFunc kernelgen::runtime::Compile(
 			// To perform this analysis, require the native runmode to be
 			// used globally for entire app, i.e. not a fallback from
 			// non-portable GPU kernel or hostcall.
-			if (runmode == kernelgen::runmode)
+			if (runmode == RUNMODE)
 			{
 				// Substitute integer and pointer arguments.
 				if (szdatai != 0) ConstantSubstitution(f, data);
@@ -702,7 +678,7 @@ KernelFunc kernelgen::runtime::Compile(
 		}
 
 		verifyModule(*m);
-		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
+		VERBOSE(Verbose::Sources << *m << Verbose::Default);
  
 		return Codegen(runmode, kernel, m);
 	}
@@ -1062,7 +1038,7 @@ KernelFunc kernelgen::runtime::Compile(
 		}
 
 		verifyModule(*m);
-		if (verbose & KERNELGEN_VERBOSE_SOURCES) m->dump();
+		VERBOSE(Verbose::Sources << *m << Verbose::Default);
 
 		return Codegen(runmode, kernel, m);
 	}

@@ -65,12 +65,6 @@ using namespace std;
 // force no caching/prefetching.
 #define EXTRA_OFFSET		512
 
-namespace kernelgen
-{
-	// Verbose output.
-	extern int verbose;
-}
-
 using namespace kernelgen;
 
 // Device memory buffer for binary size and content.
@@ -134,9 +128,8 @@ struct CUDYfunction_t
 			size_t shstrndx;
 			if (elf_getshdrstrndx(e, &shstrndx))
 			{
-				if (verbose)
-					cerr << "Cannot get the CUBIN/ELF strings section header index" << endl;
-				throw CUDA_ERROR_INVALID_SOURCE;
+				THROW("Cannot get the CUBIN/ELF strings section header index",
+						CUDA_ERROR_INVALID_SOURCE);
 			}
 			Elf_Scn* scn = NULL;
 			while ((scn = elf_nextscn(e, scn)) != NULL)
@@ -145,16 +138,14 @@ struct CUDYfunction_t
 				GElf_Shdr shdr;
 				if (gelf_getshdr(scn, &shdr) != &shdr)
 				{
-					if (verbose)
-						cerr << "Cannot load the CUBIN/ELF section header" << endl;
-					throw CUDA_ERROR_INVALID_SOURCE;
+					THROW("Cannot load the CUBIN/ELF section header",
+							CUDA_ERROR_INVALID_SOURCE);
 				}
 				char* name = NULL;
 				if ((name = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
 				{
-					if (verbose)
-						cerr << "Cannot load the CUBIN/ELF section name" << endl;
-					throw CUDA_ERROR_INVALID_SOURCE;
+					THROW("Cannot load the CUBIN/ELF section name",
+							CUDA_ERROR_INVALID_SOURCE);
 				}
 
 				if (elfname != name) continue;
@@ -173,11 +164,7 @@ struct CUDYfunction_t
 				if (cuerr != CUDA_SUCCESS)
 				{
 					if (cuerr != CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED)
-					{
-						if (verbose)
-							cerr << "Cannot pin memory for CUBIN binary content" << endl;		
-						throw cuerr;
-					}
+						THROW("Cannot pin memory for CUBIN binary content", cuerr);
 					
 					// We are fine, if memory is already registered.
 				}
@@ -187,11 +174,7 @@ struct CUDYfunction_t
 				if (cuerr != CUDA_SUCCESS)
 				{
 					if (cuerr != CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED)
-					{
-						if (verbose)
-							cerr << "Cannot pin memory for the dynamic kernel pool offset" << endl;
-						throw cuerr;
-					}
+						THROW("Cannot pin memory for the dynamic kernel pool offset", cuerr);
 
 					// We are fine, if memory is already registered.
 				}		
@@ -207,14 +190,9 @@ struct CUDYfunction_t
 		elf_end(e);
 	
 		if (regcount == -1)
-		{
-			if (verbose)
-				cerr << "Cannot determine the kernel regcount" << endl;
-			throw CUDA_ERROR_INVALID_SOURCE;
-		}
+			THROW("Cannot determine the kernel regcount", CUDA_ERROR_INVALID_SOURCE);
 
-		if (verbose)
-			cout << "regcount = " << regcount << ", size = " << szbinary << endl;
+		VERBOSE("regcount = " << regcount << ", size = " << szbinary << "\n");
 	}
 
 	CUDYfunction_t(CUDYloader_t* loader,
@@ -233,7 +211,7 @@ struct CUDYfunction_t
 		if (cuerr != CUDA_SUCCESS)
 		{
 			if (cuerr != CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED)
-				throw cuerr;
+				THROW("Cannot pin memory for CUBIN binary content", cuerr);
 
 			// We are fine, if memory is already registered.
 		}
@@ -243,7 +221,7 @@ struct CUDYfunction_t
 		if (cuerr != CUDA_SUCCESS)
 		{
 			if (cuerr != CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED)
-				throw cuerr;
+				THROW("Cannot pin memory for the dynamic kernel pool offset", cuerr);
 
 			// We are fine, if memory is already registered.
 		}		
@@ -256,7 +234,7 @@ struct CUDYfunction_t
 		if (cuerr != CUDA_SUCCESS)
 		{
 			if (cuerr != CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED)
-				throw cuerr;
+				THROW("Cannot unpin memory for CUBIN binary content", cuerr);
 			
 			// We are fine, if memory is already unregistered.
 		}
@@ -266,7 +244,7 @@ struct CUDYfunction_t
 		if (cuerr != CUDA_SUCCESS)
 		{
 			if (cuerr != CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED)
-				throw cuerr;
+				THROW("Cannot unpin memory for the dynamic kernel pool offset", cuerr);
 			
 			// We are fine, if memory is already unregistered.
 		}
@@ -297,19 +275,12 @@ struct CUDYloader_t
 		int device;
 		CUresult curesult = cuDeviceGet(&device, 0);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot get the CUDA device" << endl;
-			throw curesult;
-		}
+			THROW("Cannot get the CUDA device", curesult);
+
 		int major = 2, minor = 0;
 		curesult = cuDeviceComputeCapability(&major, &minor, device);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot get the CUDA device compute capability" << endl;
-			throw curesult;
-		}
+			THROW("Cannot get the CUDA device compute capability", curesult);
 
 		// Select the bank number: differs between Fermi and Kepler.
 		string bank = "";
@@ -362,10 +333,8 @@ struct CUDYloader_t
 			stream << "\t\t!EndKernel" << endl;
 		}
 
-		string source = stream.str();
-		//cout << source;
-
 		// Duplicate source array.
+		string source = stream.str();
 		std::vector<char> vsource(source.size() + 1);
 		char* csource = (char*)&vsource[0];
 		csource[source.size()] = '\0';
@@ -380,11 +349,7 @@ struct CUDYloader_t
 			size_t size;
 			cubin = asfermi_encode_cubin(csource, major * 10 + minor, 0, &size);
 			if (!cubin)
-			{
-				if (verbose)
-					cerr << "Cannot encode the uberkern into cubin" << endl;
-				throw CUDA_ERROR_INVALID_SOURCE;
-			}
+				THROW("Cannot encode the uberkern into cubin", CUDA_ERROR_INVALID_SOURCE);
 			
 			if (host_cubin != "")
 			{
@@ -393,8 +358,7 @@ struct CUDYloader_t
 				file1.download(cubin, size);
 				
 				// Merge dyloader cubin with host cubin.
-				if (verbose)
-					cout << "Merge: " << host_cubin << " " << file1.getName() << endl;
+				VERBOSE("Merge: " << host_cubin << " " << file1.getName() << "\n");
 				TempFile file2 = Temp::getFile("%%%%%%%%.cubin");
 				CUBIN::Merge(host_cubin.c_str(), file1.getName().c_str(), file2.getName().c_str());
 				
@@ -410,21 +374,13 @@ struct CUDYloader_t
 			// Load binary containing uberkernel to deivce memory.
 			curesult = cuModuleLoadData(&module, cubin);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot load uberkern module" << endl;
-				throw curesult;
-			}
+				THROW("Cannot load uberkern module", curesult);
 			moduleLoaded = true;
 
 			// Load uberkern loader entry point from module.
 			curesult = cuModuleGetFunction(&loader, module, "uberkern");
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot load uberkern loader function" << endl;
-				throw curesult;
-			}
+				THROW("Cannot load uberkern loader function", curesult);
 
 			// Load uberkernel entry points from module.
 			for (int i = 0; i < MAX_REGCOUNT + 1; i++)
@@ -434,68 +390,41 @@ struct CUDYloader_t
 				string name = stream.str();
 				curesult = cuModuleGetFunction(&entry[i], module, name.c_str());
 				if (curesult != CUDA_SUCCESS)
-				{
-					if (verbose)
-						cerr << "Cannot load uberkern entry function" << endl;
-					throw curesult;
-				}
+					THROW("Cannot load uberkern entry function", curesult);
 			}
 
 			// Load the uberkernel command constant.
 			curesult = cuModuleGetGlobal(&command, NULL, module, "uberkern_cmd");
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot load the uberkern_cmd constant" << endl;
-				throw curesult;
-			}
+				THROW("Cannot load the uberkern_cmd constant", curesult);
 
 			// Initialize command value with ZERO, so on the next
 			// launch uberkern will simply report LEPC and exit.
 			curesult = cuMemsetD32(command, 0, 1);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot write the uberkern_cmd constant" << endl;
-				throw curesult;
-			}
+				THROW("Cannot write the uberkern_cmd constant", curesult);
 
 			// Load the dynamic kernel code BRA target address.
 			curesult = cuModuleGetGlobal(&address, NULL, module, "uberkern_goto");
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot load the uberkern_goto constant" << endl;
-				throw curesult;
-			}
+				THROW("Cannot load the uberkern_goto constant", curesult);
 
 			// Load the uberkernel config structure address constant.
 			curesult = cuModuleGetGlobal(&config, NULL, module, "uberkern_config");
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot write the uberkern_config constant" << endl;
-				throw curesult;
-			}
+				THROW("Cannot write the uberkern_config constant", curesult);
 
 			// Allocate space for uberkernel arguments.
 			curesult = cuMemAlloc(&buffer, sizeof(buffer_t) + this->capacity);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot allocate the uberkern memory buffer" << endl;
-				throw curesult;
-			}
+				THROW("Cannot allocate the uberkern memory buffer", curesult);
+
 			binary = (CUdeviceptr)((char*)buffer + sizeof(buffer_t));
 
 			// Fill the structure address constant with the address value.
 			curesult = cuMemcpyHtoD(config, &buffer, sizeof(CUdeviceptr*));
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot write the uberkern config structure address" << endl;
-				throw curesult;
-			}
+				THROW("Cannot write the uberkern config structure address", curesult);
 
 			// Launch uberkernel to fill the LEPC.
 			// Note we are always sending 256 Bytes, regardless
@@ -511,50 +440,31 @@ struct CUDYloader_t
 			curesult = cuLaunchKernel(loader,
 				1, 1, 1, 1, 1, 1, 0, 0, NULL, params);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot launch the uberkern loader" << endl;
-				throw curesult;
-			}
+				THROW("Cannot launch the uberkern loader", curesult);
 
 			// Synchronize kernel.
 			curesult = cuCtxSynchronize();
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot synchronize the uberkern loader" << endl;
-				throw curesult;
-			}
+				THROW("Cannot synchronize the uberkern loader", curesult);
 
 			// Read the LEPC.
 			curesult = cuMemcpyDtoH(&lepc, buffer, sizeof(int));
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot read the uberkern LEPC value" << endl;
-				throw curesult;
-			}
+				THROW("Cannot read the uberkern LEPC value", curesult);
 
-			if (verbose)
-				cout << "LEPC = 0x" << hex << lepc << dec << endl;
+			stringstream xlepc;
+			xlepc << hex << lepc;
+			VERBOSE("LEPC = 0x" << xlepc.str() << "\n");
 
 			// Set binary pointer in buffer.
 			curesult = cuMemcpyHtoD((CUdeviceptr)((char*)buffer + 8), &binary, sizeof(CUdeviceptr*));
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot write the uberkern binary pointer" << endl;
-				throw curesult;
-			}
+				THROW("Cannot write the uberkern binary pointer", curesult);
 
 			// Pin memory for offset.
 			curesult = cuMemHostRegister(&offset, sizeof(int), 0);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot pin host memory for the offset" << endl;
-				throw curesult;
-			}
+				THROW("Cannot pin host memory for the offset", curesult);
 		}
 		catch (CUresult cuerr)
 		{
@@ -563,17 +473,15 @@ struct CUDYloader_t
 			{
 				CUresult curesult = cuModuleUnload(module);
 				if (curesult != CUDA_SUCCESS)
-					if (verbose)
-						cerr << "Cannot unload the uberkern module" << endl;
+					THROW("Cannot unload the uberkern module", curesult);
 			}
 			if (buffer)
 			{
 				CUresult curesult = cuMemFree(buffer);
 				if (curesult != CUDA_SUCCESS)
-					if (verbose)
-						cerr << "Cannot free the uberkern memory buffer" << endl;
+					THROW("Cannot free the uberkern memory buffer", curesult);
 			}
-			throw cuerr;
+			THROW("Error in dynamic loader", curesult);
 		}
 		free(cubin);
 	}
@@ -587,27 +495,15 @@ struct CUDYloader_t
 	
 		CUresult curesult = cuModuleUnload(module);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot unload the uberkern module" << endl;
-			throw curesult;
-		}
+			THROW("Cannot unload the uberkern module", curesult);
 		curesult = cuMemFree(buffer);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot free the uberlern memory buffer" << endl;
-			throw curesult;
-		}
+			THROW("Cannot free the uberlern memory buffer", curesult);
 		
 		// Unpin memory for offset.
 		curesult = cuMemHostUnregister(&offset);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot unpin host memory for the offset" << endl;
-			throw curesult;
-		}
+			THROW("Cannot unpin host memory for the offset", curesult);
 	}
 	
 	CUresult Load(CUDYfunction_t* function, CUstream stream)
@@ -616,58 +512,37 @@ struct CUDYloader_t
 		// incorporate the specified dynamic kernel body.
 		if (offset + function->szbinary > capacity)
 		{
-			if (verbose)
-				cerr << "Insufficient space in the uberkern memory pool" << endl;
-			throw CUDA_ERROR_OUT_OF_MEMORY;
+			THROW("Insufficient space in the uberkern memory pool",
+					CUDA_ERROR_OUT_OF_MEMORY);
 		}
 
 		// Set dynamic kernel binary size.
 		CUresult curesult = cuMemcpyHtoDAsync(buffer,
 			&function->szbinary, sizeof(unsigned int), stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot set the dynamic kernel binary size" << endl;
-			throw curesult;
-		}
+			THROW("Cannot set the dynamic kernel binary size", curesult);
 
 		// Initialize command value with ONE, so on the next
 		// launch uberkern will load dynamic kernel code and exit.
 		curesult = cuMemsetD32Async(command, 1, 1, stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot write the uberkern config command" << endl;
-			throw curesult;
-		}
+			THROW("Cannot write the uberkern config command", curesult);
 
 		// Fill the dynamic kernel code BRA target address.
 		curesult = cuMemcpyHtoDAsync(address, &offset, sizeof(int), stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot fill the dynamic kernel code BRA target address" << endl;
-			throw curesult;
-		}
+			THROW("Cannot fill the dynamic kernel code BRA target address", curesult);
 
 		// Load dynamic kernel binary.
 		curesult = cuMemcpyHtoDAsync((CUdeviceptr)binary,
 			&function->binary[0], function->szbinary, stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot load the dynamic kernel binary" << endl;
-			throw curesult;
-		}
+			THROW("Cannot load the dynamic kernel binary", curesult);
 
 		// Synchronize stream.
 		curesult = cuStreamSynchronize(stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot synchronize after the dynamic kernel binary loading" << endl;
-			throw curesult;
-		}
+			THROW("Cannot synchronize after the dynamic kernel binary loading", curesult);
 
 		// Launch uberkernel to load the dynamic kernel code.
 		// Note we are always sending 256 Bytes, regardless
@@ -683,20 +558,12 @@ struct CUDYloader_t
 		curesult = cuLaunchKernel(loader,
 			1, 1, 1, 1, 1, 1, 0, stream, NULL, params);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot launch the uberkern loader" << endl;
-			throw curesult;
-		}
+			THROW("Cannot launch the uberkern loader", curesult);
 
 		// Synchronize stream.
 		curesult = cuStreamSynchronize(stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot synchronize the uberkern loader" << endl;
-			throw curesult;
-		}
+			THROW("Cannot synchronize the uberkern loader", curesult);
 
 		// Store function body offset.
 		function->offset = offset;
@@ -721,54 +588,30 @@ struct CUDYloader_t
 		// may change if loader code gets changed. 
 		CUresult curesult = cuMemsetD32Async(command, lepc + 0x138, 1, stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot write the uberkern config command" << endl;
-			return curesult;
-		}
+			THROW("Cannot write the uberkern config command", curesult);
 
 		// Fill the dynamic kernel code BRA target address.
 		curesult = cuMemcpyHtoDAsync(address, &function->offset, sizeof(int), stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot fill the dynamic kernel code BRA target address" << endl;
-			return curesult;
-		}
+			THROW("Cannot fill the dynamic kernel code BRA target address", curesult);
 
 		// Synchronize stream.
 		curesult = cuStreamSynchronize(stream);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot synchronize after the dynamic kernel binary loading" << endl;
-			return curesult;
-		}
+			THROW("Cannot synchronize after the dynamic kernel binary loading", curesult);
 
 		CUevent start, stop;
 		if (time)
 		{
 			curesult = cuEventCreate(&start, 0);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot create timer start event" << endl;
-				return curesult;
-			}
+				THROW("Cannot create timer start event", curesult);
 			curesult = cuEventCreate(&stop, 0);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot create timer stop event" << endl;
-				return curesult;
-			}
+				THROW("Cannot create timer stop event", curesult);
 			curesult = cuEventRecord(start, stream);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot record the timer start event" << endl;
-				return curesult;
-			}
+				THROW("Cannot record the timer start event", curesult);
 		}
 
 		// Launch device function.
@@ -785,35 +628,19 @@ struct CUDYloader_t
 			gx, gy, gz, bx, by, bz, szshmem,
 			stream, NULL, config);
 		if (curesult != CUDA_SUCCESS)
-		{
-			if (verbose)
-				cerr << "Cannot launch the dynamic kernel" << endl;
-			return curesult;
-		}
+			THROW("Cannot launch the dynamic kernel", curesult);
 
 		if (time)
 		{
 			curesult = cuEventRecord(stop, stream);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot record the timer stop event" << endl;
-				return curesult;
-			}
+				THROW("Cannot record the timer stop event", curesult);
 			curesult = cuEventSynchronize(stop);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot synchronize the dynamic kernel" << endl;
-				return curesult;
-			}
+				THROW("Cannot synchronize the dynamic kernel", curesult);
 			curesult = cuEventElapsedTime(time, start, stop);
 			if (curesult != CUDA_SUCCESS)
-			{
-				if (verbose)
-					cerr << "Cannot get the timer elapsed time" << endl;
-				return curesult;
-			}
+				THROW("Cannot get the timer elapsed time", curesult);
 			*time *= 1e-3;
 		}
 
@@ -898,4 +725,3 @@ CUresult cudyDispose(CUDYloader loader)
 	delete loader;
 	return CUDA_SUCCESS;
 }
-

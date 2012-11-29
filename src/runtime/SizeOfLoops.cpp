@@ -228,18 +228,15 @@ public:
 		cout << "<--------------------------------------------------------->" << endl;
 	}
 	void printSizeOfLoops(Size3 &size3, int numberOfLoops) {
-		if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-		{
-			outs().changeColor(raw_ostream::GREEN);
-			cout << "\n    Number of good nested parallel loops: " << numberOfLoops << endl;
-			if(numberOfLoops) {
-				cout << "    Average size of loops: " << size3.x;
-				if(numberOfLoops >=2) cout << " " << size3.y;
-				if(numberOfLoops >=3) cout << " " << size3.z;
-				cout << endl;
-			}
-			outs().resetColor();
+		VERBOSE(Verbose::Polly << Verbose::Green <<
+				"\n    Number of good nested parallel loops: " << numberOfLoops << "\n");
+		if (numberOfLoops) {
+			VERBOSE("    Average size of loops: " << size3.x);
+			if (numberOfLoops >= 2) VERBOSE(" " << size3.y);
+			if (numberOfLoops >= 3) VERBOSE(" " << size3.z);
+			VERBOSE("\n");
 		}
+		VERBOSE(Verbose::Reset << Verbose::Default);
 	}
 	void setMemoryForSizes(vector<Size3> *memForSizes) {
 		sizeOfLoops = memForSizes;
@@ -369,9 +366,10 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 	   findParallelLoop(stmt->next);
     }
 	printSizeOfLoops( (*sizeOfLoops)[0], goodLoopsCount);
-    //printCloogAST(C);
-        if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-		outs() << "\n<------------------------------ Scop: end ----------------------------------->\n";
+
+	VERBOSE(Verbose::Polly <<
+		"\n<------------------------------ Scop: end ----------------------------------->\n" <<
+		Verbose::Default);
 	return false;
 }
 

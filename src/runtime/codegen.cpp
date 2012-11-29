@@ -32,6 +32,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
@@ -53,6 +54,7 @@ using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;
 using namespace kernelgen::utils;
 using namespace llvm;
+using namespace llvm::sys;
 using namespace util::io;
 using namespace std;
 
@@ -236,27 +238,30 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 
 		// Dump generated kernel object to first temporary file.
 		TempFile tmp1 = Temp::getFile("%%%%%%%%.o");
-		if (verbose) tmp1.keep();
+		if (settings.getVerboseMode() != Verbose::Disable) tmp1.keep();
 		tmp1.download(bin_string.c_str(), bin_string.size());
 
 		// Link first and second objects together into third one.
 		TempFile tmp2 = Temp::getFile("%%%%%%%%.so");
-		if (verbose) tmp2.keep();
+		if (settings.getVerboseMode() != Verbose::Disable) tmp2.keep();
 		{
-			string linker = "ld";
-			std::list<string> linker_args;
-			linker_args.push_back("-shared");
-			linker_args.push_back("-o");
-			linker_args.push_back(tmp2.getName());
-			linker_args.push_back(tmp1.getName());
-			if (verbose) {
-				cout << linker;
-				for (std::list<string>::iterator it = linker_args.begin();
-						it != linker_args.end(); it++)
-					cout << " " << *it;
-				cout << endl;
+			int i = 0;
+			vector<const char*> args;
+			args.resize(6);
+			args[i++] = "ld";
+			args[i++] = "-shared";
+			args[i++] = "-o";
+			args[i++] = tmp2.getName().c_str();
+			args[i++] = tmp1.getName().c_str();
+			args[i++] = NULL;
+			string err;
+			VERBOSE(args);
+			int status = Program::ExecuteAndWait(Program::FindProgramByName(args[0]),
+					&args[0], NULL, NULL, 0, 0, &err);
+			if (status) {
+				cerr << err;
+				exit(1);
 			}
-			execute(linker, linker_args, "", NULL, NULL);
 		}
 
 		// Load linked image and extract kernel entry point.
@@ -270,9 +275,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		if (!kernel_func)
 			THROW("Cannot dlsym " << dlerror());
 
-		if (verbose)
-			cout << "Loaded '" << name << "' at: " << (void*) kernel_func
-					<< endl;
+		VERBOSE("Loaded '" << name << "' at: " << (void*)kernel_func << "\n");
 
 		return kernel_func;
 	}
@@ -344,30 +347,35 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		// underlying string.
 		ptx_raw_stream.flush();
 
-		if (verbose & KERNELGEN_VERBOSE_SOURCES)
-			cout << ptx_string;
+		VERBOSE(Verbose::Sources << ptx_string << "\n" << Verbose::Default);
 
 		// Dump generated kernel object to first temporary file.
 		TempFile tmp2 = Temp::getFile("%%%%%%%%.ptx");
-		if (verbose) tmp2.keep();
+		if (settings.getVerboseMode() != Verbose::Disable) tmp2.keep();
 		tmp2.download(ptx_string.c_str(), ptx_string.size());
 
 		// Compile PTX code in temporary file to CUBIN.
 		TempFile tmp3 = Temp::getFile("%%%%%%%%.cubin");
-		if (verbose) tmp3.keep();
+		if (settings.getVerboseMode() != Verbose::Disable) tmp3.keep();
 		{
-			string ptxas = "ptxas";
-			std::list<string> ptxas_args;
-			if (verbose)
-				ptxas_args.push_back("-v");
+			int i = 0;
+			vector<const char*> args;
+			args.resize(14);
+			args[i++] = "ptxas";
+			if (settings.getVerboseMode() != Verbose::Disable)
+				args[i++] = "-v";
 			stringstream sarch;
 			sarch << "-arch=sm_" << (major * 10 + minor);
-			ptxas_args.push_back(sarch.str().c_str());
-			ptxas_args.push_back("-m64");
-			ptxas_args.push_back(tmp2.getName());
-			ptxas_args.push_back("-o");
-			ptxas_args.push_back(tmp3.getName());
-			ptxas_args.push_back("--cloning=no");
+			string arch = sarch.str();
+			args[i++] = arch.c_str();
+			args[i++] = "-m64";
+			args[i++] = tmp2.getName().c_str();
+			args[i++] = "-o";
+			args[i++] = tmp3.getName().c_str();
+			args[i++] = "--cloning=no";
+
+			const char* __maxrregcount = "--maxrregcount";
+			string maxrregcount;
 			if (name == "__kernelgen_main") {
 				// Create a relocatable cubin, to be later linked
 				// with dyloader cubin.
@@ -407,25 +415,32 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 					if (maxregcount > 63)
 						maxregcount = 63;
 				}
-				ptxas_args.push_back("--maxrregcount");
-				std::ostringstream smaxregcount;
-				smaxregcount << maxregcount;
-				ptxas_args.push_back(smaxregcount.str().c_str());
+
+				args[i++] = __maxrregcount;
+				stringstream smaxrregcount;
+				smaxrregcount << maxregcount;
+				maxrregcount = smaxrregcount.str();
+				args[i++] = maxrregcount.c_str();
 			}
 
+			const char* _g = "-g";
+			const char* __return_at_end = "--return-at-end";
+			const char* __dont_merge_basicblocks = "--dont-merge-basicblocks";
 			if (::debug) {
-				ptxas_args.push_back("-g");
-				ptxas_args.push_back("--return-at-end");
-				ptxas_args.push_back("--dont-merge-basicblocks");
+				args[i++] = _g;
+				args[i++] = __return_at_end;
+				args[i++] = __dont_merge_basicblocks;
 			}
-			if (verbose) {
-				cout << ptxas;
-				for (std::list<string>::iterator it = ptxas_args.begin();
-						it != ptxas_args.end(); it++)
-					cout << " " << *it;
-				cout << endl;
+			args[i++] = NULL;
+
+			string err;
+			VERBOSE(args);
+			int status = Program::ExecuteAndWait(Program::FindProgramByName(args[0]),
+					&args[0], NULL, NULL, 0, 0, &err);
+			if (status) {
+				cerr << err;
+				exit(1);
 			}
-			execute(ptxas, ptxas_args, "", NULL, NULL);
 		}
 
 		if (name == "__kernelgen_main") {
@@ -446,12 +461,23 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		}
 
 		// Dump Fermi assembly from CUBIN.
-		if (verbose & KERNELGEN_VERBOSE_ISA) {
-			string cuobjdump = "cuobjdump";
-			std::list<string> cuobjdump_args;
-			cuobjdump_args.push_back("-sass");
-			cuobjdump_args.push_back(tmp3.getName());
-			execute(cuobjdump, cuobjdump_args, "", NULL, NULL);
+		if (settings.getVerboseMode() & Verbose::ISA) {
+			int i = 0;
+			vector<const char*> args;
+			args.resize(4);
+			args[i++] = "cuobjdump";
+			args[i++] = "-sass";
+			args[i++] = tmp3.getName().c_str();
+			args[i++] = NULL;
+
+			string err;
+			VERBOSE(args);
+			int status = Program::ExecuteAndWait(Program::FindProgramByName(args[0]),
+					&args[0], NULL, NULL, 0, 0, &err);
+			if (status) {
+				cerr << err;
+				exit(1);
+			}
 		}
 
 		// Load CUBIN into string.
@@ -501,8 +527,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 				THROW("Error in cudyLoadCubin " << err);
 		}
 
-		if (verbose)
-			cout << "Loaded '" << name << "' at: " << kernel_func << endl;
+		VERBOSE("Loaded '" << name << "' at: " << kernel_func << "\n");
 
 		return (KernelFunc) kernel_func;
 	}

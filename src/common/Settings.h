@@ -22,7 +22,22 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include <Verbose.h>
+
 #include <string>
+
+#define RUNMODE              kernelgen::settings.getRunmode()
+#define VERBOSE(val)    do { kernelgen::settings.getVerbose() << val; } while (0)
+#define KDEBUG               kernelgen::settings.getDebug()
+#define SUBARCH              kernelgen::settings.getSubarch()
+#define THROW(msg, ...) do { std::cerr << __FILE__ << ":" << __LINE__ << " " << msg << std::endl; \
+                             throw __VA_ARGS__; } while (0)
+
+#define KERNELGEN_RUNMODE_UNDEF   (-1)
+#define KERNELGEN_RUNMODE_NATIVE	0
+#define KERNELGEN_RUNMODE_CUDA		1
+#define KERNELGEN_RUNMODE_OPENCL	2
+#define KERNELGEN_RUNMODE_COUNT		3
 
 namespace kernelgen {
 
@@ -32,7 +47,7 @@ namespace kernelgen {
 		int runmode;
 
 		// Verbose output.
-		int verbose;
+		Verbose verbose;
 
 		// Debug mode.
 		int debug;
@@ -45,7 +60,8 @@ namespace kernelgen {
 	public :
 
 		inline int getRunmode() const { return runmode; }
-		inline int getVerbose() const { return verbose; }
+		inline Verbose& getVerbose() { return verbose; }
+		inline Verbose::Mode getVerboseMode() const { return verbose.getMode(); }
 		inline int getDebug() const { return debug; }
 		inline std::string getSubarch() const { return subarch; }
 

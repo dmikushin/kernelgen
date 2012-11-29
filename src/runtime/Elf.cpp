@@ -137,6 +137,7 @@ void csection::addSymbol(std::string symname, const char* symdata, size_t szsymd
 	// Merge temporary ELF with section's parent
 	string merge = "ld";
 	list<string> merge_args;
+	merge_args.push_back(merge);
 	if (ehdr_tmp->e_machine != EM_X86_64)
 		merge_args.push_back("-melf_i386");
 	merge_args.push_back("--unresolved-symbols=ignore-all");
@@ -150,14 +151,6 @@ void csection::addSymbol(std::string symname, const char* symdata, size_t szsymd
 	merge_args.push_back(e->ifd->getFilename());
 	merge_args.push_back(e_tmp.ofilename);
 
-	if (verbose)
-	{
-		cout << merge;
-		for (list<string>::iterator it = merge_args.begin();
-			it != merge_args.end(); it++)
-			cout << " " << *it;
-		cout << endl;
-	}
 	execute(merge, merge_args, "", NULL, NULL);
 
 	// Move temporary result in place of original file 

@@ -98,20 +98,18 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	mmap.align = align;
 	mmappings.push_back(mmap);
 
-	if (verbose & KERNELGEN_VERBOSE_DATAIO)
-		cout << "Mapped memory " << map << "(" << base << " - " <<
-		align << ") + " << size << endl;
+	VERBOSE(Verbose::DataIO << "Mapped memory " << map << "(" << base <<
+			" - " << align << ") + " << size << "\n" << Verbose::Default);
 
 	err = cuMemcpyDtoHAsync(base, base, size,
-		active_kernel->target[runmode].MonitorStream);
+		active_kernel->target[RUNMODE].MonitorStream);
 	if (err) THROW("Error in cuMemcpyDtoH " << err);
 	err = cuStreamSynchronize(
-		active_kernel->target[runmode].MonitorStream);
+		active_kernel->target[RUNMODE].MonitorStream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
-	if (verbose & KERNELGEN_VERBOSE_DATAIO)
-		cout << "Mapped memory " << (void*)((char*)base - align) << "(" << base << " - " <<
-		align << ") + " << size << endl;
+	VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
+			"(" << base << " - " << align << ") + " << size << "\n" << Verbose::Default);
 }
 
 typedef void (*func_t)();
@@ -126,12 +124,12 @@ void kernelgen_hostcall(
 	*func = Compile(KERNELGEN_RUNMODE_NATIVE, kernel);
 
 	Dl_info info;
-	if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
+	if (settings.getVerboseMode() & Verbose::Hostcall)
 	{
 		if (dladdr((void*)*func, &info))
-			cout << "Host function call " << info.dli_sname << endl;
+			VERBOSE("Host function call " << info.dli_sname << "\n");
 		else
-			cout << "Host kernel call " << *func << endl;
+			VERBOSE("Host kernel call " << (void*)*func << "\n");
 	}
 
 	TargetData* TD = new TargetData(kernel->module);
@@ -235,12 +233,11 @@ void kernelgen_hostcall(
 
 				// Copy device memory to host mapped memory.
 				int err = cuMemcpyDtoHAsync(base, base, size,
-					kernel->target[runmode].MonitorStream);
+					kernel->target[RUNMODE].MonitorStream);
 				if (err) THROW("Error in cuMemcpyDtoHAsync");
 
-				if (verbose & KERNELGEN_VERBOSE_DATAIO)
-					cout << "Mapped memory " << (void*)((char*)base - align) <<
-						"(" << base << " - " << align << ") + " << size << endl;
+				VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
+						"(" << base << " - " << align << ") + " << size << "\n" << Verbose::Default);
 			}
 		}
 	}
@@ -275,19 +272,19 @@ void kernelgen_hostcall(
 	sa_new.sa_sigaction = sighandler;
 	if (sigaction(SIGSEGV, &sa_new, &sa_old) == -1)
 		THROW("Error in sigaction " << errno);
-        
-        if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
-        	cout << "Starting hostcall to " << (void*)*func << endl;
+
+	VERBOSE(Verbose::Hostcall << "Starting hostcall to " <<
+			(void*)*func << "\n" << Verbose::Default);
 
 	// Synchronize pending mmapped data transfers.
 	int err = cuStreamSynchronize(
-		kernel->target[runmode].MonitorStream);
+		kernel->target[RUNMODE].MonitorStream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
 	ffi_call(&cif, (func_t)*func, ret, values.data());
 
-	if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
-		cout << "Finishing hostcall to " << (void*)*func << endl;
+	VERBOSE(Verbose::Hostcall << "Finishing hostcall to " <<
+			(void*)*func << "\n" << Verbose::Default);
 	
 	// Unregister SIGSEGV signal handler and resore the
 	// original handler.
@@ -314,16 +311,16 @@ void kernelgen_hostcall(
 		if (size % 16) size -= mmap.size % 16;
 		int err = cuMemcpyHtoDAsync(
 			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, size,
-			kernel->target[runmode].MonitorStream);
+			kernel->target[RUNMODE].MonitorStream);
 		if (err) THROW("Error in cuMemcpyHtoDAsync " << err);
-		if (verbose & KERNELGEN_VERBOSE_DATAIO)
-			cout << "mmap.addr = " << mmap.addr << ", mmap.align = " <<
-				mmap.align << ", mmap.size = " << mmap.size << " (" << size << ")" << endl;
+		VERBOSE(Verbose::DataIO << "mmap.addr = " << mmap.addr <<
+				", mmap.align = " << mmap.align << ", mmap.size = " <<
+				mmap.size << " (" << size << ")\n" << Verbose::Default);
 	}
 	
 	// Synchronize and unmap previously mapped host memory.
 	err = cuStreamSynchronize(
-		kernel->target[runmode].MonitorStream);
+		kernel->target[RUNMODE].MonitorStream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
 	{
@@ -336,7 +333,6 @@ void kernelgen_hostcall(
         
         mmappings.clear();
         
-        if (verbose & KERNELGEN_VERBOSE_HOSTCALL)
-        	cout << "Finished hostcall handler" << endl;
+        VERBOSE(Verbose::Hostcall << "Finished hostcall handler\n" << Verbose::Default);
 }
 

@@ -26,7 +26,7 @@
 
 #include <iostream>
 
-#define THROW(message, ...) { std::cerr << __FILE__ << ":" << __LINE__ << " " << message << std::endl; throw __VA_ARGS__; }
+//#define THROW(message, ...) { std::cerr << __FILE__ << ":" << __LINE__ << " " << message << std::endl; throw __VA_ARGS__; }
 
 #endif // __cplusplus
 

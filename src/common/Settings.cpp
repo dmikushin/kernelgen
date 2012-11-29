@@ -19,14 +19,16 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "KernelGen.h"
 #include "Settings.h"
 #include "Verbose.h"
 
 #include "throw.h"
 
-#include <stdlib.h>
+#include <iostream>
+#include <cstdlib>
 
-kernelgen::Settings::Settings() : runmode(-1), verbose(0), debug(0)
+kernelgen::Settings::Settings() : verbose(0), debug(0), subarch("")
 {
 	char* crunmode = getenv("kernelgen_runmode");
 	if (crunmode) {
@@ -35,7 +37,7 @@ kernelgen::Settings::Settings() : runmode(-1), verbose(0), debug(0)
 		// Load verbose level.
 		char* cverbose = getenv("kernelgen_verbose");
 		if (cverbose)
-			verbose = atoi(cverbose);
+			verbose.setMode(Verbose::Mode(atoi(cverbose)));
 
 		// Load debug level.
 		char* cdebug = getenv("kernelgen_debug");
@@ -43,21 +45,23 @@ kernelgen::Settings::Settings() : runmode(-1), verbose(0), debug(0)
 			debug = atoi(cdebug);
 
 		// CUDA target specific: default subarchitecture.
-		subarch = getenv("kernelgen_subarch");
+		const char* csubarch = getenv("kernelgen_subarch");
+		if (csubarch)
+			subarch = csubarch;
 
 		// Check the valid runmode.
 		switch (runmode) {
 		case KERNELGEN_RUNMODE_NATIVE:
-			VERBOSE("Using KernelGen/NATIVE");
+			VERBOSE("Using KernelGen/NATIVE\n");
 			break;
 		case KERNELGEN_RUNMODE_CUDA:
-			VERBOSE("Using KernelGen/CUDA");
+			VERBOSE("Using KernelGen/CUDA\n");
 			break;
 		case KERNELGEN_RUNMODE_OPENCL:
-			VERBOSE("Using KernelGen/OpenCL");
+			VERBOSE("Using KernelGen/OpenCL\n");
 			break;
 		default:
-			THROW("Unknown runmode " << runmode);
+			THROW("Unknown runmode " << RUNMODE, RUNMODE);
 		}
 	}
 }

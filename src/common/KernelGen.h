@@ -25,7 +25,11 @@
 #include "ELF.h"
 #include "Settings.h"
 #include "Temp.h"
-#include "Verbose.h"
+
+// Define to load kernels lazily. Means instead of reading and verifying
+// modules during application startup, they are instead loaded in the place
+// of first use.
+#define KERNELGEN_LOAD_KERNELS_LAZILY
 
 namespace kernelgen {
 

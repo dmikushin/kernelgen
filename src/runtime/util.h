@@ -26,7 +26,7 @@
 
 #include <iostream>
 
-#define THROW(message) { std::cerr << __FILE__ << ":" << __LINE__ << " " << message << endl; throw; }
+//#define THROW(message) { std::cerr << __FILE__ << ":" << __LINE__ << " " << message << endl; throw; }
 
 #include <list>
 #include <string>

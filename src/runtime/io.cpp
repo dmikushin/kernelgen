@@ -20,6 +20,8 @@
  * 
  */
 
+#include "KernelGen.h"
+
 #include "util.h"
 #include "io.h"
 

@@ -42,8 +42,7 @@ CallInst* kernelgen::runtime::WrapCallIntoHostcall(CallInst* call, Kernel* kerne
 	Function* callee = dyn_cast<Function>(
 		call->getCalledValue()->stripPointerCasts());
 
-	if (verbose)
-		cout << "Host call: " << callee->getName().data() << endl;
+	VERBOSE("Host call: " << callee->getName().data() << "\n");
 
 	// Locate entire hostcall in the native code.
 	void* host_func = (void*)dlsym(NULL, callee->getName().data());

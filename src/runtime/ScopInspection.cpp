@@ -61,31 +61,31 @@ public:
 		AU.addRequired<Dependences>();
 		AU.setPreservesAll();
 	}
-	void checkLoopBodyes(const clast_for *for_loop, int indent);
+	void checkLoopBodies(const clast_for *for_loop, int indent);
 	void printDependences(const char * description, Dependences::Type type);
 };
 
-void InspectDependences::checkLoopBodyes(const clast_for *for_loop,int indent)
+void InspectDependences::checkLoopBodies(const clast_for *for_loop,int indent)
 {
 	if(DP->isParallelFor(for_loop)) {
-		if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		if (settings.getVerboseMode() & Verbose::Polly)
 		{
-			outs().changeColor(raw_ostream::GREEN);
-			outs().indent(indent) << "loop is parallel \n";
-			outs().resetColor();
+			VERBOSE(Verbose::Polly << Verbose::Green);
+			outs().indent(indent);
+			VERBOSE("loop is parallel\n" << Verbose::Reset << Verbose::Default);
 		}
 	} else {
-		if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		if (settings.getVerboseMode() & Verbose::Polly)
 		{
-			outs().changeColor(raw_ostream::RED);
-			outs().indent(indent) << "loop is not parallel \n";
-			outs().resetColor();
+			VERBOSE(Verbose::Polly << Verbose::Red);
+			outs().indent(indent);
+			VERBOSE("loop is not parallel\n" << Verbose::Reset << Verbose::Default);
 		}
 	}
 	const clast_stmt *stmt=for_loop->body;
 	while(stmt!=NULL) {
 		if(CLAST_STMT_IS_A(stmt, stmt_for))
-			checkLoopBodyes((const clast_for *)stmt,indent+4);
+			checkLoopBodies((const clast_for *)stmt,indent+4);
 		stmt=stmt->next;
 	}
 }
@@ -110,7 +110,7 @@ bool InspectDependences::runOnScop(Scop &scop)
 	       "After Constant Substitution number of scop's global parameters must be zero"
 	       "if there are parameters then outer loop does not parsed");
 
-	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	if (settings.getVerboseMode() & Verbose::Polly)
 	{
 		outs() << "<------------------------------ Scop: dependences --------------------------->\n";
 
@@ -126,21 +126,19 @@ bool InspectDependences::runOnScop(Scop &scop)
 	    if(CLAST_STMT_IS_A(((clast_stmt *)root)->next,stmt_for))
 		{
 	       const clast_for *for_loop =  (clast_for *)((clast_stmt *)root)->next;
-	       checkLoopBodyes(for_loop,4);
+	       checkLoopBodies(for_loop,4);
 		}
     } else 
-	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
 	{
+		VERBOSE(Verbose::Polly << Verbose::Red <<
+				"WARNING: There is useless Scop ( i.e. scop without statements )!!!\n" <<
+				Verbose::Reset << Verbose::Default);
 		assert(scop.begin() == scop.end());
-		outs().changeColor(raw_ostream::RED);
-		outs().indent(4) << "WARNING: There is useless Scop ( i.e. scop without statements )!!!\n";
-        outs().resetColor();
 	}
 	
-	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-	{
-		outs() << "<------------------------------ Scop: dependences end ----------------------->\n";
-	}
+	VERBOSE(Verbose::Polly <<
+			"<------------------------------ Scop: dependences end ----------------------->\n" <<
+			Verbose::Default);
 
 	return false;
 }
@@ -186,7 +184,7 @@ public:
 		AU.setPreservesAll();
 	}
 	static void printCloogAST(CloogInfo &C) {
-		if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+		if (settings.getVerboseMode() & Verbose::Polly)
 		{
 			outs() << "<------------------- Cloog AST of Scop ------------------->\n";
 			C.pprint(outs());
@@ -200,7 +198,7 @@ bool ScopDescription::runOnScop(Scop &scop)
 	S = &getCurScop();//&scop;
 	C = &getAnalysis<CloogInfo>();
 	assert(S && C);
-	if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+	if (settings.getVerboseMode() & Verbose::Polly)
 	{
 		outs() << "\n";
 		outs() << "<------------------------------ Scop: start --------------------------------->\n";
