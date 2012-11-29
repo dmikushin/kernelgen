@@ -73,14 +73,13 @@ Patch5:         llvm.opts.patch
 Patch6:         llvm.nvptx.patch
 Patch7:         llvm.clang.patch
 Patch8:		llvm.transforms.patch
-Patch9:		llvm.ostream.patch
-Patch10:	binutils.patch
-Patch11:	openmpi.cuda.patch
-Patch12:	cloog.checkout.patch
-Patch13:        libelf.patch
-Patch14:	gcc.patch
-Patch15:        gcc-multiarch.patch
-Patch16:        gcc.build.patch
+Patch9:		binutils.patch
+Patch10:	openmpi.cuda.patch
+Patch11:	cloog.checkout.patch
+Patch12:        libelf.patch
+Patch13:	gcc.patch
+Patch14:        gcc-multiarch.patch
+Patch15:        gcc.build.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -188,24 +187,23 @@ cd $RPM_BUILD_DIR
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
-%patch9 -p1
 %endif
 %if %binutils
-%patch10 -p1
+%patch9 -p1
 %endif
 %if %openmpi
-%patch11 -p1
+%patch10 -p1
 %endif
 %if %cloog
-%patch12 -p1
+%patch11 -p1
 %endif
 %if %libelf
-%patch13 -p1
+%patch12 -p1
 %endif
 %if %gcc
-%patch14 -p1
+%patch13 -p1
 %if (%target == debian)
-%patch15 -p1
+%patch14 -p1
 %endif
 %endif
 %endif

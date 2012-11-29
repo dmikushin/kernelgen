@@ -1,16 +1,3 @@
-.PHONY: src
-
-all: src
-
-install:
-	cd src && $(MAKE) install
-
-src:
-	cd src && $(MAKE)
-
-clean:
-	cd src && $(MAKE) clean
-
 deb:
 	rm -rf ~/rpmbuild/BUILDROOT/kernelgen
 	mkdir -p ~/rpmbuild/BUILDROOT/kernelgen/DEBIAN
