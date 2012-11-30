@@ -19,7 +19,7 @@
 #include <iostream>
 #include <cstdlib>
 
-kernelgen::Settings::Settings() : verbose(0), debug(0), subarch("")
+kernelgen::Settings::Settings() : runmode(KERNELGEN_RUNMODE_UNDEF), verbose(0), debug(0), subarch("")
 {
 	char* crunmode = getenv("kernelgen_runmode");
 	if (crunmode) {
