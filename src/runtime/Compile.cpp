@@ -209,6 +209,7 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 		//polly.add(polly::createIslScheduleOptimizerPass());
 		if (kernel->name != "__kernelgen_main") {
 			//polly.add(createRuntimeAliasAnalysisPass());
+		    polly.add(createSizeOfLoopsPass(&sizes, isThereAtLeastOneParallelLoop));  // compute size of loops
 		    polly.add(createScopDescriptionPass());   // print scop description
 		    polly.add(createTransformAccessesPass()); // create General Form for each scop's memory Access
 			                                          // set their current relation types to RelationType_general
@@ -216,7 +217,6 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 		    polly.add(createInspectDependencesPass()); // Dependences run and compute dependences 
 			                                           // before InspectDependences, but after TransformAccesses
                                                        // and use general form of memory accesses
-			polly.add(createSizeOfLoopsPass(&sizes, isThereAtLeastOneParallelLoop));  // compute size of loops
 		    polly.add(createSetRelationTypePass()); // set current relation types in scop's memory Accesses back to 
 			                                        // RelationType_polly
 		    //polly.add(createScopDescriptionPass());

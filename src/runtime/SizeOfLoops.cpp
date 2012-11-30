@@ -355,14 +355,29 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 	const clast_root *root = C.getClast();
 		
 	//if there are some not substituted parameters then we can not compute size of loops 
-	assert(scop.getNumParams() == 0 &&
+	/*assert(scop.getNumParams() == 0 &&
 	       "FIXME: "
 	       "After Constant Substitution number of scop's global parameters must be zero");
 	///   Those parameters are scalar integer values, which are constant during
 	///   execution.
 	assert(root->names->nb_parameters == 0 &&
 	       "FIXME: "
-	       "After Constant Substitution number of cloog's parameters must be zero");
+	       "After Constant Substitution number of cloog's parameters must be zero");*/
+
+        if(scop.getNumParams() != 0)
+	{
+		 assert(root->names->nb_parameters != 0);
+		// sizeOfLoops->push_back(Size3());
+		 *isThereAtLeastOneParallelLoop = true;
+		 if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+			{
+				outs().changeColor(raw_ostream::RED);
+				outs() << "\n    FAIL: Scop has parameters, maybe not all kernel detected as scop!!!\n";
+				outs().resetColor();
+			}
+		 getAnalysis<ScopInfo>().releaseMemory();
+		 return false;
+	}
 
 	const clast_stmt *stmt = (const clast_stmt*) root;
 
