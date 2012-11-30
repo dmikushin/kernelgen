@@ -883,18 +883,21 @@ KernelFunc kernelgen::runtime::Compile(
 			case 0:	blockDim = dim3(1, 1, 1);
 				assert(false);
 				break;
-			case 1: blockDim = dim3(props.maxThreadsPerBlock, 1, 1);
+			case 1: //blockDim = dim3(props.maxThreadsPerBlock, 1, 1);
+			        blockDim = dim3(512, 1, 1);
 				break;
-			case 2: blockDim = dim3(BLOCK_DIM_X, props.maxThreadsPerBlock / BLOCK_DIM_X, 1);
+			case 2: //blockDim = dim3(BLOCK_DIM_X, props.maxThreadsPerBlock / BLOCK_DIM_X, 1);
+			        blockDim = dim3(32, 16, 1);
 				break;
 			case 3:
 				{
-					double remainder = props.maxThreadsPerBlock / BLOCK_DIM_X;
+					/*double remainder = props.maxThreadsPerBlock / BLOCK_DIM_X;
 					double coefficient = (double)launchParameters.z / (double)launchParameters.y;
 					double yPow2 = remainder / coefficient;
 					double y = sqrt(yPow2);
 					blockDim = dim3(BLOCK_DIM_X, y , coefficient * y);
-					assert(blockDim.x * blockDim.y * blockDim.z <= props.maxThreadsPerBlock);
+					assert(blockDim.x * blockDim.y * blockDim.z <= props.maxThreadsPerBlock);*/
+					blockDim = dim3(32, 4, 4);
 				}
 				break;
 			}
