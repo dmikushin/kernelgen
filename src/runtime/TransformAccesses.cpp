@@ -101,10 +101,14 @@ bool TransformAccesses::runOnScop(Scop &scop)
 	S = &getCurScop();//&scop;
 	TD = &getAnalysis<TargetData>();
 
-	assert(scop.getNumParams() == 0 &&
+	/*assert(scop.getNumParams() == 0 &&
 	       "FIXME: "
 	       "After Constant Substitution number of scop's global parameters must be zero"
-	       "if there are parameters then outer loop does not parsed");
+	       "if there are parameters then outer loop does not parsed");*/
+
+        if(scop.getNumParams() != 0)
+             return false;
+
 	//<foreach statement in scop>
 
 
