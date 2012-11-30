@@ -37,6 +37,7 @@
 %define mpc KERNELGEN_ENABLE_MPC
 %define libelf KERNELGEN_ENABLE_LIBELF
 %define gcc KERNELGEN_ENABLE_GCC
+%define gcc_bootstrap KERNELGEN_ENABLE_GCC_BOOTSTRAP
 %define netcdf KERNELGEN_ENABLE_NETCDF
 %define openmpi KERNELGEN_ENABLE_OPENMPI
 %define dragonegg KERNELGEN_ENABLE_DRAGONEGG
@@ -298,7 +299,11 @@ CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --enab
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
 mkdir build
 cd build/
+%if %gcc_bootstrap
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-gmp-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-mpc-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/opt/kernelgen/bin/kernelgen-ld
+%else
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-gmp-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-mpc-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/opt/kernelgen/bin/kernelgen-ld --disable-bootstrap
+%endif
 %endif
 %if %netcdf
 #
