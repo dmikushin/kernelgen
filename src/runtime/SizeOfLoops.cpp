@@ -366,17 +366,14 @@ bool SizeOfLoops::runOnScop(Scop &scop)
 
         if(scop.getNumParams() != 0)
 	{
-		 assert(root->names->nb_parameters != 0);
+		assert(root->names->nb_parameters != 0);
 		// sizeOfLoops->push_back(Size3());
-		 *isThereAtLeastOneParallelLoop = true;
-		 if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-			{
-				outs().changeColor(raw_ostream::RED);
-				outs() << "\n    FAIL: Scop has parameters, maybe not all kernel detected as scop!!!\n";
-				outs().resetColor();
-			}
-		 getAnalysis<ScopInfo>().releaseMemory();
-		 return false;
+		*isThereAtLeastOneParallelLoop = true;
+		VERBOSE(Verbose::Polly << Verbose::Red <<
+			"\n    FAIL: Scop has parameters, maybe not all kernel detected as scop!!!\n" <<
+			Verbose::Reset << Verbose::Default);
+		getAnalysis<ScopInfo>().releaseMemory();
+		return false;
 	}
 
 	const clast_stmt *stmt = (const clast_stmt*) root;
