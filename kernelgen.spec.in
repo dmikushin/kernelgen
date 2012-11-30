@@ -1,3 +1,13 @@
+##===- kernelgen.spec.in - KernelGen RPM build specification --------------===//
+##
+##     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+##        compiler for NVIDIA GPUs, targeting numerical modeling code.
+##
+## This file is distributed under the University of Illinois Open Source
+## License. See LICENSE.TXT for details.
+##
+##===----------------------------------------------------------------------===//
+
 # Disable unpackaged files terminate build
 %define _unpackaged_files_terminate_build 0
 %define _missing_doc_files_terminate_build 0
@@ -96,7 +106,7 @@ URL:            http://kernelgen.org/
 Packager:       Dmitry Mikushin <maemarcus@gmail.com>
 
 %description
-A tool for automatic generation of GPU kernels from CPU-targeted source code. From user's point of view it acts as regular GNU-compatible compiler.
+A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs, targeting numerical modeling code.
 
 
 #

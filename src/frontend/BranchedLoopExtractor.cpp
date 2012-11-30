@@ -1,4 +1,4 @@
-//===- BranchedLoopExtractor.cpp - Extract each loop into a new function ----------===//
+//===- BranchedLoopExtractor.cpp - Extract each loop into a new function --===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -9,9 +9,8 @@
 //
 // A pass wrapper around the ExtractLoop() scalar transformation.
 // This pass creates equivalent function for all natural loops from the
-// program if it can, insert call to this fuction before loop and add branch to switch between
-// original loop execution and fuction call. If the loop is the ONLY loop in a given function,
-// it is not touched. This is a pass most useful for debugging via bugpoint.
+// program if it can, insert call to this function before loop and adds branch
+// to switch between original loop execution and function call.
 //
 //===----------------------------------------------------------------------===//
 

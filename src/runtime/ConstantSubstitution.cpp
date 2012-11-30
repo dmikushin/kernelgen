@@ -1,3 +1,17 @@
+//===- ConstantSubstitution.cpp - LLVM pass for constants substitution ----===//
+//
+//     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+//        compiler for NVIDIA GPUs, targeting numerical modeling code.
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// TODO This file implements ...
+//
+//===----------------------------------------------------------------------===//
+
 #include "llvm/Target/TargetData.h"
 #include "llvm/Instructions.h"
 #include "llvm/Type.h"
@@ -7,7 +21,7 @@
 #include <map>
 #include <iostream>
 
-#include "runtime.h"
+#include "Runtime.h"
 
 using namespace kernelgen;
 using namespace llvm;

@@ -1,3 +1,17 @@
+//===- GlobalDependencies.h - resolve GlobalValue dependencies ------------===//
+//
+//     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+//        compiler for NVIDIA GPUs, targeting numerical modeling code.
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements GlobalValue dependencies resolution.
+//
+//===----------------------------------------------------------------------===//
+
 #include "llvm/Function.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 

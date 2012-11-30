@@ -1,3 +1,17 @@
+//===- SizeOfLoops.cpp - Compute the number of iterations in loops --------===//
+//
+//     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+//        compiler for NVIDIA GPUs, targeting numerical modeling code.
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// TODO This file computes the number of iterations in loops.
+//
+//===----------------------------------------------------------------------===//
+
 #include "polly/Cloog.h"
 #include "polly/Dependences.h"
 #include "polly/ScopInfo.h"
@@ -5,12 +19,12 @@
 #include "polly/Support/GICHelper.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "cloog/cloog.h"
-#include "runtime.h"
-#include <stdio.h>
 
 #include <iostream>
 #include <fstream>
 #include <vector>
+
+#include "Runtime.h"
 
 using namespace kernelgen;
 using namespace polly;

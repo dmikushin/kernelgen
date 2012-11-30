@@ -1,4 +1,4 @@
-//===- kernelgen-version.c - KernelGen version printer --------------------===//
+//===- Start.cpp - KernelGen native target finalization routine  ----------===//
 //
 //     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
 //        compiler for NVIDIA GPUs, targeting numerical modeling code.
@@ -8,10 +8,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements KernelGen version printer.
+// This file implements native target finalization routine (currently a stub).
 //
 //===----------------------------------------------------------------------===//
 
-#include <stdio.h>
+#include "Runtime.h"
 
-int main(void) { printf("0.2nvptx/" KERNELGEN_VERSION); return 0; }
+// Finalization call stub for NATIVE target.
+void kernelgen_finish() { }
+

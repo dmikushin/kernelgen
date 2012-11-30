@@ -1,3 +1,17 @@
+//===- TransformAccesses.cpp - LLVM pass for transforming memory accesses -===//
+//
+//     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+//        compiler for NVIDIA GPUs, targeting numerical modeling code.
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// TODO This file implements ...
+//
+//===----------------------------------------------------------------------===//
+
 #include "polly/Cloog.h"
 #include "polly/ScopInfo.h"
 #include "polly/ScopPass.h"
@@ -21,7 +35,7 @@
 #include <vector>
 #include "polly/Dependences.h"
 
-#include "runtime.h"
+#include "KernelGen.h"
 
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "access-general-form"

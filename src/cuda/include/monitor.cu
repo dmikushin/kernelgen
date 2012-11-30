@@ -1,3 +1,17 @@
+//===- monitor.cu - The monitor kernel implementation ---------------------===//
+//
+//     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+//        compiler for NVIDIA GPUs, targeting numerical modeling code.
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements monitor kernel.
+//
+//===----------------------------------------------------------------------===//
+
 #include "kernelgen_interop.h"
 
 __attribute__((device)) __attribute__((always_inline)) int __iAtomicCAS(volatile int *p, int compare, int val)

@@ -1,3 +1,17 @@
+//===- RuntimeAliasAnalysis.cpp - KernelGen Runtime Alias Analysis --------===//
+//
+//     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+//        compiler for NVIDIA GPUs, targeting numerical modeling code.
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// TODO This file implements ...
+//
+//===----------------------------------------------------------------------===//
+
 #include "polly/Cloog.h"
 #include "polly/ScopInfo.h"
 #include "polly/ScopPass.h"
@@ -20,7 +34,7 @@
 #include <fstream>
 #include <vector>
 
-#include "runtime.h"
+#include "Runtime.h"
 
 #ifdef DEBUG_TYPE
 #undef DEBUG_TYPE

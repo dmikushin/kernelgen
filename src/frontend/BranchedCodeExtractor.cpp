@@ -1,4 +1,4 @@
-//===- CodeExtractor.cpp - Pull code region into a new function -----------===//
+//===- BranchedCodeExtractor.cpp - Pull code region into a new function ---===//
 //
 //                     The LLVM Compiler Infrastructure
 //
