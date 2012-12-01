@@ -104,6 +104,14 @@ __attribute__((device)) __attribute__((always_inline)) int kernelgen_posix_memal
 	return 0;
 }
 
+__attribute__((device)) __attribute__((always_inline)) void* kernelgen_memalign(size_t boundary, size_t size)
+{
+	// TODO: Do actual alignment somehow, currently
+	// memory is always aligned to 4096 bytes.
+	return kernelgen_malloc(size);
+	return 0;
+}
+
 __attribute__((device)) __attribute__((always_inline)) void kernelgen_free(void* p)
 {
 	kernelgen_memory_t* km = (kernelgen_memory_t*)__kernelgen_memory;
