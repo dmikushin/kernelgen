@@ -7,7 +7,7 @@
 -  static int x = (::srand(GetRandomNumberSeed()), 0);
 -  (void)x;
 -  return ::rand();
-+  static unsigned x = GetRandomNumberSeed();
++  __thread static unsigned x = GetRandomNumberSeed();
 +  return ::rand_r(&x);
  #endif
  }
