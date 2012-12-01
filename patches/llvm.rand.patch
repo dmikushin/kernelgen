@@ -1,0 +1,13 @@
+--- a/llvm/lib/Support/Unix/Process.inc	2012-12-01 16:41:46.121538814 +0100
++++ b/llvm/lib/Support/Unix/Process.inc	2012-12-01 16:48:02.857532552 +0100
+@@ -324,8 +324,7 @@
+ #if defined(HAVE_ARC4RANDOM)
+   return arc4random();
+ #else
+-  static int x = (::srand(GetRandomNumberSeed()), 0);
+-  (void)x;
+-  return ::rand();
++  static unsigned x = GetRandomNumberSeed();
++  return ::rand_r(&x);
+ #endif
+ }
