@@ -158,9 +158,22 @@ bool TransformAccesses::runOnScop(Scop &scop)
 						"\n        " << "allocSize: "<< allocSize << " storeSize: " << storeSize << "\n" <<
 						Verbose::Default);
 
-				assert(isa<ConstantExpr>(*baseAddressValue)&&
-				       "that must be substituted constant expression");
-				const ConstantExpr * expr = cast<ConstantExpr>(baseAddressValue);
+				//assert(isa<ConstantExpr>(*baseAddressValue)&&
+				//       "that must be substituted constant expression");
+				if(!isa<ConstantExpr>(*baseAddressValue))
+				{
+			           if (verbose & KERNELGEN_VERBOSE_POLLYGEN) {
+				      outs().changeColor(raw_ostream::RED);
+				      outs() << "\n    FAIL: Scop contains indirect addressing, can not compute access conflicts!!!\n";
+				      outs().resetColor();
+			            }   
+                                    isl_space_free(space);
+				    isl_map_free(accessRelation)
+		                    getAnalysis<ScopInfo>().releaseMemory();
+		                    return false;
+				}
+
+                                const ConstantExpr * expr = cast<ConstantExpr>(baseAddressValue);
 				assert(expr->getOpcode() == Instruction::IntToPtr &&
 				       "constant expression must be IntToPtr");
 				assert(isa<ConstantInt>(*expr -> getOperand(0)) &&
