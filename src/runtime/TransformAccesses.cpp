@@ -107,7 +107,18 @@ bool TransformAccesses::runOnScop(Scop &scop)
 	       "if there are parameters then outer loop does not parsed");*/
 
         if(scop.getNumParams() != 0)
-             return false;
+	{
+		  if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
+			{
+				outs().changeColor(raw_ostream::RED);
+				outs() << "\n    FAIL: Scop has parameters, maybe not all kernel detected as scop!!!\n";
+				outs().resetColor();
+			}
+			
+		 getAnalysis<ScopInfo>().releaseMemory();
+		 return false;
+	}
+
 
 	//<foreach statement in scop>
 
