@@ -52,6 +52,7 @@
 #include <cstdlib>
 #include <dlfcn.h>
 #include <fstream>
+#include <stack>
 #include <list>
 #include <set>
 #include <stdio.h>
@@ -82,6 +83,56 @@ Pass* createTransformAccessesPass();
 Pass* createInspectDependencesPass();
 Pass* createScopDescriptionPass();
 Pass* createSetRelationTypePass(MemoryAccess::RelationType relationType = MemoryAccess::RelationType_polly);
+
+void deleteCallsToKernelgenLaunch(Module *m)
+{
+	Type *int32Ty = Type::getInt32Ty(m->getContext());
+	Constant *minusOne = ConstantInt::get(int32Ty,-1,true);
+
+	Function *kernelgenLaunch = m->getFunction("kernelgen_launch");
+	std::list<CallInst *> launchCalls;
+	if(kernelgenLaunch) {
+
+		for(Value::use_iterator user = kernelgenLaunch->use_begin(), userEnd = kernelgenLaunch->use_end();
+		    user!=userEnd; user++) {
+			Value *userValue = *user;
+			assert(isa<CallInst>(*userValue));
+			CallInst *callInst = cast<CallInst>(userValue);
+			callInst->replaceAllUsesWith(minusOne);
+			launchCalls.push_back(callInst);//]callInst->eraseFromParent();
+
+		}
+		for(std::list<CallInst *>::iterator iter = launchCalls.begin(), iterEnd = launchCalls.end();
+		iter != iterEnd; iter++)
+			(*iter)->eraseFromParent();
+		kernelgenLaunch->eraseFromParent();
+		
+		GlobalVariable * memoryForKernelArgs = m->getGlobalVariable("memoryForKernelArgs");
+		assert(memoryForKernelArgs);
+		
+		std::stack<Value *> notHanldledUsers;
+		std::list<StoreInst *> storesToMemory;
+		
+		notHanldledUsers.push(memoryForKernelArgs);
+		while(!notHanldledUsers.empty())
+		{
+			Value *val = notHanldledUsers.top();
+			notHanldledUsers.pop();
+		    for(Value::use_iterator user = val->use_begin(), userEnd = val->use_end();
+		        user!=userEnd; user++)
+			{
+				if(isa<StoreInst>(**user))
+					storesToMemory.push_back(cast<StoreInst>(*user));
+				else
+					notHanldledUsers.push(*user);
+			}
+		}
+		
+		for(std::list<StoreInst *>::iterator iter = storesToMemory.begin(), iterEnd = storesToMemory.end();
+		iter != iterEnd; iter++)
+			(*iter)->eraseFromParent();
+	}
+}
 
 Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
 {
@@ -619,17 +670,30 @@ KernelFunc kernelgen::runtime::Compile(
 		kernel->module = m;
 	}
     
+	Function* f = m->getFunction(kernel->name);
 	if (kernel->name != "__kernelgen_main")
+	{
+		if(runmode == KERNELGEN_RUNMODE_CUDA)
+		    deleteCallsToKernelgenLaunch(m);
 		substituteGlobalsByTheirAddresses(m);
+		// Substitute integer and pointer arguments.
+		if (szdatai != 0)
+			ConstantSubstitution(f, data);
+		{
+			PassManager manager;
+			manager.add(new TargetData(m));
+			manager.add(createInstructionCombiningPass());
+			//manager.add(createEarlyCSEPass());
+			manager.add(createCFGSimplificationPass());
+			manager.run(*m);
+		}
+	}
 	
 	// Add signature record.
 	Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
 	GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),
 		true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version", 0, false);
 
-	// Emit target assembly and binary image, depending
-	// on runmode.
-	Function* f = m->getFunction(kernel->name);
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
 		if (kernel->name != "__kernelgen_main") {
@@ -640,7 +704,7 @@ KernelFunc kernelgen::runtime::Compile(
 			if (runmode == RUNMODE)
 			{
 				// Substitute integer and pointer arguments.
-				if (szdatai != 0) ConstantSubstitution(f, data);
+				//if (szdatai != 0) ConstantSubstitution(f, data);
 
 				Size3 sizeOfLoops;
 				runPollyNATIVE(kernel, &sizeOfLoops);
@@ -700,7 +764,7 @@ KernelFunc kernelgen::runtime::Compile(
 		if (kernel->name != "__kernelgen_main")  {	
 		
 			// Substitute integer and pointer arguments.
-			if (szdatai != 0) ConstantSubstitution(f, data);
+			//if (szdatai != 0) ConstantSubstitution(f, data);
             
 			// Add ReadNone attribute to calls (Polly workaround).
 			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
