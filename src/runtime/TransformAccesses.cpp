@@ -108,15 +108,11 @@ bool TransformAccesses::runOnScop(Scop &scop)
 
         if(scop.getNumParams() != 0)
 	{
-		  if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-			{
-				outs().changeColor(raw_ostream::RED);
-				outs() << "\n    FAIL: Scop has parameters, maybe not all kernel detected as scop!!!\n";
-				outs().resetColor();
-			}
-			
-		 getAnalysis<ScopInfo>().releaseMemory();
-		 return false;
+		VERBOSE(Verbose::Polly << Verbose::Red <<
+			"\n    FAIL: Scop has parameters, maybe not all kernel detected as scop!!!\n" <<
+			Verbose::Reset << Verbose::Default);
+		getAnalysis<ScopInfo>().releaseMemory();
+		return false;
 	}
 
 
@@ -162,15 +158,13 @@ bool TransformAccesses::runOnScop(Scop &scop)
 				//       "that must be substituted constant expression");
 				if(!isa<ConstantExpr>(*baseAddressValue))
 				{
-			           if (verbose & KERNELGEN_VERBOSE_POLLYGEN) {
-				      outs().changeColor(raw_ostream::RED);
-				      outs() << "\n    FAIL: Scop contains indirect addressing, can not compute access conflicts!!!\n";
-				      outs().resetColor();
-			            }   
-                                    isl_space_free(space);
-				    isl_map_free(accessRelation)
-		                    getAnalysis<ScopInfo>().releaseMemory();
-		                    return false;
+					VERBOSE(Verbose::Polly << Verbose::Red <<
+						"\n    FAIL: Scop contains indirect addressing, can not compute access conflicts!!!\n" <<
+						Verbose::Reset << Verbose::Default);
+					isl_space_free(space);
+					isl_map_free(accessRelation);
+					getAnalysis<ScopInfo>().releaseMemory();
+					return false;
 				}
 
                                 const ConstantExpr * expr = cast<ConstantExpr>(baseAddressValue);
