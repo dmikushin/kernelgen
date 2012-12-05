@@ -233,5 +233,9 @@ extern "C" void kernelgen_finish();
 extern "C" void kernelgen_hostcall(kernelgen::Kernel* kernel,
 	llvm::FunctionType* FTy, llvm::StructType* StructTy, void* params);
 
+// Synchronize GPU data modifications made on host
+// during kernelgen_hostcall.
+extern "C" void kernelgen_hostcall_memsync();
+
 #endif // KERNELGEN_RUNTIME_H
 

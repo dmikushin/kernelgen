@@ -63,7 +63,14 @@ struct mmap_t
 
 static list<struct mmap_t> mmappings;
 
-static Kernel* active_kernel;
+static Kernel* activeKernel;
+static StructType* activeStructTy;
+
+static unsigned NumArgs;
+static std::vector<ffi_type*> args;
+static SmallVector<void*, 16> values;
+struct sigaction sa_new, sa_old;
+static void* params;
 
 static long szpage = -1;
 
@@ -95,10 +102,10 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 			" - " << align << ") + " << size << "\n" << Verbose::Default);
 
 	err = cuMemcpyDtoHAsync(base, base, size,
-		active_kernel->target[RUNMODE].MonitorStream);
+		activeKernel->target[RUNMODE].MonitorStream);
 	if (err) THROW("Error in cuMemcpyDtoH " << err);
 	err = cuStreamSynchronize(
-		active_kernel->target[RUNMODE].MonitorStream);
+		activeKernel->target[RUNMODE].MonitorStream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
 	VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
@@ -109,8 +116,10 @@ typedef void (*func_t)();
 
 void kernelgen_hostcall(
 	Kernel* kernel, FunctionType* FTy,
-	StructType* StructTy, void* params)
+	StructType* StructTy, void* params_)
 {
+	params = params_;
+
 	// Compile native kernel, if there is source code.
 	KernelFunc* func =
 		&kernel->target[KERNELGEN_RUNMODE_NATIVE].binary;
@@ -130,12 +139,13 @@ void kernelgen_hostcall(
 	if (szpage == -1)
 		szpage = sysconf(_SC_PAGESIZE);
 
-	active_kernel = kernel;
+	activeKernel = kernel;
+	activeStructTy = StructTy;
 
 	// Skip first two fields, that are FunctionType and
 	// StructureType itself, respectively.
 	unsigned ArgBytes = 0;
-	unsigned NumArgs = StructTy->getNumElements() - 2;
+	NumArgs = StructTy->getNumElements() - 2;
 
 	// Also skip the last field, if return value is not void.
 	// In this case the last field would be the return value
@@ -147,7 +157,7 @@ void kernelgen_hostcall(
 	Type* RetTy = FTy->getReturnType();
 	if (!RetTy->isVoidTy()) NumArgs--;
 
-	std::vector<ffi_type*> args(NumArgs);
+	args.resize(NumArgs);
 	for (int i = 0; i < NumArgs; i++)
 	{
 		Type* ArgTy = StructTy->getElementType(i + 2);
@@ -159,7 +169,7 @@ void kernelgen_hostcall(
 	SmallVector<uint8_t, 128> ArgData;
 	ArgData.resize(ArgBytes);
 	uint8_t *ArgDataPtr = ArgData.data();
-	SmallVector<void*, 16> values(NumArgs);
+	values.resize(NumArgs);
 	for (int i = 0; i < NumArgs; i++)
 	{
 		Type* ArgTy = StructTy->getElementType(i + 2);
@@ -258,8 +268,7 @@ void kernelgen_hostcall(
 	}
 
 	// Register SIGSEGV signal handler to catch
-	// accesses to GPU memory and remebmer the original handler.
-	struct sigaction sa_new, sa_old;
+	// accesses to GPU memory and remember the original handler.
 	sa_new.sa_flags = SA_SIGINFO;
 	sigemptyset(&sa_new.sa_mask);
 	sa_new.sa_sigaction = sighandler;
@@ -279,10 +288,31 @@ void kernelgen_hostcall(
 	VERBOSE(Verbose::Hostcall << "Finishing hostcall to " <<
 			(void*)*func << "\n" << Verbose::Default);
 	
-	// Unregister SIGSEGV signal handler and resore the
+	kernelgen_hostcall_memsync();
+
+	// Unregister SIGSEGV signal handler and restore the
 	// original handler.
 	if (sigaction(SIGSEGV, &sa_old, &sa_new) == -1)
         	THROW("Error in sigaction " << errno);
+
+    activeKernel = NULL;
+
+    VERBOSE(Verbose::Hostcall << "Finished hostcall handler\n" << Verbose::Default);
+}
+
+void kernelgen_hostcall_memsync()
+{
+	// Don't do anything, of no active kernel.
+	// Means somebody just launched us to ensure all mmaped GPU
+	// data is synchronized.
+	if (!activeKernel) return;
+
+	Kernel* kernel = activeKernel;
+	StructType* StructTy = activeStructTy;
+
+	TargetData* TD = new TargetData(kernel->module);
+
+	const StructLayout* layout = TD->getStructLayout(StructTy);
 
 	// Refresh arguments and return value pointer.
 	for (int i = 0; i < NumArgs; i++)
@@ -312,20 +342,17 @@ void kernelgen_hostcall(
 	}
 	
 	// Synchronize and unmap previously mapped host memory.
-	err = cuStreamSynchronize(
+	int err = cuStreamSynchronize(
 		kernel->target[RUNMODE].MonitorStream);
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
 	{
 		struct mmap_t mmap = *i;
-                err = munmap(mmap.addr, mmap.size + mmap.align);
-                if (err == -1)
-                	THROW("Cannot unmap memory from " << mmap.addr <<
-                		" + " << mmap.size + mmap.align);
-        }
-        
-        mmappings.clear();
-        
-        VERBOSE(Verbose::Hostcall << "Finished hostcall handler\n" << Verbose::Default);
-}
+		err = munmap(mmap.addr, mmap.size + mmap.align);
+		if (err == -1)
+			THROW("Cannot unmap memory from " << mmap.addr <<
+					" + " << mmap.size + mmap.align);
+	}
 
+	mmappings.clear();
+}

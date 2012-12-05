@@ -121,6 +121,10 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 
 	VERBOSE("Kernel function call " << kernel->name << "\n");
 
+	// In case we could be launching kernel from the host call -
+	// synchronize its GPU memory modifications before doing anything.
+	kernelgen_hostcall_memsync();
+
 	// Lookup for kernel in table, only if it has at least
 	// one scalar to compute hash footprint. Otherwise, compile
 	// "generalized" kernel.
