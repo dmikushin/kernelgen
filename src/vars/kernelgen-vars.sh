@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ##===- kernelgen-vars.sh - KernelGen environment variables setup ----------===//
 ##
 ##     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
