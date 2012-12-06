@@ -584,6 +584,12 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 	for (int i = 1; argv[i]; i++) {
 		char* arg = argv[i];
 
+		if (!strcmp(arg, "-o"))
+		{
+			i++;
+			continue;
+		}
+
 		if (!strcmp(arg + strlen(arg) - 2, ".a")) {
 			cout
 					<< "Note kernelgen-simple does not parse objects in .a libraries!"
@@ -604,7 +610,10 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		vector<char> container;
 		string filename = arg;
 		if (getArchiveObjData(filename, container))
+		{
+			cout << "Error loading object data from \"" << filename << "\"" << endl;
 			return -1;
+		}
 		char* image = (char*) &container[0];
 
 		// Check the ELF magic.
@@ -1664,7 +1673,8 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		// Adding -rdynamic to use executable global symbols
 		// to resolve dependencies of subsequently loaded kernel objects.
 		args.push_back("-rdynamic");
-		args.push_back("libkernelgen-rt.so");
+		args.push_back("-L../lib");
+		args.push_back("-lkernelgen-rt");
 		args.push_back(NULL);
 		args[0] = compiler;
 		if (verbose) {
