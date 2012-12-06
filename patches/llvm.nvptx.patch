@@ -280,3 +280,18 @@
  }
  
  NVPTXSubtarget::NVPTXSubtarget(const std::string &TT, const std::string &CPU,
+--- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-12-06 09:02:34.348722278 +0100
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-12-06 17:35:15.509997563 +0100
+@@ -413,6 +413,12 @@
+   raw_svector_ostream O(Str);
+   emitDemotedVars(MF->getFunction(), O);
+   OutStreamer.EmitRawText(O.str());
++
++  // For KernelGen main kernel - emit membar instructions,
++  // to be replaced by control code injection at CUBIN level.
++  if (CurrentFnSym->getName() == "__kernelgen_main")
++    for (int i = 0; i < 6; i++)
++      OutStreamer.EmitRawText(StringRef("\tmembar.cta;\n"));
+ }
+ 
+ void NVPTXAsmPrinter::EmitFunctionBodyEnd() {
