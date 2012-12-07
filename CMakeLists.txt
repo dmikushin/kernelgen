@@ -164,7 +164,8 @@ list(REMOVE_ITEM cuda_sources
 	"${PROJECT_SOURCE_DIR}/src/cuda/cuda_dyloader.cpp"
 	"${PROJECT_SOURCE_DIR}/src/cuda/Cuda.cpp"
 	"${PROJECT_SOURCE_DIR}/src/cuda/AlignData.cpp"
-	"${PROJECT_SOURCE_DIR}/src/cuda/MergeCubins.cpp")
+	"${PROJECT_SOURCE_DIR}/src/cuda/MergeCubins.cpp"
+	"${PROJECT_SOURCE_DIR}/src/cuda/InsertLEPC.cpp")
 add_executable(kernelgen-asfermi ${cuda_sources})
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-asfermi APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
@@ -214,7 +215,7 @@ file(COPY ${PROJECT_SOURCE_DIR}/src/dragonegg/kernelgen-dragonegg DESTINATION ${
 # ENVIRONMENT VARS SCRIPT
 #
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/kernelgen-vars.sh
-	COMMAND sed s!CMAKE_INSTALL_PREFIX!${CMAKE_INSTALL_PREFIX}!g ${PROJECT_SOURCE_DIR}/src/vars/kernelgen-vars.sh >${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
+	COMMAND sed s!BOOTSTRAP_ROOT!${BOOTSTRAP_ROOT}!g ${PROJECT_SOURCE_DIR}/src/vars/kernelgen-vars.sh >${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
 add_custom_target(kernelgen_vars ALL DEPENDS ${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
 
 #
