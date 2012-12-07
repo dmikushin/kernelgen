@@ -215,7 +215,7 @@ file(COPY ${PROJECT_SOURCE_DIR}/src/dragonegg/kernelgen-dragonegg DESTINATION ${
 # ENVIRONMENT VARS SCRIPT
 #
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/kernelgen-vars.sh
-	COMMAND sed s!BOOTSTRAP_ROOT!${BOOTSTRAP_ROOT}!g ${PROJECT_SOURCE_DIR}/src/vars/kernelgen-vars.sh >${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
+	COMMAND sed s!CMAKE_INSTALL_PREFIX!${CMAKE_INSTALL_PREFIX}!g ${PROJECT_SOURCE_DIR}/src/vars/kernelgen-vars.sh >${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
 add_custom_target(kernelgen_vars ALL DEPENDS ${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
 
 #
