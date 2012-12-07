@@ -107,6 +107,13 @@ void deleteCallsToKernelgenLaunch(Module *m)
 			(*iter)->eraseFromParent();
 		kernelgenLaunch->eraseFromParent();
 		
+		PassManager manager;
+		manager.add(new TargetData(m));
+		manager.add(createInstructionCombiningPass());
+		//manager.add(createEarlyCSEPass());
+		manager.add(createCFGSimplificationPass());
+		manager.run(*m);
+		
 		GlobalVariable * memoryForKernelArgs = m->getGlobalVariable("memoryForKernelArgs");
 		assert(memoryForKernelArgs);
 		
@@ -121,6 +128,7 @@ void deleteCallsToKernelgenLaunch(Module *m)
 		    for(Value::use_iterator user = val->use_begin(), userEnd = val->use_end();
 		        user!=userEnd; user++)
 			{
+				assert(!isa<LoadInst>(**user));
 				if(isa<StoreInst>(**user))
 					storesToMemory.push_back(cast<StoreInst>(*user));
 				else
