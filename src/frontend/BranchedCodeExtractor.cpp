@@ -365,11 +365,17 @@ bool BranchedCodeExtractor::isEligible(const std::vector<BasicBlock*> &code)
 		for (BasicBlock::const_iterator I = (*BB)->begin(), Ie = (*BB)->end();
 		     I != Ie; ++I)
 			if (isa<AllocaInst>(*I))
-				return false;
+			{
+				if( ((string)I->getName()).compare(0, 13,"allocaForArgs") != 0)
+				   return false;
+			}
 			else if (const CallInst *CI = dyn_cast<CallInst>(I))
 				if (const Function *F = CI->getCalledFunction())
 					if (F->getIntrinsicID() == Intrinsic::vastart)
+                    {
+						assert(false);
 						return false;
+					}
 	return true;
 }
 
@@ -660,8 +666,9 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	StructType* StructArgTy = StructType::get(
 		context, ArgTypes, false /* isPacked */);
 								  
-	IRBuilder<> Builder(callAndBranchBlock->getParent()->begin()->begin());
-	Struct = Builder.CreateAlloca(StructArgTy, 0, "");
+	//IRBuilder<> Builder(callAndBranchBlock->getParent()->begin()->begin());
+	IRBuilder<> Builder(callAndBranchBlock);
+	Struct = Builder.CreateAlloca(StructArgTy, 0, "allocaForArgs");
 
 	// Initially, fill struct with zeros.
 	CallInst* MI = Builder.CreateMemSet(Struct,

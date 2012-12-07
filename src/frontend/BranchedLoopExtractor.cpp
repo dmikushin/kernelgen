@@ -136,11 +136,12 @@ void BranchedLoopExtractor::recursiveExtractSubLoops(Loop *loop)
 		    loop_iter != loop_iter_end; loop_iter++ ) {
 			Loop * subLoop = *loop_iter;
 
-//			BranchedExtractLoop(DT, LI,subLoop, !subLoop->empty());
 			BranchedExtractLoop(DT, LI,subLoop, true);
+		
 			if(!subLoop->empty())
 				recursiveExtractSubLoops(subLoop);
 			//BranchedCodeExtractor(&DT).ExtractCodeRegion(loop,LI);
+			//BranchedExtractLoop(DT, LI,subLoop, true);
 			outs().changeColor(raw_ostream::RED);
 			outs() << "subloop exctracted!!\n"; 
 			outs().resetColor();
@@ -189,19 +190,23 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 	if (ShouldExtractLoop) {
 		if (NumLoops == 0) return Changed;
 		--NumLoops;
-		CallInst * Call;
+		
 //		if ( (Call = BranchedExtractLoop(DT,LI, L, !L->empty())) != 0) {
-		if ( (Call = BranchedExtractLoop(DT,LI, L, true)) != 0) {
+		//if ( (Call = )) != 0) {
 			Changed = true;
-			++NumBranchedExtracted;
+			
 			recursiveExtractSubLoops(L);
+			
 			// After extraction, the loop is replaced by a function call, so
 			// we shouldn't try to run any more loop passes on it.
-
+            CallInst * Call = BranchedExtractLoop(DT,LI, L, false);
+			if(Call)
+				++NumBranchedExtracted;
+			
 			if(LoopFunctionCalls)
 				LoopFunctionCalls->push_back(Call);
-			//LPM.deleteLoopFromQueue(L);
-		}
+		//	LPM.deleteLoopFromQueue(L);
+		//}
 
 	}
 	if(NumBranchedExtracted - tmpBranchedExtracted == 1) {
