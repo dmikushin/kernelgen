@@ -903,8 +903,8 @@ KernelFunc kernelgen::runtime::Compile(
 			
 				// XXX Turn off future kernel analysis, if it has been detected as
 				// non-parallel at least once. This behavior is subject for change in future.
-				if(!isThereAtLeastOneParallelLoop)
-				    kernel->target[runmode].supported = false;
+				//if(!isThereAtLeastOneParallelLoop)
+				kernel->target[runmode].supported = false;
 				return NULL;
 			}
 			assert(isThereAtLeastOneParallelLoop);
