@@ -131,7 +131,11 @@ private :
 
 	context(void* handle, int capacity);
 	
+	void* lepcBuffer;
+
 public :
+
+	inline void* getLEPCBufferPtr() const { return lepcBuffer; }
 
 	// Dynamic loader.
 	CUDYloader loader;
@@ -151,6 +155,8 @@ public:
 	// Merge two input CUBIN ELF images into single output image.
 	static void Merge(const char* input1, const char* input2, const char* output);
 
+	// Insert commands to perform LEPC reporting.
+	static void InsertLEPCReporter(const char* cubin, const char* ckernel_name);
 };
 
 } // namespace cuda

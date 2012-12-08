@@ -246,13 +246,26 @@ context::context(void* handle, int capacity) :
 	err = cuCtxCreate(&ctx, CU_CTX_MAP_HOST, device);
 	if (err)
 		THROW("Error in cuCtxCreate " << err);
+
+	size_t szlepc = 4;
+	lepcBuffer = NULL;
+	err = cuMemAlloc((CUdeviceptr*)&lepcBuffer, szlepc);
+	if (err)
+		THROW("Error in cuMemAlloc " << err);
+	err = cuMemsetD8((CUdeviceptr)lepcBuffer, 0, szlepc);
+	if (err)
+		THROW("Error in cuMemsetD8 " << err);
 }
 
 context::~context() {
 	// TODO: destroy context, dlclose.
 
+	CUresult err = cuMemFree((CUdeviceptr)lepcBuffer);
+	if (err)
+		THROW("Error in cuMemFree " << err);
+
 	// Dispose the dynamic kernels loader.
-	CUresult err = cudyDispose(loader);
+	err = cudyDispose(loader);
 	if (err)
 		THROW("Cannot dispose the dynamic loader " << err);
 }
@@ -260,4 +273,3 @@ context::~context() {
 }
 }
 }
-

@@ -1282,5 +1282,6 @@ void kernelgen::bind::cuda::CUBIN::Merge(const char* input1, const char* input2,
 			close(fd2);
 		if (fd3 >= 0)
 			close(fd3);
+		throw;
 	}
 }

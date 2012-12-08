@@ -442,6 +442,9 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			// page boundary.
 			CUBIN::AlignData(tmp3.getName().c_str(), 4096);
 
+			// Insert commands to perform LEPC reporting.
+			CUBIN::InsertLEPCReporter(tmp3.getName().c_str(), "__kernelgen_main");
+
 			// Export main kernel cubin function-address map.
 			cubin_export_funcmap(tmp3.getName().c_str(), funcmap);
 		} else {

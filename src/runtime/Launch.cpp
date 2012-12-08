@@ -287,6 +287,7 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 
 		// Launch main GPU kernel.
 		{
+			// The main kernel is launched on unit grid.
 			struct {
 				unsigned int x, y, z;
 			} gridDim, blockDim;
@@ -297,11 +298,28 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			blockDim.y = 1;
 			blockDim.z = 1;
 			size_t szshmem = 0;
-			void* kernel_func_args[] = { (void*) &data };
+
+			// Main kernel takes one argument, which is a pointer onto main()
+			// arguments aggregate. Additionally, main kernel takes another
+			// pointer, which is a pointer onto GPU memory buffer for storing
+			// main kernel LEPC.
+			// Note the alternative cuLaunchKernel interface is used, in order
+			// to override the number of arguments specified for main kernel
+			// by CUBIN.
+			vector<void*> vargs;
+			vargs.resize(2);
+			vargs[0] = (void*)data;
+			vargs[1] = (void*)kernelgen::runtime::cuda_context->getLEPCBufferPtr();
+			size_t szvargs = vargs.size() * sizeof(void*);
+			void* params[] =
+			{
+				CU_LAUNCH_PARAM_BUFFER_POINTER, &vargs[0],
+				CU_LAUNCH_PARAM_BUFFER_SIZE, &szvargs,
+				CU_LAUNCH_PARAM_END
+			};
 			int err = cuLaunchKernel((void*) kernel_func, gridDim.x, gridDim.y,
 					gridDim.z, blockDim.x, blockDim.y, blockDim.z, szshmem,
-					kernel->target[RUNMODE].KernelStream, kernel_func_args,
-					NULL);
+					kernel->target[RUNMODE].KernelStream, NULL, params);
 			if (err)
 				THROW("Error in cuLaunchKernel " << err);
 		}
