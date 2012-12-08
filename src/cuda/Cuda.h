@@ -157,6 +157,10 @@ public:
 
 	// Insert commands to perform LEPC reporting.
 	static void InsertLEPCReporter(const char* cubin, const char* ckernel_name);
+
+	// Get CUBIN Load-effective layout - the runtime address ranges of kernels code,
+	// as they are loaded into GPU memory.
+	static void GetLoadEffectiveLayout(const char* cubin, const char* ckernel_name);
 };
 
 } // namespace cuda
