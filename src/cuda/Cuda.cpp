@@ -257,6 +257,17 @@ context::context(void* handle, int capacity) :
 		THROW("Error in cuMemsetD8 " << err);
 }
 
+unsigned int context::getLEPC() const
+{
+	// Substract 0x10, because LEPC instruction comes as 3rd instruction on Kepler.
+	// TODO: 2nd instruction on Fermi.
+	size_t szlepc = 4;
+	unsigned int lepc;
+	CU_SAFE_CALL(cuMemcpyDtoH(&lepc, (CUdeviceptr)lepcBuffer, szlepc));
+	lepc -= 0x10;
+	return lepc;
+}
+
 context::~context() {
 	// TODO: destroy context, dlclose.
 

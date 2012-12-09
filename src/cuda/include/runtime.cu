@@ -204,6 +204,12 @@ __attribute__((device)) __attribute__((always_inline)) void kernelgen_finish()
 	__iAtomicCAS(&callback->lock, 0, 1);
 }
 
+__attribute__((global)) void kernelgen_memcpy(void* dst, void* src, size_t size)
+{
+	for (int i = 0; i < size; i++)
+		((char*)dst)[i] = ((char*)src)[i];
+}
+
 #ifdef __cplusplus
 }
 #endif

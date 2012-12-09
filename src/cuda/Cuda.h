@@ -41,6 +41,11 @@ typedef void*			CUdeviceptr;
 
 #define CU_FUNC_ATTRIBUTE_NUM_REGS			4
 
+#define CU_SAFE_CALL(x) \
+	    do { CUresult err = x; if (err != CUDA_SUCCESS) { \
+	        cerr << "Error \"" << (int)err << "\" at " << __FILE__ << ":" << __LINE__ << endl; throw; \
+	    }} while (0);
+
 #include "cuda_dyloader.h"
 
 namespace kernelgen { namespace bind { namespace cuda {
@@ -136,6 +141,10 @@ private :
 public :
 
 	inline void* getLEPCBufferPtr() const { return lepcBuffer; }
+
+	unsigned int getLEPC() const;
+
+	void* kernelgen_memcpy;
 
 	// Dynamic loader.
 	CUDYloader loader;

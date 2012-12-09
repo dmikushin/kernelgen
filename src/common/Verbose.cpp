@@ -38,6 +38,7 @@ Verbose::Mode Verbose::Hostcall    ( 1 << 4 );
 Verbose::Mode Verbose::Polly       ( 1 << 5 );
 Verbose::Mode Verbose::Perf        ( 1 << 6 );
 Verbose::Mode Verbose::Alloca      ( 1 << 7 );
+Verbose::Mode Verbose::Loader      ( 1 << 8 );
 
 Verbose::Action Verbose::Flush     ( 0 );
 

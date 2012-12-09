@@ -88,6 +88,7 @@ namespace kernelgen {
 		static Mode Polly;
 		static Mode Perf;
 		static Mode Alloca;
+		static Mode Loader;
 
 		struct Action
 		{
