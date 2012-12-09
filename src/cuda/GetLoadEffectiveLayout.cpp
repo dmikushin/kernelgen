@@ -138,7 +138,7 @@ static void GetKernelLoadEffectiveCode(string kernel_name, size_t kernel_size,
 			cuda_context->kernelgen_memcpy,
 			gridDim.x, gridDim.y, gridDim.z,
 			blockDim.x, blockDim.y, blockDim.z, szshmem,
-			NULL, //kernel->target[RUNMODE].MonitorStream,
+			cuda_context->getSecondaryStream(),
 			kernel_func_args, NULL);
 	if (err)
 		THROW("Error in cuLaunchKernel " << err);

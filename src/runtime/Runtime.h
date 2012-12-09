@@ -154,10 +154,6 @@ struct Kernel
 		
 		// Kernel launch parameters
 		dim3 gridDim, blockDim;
-		
-		// Streams for work and monitor kernels.
-		CUstream MonitorStream;
-		CUstream KernelStream;
 
 		// Kernel execution statistics: min/max/avg time and
 		// the number of launches.

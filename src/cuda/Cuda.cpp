@@ -60,6 +60,7 @@ cuModuleGetGlobal_t cuModuleGetGlobal;
 cuLaunchKernel_t cuLaunchKernel;
 cuStreamCreate_t cuStreamCreate;
 cuStreamSynchronize_t cuStreamSynchronize;
+cuStreamDestroy_t cuStreamDestroy;
 cuEventCreate_t cuEventCreate;
 cuEventDestroy_t cuEventDestroy;
 cuEventElapsedTime_t cuEventElapsedTime;
@@ -210,6 +211,10 @@ context::context(void* handle, int capacity) :
 				"cuStreamSynchronize");
 		if (!cuStreamSynchronize)
 			THROW("Cannot dlsym cuStreamSynchronize " << dlerror());
+		cuStreamDestroy = (cuStreamDestroy_t) dlsym(handle,
+				"cuStreamDestroy_v2");
+		if (!cuStreamDestroy)
+			THROW("Cannot dlsym cuStreamDestroy" << dlerror());
 		cuEventCreate = (cuEventCreate_t) dlsym(handle, "cuEventCreate");
 		if (!cuEventCreate)
 			THROW("Cannot dlsym cuEventCreate " << dlerror());
@@ -247,6 +252,7 @@ context::context(void* handle, int capacity) :
 	if (err)
 		THROW("Error in cuCtxCreate " << err);
 
+	// Initialize LEPC buffer.
 	size_t szlepc = 4;
 	lepcBuffer = NULL;
 	err = cuMemAlloc((CUdeviceptr*)&lepcBuffer, szlepc);
@@ -255,6 +261,14 @@ context::context(void* handle, int capacity) :
 	err = cuMemsetD8((CUdeviceptr)lepcBuffer, 0, szlepc);
 	if (err)
 		THROW("Error in cuMemsetD8 " << err);
+
+	// Initialize streams.
+	err = cuStreamCreate(&primaryStream, 0);
+	if (err)
+		THROW("Error in cuStreamCreate " << err);
+	err = cuStreamCreate(&secondaryStream, 0);
+	if (err)
+		THROW("Error in cuStreamCreate " << err);
 }
 
 unsigned int context::getLEPC() const
@@ -279,6 +293,13 @@ context::~context() {
 	err = cudyDispose(loader);
 	if (err)
 		THROW("Cannot dispose the dynamic loader " << err);
+
+	// Free the LEPC buffer.
+	CU_SAFE_CALL(cuMemFree((CUdeviceptr)lepcBuffer));
+
+	// Dispose streams.
+	cuStreamDestroy(primaryStream);
+	cuStreamDestroy(secondaryStream);
 }
 
 }

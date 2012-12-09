@@ -144,7 +144,7 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			break;
 		}
 		case KERNELGEN_RUNMODE_CUDA: {
-			void* monitor_stream = kernel->target[RUNMODE].MonitorStream;
+			void* monitor_stream = cuda_context->getSecondaryStream();
 
 			// Copy launch arguments from host to device.
 			// In order to determine the precompiled kernel hash,
@@ -255,15 +255,14 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 				int err = cudyLaunch((CUDYfunction) kernel_func, gridDim.x,
 						gridDim.y, gridDim.z, blockDim.x, blockDim.y,
 						blockDim.z, szshmem, &data,
-						kernel->target[RUNMODE].MonitorStream,
+						cuda_context->getSecondaryStream(),
 						&kernel_time);
 				if (err)
 					THROW("Error in cudyLaunch " << err);
 			}
 
 			// Wait for loop kernel completion.
-			int err = cuStreamSynchronize(
-					kernel->target[RUNMODE].MonitorStream);
+			int err = cuStreamSynchronize(cuda_context->getSecondaryStream());
 			if (err)
 				THROW("Error in cuStreamSynchronize " << err);
 
@@ -319,7 +318,7 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			};
 			int err = cuLaunchKernel((void*) kernel_func, gridDim.x, gridDim.y,
 					gridDim.z, blockDim.x, blockDim.y, blockDim.z, szshmem,
-					kernel->target[RUNMODE].KernelStream, NULL, params);
+					cuda_context->getPrimaryStream(), NULL, params);
 			if (err)
 				THROW("Error in cuLaunchKernel " << err);
 		}
@@ -330,8 +329,6 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			{
 				Kernel monitor;
 				monitor.name = "kernelgen_monitor";
-				monitor.target[KERNELGEN_RUNMODE_CUDA].MonitorStream =
-						kernel->target[RUNMODE].MonitorStream;
 				monitor_kernel = kernelgen::runtime::Codegen(KERNELGEN_RUNMODE_CUDA,
 						&monitor, monitor_module);
 			}
@@ -350,28 +347,26 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			memcpy(args, &kernel->target[RUNMODE].callback, sizeof(void*));
 			int err = cudyLaunch((CUDYfunction) monitor_kernel, gridDim.x,
 					gridDim.y, gridDim.z, blockDim.x, blockDim.y, blockDim.z,
-					szshmem, args,
-					kernel->target[RUNMODE].MonitorStream, NULL);
+					szshmem, args, cuda_context->getSecondaryStream(), NULL);
 			if (err)
 				THROW("Error in cudyLaunch " << err);
 		}
 
 		while (1) {
 			// Wait for monitor kernel completion.
-			int err = cuStreamSynchronize(
-					kernel->target[RUNMODE].MonitorStream);
+			int err = cuStreamSynchronize(cuda_context->getSecondaryStream());
 			if (err)
 				THROW("Error in cuStreamSynchronize " << err);
 
 			// Copy callback structure back to host memory and
 			// check the state.
-			err = cuMemcpyDtoHAsync(callback, kernel->target[RUNMODE].callback,
+			err = cuMemcpyDtoHAsync(
+					callback, kernel->target[RUNMODE].callback,
 					sizeof(struct kernelgen_callback_t),
-					kernel->target[RUNMODE].MonitorStream);
+					cuda_context->getSecondaryStream());
 			if (err)
 				THROW("Error in cuMemcpyDtoHAsync");
-			err = cuStreamSynchronize(
-					kernel->target[RUNMODE].MonitorStream);
+			err = cuStreamSynchronize(cuda_context->getSecondaryStream());
 			if (err)
 				THROW("Error in cuStreamSynchronize " << err);
 			switch (callback->state) {
@@ -381,8 +376,6 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			}
 			case KERNELGEN_STATE_LOOPCALL: {
 				// Launch the loop kernel.
-				callback->kernel->target[RUNMODE].MonitorStream =
-						kernel->target[RUNMODE].MonitorStream;
 				if (kernelgen_launch(callback->kernel, callback->szdata,
 						callback->szdatai, callback->data) != -1)
 					break;
@@ -414,12 +407,10 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 				int state = KERNELGEN_STATE_FALLBACK;
 				err = cuMemcpyHtoDAsync(
 						&kernel->target[RUNMODE].callback->state, &state,
-						sizeof(int),
-						kernel->target[RUNMODE].MonitorStream);
+						sizeof(int), cuda_context->getSecondaryStream());
 				if (err)
 					THROW("Error in cuMemcpyDtoHAsync " << err);
-				err = cuStreamSynchronize(
-						kernel->target[RUNMODE].MonitorStream);
+				err = cuStreamSynchronize(cuda_context->getSecondaryStream());
 				if (err)
 					THROW("Error in cuStreamSynchronize " << err);
 
@@ -433,11 +424,10 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 				if (err)
 					THROW("Error in cuMemHostRegister " << err);
 				err = cuMemcpyDtoHAsync(data, callback->data, callback->szdata,
-						kernel->target[RUNMODE].MonitorStream);
+						cuda_context->getSecondaryStream());
 				if (err)
 					THROW("Error in cuMemcpyDtoHAsync " << err);
-				err = cuStreamSynchronize(
-						kernel->target[RUNMODE].MonitorStream);
+				err = cuStreamSynchronize(cuda_context->getSecondaryStream());
 				if (err)
 					THROW("Error in cuStreamSynchronize " << err);
 
@@ -478,14 +468,14 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 				int err = cudyLaunch((CUDYfunction) monitor_kernel, gridDim.x,
 						gridDim.y, gridDim.z, blockDim.x, blockDim.y,
 						blockDim.z, szshmem, args,
-						kernel->target[RUNMODE].MonitorStream, NULL);
+						cuda_context->getSecondaryStream(), NULL);
 				if (err)
 					THROW("Error in cudyLaunch " << err);
 			}
 		}
 
 		// Finally, sychronize kernel stream.
-		err = cuStreamSynchronize(kernel->target[RUNMODE].KernelStream);
+		err = cuStreamSynchronize(cuda_context->getPrimaryStream());
 		if (err)
 			THROW("Error in cuStreamSynchronize " << err);
 

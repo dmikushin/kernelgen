@@ -220,24 +220,6 @@ int main(int argc, char* argv[], char* envp[]) {
 			kernelgen::runtime::cuda_context =
 					kernelgen::bind::cuda::context::init(8192);
 
-			// Create streams where monitoring and target kernels
-			// will be executed and assign them to every kernel.
-			CUstream monitor_kernel_stream = NULL, kernel_stream = NULL;
-			int err = cuStreamCreate(&monitor_kernel_stream, 0);
-			if (err)
-				THROW("Error in cuStreamCreate " << err);
-			err = cuStreamCreate(&kernel_stream, 0);
-			if (err)
-				THROW("Error in cuStreamCreate " << err);
-			for (map<string, Kernel*>::iterator i = kernels.begin(), e =
-					kernels.end(); i != e; i++) {
-				Kernel* kernel = (*i).second;
-				kernel->target[KERNELGEN_RUNMODE_CUDA].MonitorStream =
-						monitor_kernel_stream;
-				kernel->target[KERNELGEN_RUNMODE_CUDA].KernelStream =
-						kernel_stream;
-			}
-
 			Path kernelgenSimplePath(Program::FindProgramByName("kernelgen-simple"));
 			if (kernelgenSimplePath.empty())
 				THROW("Cannot locate kernelgen binaries folder, is it included into $PATH ?");
@@ -323,12 +305,10 @@ int main(int argc, char* argv[], char* envp[]) {
 			callback.szdata = sizeof(main_args_t);
 			callback.szdatai = sizeof(int);
 			kernelgen_callback_t* callback_dev = NULL;
-			err = cuMemAlloc((void**) &callback_dev,
-					sizeof(kernelgen_callback_t));
+			int err = cuMemAlloc((void**) &callback_dev, sizeof(kernelgen_callback_t));
 			if (err)
 				THROW("Error in cuMemAlloc " << err);
-			err = cuMemcpyHtoD(callback_dev, &callback,
-					sizeof(kernelgen_callback_t));
+			err = cuMemcpyHtoD(callback_dev, &callback, sizeof(kernelgen_callback_t));
 			if (err)
 				THROW("Error in cuMemcpyHtoD " << err);
 			kernel->target[RUNMODE].callback = callback_dev;

@@ -101,11 +101,9 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	VERBOSE(Verbose::DataIO << "Mapped memory " << map << "(" << base <<
 			" - " << align << ") + " << size << "\n" << Verbose::Default);
 
-	err = cuMemcpyDtoHAsync(base, base, size,
-		activeKernel->target[RUNMODE].MonitorStream);
+	err = cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream());
 	if (err) THROW("Error in cuMemcpyDtoH " << err);
-	err = cuStreamSynchronize(
-		activeKernel->target[RUNMODE].MonitorStream);
+	err = cuStreamSynchronize(cuda_context->getSecondaryStream());
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
 	VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
@@ -235,8 +233,7 @@ void kernelgen_hostcall(
 				}
 
 				// Copy device memory to host mapped memory.
-				int err = cuMemcpyDtoHAsync(base, base, size,
-					kernel->target[RUNMODE].MonitorStream);
+				int err = cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream());
 				if (err) THROW("Error in cuMemcpyDtoHAsync");
 
 				VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
@@ -279,8 +276,7 @@ void kernelgen_hostcall(
 			(void*)*func << "\n" << Verbose::Default);
 
 	// Synchronize pending mmapped data transfers.
-	int err = cuStreamSynchronize(
-		kernel->target[RUNMODE].MonitorStream);
+	int err = cuStreamSynchronize(cuda_context->getSecondaryStream());
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 
 	ffi_call(&cif, (func_t)*func, ret, values.data());
@@ -334,7 +330,7 @@ void kernelgen_hostcall_memsync()
 		if (size % 16) size -= mmap.size % 16;
 		int err = cuMemcpyHtoDAsync(
 			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, size,
-			kernel->target[RUNMODE].MonitorStream);
+			cuda_context->getSecondaryStream());
 		if (err) THROW("Error in cuMemcpyHtoDAsync " << err);
 		VERBOSE(Verbose::DataIO << "mmap.addr = " << mmap.addr <<
 				", mmap.align = " << mmap.align << ", mmap.size = " <<
@@ -342,8 +338,7 @@ void kernelgen_hostcall_memsync()
 	}
 	
 	// Synchronize and unmap previously mapped host memory.
-	int err = cuStreamSynchronize(
-		kernel->target[RUNMODE].MonitorStream);
+	int err = cuStreamSynchronize(cuda_context->getSecondaryStream());
 	if (err) THROW("Error in cuStreamSynchronize " << err);
 	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
 	{

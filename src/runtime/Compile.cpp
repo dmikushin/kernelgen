@@ -107,13 +107,6 @@ void deleteCallsToKernelgenLaunch(Module *m)
 			(*iter)->eraseFromParent();
 		kernelgenLaunch->eraseFromParent();
 		
-		PassManager manager;
-		manager.add(new TargetData(m));
-		manager.add(createInstructionCombiningPass());
-		//manager.add(createEarlyCSEPass());
-		manager.add(createCFGSimplificationPass());
-		manager.run(*m);
-		
 		GlobalVariable * memoryForKernelArgs = m->getGlobalVariable("memoryForKernelArgs");
 		assert(memoryForKernelArgs);
 		
@@ -128,7 +121,6 @@ void deleteCallsToKernelgenLaunch(Module *m)
 		    for(Value::use_iterator user = val->use_begin(), userEnd = val->use_end();
 		        user!=userEnd; user++)
 			{
-				assert(!isa<LoadInst>(**user));
 				if(isa<StoreInst>(**user))
 					storesToMemory.push_back(cast<StoreInst>(*user));
 				else
@@ -495,9 +487,6 @@ static void processFunctionFromMain(Kernel* kernel, Module* m, Function* f)
 					hostcall->target[i].binary = NULL;
 				}
 				hostcall->target[KERNELGEN_RUNMODE_NATIVE].supported = true;
-
-				hostcall->target[RUNMODE].MonitorStream =
-				    kernel->target[RUNMODE].MonitorStream;
 				hostcall->module = kernel->module;
 
 				kernels[name] = hostcall;
@@ -903,8 +892,8 @@ KernelFunc kernelgen::runtime::Compile(
 			
 				// XXX Turn off future kernel analysis, if it has been detected as
 				// non-parallel at least once. This behavior is subject for change in future.
-				//if(!isThereAtLeastOneParallelLoop)
-				kernel->target[runmode].supported = false;
+				if(!isThereAtLeastOneParallelLoop)
+				    kernel->target[runmode].supported = false;
 				return NULL;
 			}
 			assert(isThereAtLeastOneParallelLoop);

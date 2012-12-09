@@ -76,6 +76,7 @@ typedef CUresult (*cuLaunchKernel_t)(void*, unsigned int, unsigned int, unsigned
 	unsigned int, unsigned int, unsigned int, unsigned int, void*, void**, void**);
 typedef CUresult (*cuStreamCreate_t)(void*, unsigned int);
 typedef CUresult (*cuStreamSynchronize_t)(void*);
+typedef CUresult (*cuStreamDestroy_t)(void*);
 typedef CUresult (*cuEventCreate_t)(CUevent*, unsigned int);
 typedef CUresult (*cuEventDestroy_t)(CUevent);
 typedef CUresult (*cuEventElapsedTime_t)(float*, CUevent, CUevent);
@@ -111,6 +112,7 @@ extern cuModuleGetGlobal_t cuModuleGetGlobal;
 extern cuLaunchKernel_t cuLaunchKernel;
 extern cuStreamCreate_t cuStreamCreate;
 extern cuStreamSynchronize_t cuStreamSynchronize;
+extern cuStreamDestroy_t cuStreamDestroy;
 extern cuEventCreate_t cuEventCreate;
 extern cuEventDestroy_t cuEventDestroy;
 extern cuEventElapsedTime_t cuEventElapsedTime;
@@ -138,11 +140,16 @@ private :
 	
 	void* lepcBuffer;
 
+	CUstream primaryStream;
+	CUstream secondaryStream;
+
 public :
 
 	inline void* getLEPCBufferPtr() const { return lepcBuffer; }
-
 	unsigned int getLEPC() const;
+
+	CUstream getPrimaryStream() const { return primaryStream; }
+	CUstream getSecondaryStream() const { return secondaryStream; }
 
 	void* kernelgen_memcpy;
 

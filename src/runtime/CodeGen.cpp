@@ -511,10 +511,9 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			}
 
 			// Load kernel function from the binary opcodes.
-			CUstream stream = kernel->target[runmode].MonitorStream;
 			CUresult err = cudyLoadCubin((CUDYfunction*) &kernel_func,
 					cuda_context->loader, (char*) tmp3.getName().c_str(),
-					name.c_str(), stream);
+					name.c_str(), cuda_context->getSecondaryStream());
 			if (err)
 				THROW("Error in cudyLoadCubin " << err);
 		}
