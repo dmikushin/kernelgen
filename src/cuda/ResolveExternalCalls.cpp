@@ -343,7 +343,10 @@ void kernelgen::bind::cuda::CUBIN::ResolveExternalCalls(
 		unsigned int offset = i->second;
 
 		// Get address of function corresponding to the relocation.
-		unsigned int address = loadEffectiveLayout[external_call];
+		map<string, unsigned int>::iterator entry = loadEffectiveLayout.find(external_call);
+		if (entry == loadEffectiveLayout.end())
+			THROW("Cannot find load-effective layout for call to " << external_call);
+		unsigned int address = entry->second;
 
 		// Codegen JCAL address instruction.
 		stringstream sourcestr;
