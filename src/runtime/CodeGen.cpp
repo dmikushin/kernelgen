@@ -445,6 +445,8 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			// Insert commands to perform LEPC reporting.
 			CUBIN::InsertLEPCReporter(tmp3.getName().c_str(), "__kernelgen_main");
 
+			kernel->target[RUNMODE].filename = tmp3.getName().c_str();
+
 			// Export main kernel cubin function-address map.
 			cubin_export_funcmap(tmp3.getName().c_str(), funcmap);
 		} else {
@@ -492,6 +494,10 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			int err = cuModuleLoad(&module, tmp3.getName().c_str());
 			if (err)
 				THROW("Error in cuModuleLoadData " << err);
+
+			// Load function responsible for GPU-side memcpy.
+			err = cuModuleGetFunction((CUfunction*)&cuda_context->kernelgen_memcpy,
+					module, "kernelgen_memcpy");
 
 			err = cuModuleGetFunction(&kernel_func, module, name.c_str());
 			if (err)

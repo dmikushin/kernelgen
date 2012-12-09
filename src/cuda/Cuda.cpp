@@ -277,7 +277,8 @@ unsigned int context::getLEPC() const
 	// TODO: 2nd instruction on Fermi.
 	size_t szlepc = 4;
 	unsigned int lepc;
-	CU_SAFE_CALL(cuMemcpyDtoH(&lepc, (CUdeviceptr)lepcBuffer, szlepc));
+	CU_SAFE_CALL(cuMemcpyDtoHAsync(&lepc, (CUdeviceptr)lepcBuffer, szlepc, secondaryStream));
+	CU_SAFE_CALL(cuStreamSynchronize(secondaryStream));
 	lepc -= 0x10;
 	return lepc;
 }
@@ -285,6 +286,7 @@ unsigned int context::getLEPC() const
 context::~context() {
 	// TODO: destroy context, dlclose.
 
+	// Free the LEPC buffer.
 	CUresult err = cuMemFree((CUdeviceptr)lepcBuffer);
 	if (err)
 		THROW("Error in cuMemFree " << err);
@@ -293,9 +295,6 @@ context::~context() {
 	err = cudyDispose(loader);
 	if (err)
 		THROW("Cannot dispose the dynamic loader " << err);
-
-	// Free the LEPC buffer.
-	CU_SAFE_CALL(cuMemFree((CUdeviceptr)lepcBuffer));
 
 	// Dispose streams.
 	cuStreamDestroy(primaryStream);

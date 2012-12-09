@@ -375,6 +375,12 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 				break;
 			}
 			case KERNELGEN_STATE_LOOPCALL: {
+
+				// TODO: make this call once, and only if a launch of kernel
+				// with unmet dependencies is requested.
+				CUBIN::GetLoadEffectiveLayout(
+						kernel->target[RUNMODE].filename.c_str(), "__kernelgen_main");
+
 				// Launch the loop kernel.
 				if (kernelgen_launch(callback->kernel, callback->szdata,
 						callback->szdatai, callback->data) != -1)

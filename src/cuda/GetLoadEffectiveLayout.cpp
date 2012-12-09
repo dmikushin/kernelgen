@@ -132,7 +132,7 @@ static void GetKernelLoadEffectiveCode(string kernel_name, size_t kernel_size,
 
 	void* kernel_func_args[] =
 	{
-			(void*) &buffer, (void*)&address, (void*)kernel_size
+			(void*) &buffer, (void*)&address, (void*)&kernel_size
 	};
 	int err = cuLaunchKernel(
 			cuda_context->kernelgen_memcpy,
@@ -142,10 +142,12 @@ static void GetKernelLoadEffectiveCode(string kernel_name, size_t kernel_size,
 			kernel_func_args, NULL);
 	if (err)
 		THROW("Error in cuLaunchKernel " << err);
-	CU_SAFE_CALL(cuCtxSynchronize());
+	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
 	kernel_code.resize(kernel_size);
-	CU_SAFE_CALL(cuMemcpyDtoH(&kernel_code[0], (CUdeviceptr)buffer, kernel_size));
-	CU_SAFE_CALL(cuMemFree((CUdeviceptr)buffer));
+	CU_SAFE_CALL(cuMemcpyDtoHAsync(&kernel_code[0], (CUdeviceptr)buffer, kernel_size,
+			cuda_context->getSecondaryStream()));
+	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+	//CU_SAFE_CALL(cuMemFree((CUdeviceptr)buffer));
 }
 
 // Get kernel relocations table from the ELF file.
