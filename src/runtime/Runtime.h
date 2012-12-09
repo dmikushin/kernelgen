@@ -138,9 +138,6 @@ struct Kernel
 		// Kernel source version, more close to specific target.
 		std::string source;
 
-		// Kernel binary temporary filename, if exists.
-		std::string filename;
-
 		// References to tables of compiled kernels
 		// for each supported runmode.
 		// Each source may have multiple binaries identified

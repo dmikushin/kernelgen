@@ -52,121 +52,8 @@ static bool debug = false;
 // Target machines for runmodes.
 auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
 
-// Function-address mapping of main kernel.
-static map<string, size_t> funcmap;
-
-// Export the function-address mapping from the given cubin image.
-static void cubin_export_funcmap(const char* cubin,
-		map<string, size_t>& funcmap) {
-	int fd = -1;
-	Elf* e = NULL;
-	try {
-		//
-		// 1) First, load the ELF file.
-		//
-		if ((fd = open(cubin, O_RDWR)) < 0) {
-			fprintf(stderr, "Cannot open file %s\n", cubin);
-			throw;
-		}
-
-		if ((e = elf_begin(fd, ELF_C_RDWR, e)) == 0) {
-			fprintf(stderr, "Cannot read ELF image from %s\n", cubin);
-			throw;
-		}
-
-		//
-		// 2) Find ELF section containing the symbol table and
-		// load its data.
-		//
-		size_t shstrndx;
-		if (elf_getshdrstrndx(e, &shstrndx)) {
-			fprintf(stderr, "elf_getshdrstrndx() failed for %s: %s\n", cubin,
-					elf_errmsg(-1));
-			throw;
-		}
-		GElf_Shdr shdr;
-		Elf_Data* symbols = NULL;
-		int nsymbols = 0, nsections = 0;
-		Elf_Scn* scn = elf_nextscn(e, NULL);
-		for (int i = 1; scn != NULL;
-				scn = elf_nextscn(e, scn), i++, nsections++) {
-			if (!gelf_getshdr(scn, &shdr)) {
-				fprintf(stderr, "gelf_getshdr() failed for %s: %s\n", cubin,
-						elf_errmsg(-1));
-				throw;
-			}
-
-			if (shdr.sh_type == SHT_SYMTAB) {
-				symbols = elf_getdata(scn, NULL);
-				if (!symbols) {
-					fprintf(stderr, "elf_getdata() failed for %s: %s\n", cubin,
-							elf_errmsg(-1));
-					throw;
-				}
-				if (shdr.sh_entsize)
-					nsymbols = shdr.sh_size / shdr.sh_entsize;
-				break;
-			}
-		}
-		if (!symbols) {
-			fprintf(stderr, "Cannot find symbols table in %s\n", cubin);
-			throw;
-		}
-
-		//
-		// 3) Find function symbols and record them into map.
-		//
-		for (int isymbol = 0; isymbol < nsymbols; isymbol++) {
-			GElf_Sym symbol;
-			gelf_getsym(symbols, isymbol, &symbol);
-
-			if (ELF32_ST_TYPE(symbol.st_info) != STT_FUNC)
-				continue;
-
-			char* name = elf_strptr(e, shdr.sh_link, symbol.st_name);
-			funcmap.insert(pair<string, size_t>(name, symbol.st_value));
-
-			//cout << name << " -> " << symbol.st_value << endl;
-		}
-
-		elf_end(e);
-		close(fd);
-		e = NULL;
-	} catch (...) {
-		if (e)
-			elf_end(e);
-		if (fd >= 0)
-			close(fd);
-		throw;
-	}
-}
-
-// Import the function-address mapping to the given cubin image.
-static void cubin_import_funcmap(const char* cubin,
-		const map<string, size_t> funcmap) {
-	// Retrieve the current cubin function-address mapping.
-	map<string, size_t> funcmap_old;
-	cubin_export_funcmap(cubin, funcmap_old);
-
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-
-	// Merge mappings.
-	vector<pair<size_t, size_t> > addrmap;
-	addrmap.resize(MAX(funcmap.size(), funcmap_old.size()));
-	for (map<string, size_t>::iterator I1 = funcmap_old.begin(), IE1 =
-			funcmap_old.end(); I1 != IE1; I1++) {
-		pair<string, size_t> item_old = *I1;
-		map<string, size_t>::const_iterator I2 = funcmap.find(item_old.first);
-		if (I2 == funcmap.end())
-			continue;
-		pair<string, size_t> item = *I2;
-		addrmap.push_back(pair<size_t, size_t>(item_old.second, item.second));
-
-		//cout << item_old.second << " -> " << item.second << endl;
-	}
-
-	// TODO: call libasfermi to replace JCALs according to address-address mapping.
-}
+// The filename of the temp file containing main kernel.
+static string kernelgen_main_filename;
 
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.
@@ -445,13 +332,14 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			// Insert commands to perform LEPC reporting.
 			CUBIN::InsertLEPCReporter(tmp3.getName().c_str(), "__kernelgen_main");
 
-			kernel->target[RUNMODE].filename = tmp3.getName().c_str();
-
-			// Export main kernel cubin function-address map.
-			cubin_export_funcmap(tmp3.getName().c_str(), funcmap);
+			kernelgen_main_filename = tmp3.getName();
 		} else {
-			// Import main kernel cubin function-address map.
-			cubin_import_funcmap(tmp3.getName().c_str(), funcmap);
+
+			// Check if loop kernel contains unresolved calls and resolve them
+			// using the load-effective layout obtained from the main kernel.
+			CUBIN::ResolveExternalCalls(
+					tmp3.getName().c_str(), kernel->name.c_str(),
+					kernelgen_main_filename.c_str(), "__kernelgen_main");
 		}
 
 		// Dump Fermi assembly from CUBIN.

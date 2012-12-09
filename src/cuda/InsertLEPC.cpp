@@ -60,7 +60,6 @@ void kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(const char* cubin, const c
 			THROW("elf_getshdrstrndx() failed for " << cubin << ": " << elf_errmsg(-1));
 
 		// Find the target kernel section and modify its data.
-		bool found = 0;
 		Elf_Scn* scn = elf_nextscn(e, NULL);
 		for (int i = 1 ; scn != NULL; scn = elf_nextscn(e, scn), i++)
 		{
@@ -134,11 +133,10 @@ void kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(const char* cubin, const c
 			elf_end(e);
 			close(fd);
 
-			found = 1;
-			break;
+			return;
 		}
-		if (!found)
-			THROW("Kernel " << kernel_name << " not found in CUBIN " << cubin);
+
+		THROW("Kernel " << kernel_name << " not found in CUBIN " << cubin);
 	}
 	catch (...)
 	{

@@ -24,24 +24,22 @@
 #include <Runtime.h>
 
 #include <cstring>
-#include <fstream>
+#include <fcntl.h>
+#include <gelf.h>
 #include <iostream>
 #include <libasfermi.h>
-#include <libelf/gelf.h>
 #include <map>
-#include <stdlib.h>
-#include <string>
 #include <vector>
-
-using namespace kernelgen;
-using namespace kernelgen::runtime;
-using namespace kernelgen::bind::cuda;
-using namespace std;
 
 #define CUBIN_FUNC_RELOC_TYPE 5
 
-// Get kernel size as it is recorded in ELF.
-static size_t GetKernelSize(string kernel_name, vector<char>& mcubin)
+using namespace std;
+
+static map<string, unsigned int> loadEffectiveLayout;
+
+// Get the specified kernel code from its ELF image.
+static void GetKernelCode(
+		string kernel_name, vector<char>& mcubin, vector<char>& kernel_code)
 {
 	kernel_name = ".text." + kernel_name;
 
@@ -83,9 +81,12 @@ static size_t GetKernelSize(string kernel_name, vector<char>& mcubin)
 			if (!data)
 				THROW("Expected section " << name << " to contain data in " << kernel_name);
 
+			kernel_code.resize(data->d_size);
+			memcpy(&kernel_code[0], data->d_buf, data->d_size);
+
 			elf_end(e);
 
-			return data->d_size;
+			return;
 		}
 
 		THROW("Kernel " << kernel_name << " not found in CUBIN");
@@ -96,59 +97,86 @@ static size_t GetKernelSize(string kernel_name, vector<char>& mcubin)
 			elf_end(e);
 		throw;
 	}
-
-	return 0;
 }
 
-// Get kernel code as it is loaded on GPU with substituted relocations.
-static void GetKernelLoadEffectiveCode(string kernel_name, size_t kernel_size,
-	unsigned int kernel_lepc, vector<char>& kernel_code)
+// Replace kernel code in ELF image with the specified content.
+static void SetKernelCode(
+		string kernel_name, const char* cubin, vector<char>& kernel_code)
 {
-	// Convert LEPC to GPU memory address.
-	uint64_t address = 0;
-	((uint32_t*)&address)[0] = kernel_lepc;
-	((uint32_t*)&address)[1] = 0x1;
+	kernel_name = ".text." + kernel_name;
 
-	stringstream hexaddress;
-	hexaddress << hex << address;
-	VERBOSE(Verbose::Loader << "GPU address for LEPC = 0x" <<
-			hexaddress.str() << "\n" << Verbose::Default);
-
-	// Copy code from GPU memory to host.
-	void* buffer = NULL;
-	CU_SAFE_CALL(cuMemAlloc((CUdeviceptr*)&buffer, kernel_size));
-
-	struct
+	int fd = -1;
+	Elf *e = NULL;
+	try
 	{
-		unsigned int x, y, z;
+		// Setup ELF version.
+		if (elf_version(EV_CURRENT) == EV_NONE)
+			THROW("Cannot initialize ELF library: " << elf_errmsg(-1));
+
+		// First, load input ELF file and output ELF file.
+		if ((fd = open(cubin, O_RDWR)) < 0)
+			THROW("Cannot open file \"" << cubin << "\"");
+		if ((e = elf_begin(fd, ELF_C_RDWR, e)) == 0)
+			THROW("elf_begin() failed for \"" << cubin << "\": " << elf_errmsg(-1));
+
+		// Mark the ELF to have managed layout.
+		if (elf_flagelf(e, ELF_C_SET, ELF_F_LAYOUT) == 0)
+			THROW("elf_flagelf() failed for \"" << cubin << "\": " << elf_errmsg(-1));
+
+		// Get sections names section index.
+		size_t shstrndx;
+		if (elf_getshdrstrndx(e, &shstrndx))
+			THROW("elf_getshdrstrndx() failed for " << kernel_name << ": " << elf_errmsg(-1));
+
+		// Find the target kernel section and get its data size.
+		Elf_Scn* scn = elf_nextscn(e, NULL);
+		for (int i = 1 ; scn != NULL; scn = elf_nextscn(e, scn), i++)
+		{
+			// Get section header.
+			GElf_Shdr shdr;
+			if (!gelf_getshdr(scn, &shdr))
+				THROW("gelf_getshdr() failed for " << kernel_name << ": " << elf_errmsg(-1));
+
+			// Get name.
+			char* cname = NULL;
+			if ((cname = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
+				THROW("Cannot get the name of section " << i << " of " << kernel_name);
+			string name = cname;
+
+			if (name != kernel_name) continue;
+
+			// Get section data.
+			Elf_Data* data = elf_getdata(scn, NULL);
+			if (!data)
+				THROW("Expected section " << name << " to contain data in " << kernel_name);
+
+			// Replace data buffer with provided new content.
+			memcpy(data->d_buf, &kernel_code[0], kernel_code.size());
+
+			// Mark data section for update.
+			if (elf_flagdata(data, ELF_C_SET, ELF_F_DIRTY) == 0)
+				THROW("elf_flagdata() failed for \"" << cubin << "\": " << elf_errmsg(-1));
+
+			// Update ELF.
+			if (elf_update(e, ELF_C_WRITE) == -1)
+				THROW("elf_update() failed for \"" << cubin << "\": " << elf_errmsg(-1));
+
+			elf_end(e);
+			close(fd);
+
+			return;
+		}
+
+		THROW("Kernel " << kernel_name << " not found in CUBIN");
 	}
-	gridDim, blockDim;
-	gridDim.x = 1;
-	gridDim.y = 1;
-	gridDim.z = 1;
-	blockDim.x = 1;
-	blockDim.y = 1;
-	blockDim.z = 1;
-	size_t szshmem = 0;
-
-	void* kernel_func_args[] =
+	catch (...)
 	{
-			(void*) &buffer, (void*)&address, (void*)&kernel_size
-	};
-	int err = cuLaunchKernel(
-			cuda_context->kernelgen_memcpy,
-			gridDim.x, gridDim.y, gridDim.z,
-			blockDim.x, blockDim.y, blockDim.z, szshmem,
-			cuda_context->getSecondaryStream(),
-			kernel_func_args, NULL);
-	if (err)
-		THROW("Error in cuLaunchKernel " << err);
-	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
-	kernel_code.resize(kernel_size);
-	CU_SAFE_CALL(cuMemcpyDtoHAsync(&kernel_code[0], (CUdeviceptr)buffer, kernel_size,
-			cuda_context->getSecondaryStream()));
-	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
-	//CU_SAFE_CALL(cuMemFree((CUdeviceptr)buffer));
+		if (e)
+			elf_end(e);
+		if (fd >= 0)
+			close(fd);
+		throw;
+	}
 }
 
 // Get kernel relocations table from the ELF file.
@@ -269,91 +297,16 @@ static void GetKernelRelocations(string kernel_name, vector<char>& mcubin,
 	}
 }
 
-static unsigned int GetKernelJcalTarget(uint64_t jcal_cmd)
+// Check if loop kernel contains unresolved calls and resolve them
+// using the load-effective layout obtained from the main kernel.
+void kernelgen::bind::cuda::CUBIN::ResolveExternalCalls(
+		const char* cubin_dst, const char* ckernel_name_dst,
+		const char* cubin_src, const char* ckernel_name_src)
 {
-	return (jcal_cmd - 0x1000000000010007ULL) >> 26;
-}
-
-// Discover kernels load-effective layout.
-static void GetKernelsLoadEffectiveLayout(map<string, unsigned int>& layout,
-	string kernel_name, unsigned int kernel_lepc, vector<char>& mcubin)
-{
-	VERBOSE(Verbose::Loader << "kernel " << kernel_name << "\n" << Verbose::Default);
-
-	// Get the size of current kernel.
-	size_t kernel_size = GetKernelSize(kernel_name, mcubin);
-
-	VERBOSE(Verbose::Loader << "kernel_size = " << kernel_size << "\n" << Verbose::Default);
-
-	// Get the code of the kernel as it is loaded on GPU.
-	vector<char> kernel_code;
-	GetKernelLoadEffectiveCode(kernel_name, kernel_size, kernel_lepc, kernel_code);
-
-	VERBOSE(Verbose::Loader << kernel_name << " code: " << "\n" << Verbose::Default);
-	for (int i = 0; i < kernel_size; i += 8)
-	{
-		stringstream opcode;
-		opcode << hex << *(uint64_t*)&kernel_code[i];
-		VERBOSE(Verbose::Loader << "0x" << opcode.str() << "\n" << Verbose::Default);
-	}
-	VERBOSE(Verbose::Loader << "\n" << Verbose::Default);
-
-	// Get relocations in kernel code.
-	map<string, unsigned int> kernel_relocations;
-	GetKernelRelocations(kernel_name, mcubin, kernel_relocations);
-
-	if (kernel_relocations.size())
-	{
-		VERBOSE(Verbose::Loader << kernel_name << " relocations: " << "\n" << Verbose::Default);
-		for (map<string, unsigned int>::iterator i = kernel_relocations.begin(),
-			ie = kernel_relocations.end(); i != ie; i++)
-		{
-			kernel_name = i->first;
-			unsigned int offset = i->second;
-
-			stringstream hexoffset;
-			hexoffset << hex << offset;
-			VERBOSE(Verbose::Loader << "0x" << hexoffset.str() << " " << kernel_name << "\n" << Verbose::Default);
-		}
-		VERBOSE(Verbose::Loader << "\n" << Verbose::Default);
-	}
-
-	for (map<string, unsigned int>::iterator i = kernel_relocations.begin(),
-		ie = kernel_relocations.end(); i != ie; i++)
-	{
-		kernel_name = i->first;
-		unsigned int offset = i->second;
-
-		// Check if entire kernel is already discovered.
-		if (layout.find(kernel_name) != layout.end()) continue;
-
-		uint64_t jcal_cmd = *(uint64_t*)(&kernel_code[0] + offset);
-		kernel_lepc = GetKernelJcalTarget(jcal_cmd);
-
-		// Add entire kernel to index.
-		layout[kernel_name] = kernel_lepc;
-
-		// Discover kernels that might be called from entire kernel.
-		GetKernelsLoadEffectiveLayout(layout, kernel_name, kernel_lepc, mcubin);
-	}
-}
-
-// Get CUBIN Load-effective layout - the runtime address ranges of kernels code,
-// as they are loaded into GPU memory.
-void kernelgen::bind::cuda::CUBIN::GetLoadEffectiveLayout(
-		const char* cubin, const char* ckernel_name,
-		map<string, unsigned int>& layout)
-{
-	// Read LEPC.
-	unsigned int kernel_lepc = cuda_context->getLEPC();
-	stringstream hexlepc;
-	hexlepc << hex << kernel_lepc;
-	VERBOSE(Verbose::Loader << "LEPC = 0x" << hexlepc << "\n" << Verbose::Default);
-
 	// Load CUBIN into memory.
 	vector<char> mcubin;
 	{
-		std::ifstream tmp_stream(cubin);
+		std::ifstream tmp_stream(cubin_dst);
 		tmp_stream.seekg(0, std::ios::end);
 		mcubin.resize(tmp_stream.tellg());
 		tmp_stream.seekg(0, std::ios::beg);
@@ -362,13 +315,60 @@ void kernelgen::bind::cuda::CUBIN::GetLoadEffectiveLayout(
 		tmp_stream.close();
 	}
 
-	layout[ckernel_name] = kernel_lepc;
-	GetKernelsLoadEffectiveLayout(layout, ckernel_name, kernel_lepc, mcubin);
+	string kernel_name = ckernel_name_dst;
 
-	for (map<string, unsigned int>::iterator i = layout.begin(), ie = layout.end(); i != ie; i++)
+	// Get destination kernel relocations.
+	map<string, unsigned int> kernel_relocations;
+	GetKernelRelocations(kernel_name, mcubin, kernel_relocations);
+
+	// If kernel has no relocations, there is definitely nothing to do
+	// any further.
+	if (!kernel_relocations.size()) return;
+
+	// If destination kernel contains JCAL 0x0 instructions, first load the
+	// load-effective layout, if not previously loaded.
+	if (!loadEffectiveLayout.size())
+		CUBIN::GetLoadEffectiveLayout(cubin_src, ckernel_name_src, loadEffectiveLayout);
+
+	// Load destination kernel binary.
+	vector<char> kernel_code;
+	GetKernelCode(kernel_name, mcubin, kernel_code);
+
+	// Replace JCAL 0x0 instructions pointed by relocations with
+	// JCAL to actual functions addresses from load effective layout table.
+	for (map<string, unsigned int>::iterator i = kernel_relocations.begin(),
+			ie = kernel_relocations.end(); i != ie; i++)
 	{
-		stringstream hexaddress;
-		hexaddress << hex << i->second;
-		VERBOSE(Verbose::Loader << i->first << " -> 0x" << hexaddress.str() << "\n" << Verbose::Default);
+		string external_call = i->first;
+		unsigned int offset = i->second;
+
+		// Get address of function corresponding to the relocation.
+		unsigned int address = loadEffectiveLayout[external_call];
+
+		// Codegen JCAL address instruction.
+		stringstream sourcestr;
+		sourcestr << "!Kernel dummy\n";
+		sourcestr << "JCAL 0x" << hex << address << "\n";
+		sourcestr << "!EndKernel\n";
+		string source = sourcestr.str();
+		vector<char> vsource;
+		vsource.resize(source.size() + 1);
+		memcpy(&source[0], source.c_str(), source.size() + 1);
+		size_t szbinary;
+		char* binary = asfermi_encode_opcodes(&source[0], 30, &szbinary);
+		if (szbinary != 8)
+			THROW("Expected 1 opcode, but got szbinary = " << szbinary <<
+				" instead");
+
+		// Replace the corresponding instruction in kernel code
+		// with the new one.
+		memcpy(&kernel_code[offset], binary, szbinary);
+		free(binary);
+
+		VERBOSE(Verbose::Loader << "Resolved external call to " << external_call <<
+				" in " << kernel_name << "\n" << Verbose::Default);
 	}
+
+	// Replace original destination code with the modified version.
+	SetKernelCode(kernel_name, cubin_dst, kernel_code);
 }

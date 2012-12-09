@@ -22,6 +22,9 @@
 #ifndef KERNELGEN_BIND_H
 #define KERNELGEN_BIND_H
 
+#include <map>
+#include <string>
+
 typedef struct CUevent_st* 	CUevent;
 typedef struct CUmodule_st*	CUmodule;
 typedef int 			CUresult;
@@ -176,7 +179,15 @@ public:
 
 	// Get CUBIN Load-effective layout - the runtime address ranges of kernels code,
 	// as they are loaded into GPU memory.
-	static void GetLoadEffectiveLayout(const char* cubin, const char* ckernel_name);
+	static void GetLoadEffectiveLayout(
+			const char* cubin, const char* ckernel_name,
+			std::map<std::string, unsigned int>& layout);
+
+	// Check if loop kernel contains unresolved calls and resolve them
+	// using the load-effective layout obtained from the main kernel.
+	static void ResolveExternalCalls(
+			const char* cubin_dst, const char* ckernel_name_dst,
+			const char* cubin_src, const char* ckernel_name_src);
 };
 
 } // namespace cuda
