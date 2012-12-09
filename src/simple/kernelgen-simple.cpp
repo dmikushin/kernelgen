@@ -682,28 +682,16 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 
 			// Search current main_output for main entry. It will be
 			// used as a container for LLVM IR data.
-			// For build process consistency, all activities will
-			// be performed on duplicate main_output.
+			// For build process consistency and compatibility with objects
+			// embedded into static libraries, all activities will
+			// be performed on duplicate of main_output object.
 			if (!strcmp(name, "main")) {
-				// Clone the main object to the temporary copy.
-				vector<const char*> args;
-				args.push_back(cp);
-				args.push_back(arg);
-				args.push_back(tmp_main_output1.c_str());
-				args.push_back(NULL);
-				if (verbose) {
-					cout << args[0];
-					for (int i = 1; args[i]; i++)
-						cout << " " << args[i];
-					cout << endl;
-				}
-				int status = Program::ExecuteAndWait(
-						Program::FindProgramByName(cp), &args[0], NULL, NULL, 0,
-						0, &err);
-				if (status) {
-					cerr << err;
-					return status;
-				}
+				// Write a copy of main object content to the temporary file.
+				ofstream tmp_main_str1;
+				tmp_main_str1.open(tmp_main_output1.c_str(),
+						std::ios::out | std::ios::binary);
+				tmp_main_str1.write(image, container.size());
+				tmp_main_str1.close();
 				main_output = arg;
 			}
 
@@ -923,7 +911,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 			}
 		}
 
-		// Store addreses of all globals
+		// Store addresses of all globals
 		{
 			Value *Idx3[1];
 			Idx3[0] = ConstantInt::get(Type::getInt64Ty(context), 0);
