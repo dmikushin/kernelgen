@@ -191,23 +191,39 @@ bool BranchedLoopExtractor::runOnLoop(Loop *L, LPPassManager &LPM)
 		if (NumLoops == 0) return Changed;
 		--NumLoops;
 		
-//		if ( (Call = BranchedExtractLoop(DT,LI, L, !L->empty())) != 0) {
-		//if ( (Call = )) != 0) {
-			Changed = true;
-			
-			recursiveExtractSubLoops(L);
-			
-			// After extraction, the loop is replaced by a function call, so
-			// we shouldn't try to run any more loop passes on it.
-            CallInst * Call = BranchedExtractLoop(DT,LI, L, false);
-			if(Call)
-				++NumBranchedExtracted;
-			
-			if(LoopFunctionCalls)
-				LoopFunctionCalls->push_back(Call);
-		//	LPM.deleteLoopFromQueue(L);
-		//}
+		// Dmitry N. Mikushin: Удаление бранчей удалило юзы этих функций, и оптимизация их благополучно удалила, как неиспользуемые.
+		// Николай: может и так, но эти юзы определяются при вытаскивании ядра в отдельный модуль
+		// Николай: но альтернативных бранчей в мэйне быть не должно, это дублирование
+		// Dmitry N. Mikushin: ну почему же? А как ты реализуешь "внешний непараллельный цикл - на GPU" ?
+		// Николай: А зачем?
+		// Николай: если очень надо, то вернуть оставление бранчей в main можно изменением одной строчки
+		// Dmitry N. Mikushin: эффективность может быть разная - одни циклы выгружать имеет смысл, другие - нет
+		// Dmitry N. Mikushin: время покажет, нужно оно нам или нет, но сейчас было бы правильнее оставить эту гибкость, даже если она кажется лишней
+		// Николай: в branched code extractor поставь true в extractCodeRegion, вызываемом для самого внешнего цикла
+		#define PRESERVE_BRANCHES
 
+		#ifdef PRESERVE_BRANCHES
+				CallInst* Call;
+				if ((Call = BranchedExtractLoop(DT, LI, L, true)) != 0)
+		#endif
+				{
+					recursiveExtractSubLoops(L);
+
+					// After extraction, the loop is replaced by a function call, so
+					// we shouldn't try to run any more loop passes on it.
+		#ifndef PRESERVE_BRANCHES
+					CallInst* Call = BranchedExtractLoop(DT, LI, L, false);
+					if (Call)
+		#endif
+					{
+						++NumBranchedExtracted;
+						Changed = true;
+					}
+
+					if (LoopFunctionCalls)
+						LoopFunctionCalls->push_back(Call);
+				//	LPM.deleteLoopFromQueue(L);
+				}
 	}
 	if(NumBranchedExtracted - tmpBranchedExtracted == 1) {
 		tmpBranchedExtracted = NumBranchedExtracted;
