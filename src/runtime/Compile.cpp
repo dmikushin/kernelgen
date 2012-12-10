@@ -1062,15 +1062,20 @@ KernelFunc kernelgen::runtime::Compile(
 				GV->setAlignment(4096);
 		}
 
+		// Internalize functions, in order to make use of locally
+		// defined functions, rather than intrinsics.
+		Function* kernelgen_memcpy = m->getFunction("kernelgen_memcpy");
+		for (Module::iterator iter = m->begin(), iter_end = m->end();
+			iter != iter_end; iter++)
+			if (!iter->isDeclaration() && cast<Function>(iter) != f &&
+					cast<Function>(iter) != kernelgen_memcpy)
+				iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+
 		// Optimize only loop kernels.
 		if (kernel->name != "__kernelgen_main")
 		{
-			// Internalize globals in order to let them get removed from
+			// Internalize globals, in order to let them get removed from
 			// the optimized module.
-			for (Module::iterator iter = m->begin(), iter_end = m->end();
-				iter != iter_end; iter++)
-				if (!iter->isDeclaration() && cast<Function>(iter) != f)
-					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
 			for (Module::global_iterator iter = m->global_begin(),
 				iter_end = m->global_end();  iter != iter_end; iter++)
 				if (!iter->isDeclaration() && cast<GlobalVariable>(iter) != GVSig)
@@ -1093,9 +1098,13 @@ KernelFunc kernelgen::runtime::Compile(
 		}
 		else
 		{
+			if (!kernelgen_memcpy)
+				THROW("Cannot find function \"kernelgen_memcpy\"");
+
 			PassManager MPM;
 			MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
 			MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+			MPM.add(createTailCallEliminationPass());
 			MPM.run(*m);
 		}
 
