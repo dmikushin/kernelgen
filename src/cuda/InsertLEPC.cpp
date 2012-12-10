@@ -32,7 +32,8 @@
 using namespace std;
 
 // Insert commands to perform LEPC reporting.
-void kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(const char* cubin, const char* ckernel_name)
+unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
+		const char* cubin, const char* ckernel_name)
 {
 	string kernel_name = ".text." + (string)ckernel_name;
 
@@ -118,9 +119,15 @@ void kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(const char* cubin, const c
 			}
 
 			// Find a sequence of 6 commands being searched.
+			unsigned int lepc_offset = (unsigned int)-1;
 			for (int k = 0, ke = data->d_size - 5 * 8; k != ke; k += 8)
 				if (!memcmp((char*)data->d_buf + k, (char*)search, 6 * 8))
+				{
 					memcpy((char*)data->d_buf + k, (char*)replacement, 6 * 8);
+					lepc_offset = k;
+				}
+			if (lepc_offset == (unsigned int)-1)
+				THROW("Cannot find the control code sequence to be replaced by LEPC");
 
 			// Mark data section for update.
 			if (elf_flagdata(data, ELF_C_SET, ELF_F_DIRTY) == 0)
@@ -133,7 +140,7 @@ void kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(const char* cubin, const c
 			elf_end(e);
 			close(fd);
 
-			return;
+			return lepc_offset;
 		}
 
 		THROW("Kernel " << kernel_name << " not found in CUBIN " << cubin);

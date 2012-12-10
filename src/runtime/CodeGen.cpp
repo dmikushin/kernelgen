@@ -55,6 +55,10 @@ auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
 // The filename of the temp file containing main kernel.
 static string kernelgen_main_filename;
 
+// The position of the LEPC instruction to account when
+// computing the starting address of __kernelgen_main code region.
+static unsigned int kernelgen_main_lepc_offset;
+
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.
 KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
@@ -330,7 +334,8 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			CUBIN::AlignData(tmp3.getName().c_str(), 4096);
 
 			// Insert commands to perform LEPC reporting.
-			CUBIN::InsertLEPCReporter(tmp3.getName().c_str(), "__kernelgen_main");
+			kernelgen_main_lepc_offset = CUBIN::InsertLEPCReporter(
+					tmp3.getName().c_str(), "__kernelgen_main");
 
 			kernelgen_main_filename = tmp3.getName();
 		} else {
@@ -339,7 +344,8 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			// using the load-effective layout obtained from the main kernel.
 			CUBIN::ResolveExternalCalls(
 					tmp3.getName().c_str(), kernel->name.c_str(),
-					kernelgen_main_filename.c_str(), "__kernelgen_main");
+					kernelgen_main_filename.c_str(), "__kernelgen_main",
+					kernelgen_main_lepc_offset);
 		}
 
 		// Dump Fermi assembly from CUBIN.

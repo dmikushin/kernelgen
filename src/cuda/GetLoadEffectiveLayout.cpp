@@ -342,10 +342,11 @@ static void GetKernelsLoadEffectiveLayout(map<string, unsigned int>& layout,
 // as they are loaded into GPU memory.
 void kernelgen::bind::cuda::CUBIN::GetLoadEffectiveLayout(
 		const char* cubin, const char* ckernel_name,
-		map<string, unsigned int>& layout)
+		unsigned int kernel_lepc_diff, map<string, unsigned int>& layout)
 {
 	// Read LEPC.
 	unsigned int kernel_lepc = cuda_context->getLEPC();
+	kernel_lepc -= kernel_lepc_diff;
 	stringstream hexlepc;
 	hexlepc << hex << kernel_lepc;
 	VERBOSE(Verbose::Loader << "LEPC = 0x" << hexlepc << "\n" << Verbose::Default);

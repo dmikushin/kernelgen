@@ -279,7 +279,6 @@ unsigned int context::getLEPC() const
 	unsigned int lepc;
 	CU_SAFE_CALL(cuMemcpyDtoHAsync(&lepc, (CUdeviceptr)lepcBuffer, szlepc, secondaryStream));
 	CU_SAFE_CALL(cuStreamSynchronize(secondaryStream));
-	lepc -= 0x10;
 	return lepc;
 }
 
