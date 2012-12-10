@@ -668,7 +668,7 @@ mkdir -p $RPM_INSTALL_PREFIX/etc/ld.so.conf.d
 echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/opt/kernelgen/bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
 echo "$RPM_INSTALL_PREFIX/opt/kernelgen/lib" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
 echo "$RPM_INSTALL_PREFIX/opt/kernelgen/lib64" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
-sed s!${RPM_BUILD_ROOT}!${RPM_INSTALL_PREFIX}!g $RPM_INSTALL_PREFIX/opt/kernelgen/bin/kernelgen-vars.sh
+sed -i s!${RPM_BUILD_ROOT}!${RPM_INSTALL_PREFIX}!g $RPM_INSTALL_PREFIX/opt/kernelgen/bin/kernelgen-vars.sh
 
 %changelog
 * Sun Sep  2 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
