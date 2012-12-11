@@ -302,9 +302,6 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			// arguments aggregate. Additionally, main kernel takes another
 			// pointer, which is a pointer onto GPU memory buffer for storing
 			// main kernel LEPC.
-			// Note the alternative cuLaunchKernel interface is used, in order
-			// to override the number of arguments specified for main kernel
-			// by CUBIN.
 			vector<void*> vargs;
 			vargs.resize(2);
 			vargs[0] = (void*)data;

@@ -794,9 +794,9 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 			return 1;
 		}
 
-		// Create new main(int* args).
+		// Create new main(int* args, int* lepc).
 		Function* main = Function::Create(
-				TypeBuilder<void(types::i<32>*), true>::get(context),
+				TypeBuilder<void(types::i<32>*, types::i<32>*), true>::get(context),
 				GlobalValue::ExternalLinkage, "main", &composite);
 		main->setHasUWTable();
 		main->setDoesNotThrow();
