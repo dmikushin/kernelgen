@@ -22,6 +22,7 @@
 #include "KernelGen.h"
 #include "Cuda.h"
 
+#include <cstdlib>
 #include <dlfcn.h>
 #include <stddef.h>
 
@@ -34,6 +35,7 @@ namespace cuda {
 
 cuDeviceComputeCapability_t cuDeviceComputeCapability;
 cuDeviceGetProperties_t cuDeviceGetProperties;
+cuDeviceGetAttribute_t cuDeviceGetAttribute;
 cuInit_t cuInit;
 cuDeviceGet_t cuDeviceGet;
 cuCtxCreate_t cuCtxCreate;
@@ -115,6 +117,10 @@ context::context(void* handle, int capacity) :
 				"cuDeviceGetProperties");
 		if (!cuDeviceGetProperties)
 			THROW("Cannot dlsym cuDeviceGetProperties " << dlerror());
+		cuDeviceGetAttribute = (cuDeviceGetAttribute_t) dlsym(handle,
+				"cuDeviceGetAttribute");
+		if (!cuDeviceGetAttribute)
+			THROW("Cannot dlsym cuDeviceGetAttribute " << dlerror());
 		cuInit = (cuInit_t) dlsym(handle, "cuInit");
 		if (!cuInit)
 			THROW("Cannot dlsym cuInit " << dlerror());
@@ -242,12 +248,60 @@ context::context(void* handle, int capacity) :
 	if (err)
 		THROW("Error in cuInit " << err);
 
+	// KernelGen-managed process always works with device #0.
+	// In order to work with other devices, application should
+	// control this using CUDA_VISIBLE_DEVICES env variable.
 	int device;
 	err = cuDeviceGet(&device, 0);
 	if (err)
 		THROW("Error in cuDeviceGet " << err);
 
-#define CU_CTX_MAP_HOST 0x08
+	// Determine device compute capability. Here we require used GPU
+	// to be at least sm_20.
+	err = cuDeviceComputeCapability(&subarchMajor, &subarchMinor, device);
+	if (err)
+		THROW("Cannot get the CUDA device compute capability" << err);
+	int isubarch = subarchMajor * 10 + subarchMinor;
+	stringstream subarchStr;
+	subarchStr << "sm_" << subarchMajor << subarchMinor;
+	subarch = subarchStr.str();
+	if (subarchMajor < 2)
+		THROW("Available GPU must be at least sm_20 (have " << subarch << ")");
+
+	// Check subarch from global settings gives us a valid value.
+	// Also require setting to be at least sm_20.
+	string subarchRequested = settings.getSubarch();
+	if (subarchRequested != "")
+	{
+		if (strncmp(subarchRequested.c_str(), "sm_", strlen("sm_")))
+			THROW("Not a valid subarch setting for CUDA target: " << subarchRequested);
+		int isubarchRequested = atoi(subarchRequested.c_str() + 3);
+		if (!isubarchRequested)
+			THROW("Not a valid subarch setting for CUDA target: " << subarchRequested);
+
+		int subarchMajorRequested = isubarchRequested / 10;
+		int subarchMinorRequested = isubarchRequested % 10;
+		if (subarchMajorRequested < 2)
+			THROW("Target GPU must be at least sm_20 (given " << subarchRequested << ")");
+
+		// Find a minimum of available and requested subarch.
+		// Requested subarch must be less or equal to subarch of available GPU.
+		if (isubarch < isubarchRequested)
+			THROW("Target GPU is newer than available (" << subarch << " < " << subarchRequested << ")");
+		else
+		{
+			subarch = subarchRequested;
+			subarchMajor = subarchMajorRequested;
+			subarchMinor = subarchMinorRequested;
+		}
+	}
+
+	// Get the regsPerBlock property.
+	err = cuDeviceGetAttribute(&regsPerBlock,
+			CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK, device);
+	if (err)
+		THROW("Error in cuDeviceGetAttribute " << err);
+
 	err = cuCtxCreate(&ctx, CU_CTX_MAP_HOST, device);
 	if (err)
 		THROW("Error in cuCtxCreate " << err);

@@ -42,7 +42,11 @@ typedef void*			CUdeviceptr;
 #define CU_LAUNCH_PARAM_BUFFER_SIZE			((void*)0x02)
 #define CU_LAUNCH_PARAM_END				((void*)0x00)
 
+#define CU_CTX_MAP_HOST 0x08
+
 #define CU_FUNC_ATTRIBUTE_NUM_REGS			4
+
+#define CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK 12
 
 #define CU_SAFE_CALL(x) \
 	    do { CUresult err = x; if (err != CUDA_SUCCESS) { \
@@ -55,6 +59,7 @@ namespace kernelgen { namespace bind { namespace cuda {
 
 typedef CUresult (*cuDeviceComputeCapability_t)(int*, int*, int);
 typedef CUresult (*cuDeviceGetProperties_t)(void*, int);
+typedef CUresult (*cuDeviceGetAttribute_t)(int*, int, int);
 typedef CUresult (*cuInit_t)(unsigned int);
 typedef CUresult (*cuDeviceGet_t)(int*, int);
 typedef CUresult (*cuCtxCreate_t)(void**, unsigned int, int);
@@ -89,6 +94,7 @@ typedef CUresult (*cuFuncGetAttribute_t)(int*, int, CUfunction);
 
 extern cuDeviceComputeCapability_t cuDeviceComputeCapability;
 extern cuDeviceGetProperties_t cuDeviceGetProperties;
+extern cuDeviceGetAttribute_t cuDeviceGetAttribute;
 extern cuInit_t cuInit;
 extern cuDeviceGet_t cuDeviceGet;
 extern cuCtxCreate_t cuCtxCreate;
@@ -141,12 +147,25 @@ private :
 
 	context(void* handle, int capacity);
 	
+	// Target GPU architecture. Could be lower than architecture
+	// of available GPU, must must be not less than sm_20.
+	std::string subarch;
+	int subarchMajor, subarchMinor;
+
+	int regsPerBlock;
+
 	void* lepcBuffer;
 
 	CUstream primaryStream;
 	CUstream secondaryStream;
 
 public :
+
+	inline std::string& getSubarch() { return subarch; }
+	inline int getSubarchMajor() const { return subarchMajor; }
+	inline int getSubarchMinor() const { return subarchMinor; }
+
+	inline int getRegsPerBlock() const { return regsPerBlock; }
 
 	inline void* getLEPCBufferPtr() const { return lepcBuffer; }
 	unsigned int getLEPC() const;

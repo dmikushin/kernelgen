@@ -162,16 +162,6 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 
 	case KERNELGEN_RUNMODE_CUDA: {
 
-		int device;
-		CUresult err = cuDeviceGet(&device, 0);
-		if (err)
-			THROW("Error in cuDeviceGet " << err);
-
-		int major = 2, minor = 0;
-		err = cuDeviceComputeCapability(&major, &minor, device);
-		if (err)
-			THROW("Cannot get the CUDA device compute capability" << err);
-
 		// Create target machine for CUDA target and get its target data.
 		if (!targets[KERNELGEN_RUNMODE_CUDA].get()) {
 			InitializeAllTargets();
@@ -195,7 +185,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 				THROW("LLVM is built without NVPTX Backend support");
 
 			stringstream sarch;
-			sarch << "sm_" << (major * 10 + minor);
+			sarch << cuda_context->getSubarch();
 			targets[KERNELGEN_RUNMODE_CUDA].reset(
 					target->createTargetMachine(triple.getTriple(), sarch.str(),
 							"", TargetOptions(), Reloc::PIC_,
@@ -245,7 +235,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			if (settings.getVerboseMode() != Verbose::Disable)
 				args[i++] = "-v";
 			stringstream sarch;
-			sarch << "-arch=sm_" << (major * 10 + minor);
+			sarch << "-arch=" << cuda_context->getSubarch();
 			string arch = sarch.str();
 			args[i++] = arch.c_str();
 			args[i++] = "-m64";
@@ -256,39 +246,18 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 
 			const char* __maxrregcount = "--maxrregcount";
 			string maxrregcount;
-			if (name == "__kernelgen_main") {
-				// Create a relocatable cubin, to be later linked
-				// with dyloader cubin.
-				// ptxas_args.push_back("--compile-only");
-			} else {
+			if (name != "__kernelgen_main") {
 				// Calculate and apply the maximum register count
 				// constraint, depending on used compute grid dimensions.
 				// TODO This constraint is here due to chicken&egg problem:
 				// grid dimensions are chosen before the register count
 				// becomes known. This thing should go away, once we get
 				// some time to work on it.
-				typedef struct {
-					int maxThreadsPerBlock;
-					int maxThreadsDim[3];
-					int maxGridSize[3];
-					int sharedMemPerBlock;
-					int totalConstantMemory;
-					int SIMDWidth;
-					int memPitch;
-					int regsPerBlock;
-					int clockRate;
-					int textureAlign;
-				} CUdevprop;
-
-				CUdevprop props;
-				err = cuDeviceGetProperties((void*) &props, device);
-				if (err)
-					THROW("Error in cuDeviceGetProperties " << err);
-
 				dim3 blockDim = kernel->target[runmode].blockDim;
-				int maxregcount = props.regsPerBlock
-						/ (blockDim.x * blockDim.y * blockDim.z) - 4;
-				if ((major == 3) && (minor >= 5)) {
+				int maxregcount = cuda_context->getRegsPerBlock() /
+						(blockDim.x * blockDim.y * blockDim.z) - 4;
+				if ((cuda_context->getSubarchMajor() == 3) &&
+						(cuda_context->getSubarchMinor() >= 5)) {
 					if (maxregcount > 128)
 						maxregcount = 128;
 				} else {
