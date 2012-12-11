@@ -45,18 +45,12 @@ namespace kernelgen {
 		// Debug mode.
 		int debug;
 
-		// Subarchitecture setting, e.g. "sm_20" for sm_20 CUDA target.
-		// This setting overrides the value returned by device CC query
-		// (if less or equal).
-		std::string subarch;
-
 	public :
 
 		inline int getRunmode() const { return runmode; }
 		inline Verbose& getVerbose() { return verbose; }
 		inline Verbose::Mode getVerboseMode() const { return verbose.getMode(); }
 		inline int getDebug() const { return debug; }
-		inline std::string getSubarch() const { return subarch; }
 
 		Settings();
 	};

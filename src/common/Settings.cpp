@@ -19,7 +19,7 @@
 #include <iostream>
 #include <cstdlib>
 
-kernelgen::Settings::Settings() : runmode(KERNELGEN_RUNMODE_UNDEF), verbose(0), debug(0), subarch("")
+kernelgen::Settings::Settings() : runmode(KERNELGEN_RUNMODE_UNDEF), verbose(0), debug(0)
 {
 	char* crunmode = getenv("kernelgen_runmode");
 	if (crunmode) {
@@ -34,11 +34,6 @@ kernelgen::Settings::Settings() : runmode(KERNELGEN_RUNMODE_UNDEF), verbose(0), 
 		char* cdebug = getenv("kernelgen_debug");
 		if (cdebug)
 			debug = atoi(cdebug);
-
-		// CUDA target specific: default subarchitecture.
-		const char* csubarch = getenv("kernelgen_subarch");
-		if (csubarch)
-			subarch = csubarch;
 
 		// Check the valid runmode.
 		switch (runmode) {

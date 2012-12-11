@@ -268,34 +268,6 @@ context::context(void* handle, int capacity) :
 	if (subarchMajor < 2)
 		THROW("Available GPU must be at least sm_20 (have " << subarch << ")");
 
-	// Check subarch from global settings gives us a valid value.
-	// Also require setting to be at least sm_20.
-	string subarchRequested = settings.getSubarch();
-	if (subarchRequested != "")
-	{
-		if (strncmp(subarchRequested.c_str(), "sm_", strlen("sm_")))
-			THROW("Not a valid subarch setting for CUDA target: " << subarchRequested);
-		int isubarchRequested = atoi(subarchRequested.c_str() + 3);
-		if (!isubarchRequested)
-			THROW("Not a valid subarch setting for CUDA target: " << subarchRequested);
-
-		int subarchMajorRequested = isubarchRequested / 10;
-		int subarchMinorRequested = isubarchRequested % 10;
-		if (subarchMajorRequested < 2)
-			THROW("Target GPU must be at least sm_20 (given " << subarchRequested << ")");
-
-		// Find a minimum of available and requested subarch.
-		// Requested subarch must be less or equal to subarch of available GPU.
-		if (isubarch < isubarchRequested)
-			THROW("Target GPU is newer than available (" << subarch << " < " << subarchRequested << ")");
-		else
-		{
-			subarch = subarchRequested;
-			subarchMajor = subarchMajorRequested;
-			subarchMinor = subarchMinorRequested;
-		}
-	}
-
 	// Get the regsPerBlock property.
 	err = cuDeviceGetAttribute(&regsPerBlock,
 			CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK, device);
