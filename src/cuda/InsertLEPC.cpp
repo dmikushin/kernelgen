@@ -96,17 +96,17 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 				char source[] =
 						"!Kernel dummy\n"
 						"MEMBAR.CTA;\n"
-						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.SYS;\n"
 						"MEMBAR.CTA;\n"
-						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.SYS;\n"
 						"MEMBAR.CTA;\n"
-						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.SYS;\n"
 						"MEMBAR.CTA;\n"
-						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.SYS;\n"
 						"MEMBAR.CTA;\n"
-						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.SYS;\n"
 						"MEMBAR.CTA;\n"
-						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.SYS;\n"
 						"!EndKernel\n";
 
 				size_t szbinary;
@@ -128,12 +128,12 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 
 				char source[] =
 						"!Kernel dummy\n"
-						"MEMBAR.CTA;\n"
-						"MEMBAR.CTA;\n"
-						"MEMBAR.CTA;\n"
-						"MEMBAR.CTA;\n"
-						"MEMBAR.CTA;\n"
-						"MEMBAR.CTA;\n"
+						"MEMBAR.SYS;\n"
+						"MEMBAR.SYS;\n"
+						"MEMBAR.SYS;\n"
+						"MEMBAR.SYS;\n"
+						"MEMBAR.SYS;\n"
+						"MEMBAR.SYS;\n"
 						"!EndKernel\n";
 
 				size_t szbinary;

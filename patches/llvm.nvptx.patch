@@ -291,7 +291,7 @@
 +  // to be replaced by control code injection at CUBIN level.
 +  if (CurrentFnSym->getName() == "__kernelgen_main")
 +    for (int i = 0; i < 6; i++)
-+      OutStreamer.EmitRawText(StringRef("\tmembar.cta;\n"));
++      OutStreamer.EmitRawText(StringRef("\tmembar.sys;\n"));
  }
  
  void NVPTXAsmPrinter::EmitFunctionBodyEnd() {
