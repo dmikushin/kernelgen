@@ -22,7 +22,6 @@
 #include "KernelGen.h"
 #include "Cuda.h"
 
-#include <cstdlib>
 #include <dlfcn.h>
 #include <stddef.h>
 

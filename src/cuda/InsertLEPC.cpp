@@ -21,6 +21,7 @@
 
 #include "Cuda.h"
 #include "KernelGen.h"
+#include "Runtime.h"
 
 #include <cstring>
 #include <fcntl.h>
@@ -29,6 +30,7 @@
 #include <libasfermi.h>
 #include <vector>
 
+using namespace kernelgen::runtime;
 using namespace std;
 
 // Insert commands to perform LEPC reporting.
@@ -83,23 +85,113 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 				THROW("Expected section " << name << " to contain data in " << cubin);
 
 			// Get a binary representation for a command being searched.
-			uint64_t search[6];
+			vector<uint64_t> search;
+			if (cuda_context->getSubarchMajor() == 2)
 			{
-				char source[] = "!Kernel dummy\nMEMBAR.CTA;\n!EndKernel\n";
+				// Expecting 12 instructions in resulting binary.
+				int szbinaryExpected = 12;
+				search.resize(szbinaryExpected);
+				szbinaryExpected *= 8;
+
+				char source[] =
+						"!Kernel dummy\n"
+						"MEMBAR.CTA;\n"
+						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.CTA;\n"
+						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.CTA;\n"
+						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.CTA;\n"
+						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.CTA;\n"
+						"BPT.DRAIN 0x0;\n"
+						"MEMBAR.CTA;\n"
+						"BPT.DRAIN 0x0;\n"
+						"!EndKernel\n";
+
 				size_t szbinary;
-				char* binary = asfermi_encode_opcodes(source, 30, &szbinary);
-				if (szbinary != 8)
-					THROW("Expected 1 opcode for MEMBAR.CTA, but got szbinary = " <<
-							szbinary << " instead");
-				for (int i = 0; i < 6; i++)
-					memcpy(&search[i], binary, 8);
+				char* binary = asfermi_encode_opcodes(source,
+						cuda_context->getSubarchMajor() * 10 +
+						cuda_context->getSubarchMinor(), &szbinary);
+				if (szbinary != szbinaryExpected)
+					THROW("Unexpected CUBIN size: have " << szbinary << ", expected " <<
+							szbinaryExpected);
+				memcpy(&search[0], binary, szbinary);
 				free(binary);
 			}
+			else if (cuda_context->getSubarchMajor() == 3)
+			{
+				// Expecting 6 instructions in resulting binary.
+				int szbinaryExpected = 6;
+				search.resize(szbinaryExpected);
+				szbinaryExpected *= 8;
+
+				char source[] =
+						"!Kernel dummy\n"
+						"MEMBAR.CTA;\n"
+						"MEMBAR.CTA;\n"
+						"MEMBAR.CTA;\n"
+						"MEMBAR.CTA;\n"
+						"MEMBAR.CTA;\n"
+						"MEMBAR.CTA;\n"
+						"!EndKernel\n";
+
+				size_t szbinary;
+				char* binary = asfermi_encode_opcodes(source,
+						cuda_context->getSubarchMajor() * 10 +
+						cuda_context->getSubarchMinor(), &szbinary);
+				if (szbinary != szbinaryExpected)
+					THROW("Unexpected CUBIN size: have " << szbinary << ", expected " <<
+							szbinaryExpected);
+				memcpy(&search[0], binary, szbinary);
+				free(binary);
+			}
+			else
+				THROW("KernelGen dyloader is not tested with targets >= sm_3x");
 
 			// Get a binary representation for commands to replace the
 			// found entry.
-			uint64_t replacement[6];
+			vector<uint64_t> replacement;
+			if (cuda_context->getSubarchMajor() == 2)
 			{
+				// Expecting 12 instructions in resulting binary.
+				int szbinaryExpected = 12;
+				replacement.resize(szbinaryExpected);
+				szbinaryExpected *= 8;
+
+				char source[] =
+						"!Kernel dummy\n"
+						"LEPC R2;\n"
+						"MOV R4, c [0x0] [0x28];\n"
+						"MOV R5, c [0x0] [0x2c];\n"
+						"ST.E.64 [R4], R2;\n"
+						"NOP;\n"
+						"NOP;\n"
+						"NOP;\n"
+						"NOP;\n"
+						"NOP;\n"
+						"NOP;\n"
+						"NOP;\n"
+						"NOP;\n"
+						"!EndKernel\n";
+
+				size_t szbinary;
+				char* binary = asfermi_encode_opcodes(source,
+						cuda_context->getSubarchMajor() * 10 +
+						cuda_context->getSubarchMinor(), &szbinary);
+				if (szbinary != szbinaryExpected)
+					THROW("Unexpected CUBIN size: have " << szbinary << ", expected " <<
+							szbinaryExpected);
+				memcpy(&replacement[0], binary, szbinary);
+				free(binary);
+			}
+			else if (cuda_context->getSubarchMajor() == 3)
+			{
+				// Expecting 6 instructions in resulting binary.
+				int szbinaryExpected = 6;
+				replacement.resize(szbinaryExpected);
+				szbinaryExpected *= 8;
+
 				char source[] =
 					"!Kernel dummy\n"
 					"LEPC R2;\n"
@@ -109,22 +201,28 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 					"NOP;\n"
 					"NOP;\n"
 					"!EndKernel\n";
+
 				size_t szbinary;
-				char* binary = asfermi_encode_opcodes(source, 30, &szbinary);
-				if (szbinary != 6 * 8)
-					THROW("Expected 6 opcodes, but got szbinary = " << szbinary <<
-						" instead");
-				memcpy(&replacement, binary, szbinary);
+				char* binary = asfermi_encode_opcodes(source,
+						cuda_context->getSubarchMajor() * 10 +
+						cuda_context->getSubarchMinor(), &szbinary);
+				if (szbinary != szbinaryExpected)
+					THROW("Unexpected CUBIN size: have " << szbinary << ", expected " <<
+							szbinaryExpected);
+				memcpy(&replacement[0], binary, szbinary);
 				free(binary);
 			}
+			else
+				THROW("KernelGen dyloader is not tested with targets >= sm_3x");
 
-			// Find a sequence of 6 commands being searched.
+			// Find a first occurrence of commands sequence being searched and replace it.
 			unsigned int lepc_offset = (unsigned int)-1;
-			for (int k = 0, ke = data->d_size - 5 * 8; k != ke; k += 8)
-				if (!memcmp((char*)data->d_buf + k, (char*)search, 6 * 8))
+			for (int k = 0, ke = data->d_size - (search.size() - 1) * 8; k != ke; k += 8)
+				if (!memcmp((char*)data->d_buf + k, (char*)&search[0], search.size() * 8))
 				{
-					memcpy((char*)data->d_buf + k, (char*)replacement, 6 * 8);
+					memcpy((char*)data->d_buf + k, (char*)&replacement[0], search.size() * 8);
 					lepc_offset = k;
+					break;
 				}
 			if (lepc_offset == (unsigned int)-1)
 				THROW("Cannot find the control code sequence to be replaced by LEPC");
