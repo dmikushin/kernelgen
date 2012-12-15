@@ -153,10 +153,7 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			// debug purposes, all arguments are needed.
 			size_t size = (settings.getVerboseMode() != Verbose::Disable) ? szdata : szdatai;
 			char* content = (char*) malloc(size);
-			int err = cuMemHostRegister(content, size, 0);
-			if (err)
-				THROW("Error in cuMemHostRegister " << err);
-			err = cuMemcpyDtoHAsync(content, &data->args, size, monitor_stream);
+			int err = cuMemcpyDtoHAsync(content, &data->args, size, monitor_stream);
 			if (err)
 				THROW("Error in cuMemcpyDtoHAsync " << err);
 			err = cuStreamSynchronize(monitor_stream);
@@ -164,13 +161,11 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 				THROW("Error in cuStreamSynchronize " << err);
 			mhash(td, content, szdatai);
 
-			// TODO: Unpin and free the device buffer?
-			//err = cuMemFreeHost(content);
-			if (err)
-				THROW("Error in cuMemFreeHost " << err);
-
 			args = malloc(2 * sizeof(void *) + szdatai);
 			memcpy((char *) args + 2 * sizeof(void *), content, szdatai);
+
+			// Free the host buffer.
+			free(content);
 
 			break;
 		}
