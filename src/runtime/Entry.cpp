@@ -100,8 +100,8 @@ int main(int argc, char* argv[], char* envp[]) {
 		SMDiagnostic diag;
 		Module* m = ParseIR(buffer, diag, context);
 		if (!m)
-			THROW(
-					"__kernelgen_regular_main:" << diag.getLineNo() << ": " << diag.getLineContents() << ": " << diag.getMessage());
+			THROW("__kernelgen_regular_main:" << diag.getLineNo() << ": " <<
+					diag.getLineContents() << ": " << diag.getMessage());
 		regular_main = m->getFunction("__kernelgen_regular_main");
 		if (!regular_main)
 			THROW("Cannot find the __kernelgen_regular_main function");
@@ -305,12 +305,8 @@ int main(int argc, char* argv[], char* envp[]) {
 			callback.szdata = sizeof(main_args_t);
 			callback.szdatai = sizeof(int);
 			kernelgen_callback_t* callback_dev = NULL;
-			int err = cuMemAlloc((void**) &callback_dev, sizeof(kernelgen_callback_t));
-			if (err)
-				THROW("Error in cuMemAlloc " << err);
-			err = cuMemcpyHtoD(callback_dev, &callback, sizeof(kernelgen_callback_t));
-			if (err)
-				THROW("Error in cuMemcpyHtoD " << err);
+			CU_SAFE_CALL(cuMemAlloc((void**) &callback_dev, sizeof(kernelgen_callback_t)));
+			CU_SAFE_CALL(cuMemcpyHtoD(callback_dev, &callback, sizeof(kernelgen_callback_t)));
 			kernel->target[RUNMODE].callback = callback_dev;
 
 			// Setup device dynamic memory heap.
@@ -329,24 +325,16 @@ int main(int argc, char* argv[], char* envp[]) {
 					size_t size = sizeof(char*) * (argc + 1);
 					for (int i = 0; i < argc; i++)
 						size += strlen(argv[i]) + 1;
-					int err = cuMemAlloc((void**) &argv_dev, size);
-					if (err)
-						THROW("Error in cuMemAlloc " << err);
+					CU_SAFE_CALL(cuMemAlloc((void**) &argv_dev, size));
 				}
 				for (int i = 0, offset = 0; i < argc; i++) {
 					char* arg = (char*) (argv_dev + argc + 1) + offset;
-					err = cuMemcpyHtoD(argv_dev + i, &arg, sizeof(char*));
-					if (err)
-						THROW("Error in cuMemcpyHtoD " << err);
+					CU_SAFE_CALL(cuMemcpyHtoD(argv_dev + i, &arg, sizeof(char*)));
 					size_t length = strlen(argv[i]) + 1;
-					err = cuMemcpyHtoD(arg, argv[i], length);
-					if (err)
-						THROW("Error in cuMemcpyDtoH " << err);
+					CU_SAFE_CALL(cuMemcpyHtoD(arg, argv[i], length));
 					offset += length;
 				}
-				err = cuMemsetD8(argv_dev + argc, 0, sizeof(char*));
-				if (err)
-					THROW("Error in cuMemsetD8 " << err);
+				CU_SAFE_CALL(cuMemsetD8(argv_dev + argc, 0, sizeof(char*)));
 			}
 
 			// Duplicate envp into device memory.
@@ -361,40 +349,23 @@ int main(int argc, char* argv[], char* envp[]) {
 					size_t size = sizeof(char*) * (envc + 1);
 					for (int i = 0; i < envc; i++)
 						size += strlen(envp[i]) + 1;
-					int err = cuMemAlloc((void**) &envp_dev, size);
-					if (err)
-						THROW("Error in cuMemAlloc " << err);
+					CU_SAFE_CALL(cuMemAlloc((void**) &envp_dev, size));
 				}
 				for (int i = 0, offset = 0; i < envc; i++) {
 					char* env = (char*) (envp_dev + envc + 1) + offset;
-					err = cuMemcpyHtoD(envp_dev + i, &env, sizeof(char*));
-					if (err)
-						THROW("Error in cuMemcpyHtoD " << err);
+					CU_SAFE_CALL(cuMemcpyHtoD(envp_dev + i, &env, sizeof(char*)));
 					size_t length = strlen(envp[i]) + 1;
-					err = cuMemcpyHtoD(env, envp[i], length);
-					if (err)
-						THROW("Error in cuMemcpyDtoH " << err);
+					CU_SAFE_CALL(cuMemcpyHtoD(env, envp[i], length));
 					offset += length;
 				}
-				err = cuMemsetD8(envp_dev + envc, 0, sizeof(char*));
-				if (err)
-					THROW("Error in cuMemsetD8 " << err);
+				CU_SAFE_CALL(cuMemsetD8(envp_dev + envc, 0, sizeof(char*)));
 			}
 
 			// Allocate page-locked memory for globals addresses.
-			{
-				CUresult err = cuMemAllocHost(
-						(void **) &AddressesOfGVars,
-						NumOfGVars * sizeof(void*));
-				if (err)
-					THROW("Error in cuMemAllocHost " << err);
-				CUdeviceptr pointerOnDevice =
-						(CUdeviceptr) AddressesOfGVars;
-				err = cuMemsetD8(pointerOnDevice, 0,
-						NumOfGVars * sizeof(void*));
-				if (err)
-					THROW("Error in cuMemsetD8 " << err);
-			}
+			CU_SAFE_CALL(cuMemAllocHost((void **) &AddressesOfGVars,
+					NumOfGVars * sizeof(void*)));
+			CU_SAFE_CALL(cuMemsetD8((CUdeviceptr) AddressesOfGVars, 0,
+					NumOfGVars * sizeof(void*)));
 
 			// Setup argerator structure and fill it with the main
 			// entry arguments.
@@ -405,40 +376,26 @@ int main(int argc, char* argv[], char* envp[]) {
 			args_host.callback = callback_dev;
 			args_host.memory = memory;
 			main_args_t* args_dev = NULL;
-			err = cuMemAlloc((void**) &args_dev, sizeof(main_args_t));
-			if (err)
-				THROW("Error in cuMemAlloc " << err);
-			err = cuMemcpyHtoD(args_dev, &args_host, sizeof(main_args_t));
-			if (err)
-				THROW("Error in cuMemcpyHtoD " << err);
+			CU_SAFE_CALL(cuMemAlloc((void**) &args_dev, sizeof(main_args_t)));
+			CU_SAFE_CALL(cuMemcpyHtoD(args_dev, &args_host, sizeof(main_args_t)));
 			kernelgen_launch(kernel, sizeof(main_args_t), sizeof(int),
 					(CallbackData*) args_dev);
 
 			// Store back to host the return value, if present.
 			int ret = EXIT_SUCCESS;
 			if (!mainRetTy->isVoidTy()) {
-				err = cuMemcpyDtoH(&ret, &args_dev->ret, sizeof(int));
-				if (err)
-					THROW("Error in cuMemcpyDtoH " << err);
+				CU_SAFE_CALL(cuMemcpyDtoH(&ret, &args_dev->ret, sizeof(int)));
 			}
 
 			// Release device memory buffers.
 			if (argv_dev) {
-				err = cuMemFree(argv_dev);
-				if (err)
-					THROW("Error in cuMemFree " << err);
+				CU_SAFE_CALL(cuMemFree(argv_dev));
 			}
 			if (envp_dev) {
-				err = cuMemFree(envp_dev);
-				if (err)
-					THROW("Error in cuMemFree " << err);
+				CU_SAFE_CALL(cuMemFree(envp_dev));
 			}
-			err = cuMemFree(callback_dev);
-			if (err)
-				THROW("Error in cuMemFree " << err);
-			err = cuMemFree(args_dev);
-			if (err)
-				THROW("Error in cuMemFree " << err);
+			CU_SAFE_CALL(cuMemFree(callback_dev));
+			CU_SAFE_CALL(cuMemFree(args_dev));
 
 			delete kernelgen::runtime::cuda_context;
 

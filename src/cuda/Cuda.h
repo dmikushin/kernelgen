@@ -46,11 +46,13 @@ typedef void*			CUdeviceptr;
 
 #define CU_FUNC_ATTRIBUTE_NUM_REGS			4
 
-#define CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK 12
+#define CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK       1
+#define CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK    12
 
 #define CU_SAFE_CALL(x) \
 	    do { CUresult err = x; if (err != CUDA_SUCCESS) { \
-	        cerr << "Error \"" << (int)err << "\" at " << __FILE__ << ":" << __LINE__ << endl; throw; \
+	        cerr << "Error \"" << (int)err << "\" in \"" << "" #x "\" (" << \
+	        		__FILE__ << ":" << __LINE__ << ")" << endl; throw; \
 	    }} while (0);
 
 #include "cuda_dyloader.h"
@@ -66,8 +68,12 @@ typedef CUresult (*cuCtxCreate_t)(void**, unsigned int, int);
 typedef CUresult (*cuCtxSynchronize_t)(void);
 typedef CUresult (*cuMemAlloc_t)(void**, size_t);
 typedef CUresult (*cuMemFree_t)(void*);
-typedef CUresult (*cuMemcpy_t)(void*, void*, size_t);
-typedef CUresult (*cuMemcpyAsync_t)(void*, void*, size_t, void*);
+typedef CUresult (*cuMemAllocHost_t)(void**, size_t);
+typedef CUresult (*cuMemFreeHost_t)(void*);
+typedef CUresult (*cuMemcpyDtoH_t)(void*, void*, size_t);
+typedef CUresult (*cuMemcpyHtoD_t)(void*, void*, size_t);
+typedef CUresult (*cuMemcpyDtoHAsync_t)(void*, void*, size_t, void*);
+typedef CUresult (*cuMemcpyHtoDAsync_t)(void*, void*, size_t, void*);
 typedef CUresult (*cuMemGetAddressRange_t)(void**, size_t*, void*);
 typedef CUresult (*cuMemsetD8_t)(void*, unsigned char, size_t);
 typedef CUresult (*cuMemsetD32_t)(void*, unsigned int, size_t);
@@ -76,6 +82,7 @@ typedef CUresult (*cuMemHostRegister_t)(void*, size_t, unsigned int);
 typedef CUresult (*cuMemHostGetDevicePointer_t)(void**, void*, unsigned int);
 typedef CUresult (*cuMemHostUnregister_t)(void*);
 typedef CUresult (*cuModuleLoad_t)(CUmodule*, const char*);
+typedef CUresult (*cuModuleLoadData_t)(CUmodule*, const char*);
 typedef CUresult (*cuModuleLoadDataEx_t)(CUmodule*, const char*, unsigned int, int* options, void**);
 typedef CUresult (*cuModuleUnload_t)(void*);
 typedef CUresult (*cuModuleGetFunction_t)(CUfunction*, void*, const char*);
@@ -103,8 +110,10 @@ extern cuMemAlloc_t cuMemAlloc_;
 extern cuMemFree_t cuMemFree_;
 extern cuMemAlloc_t cuMemAllocHost;
 extern cuMemFree_t cuMemFreeHost;
-extern cuMemcpy_t cuMemcpyHtoD, cuMemcpyDtoH;
-extern cuMemcpyAsync_t cuMemcpyHtoDAsync, cuMemcpyDtoHAsync;
+extern cuMemcpyHtoD_t cuMemcpyHtoD;
+extern cuMemcpyDtoH_t cuMemcpyDtoH;
+extern cuMemcpyHtoDAsync_t cuMemcpyHtoDAsync;
+extern cuMemcpyDtoHAsync_t cuMemcpyDtoHAsync;
 extern cuMemGetAddressRange_t cuMemGetAddressRange;
 extern cuMemsetD8_t cuMemsetD8;
 extern cuMemsetD32_t cuMemsetD32;
@@ -113,7 +122,7 @@ extern cuMemHostRegister_t cuMemHostRegister;
 extern cuMemHostGetDevicePointer_t cuMemHostGetDevicePointer;
 extern cuMemHostUnregister_t cuMemHostUnregister;
 extern cuModuleLoad_t cuModuleLoad;
-extern cuModuleLoad_t cuModuleLoadData;
+extern cuModuleLoadData_t cuModuleLoadData;
 extern cuModuleLoadDataEx_t cuModuleLoadDataEx;
 extern cuModuleUnload_t cuModuleUnload;
 extern cuModuleGetFunction_t cuModuleGetFunction;
@@ -152,6 +161,7 @@ private :
 	std::string subarch;
 	int subarchMajor, subarchMinor;
 
+	int threadsPerBlock;
 	int regsPerBlock;
 
 	void* lepcBuffer;
@@ -165,6 +175,7 @@ public :
 	inline int getSubarchMajor() const { return subarchMajor; }
 	inline int getSubarchMinor() const { return subarchMinor; }
 
+	inline int getThreadsPerBlock() const { return threadsPerBlock; }
 	inline int getRegsPerBlock() const { return regsPerBlock; }
 
 	inline void* getLEPCBufferPtr() const { return lepcBuffer; }

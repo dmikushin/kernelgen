@@ -101,10 +101,8 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	VERBOSE(Verbose::DataIO << "Mapped memory " << map << "(" << base <<
 			" - " << align << ") + " << size << "\n" << Verbose::Default);
 
-	err = cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream());
-	if (err) THROW("Error in cuMemcpyDtoH " << err);
-	err = cuStreamSynchronize(cuda_context->getSecondaryStream());
-	if (err) THROW("Error in cuStreamSynchronize " << err);
+	CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
+	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
 
 	VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
 			"(" << base << " - " << align << ") + " << size << "\n" << Verbose::Default);
@@ -233,8 +231,7 @@ void kernelgen_hostcall(
 				}
 
 				// Copy device memory to host mapped memory.
-				int err = cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream());
-				if (err) THROW("Error in cuMemcpyDtoHAsync");
+				CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
 
 				VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
 						"(" << base << " - " << align << ") + " << size << "\n" << Verbose::Default);
@@ -276,8 +273,7 @@ void kernelgen_hostcall(
 			(void*)*func << "\n" << Verbose::Default);
 
 	// Synchronize pending mmapped data transfers.
-	int err = cuStreamSynchronize(cuda_context->getSecondaryStream());
-	if (err) THROW("Error in cuStreamSynchronize " << err);
+	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
 
 	ffi_call(&cif, (func_t)*func, ret, values.data());
 
@@ -328,22 +324,20 @@ void kernelgen_hostcall_memsync()
 		struct mmap_t mmap = *i;
 		size_t size = mmap.size;
 		if (size % 16) size -= mmap.size % 16;
-		int err = cuMemcpyHtoDAsync(
+		CU_SAFE_CALL(cuMemcpyHtoDAsync(
 			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, size,
-			cuda_context->getSecondaryStream());
-		if (err) THROW("Error in cuMemcpyHtoDAsync " << err);
+			cuda_context->getSecondaryStream()));
 		VERBOSE(Verbose::DataIO << "mmap.addr = " << mmap.addr <<
 				", mmap.align = " << mmap.align << ", mmap.size = " <<
 				mmap.size << " (" << size << ")\n" << Verbose::Default);
 	}
 	
 	// Synchronize and unmap previously mapped host memory.
-	int err = cuStreamSynchronize(cuda_context->getSecondaryStream());
-	if (err) THROW("Error in cuStreamSynchronize " << err);
+	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
 	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
 	{
 		struct mmap_t mmap = *i;
-		err = munmap(mmap.addr, mmap.size + mmap.align);
+		int err = munmap(mmap.addr, mmap.size + mmap.align);
 		if (err == -1)
 			THROW("Cannot unmap memory from " << mmap.addr <<
 					" + " << mmap.size + mmap.align);

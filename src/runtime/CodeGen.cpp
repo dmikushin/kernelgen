@@ -83,8 +83,8 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			const Target* target = TargetRegistry::lookupTarget(
 					triple.getTriple(), err);
 			if (!target)
-				THROW(
-						"Error auto-selecting target for module '" << err << "'." << endl << "Please use the -march option to explicitly pick a target.");
+				THROW("Error auto-selecting target for module '" << err << "'." << endl <<
+						"Please use the -march option to explicitly pick a target.");
 			targets[KERNELGEN_RUNMODE_NATIVE].reset(
 					target->createTargetMachine(triple.getTriple(), "", "",
 							options, Reloc::PIC_, CodeModel::Default));
@@ -294,9 +294,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 
 		if (name == "__kernelgen_main") {
 			// Initialize the dynamic kernels loader.
-			int err = cudyInit(&cuda_context->loader, cuda_context->capacity, tmp3.getName());
-			if (err)
-				THROW("Cannot initialize the dynamic loader " << err);
+			CU_SAFE_CALL(cudyInit(&cuda_context->loader, cuda_context->capacity, tmp3.getName()));
 
 			// Align main kernel cubin global data to the virtual memory
 			// page boundary.
@@ -354,17 +352,13 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		if (name == "__kernelgen_main") {
 			// Load CUBIN from string into module.
 			CUmodule module;
-			int err = cuModuleLoad(&module, tmp3.getName().c_str());
-			if (err)
-				THROW("Error in cuModuleLoadData " << err);
+			CU_SAFE_CALL(cuModuleLoad(&module, tmp3.getName().c_str()));
 
 			// Load function responsible for GPU-side memcpy.
-			err = cuModuleGetFunction((CUfunction*)&cuda_context->kernelgen_memcpy,
-					module, "kernelgen_memcpy");
+			CU_SAFE_CALL(cuModuleGetFunction((CUfunction*)&cuda_context->kernelgen_memcpy,
+					module, "kernelgen_memcpy"));
 
-			err = cuModuleGetFunction(&kernel_func, module, name.c_str());
-			if (err)
-				THROW("Error in cuModuleGetFunction " << err);
+			CU_SAFE_CALL(cuModuleGetFunction(&kernel_func, module, name.c_str()));
 		} else {
 			// FIXME: The following ugly fix mimics the backend asm printer
 			// mangler behavior. We should instead get names from the real
@@ -380,11 +374,9 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			}
 
 			// Load kernel function from the binary opcodes.
-			CUresult err = cudyLoadCubin((CUDYfunction*) &kernel_func,
+			CU_SAFE_CALL(cudyLoadCubin((CUDYfunction*) &kernel_func,
 					cuda_context->loader, (char*) tmp3.getName().c_str(),
-					name.c_str(), cuda_context->getSecondaryStream());
-			if (err)
-				THROW("Error in cudyLoadCubin " << err);
+					name.c_str(), cuda_context->getSecondaryStream()));
 		}
 
 		VERBOSE("Loaded '" << name << "' at: " << kernel_func << "\n");
@@ -393,4 +385,3 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 	}
 	}
 }
-

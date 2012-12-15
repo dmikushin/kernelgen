@@ -790,8 +790,6 @@ KernelFunc kernelgen::runtime::Compile(
 				}
 			}
 
-			//printModuleToFile(m, kernel->name + (string)"_before_polly.txt" );
-			
 			// Apply the Polly codegen for CUDA target.
 			Size3 sizeOfLoops;
 			bool isThereAtLeastOneParallelLoop = false;
@@ -814,93 +812,9 @@ KernelFunc kernelgen::runtime::Compile(
 			// hostcalls on each individual iteration, which will be terribly slow.
 			if (sizeOfLoops.x == -1)
 			{
-				
-				// Dump the LLVM IR Polly has failed to create
-				// gird in for futher analysis with kernelgen-polly.
-				/*if (verbose & KERNELGEN_VERBOSE_POLLYGEN)
-				{
-					// Put the resulting module into LLVM output file
-					// as object binary. Method: create another module
-					// with a global variable incorporating the contents
-					// of entire module and emit it for X86_64 target.
-					string ir_string;
-					raw_string_ostream ir(ir_string);
-					ir << *m;
-					Module obj_m("module" + kernel->name, context);
-					Constant* C1 = ConstantDataArray::getString(context, ir_string, true);
-					GlobalVariable* GV1 = new GlobalVariable(obj_m, C1->getType(),
-						true, GlobalValue::LinkerPrivateLinkage, C1,
-						kernel->name, 0, false);
-					SmallVector<uint8_t, 16> adata((char*)data, (char*)data + szdata);
-					Constant* C2 = ConstantDataArray::get(context, adata);
-					GlobalVariable* GV2 = new GlobalVariable(obj_m, C2->getType(),
-						true, GlobalValue::LinkerPrivateLinkage, C2,
-						"args" + kernel->name, 0, false);
-					APInt aszdata(8 * sizeof(int), szdata);
-					Constant* C3 = Constant::getIntegerValue(Type::getInt32Ty(context), aszdata);
-					GlobalVariable* GV3 = new GlobalVariable(obj_m, C3->getType(),
-						true, GlobalValue::LinkerPrivateLinkage, C3,
-						"szargs" + kernel->name, 0, false);
-					APInt aszdatai(8 * sizeof(int), szdatai);
-					Constant* C4 = Constant::getIntegerValue(Type::getInt32Ty(context), aszdatai);
-					GlobalVariable* GV4 = new GlobalVariable(obj_m, C4->getType(),
-						true, GlobalValue::LinkerPrivateLinkage, C4,
-						"szargsi" + kernel->name, 0, false);
-					
-					// Create target machine for NATIVE target and get its target data.
-					if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
-						InitializeAllTargets();
-						InitializeAllTargetMCs();
-						InitializeAllAsmPrinters();
-						InitializeAllAsmParsers();
-
-						Triple triple;
-						triple.setTriple(sys::getDefaultTargetTriple());
-						string err;
-						TargetOptions options;
-						const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), err);
-						if (!target)
-							THROW("Error auto-selecting target for module '" << err << "'." << endl <<
-								"Please use the -march option to explicitly pick a target.");
-						targets[KERNELGEN_RUNMODE_NATIVE].reset(target->createTargetMachine(
-							triple.getTriple(), "", "", options, Reloc::PIC_, CodeModel::Default));
-						if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
-							THROW("Could not allocate target machine");
-
-						// Override default to generate verbose assembly.
-						targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(true);
-					}
-
-					// Setup output stream.
-					string bin_string;
-					raw_string_ostream bin_stream(bin_string);
-					formatted_raw_ostream bin_raw_stream(bin_stream);
-
-					// Ask the target to add backend passes as necessary.
-					PassManager manager;
-					const TargetData* tdata =
-						targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
-					manager.add(new TargetData(*tdata));
-					if (targets[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(manager, bin_raw_stream,
-						TargetMachine::CGFT_ObjectFile, CodeGenOpt::Aggressive))
-						THROW("Target does not support generation of this file type");
-					manager.run(obj_m);
-
-					// Flush the resulting object binary to the underlying string.
-					bin_raw_stream.flush();
-
-					// Dump the generated kernel object to file.
-					fstream stream;
-					string filename = kernel->name + ".kernelgen.o";
-					stream.open(filename.c_str(),
-						fstream::binary | fstream::out | fstream::trunc);
-					stream << bin_string;
-					stream.close();
-				}*/
-			
 				// XXX Turn off future kernel analysis, if it has been detected as
 				// non-parallel at least once. This behavior is subject for change in future.
-				//if(!isThereAtLeastOneParallelLoop)
+				// if(!isThereAtLeastOneParallelLoop)
 				kernel->target[runmode].supported = false;
 				return NULL;
 			}
@@ -912,62 +826,28 @@ KernelFunc kernelgen::runtime::Compile(
 			// always evaluate to -1.
 			if (!processCallTreeLoop(kernel, m, f))
 				return NULL;
-	
-			int device;
-			CUresult err = cuDeviceGet(&device, 0);
-			if (err)
-				THROW("Error in cuDeviceGet " << err);
-
-			typedef struct
-			{
-				int maxThreadsPerBlock;
-				int maxThreadsDim[3];
-				int maxGridSize[3];
-				int sharedMemPerBlock;
-				int totalConstantMemory;
-				int SIMDWidth;
-				int memPitch;
-				int regsPerBlock;
-				int clockRate;
-				int textureAlign;
-			} CUdevprop;
-			
-			CUdevprop props;			
-			err = cuDeviceGetProperties((void*)&props, device);
-			if (err)
-				THROW("Error in cuDeviceGetProperties " << err);
-
-			//printModuleToFile(m, kernel->name + (string)"_after_polly.txt" );
 
 			// x   y     z         x     y     z
 			// 123 13640   -1  ->  13640 123   1     two loops
 			// 123 13640 2134  ->  2134  13640 123   three loops
 			// 123   -1    -1  ->  123   1     1     one loop
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
-#define BLOCK_DIM_X 32
 			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
-			if (launchParameters.x * launchParameters.y * launchParameters.z > props.maxThreadsPerBlock)
+			if (launchParameters.x * launchParameters.y * launchParameters.z > cuda_context->getThreadsPerBlock())
 			switch (numberOfLoops)
 			{
-			case 0:	blockDim = dim3(1, 1, 1);
+			case 0:
+				blockDim = dim3(1, 1, 1);
 				assert(false);
 				break;
-			case 1: //blockDim = dim3(props.maxThreadsPerBlock, 1, 1);
-			        blockDim = dim3(512, 1, 1);
+			case 1:
+				blockDim = dim3(512, 1, 1);
 				break;
-			case 2: //blockDim = dim3(BLOCK_DIM_X, props.maxThreadsPerBlock / BLOCK_DIM_X, 1);
-			        blockDim = dim3(32, 16, 1);
+			case 2:
+				blockDim = dim3(32, 16, 1);
 				break;
 			case 3:
-				{
-					/*double remainder = props.maxThreadsPerBlock / BLOCK_DIM_X;
-					double coefficient = (double)launchParameters.z / (double)launchParameters.y;
-					double yPow2 = remainder / coefficient;
-					double y = sqrt(yPow2);
-					blockDim = dim3(BLOCK_DIM_X, y , coefficient * y);
-					assert(blockDim.x * blockDim.y * blockDim.z <= props.maxThreadsPerBlock);*/
-					blockDim = dim3(32, 4, 4);
-				}
+				blockDim = dim3(32, 4, 4);
 				break;
 			}
 			else
@@ -985,7 +865,6 @@ KernelFunc kernelgen::runtime::Compile(
 			// Substitute grid parameters to reduce amount of instructions
 			// and used registers.
 			substituteGridParams(kernel, gridDim, blockDim);
-			//printModuleToFile(m, kernel->name + (string)"_after_substitution.txt" );
 		}
 
 		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
