@@ -186,8 +186,34 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 				memcpy(&replacement[0], binary, szbinary);
 				free(binary);
 			}
-			else if (((cuda_context->getSubarchMajor() == 2) && (cuda_context->getSubarchMinor() > 0)) ||
-				(cuda_context->getSubarchMajor() == 3))
+			else if ((cuda_context->getSubarchMajor() == 2) && (cuda_context->getSubarchMinor() > 0))
+			{
+				// Expecting 6 instructions in resulting binary.
+				int szbinaryExpected = 6;
+				replacement.resize(szbinaryExpected);
+				szbinaryExpected *= 8;
+
+				char source[] =
+					"!Kernel dummy\n"
+					"LEPC R2;\n"
+					"MOV R4, c [0x0] [0x28];\n"
+					"MOV R5, c [0x0] [0x2c];\n"
+					"ST.E.64 [R4], R2;\n"
+					"NOP;\n"
+					"NOP;\n"
+					"!EndKernel\n";
+
+				size_t szbinary;
+				char* binary = asfermi_encode_opcodes(source,
+						cuda_context->getSubarchMajor() * 10 +
+						cuda_context->getSubarchMinor(), &szbinary);
+				if (szbinary != szbinaryExpected)
+					THROW("Unexpected CUBIN size: have " << szbinary << ", expected " <<
+							szbinaryExpected);
+				memcpy(&replacement[0], binary, szbinary);
+				free(binary);
+			}
+			else if (cuda_context->getSubarchMajor() == 3)
 			{
 				// Expecting 6 instructions in resulting binary.
 				int szbinaryExpected = 6;
