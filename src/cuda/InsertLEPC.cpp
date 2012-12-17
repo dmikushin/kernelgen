@@ -86,7 +86,7 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 
 			// Get a binary representation for a command being searched.
 			vector<uint64_t> search;
-			if (cuda_context->getSubarchMajor() == 2)
+			if ((cuda_context->getSubarchMajor() == 2) && (cuda_context->getSubarchMinor() == 0))
 			{
 				// Expecting 12 instructions in resulting binary.
 				int szbinaryExpected = 12;
@@ -119,7 +119,8 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 				memcpy(&search[0], binary, szbinary);
 				free(binary);
 			}
-			else if (cuda_context->getSubarchMajor() == 3)
+			else if (((cuda_context->getSubarchMajor() == 2) && (cuda_context->getSubarchMinor() > 0)) ||
+				(cuda_context->getSubarchMajor() == 3))
 			{
 				// Expecting 6 instructions in resulting binary.
 				int szbinaryExpected = 6;
@@ -152,7 +153,7 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 			// Get a binary representation for commands to replace the
 			// found entry.
 			vector<uint64_t> replacement;
-			if (cuda_context->getSubarchMajor() == 2)
+			if ((cuda_context->getSubarchMajor() == 2) && (cuda_context->getSubarchMinor() == 0))
 			{
 				// Expecting 12 instructions in resulting binary.
 				int szbinaryExpected = 12;
@@ -185,7 +186,8 @@ unsigned int kernelgen::bind::cuda::CUBIN::InsertLEPCReporter(
 				memcpy(&replacement[0], binary, szbinary);
 				free(binary);
 			}
-			else if (cuda_context->getSubarchMajor() == 3)
+			else if (((cuda_context->getSubarchMajor() == 2) && (cuda_context->getSubarchMinor() > 0)) ||
+				(cuda_context->getSubarchMajor() == 3))
 			{
 				// Expecting 6 instructions in resulting binary.
 				int szbinaryExpected = 6;
