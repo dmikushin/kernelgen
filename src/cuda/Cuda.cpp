@@ -22,6 +22,7 @@
 #include "KernelGen.h"
 #include "Cuda.h"
 
+#include <cstdlib>
 #include <dlfcn.h>
 #include <stddef.h>
 
@@ -106,7 +107,7 @@ context* context::init(int capacity) {
 
 context::context(void* handle, int capacity) :
 
-		handle(handle), capacity(capacity)
+		handle(handle), capacity(capacity), ptxas("ptxas")
 
 {
 	#define DL_SAFE_CALL(name, suffix) \
@@ -199,6 +200,11 @@ context::context(void* handle, int capacity) :
 	// Initialize streams.
 	CU_SAFE_CALL(cuStreamCreate(&primaryStream, 0));
 	CU_SAFE_CALL(cuStreamCreate(&secondaryStream, 0));
+
+	// Setup PTXAS executable, if specified.
+	char* kernelgen_ptxas = getenv("kernelgen_ptxas");
+	if (kernelgen_ptxas)
+		ptxas = kernelgen_ptxas;
 }
 
 unsigned int context::getLEPC() const

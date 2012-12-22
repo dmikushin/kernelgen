@@ -169,9 +169,12 @@ private :
 	CUstream primaryStream;
 	CUstream secondaryStream;
 
+	// Executable used as PTX assembler.
+	std::string ptxas;
+
 public :
 
-	inline std::string& getSubarch() { return subarch; }
+	inline const std::string& getSubarch() const { return subarch; }
 	inline int getSubarchMajor() const { return subarchMajor; }
 	inline int getSubarchMinor() const { return subarchMinor; }
 
@@ -183,6 +186,8 @@ public :
 
 	CUstream getPrimaryStream() const { return primaryStream; }
 	CUstream getSecondaryStream() const { return secondaryStream; }
+
+	inline const std::string& getPtxAS() const { return ptxas; }
 
 	void* kernelgen_memcpy;
 

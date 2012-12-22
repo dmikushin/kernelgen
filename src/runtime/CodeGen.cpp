@@ -231,7 +231,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			int i = 0;
 			vector<const char*> args;
 			args.resize(14);
-			args[i++] = "ptxas";
+			args[i++] = cuda_context->getPtxAS().c_str();
 			if (settings.getVerboseMode() != Verbose::Disable)
 				args[i++] = "-v";
 			stringstream sarch;

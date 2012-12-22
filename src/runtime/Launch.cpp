@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Runtime.h"
-#include "Util.h"
+#include "Timer.h"
 
 #include <iomanip>
 #include <mhash.h>
@@ -30,6 +30,7 @@
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;
+using namespace kernelgen::utils;
 using namespace llvm;
 using namespace std;
 

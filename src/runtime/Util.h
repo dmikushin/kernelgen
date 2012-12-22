@@ -24,27 +24,6 @@
 int execute(std::string command, std::list<std::string> args,
 	std::string in = "", std::string* out = NULL, std::string* err = NULL);
 
-namespace kernelgen { namespace runtime {
-
-class timer
-{
-	timespec time_start, time_stop;
-	bool started;
-
-public :
-
-	static timespec get_resolution();
-
-	timer(bool start = true);
-
-	timespec start();
-	timespec stop();
-
-	double get_elapsed(timespec* start = NULL);
-};
-
-} }
-
 #endif
 
 #endif // KERNELGEN_UTIL_H
