@@ -64,7 +64,9 @@
 #include <list>
 #include <vector>
 
+#include "KernelGen.h"
 #include "BranchedLoopExtractor.h"
+#include "Timer.h"
 #include "TrackedPassManager.h"
  
 extern "C"
@@ -75,8 +77,12 @@ extern "C"
 	#include "tree-flow.h"
 }
 
+using namespace kernelgen;
+using namespace kernelgen::utils;
 using namespace llvm;
 using namespace std;
+
+TimingInfo TI("libkernelgen-ct.so");
 
 int plugin_is_GPL_compatible;
 
@@ -134,42 +140,47 @@ extern "C" void callback (void*, void*)
 	// passes to the resulting module.
 	//
 	{
-		PassManager manager;
-		manager.add(new TargetData(m));
-		manager.add(createFixPointersPass());
-		manager.add(createInstructionCombiningPass());
-		manager.add(createMoveUpCastsPass());
-		manager.add(createInstructionCombiningPass());
-		manager.add(createEarlyCSEPass());
-		manager.add(createCFGSimplificationPass());
-		manager.run(*m);
-	}
-	{
-		EnableLoadPRE.setValue(false);
-		DisableLoadsDeletion.setValue(true);
-		DisablePromotion.setValue(true);
-		PassManager manager;
-		manager.add(new TargetData(m));
-		manager.add(createBasicAliasAnalysisPass());
-		manager.add(createLICMPass());
-		manager.add(createGVNPass());
-		manager.run(*m);
-		
-	}
-	{
-		PassManager manager;
-		manager.add(createBranchedLoopExtractorPass());
-		manager.add(createCFGSimplificationPass());
-		manager.run(*m);
-	}
+		TimeRegion TCompile(TI.getTimer("Loops extraction"));
+		{
+			PassManager manager;
+			manager.add(new TargetData(m));
+			manager.add(createFixPointersPass());
+			manager.add(createInstructionCombiningPass());
+			manager.add(createMoveUpCastsPass());
+			manager.add(createInstructionCombiningPass());
+			manager.add(createEarlyCSEPass());
+			manager.add(createCFGSimplificationPass());
+			manager.run(*m);
+		}
+		{
+			EnableLoadPRE.setValue(false);
+			DisableLoadsDeletion.setValue(true);
+			DisablePromotion.setValue(true);
+			PassManager manager;
+			manager.add(new TargetData(m));
+			manager.add(createBasicAliasAnalysisPass());
+			manager.add(createLICMPass());
+			manager.add(createGVNPass());
+			manager.run(*m);
 
+		}
+		{
+			PassManager manager;
+			manager.add(createBranchedLoopExtractorPass());
+			manager.add(createCFGSimplificationPass());
+			manager.run(*m);
+		}
+	}
+		
 	verifyModule(*m);
-	if (verbose) m->dump();
+	VERBOSE(Verbose::Sources << *m << Verbose::Default);
 
 	//
 	// 2) Embed the resulting module into object file.
 	//
 	{
+		TimeRegion TCompile(TI.getTimer("Embedding LLVM IR into object"));
+
 		// The name of the symbol to hold LLVM IR source.
 		string string_name = "__kernelgen_";
 		string_name += main_input_filename;
@@ -219,9 +230,5 @@ extern "C" int plugin_init (
 	register_callback(info->base_name, PLUGIN_INFO, NULL, &info);
 	register_callback(info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
 	
-	// Enable or disable verbose output.
-	char* cverbose = getenv("kernelgen_verbose");
-	if (cverbose) verbose = atoi(cverbose);
-
 	return 0;
 }

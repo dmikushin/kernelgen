@@ -78,12 +78,12 @@ using namespace llvm::sys;
 using namespace llvm::sys::fs;
 using namespace std;
 
-static int verbose = 0;
-
 const char* compiler = "kernelgen-gfortran";
 const char* linker = "ld";
 const char* objcopy = "objcopy";
 const char* cp = "cp";
+
+TimingInfo TI("kernelgen-simple");
 
 static bool a_ends_with_b(const char* a, const char* b) {
 	if (strlen(b) > strlen(a))
@@ -126,24 +126,18 @@ struct fallback_args_t {
 static void fallback(void* arg) {
 	fallback_args_t* args = (fallback_args_t*) arg;
 	int argc = args->argc;
-	const char** argv = (const char**) (args->argv);
+	vector<const char*> argv(args->argv, args->argv + argc);
 
 	// Compile source code using the regular compiler.
-	if (verbose) {
-		cout << argv[0];
-		for (int i = 1; argv[i]; i++)
-			cout << " " << argv[i];
-		cout << endl;
-	}
-	const char** envp = const_cast<const char **>(environ);
-	vector<const char*> env;
-	for (int i = 0; envp[i]; i++)
-		env.push_back(envp[i]);
+	VERBOSE(Verbose::Summary << argv << Verbose::Default);
+	size_t nenvars;
+	for (int i = 0; environ[i]; i++) nenvars++;
+	vector<const char*> env(environ, environ + nenvars);
 	env.push_back("KERNELGEN_FALLBACK=1");
 	env.push_back(NULL);
 	string err;
 	int status = Program::ExecuteAndWait(Program::FindProgramByName(compiler),
-			argv, &env[0], NULL, 0, 0, &err);
+			&argv[0], &env[0], NULL, 0, 0, &err);
 	if (status) {
 		cerr << err;
 		exit(1);
@@ -156,8 +150,6 @@ static void fallback(void* arg) {
 
 static int compile(int argc, char** argv, const char* input,
 		const char* output) {
-	TimingInfo CompileTI("kernelgen-simple");
-
 	//
 	// 1) Compile source code using the regular compiler.
 	// Place output to the temporary file.
@@ -178,7 +170,7 @@ static int compile(int argc, char** argv, const char* input,
 		return 1;
 	}
 	{
-		TimeRegion TCompile(CompileTI.getTimer("Regular compilation"));
+		TimeRegion TCompile(TI.getTimer("Regular compilation"));
 
 		// Replace or add temporary output to the command line.
 		vector<const char*> args;
@@ -194,16 +186,10 @@ static int compile(int argc, char** argv, const char* input,
 		args.push_back(gcc_output.c_str());
 		args.push_back(NULL);
 		args[0] = compiler;
-		if (verbose) {
-			cout << args[0];
-			for (int i = 1; args[i]; i++)
-				cout << " " << args[i];
-			cout << endl;
-		}
-		const char** envp = const_cast<const char **>(environ);
-		vector<const char*> env;
-		for (int i = 0; envp[i]; i++)
-			env.push_back(envp[i]);
+		VERBOSE(Verbose::Summary << args << Verbose::Default);
+		size_t nenvars;
+		for (int i = 0; environ[i]; i++) nenvars++;
+		vector<const char*> env(environ, environ + nenvars);
 		env.push_back("KERNELGEN_FALLBACK=1");
 		env.push_back(NULL);
 		int status = Program::ExecuteAndWait(
@@ -221,7 +207,7 @@ static int compile(int argc, char** argv, const char* input,
 	LLVMContext &context = getGlobalContext();
 	auto_ptr<Module> m;
 	{
-		TimeRegion TCompile(CompileTI.getTimer("DragonEgg compilation"));
+		TimeRegion TCompile(TI.getTimer("DragonEgg compilation"));
 
 		SmallString<128> llvm_output_vector;
 		if (unique_file(tmp_mask, fd, llvm_output_vector)) {
@@ -260,16 +246,10 @@ static int compile(int argc, char** argv, const char* input,
 		args.push_back(llvm_output.c_str());
 		args.push_back(NULL);
 		args[0] = compiler;
-		if (verbose) {
-			cout << args[0];
-			for (int i = 1; args[i]; i++)
-				cout << " " << args[i];
-			cout << endl;
-		}
-		const char** envp = const_cast<const char **>(environ);
-		vector<const char*> env;
-		for (int i = 0; envp[i]; i++)
-			env.push_back(envp[i]);
+		VERBOSE(Verbose::Summary << args << Verbose::Default);
+		size_t nenvars;
+		for (int i = 0; environ[i]; i++) nenvars++;
+		vector<const char*> env(environ, environ + nenvars);
 		env.push_back("KERNELGEN_FALLBACK=1");
 		env.push_back(NULL);
 		int status = Program::ExecuteAndWait(
@@ -289,7 +269,7 @@ static int compile(int argc, char** argv, const char* input,
 	// passes to the resulting module.
 	//
 	{
-		TimeRegion TCompile(CompileTI.getTimer("Loops extraction"));
+		TimeRegion TCompile(TI.getTimer("Loops extraction"));
 		{
 			PassManager manager;
 			manager.add(new TargetData(m.get()));
@@ -321,15 +301,14 @@ static int compile(int argc, char** argv, const char* input,
 	}
 
 	verifyModule(*m);
-	if (verbose)
-		m->dump();
+	VERBOSE(Verbose::Sources << *m << Verbose::Default);
 
 	//
 	// 4) Emit the resulting LLVM IR module into temporary
 	// object symbol and embed it into the final object file.
 	//
 	{
-		TimeRegion TCompile(CompileTI.getTimer("Embedding LLVM IR into object"));
+		TimeRegion TCompile(TI.getTimer("Embedding LLVM IR into object"));
 
 		SmallString<128> llvm_output_vector;
 		if (unique_file(tmp_mask, fd, llvm_output_vector)) {
@@ -413,12 +392,7 @@ static int compile(int argc, char** argv, const char* input,
 			args.push_back(".rodata=.kernelgen");
 			args.push_back(llvm_output.c_str());
 			args.push_back(NULL);
-			if (verbose) {
-				cout << args[0];
-				for (int i = 1; args[i]; i++)
-					cout << " " << args[i];
-				cout << endl;
-			}
+			VERBOSE(Verbose::Summary << args << Verbose::Default);
 			int status = Program::ExecuteAndWait(
 					Program::FindProgramByName(objcopy), &args[0], NULL, NULL,
 					0, 0, &err);
@@ -438,12 +412,7 @@ static int compile(int argc, char** argv, const char* input,
 			args.push_back(gcc_output.c_str());
 			args.push_back(llvm_output.c_str());
 			args.push_back(NULL);
-			if (verbose) {
-				cout << args[0];
-				for (int i = 1; args[i]; i++)
-					cout << " " << args[i];
-				cout << endl;
-			}
+			VERBOSE(Verbose::Summary << args << Verbose::Default);
 			int status = Program::ExecuteAndWait(
 					Program::FindProgramByName(linker), &args[0], NULL, NULL, 0,
 					0, &err);
@@ -618,8 +587,11 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 			continue;
 		}
 
-		if (verbose)
-			cout << "Linking " << arg << " ..." << endl;
+		VERBOSE(Verbose::Summary << "Linking " << arg << " ...\n" << Verbose::Default);
+
+		stringstream timerName;
+		timerName << "Handling input file" << arg;
+		TimeRegion TCompile(TI.getTimer(timerName.str()));
 
 		// Load the object data into memory.
 		vector<char> container;
@@ -756,6 +728,8 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 
 	// Run -instcombine pass.
 	{
+		TimeRegion TCompile(TI.getTimer("Instcombine on composite module"));
+
 		PassManager manager;
 		manager.add(new TargetData(&composite));
 		manager.add(createInstructionCombiningPass());
@@ -771,6 +745,8 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 	//
 	FunctionType* mainTy;
 	{
+		TimeRegion TCompile(TI.getTimer("Combining AllocaInsts into single GlobalVariable"));
+
 		// Get the regular main entry and rename in to
 		// __kernelgen_regular_main.
 		Function* main_ = composite.getFunction("main");
@@ -1164,8 +1140,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 	// Extract "loop" kernels, each one executing single parallel loop.
 	//
 	int nloops = 0;
-	if (verbose)
-		cout << "Prepare main kernel ... " << endl;
+	VERBOSE(Verbose::Summary << "Prepare main kernel ...\n" << Verbose::Default);
 	{
 		Instruction* root = NULL;
 		composite.setModuleIdentifier("main");
@@ -1211,16 +1186,19 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 					return 1;
 				}
 				string name = nameArray->getAsCString();
-				if (verbose)
-					cout << "Launcher invokes kernel " << name << endl;
+				VERBOSE(Verbose::Summary << "Launcher invokes kernel " <<
+						name << "\n" << Verbose::Default);
+
+				stringstream timerName;
+				timerName << "Creating module for kernel " << name;
+				TimeRegion TCompile(TI.getTimer(timerName.str()));
 
 				Function* func = composite.getFunction(name);
 				if (!func)
 					continue;
 
-				if (verbose)
-					cout << "Extracting kernel " << func->getName().str()
-							<< " ..." << endl;
+				VERBOSE(Verbose::Summary << "Creating module for kernel " <<
+						func->getName().str() << " ...\n" << Verbose::Default);
 
 				// Rename "loop" function to "__kernelgen_loop".
 				func->setName("__kernelgen_" + func->getName());
@@ -1456,12 +1434,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 					args.push_back(tmp_main_output1.c_str());
 					args.push_back(tmp_loop_output.c_str());
 					args.push_back(NULL);
-					if (verbose) {
-						cout << args[0];
-						for (int i = 1; args[i]; i++)
-							cout << " " << args[i];
-						cout << endl;
-					}
+					VERBOSE(Verbose::Summary << args << Verbose::Default);
 					int status = Program::ExecuteAndWait(
 							Program::FindProgramByName(linker), &args[0], NULL,
 							NULL, 0, 0, &err);
@@ -1480,6 +1453,8 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				nloops++;
 			}
 		}
+
+		TimeRegion TCompile(TI.getTimer("Composite module optimizations"));
 
 		//TrackedPassManager manager(tracker);
 		PassManager manager;
@@ -1500,9 +1475,10 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 	//
 	// 6) Add wrapper around main to make it compatible with kernelgen_launch.
 	//
-	if (verbose)
-		cout << "Extracting kernel main ..." << endl;
+	VERBOSE(Verbose::Summary << "Creating module for kernel main ...\n" << Verbose::Default);
 	{
+		TimeRegion TCompile(TI.getTimer("Creating module for main kernel"));
+
 		//TrackedPassManager manager(tracker);
 		PassManager manager;
 		manager.add(new TargetData(&composite));
@@ -1527,20 +1503,6 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 			(*iter)->eraseFromParent();
 
 		verifyModule(composite);
-
-		/*// Optimize only composite module with main function.
-		 {
-		 //TrackedPassManager manager(tracker);
-		 PassManager manager;
-		 manager.add(new TargetData(&composite));
-		 PassManagerBuilder builder;
-		 builder.Inliner = NULL;
-		 builder.OptLevel = 3;
-		 builder.SizeLevel = 3;
-		 builder.DisableSimplifyLibCalls = true;
-		 builder.populateModulePassManager(manager);
-		 manager.run(composite);
-		 }*/
 
 		kernelgen_main_->setName("__kernelgen_main");
 
@@ -1611,12 +1573,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 			args.push_back(tmp_main_output1.c_str());
 			args.push_back(tmp_main_output.c_str());
 			args.push_back(NULL);
-			if (verbose) {
-				cout << args[0];
-				for (int i = 1; args[i]; i++)
-					cout << " " << args[i];
-				cout << endl;
-			}
+			VERBOSE(Verbose::Summary << args << Verbose::Default);
 			int status = Program::ExecuteAndWait(
 					Program::FindProgramByName(linker), &args[0], NULL, NULL, 0,
 					0, &err);
@@ -1637,18 +1594,15 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 	// with switch between original main and kernelgen's main.
 	//
 	{
+		TimeRegion TCompile(TI.getTimer("Switch main entry"));
+
 		vector<const char*> args;
 		args.push_back(objcopy);
 		args.push_back("--redefine-sym");
 		args.push_back("main=__regular_main");
 		args.push_back(tmp_main_output1.c_str());
 		args.push_back(NULL);
-		if (verbose) {
-			cout << args[0];
-			for (int i = 1; args[i]; i++)
-				cout << " " << args[i];
-			cout << endl;
-		}
+		VERBOSE(Verbose::Summary << args << Verbose::Default);
 		int status = Program::ExecuteAndWait(
 				Program::FindProgramByName(objcopy), &args[0], NULL, NULL, 0, 0,
 				&err);
@@ -1662,6 +1616,8 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 	// 8) Link code using the regular linker.
 	//
 	if (output) {
+		TimeRegion TCompile(TI.getTimer("Regular linker"));
+
 		// Use cloned main object instead of original one.
 		vector<const char*> args;
 		args.reserve(argc);
@@ -1680,16 +1636,10 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		args.push_back("-lkernelgen-rt");
 		args.push_back(NULL);
 		args[0] = compiler;
-		if (verbose) {
-			cout << args[0];
-			for (int i = 1; args[i]; i++)
-				cout << " " << args[i];
-			cout << endl;
-		}
-		const char** envp = const_cast<const char **>(environ);
-		vector<const char*> env;
-		for (int i = 0; envp[i]; i++)
-			env.push_back(envp[i]);
+		VERBOSE(Verbose::Summary << args << Verbose::Default);
+		size_t nenvars;
+		for (int i = 0; environ[i]; i++) nenvars++;
+		vector<const char*> env(environ, environ + nenvars);
 		env.push_back("KERNELGEN_FALLBACK=1");
 		env.push_back(NULL);
 		int status = Program::ExecuteAndWait(
@@ -1700,6 +1650,8 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 			return status;
 		}
 	} else {
+		TimeRegion TCompile(TI.getTimer("LTO linker"));
+
 		// When no output, kernelgen-simple acts as an LTO backend.
 		// Here we need to output objects collect2 will pass to linker.
 		tmp_main_object1.keep();
@@ -1742,12 +1694,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				args.push_back("--remove-section=.kernelgen");
 				args.push_back(filename.c_str());
 				args.push_back(NULL);
-				if (verbose) {
-					cout << args[0];
-					for (int i = 1; args[i]; i++)
-						cout << " " << args[i];
-					cout << endl;
-				}
+				VERBOSE(Verbose::Summary << args << Verbose::Default);
 				int status = Program::ExecuteAndWait(
 						Program::FindProgramByName(objcopy), &args[0], NULL,
 						NULL, 0, 0, &err);
@@ -1769,107 +1716,102 @@ extern "C" void expandargv(int* argcp, char*** argvp);
 int main(int argc, char* argv[]) {
 	llvm::PrettyStackTraceProgram X(argc, argv);
 
-	// Behave like compiler if no arguments.
-	if (argc == 1) {
-		cout << "kernelgen: note \"simple\" is a development "
-				<< "frontend not intended for regular use!" << endl;
-		cout << "kernelgen: no input files" << endl;
-		return 0;
-	}
+	char *input = NULL, *output = NULL;
+	{
+		TimeRegion TCompile(TI.getTimer("Startup"));
 
-	// Enable or disable verbose output.
-	char* cverbose = getenv("kernelgen_verbose");
-	if (cverbose)
-		verbose = atoi(cverbose);
+		// Behave like compiler if no arguments.
+		if (argc == 1) {
+			cout << "kernelgen: note \"simple\" is a development "
+					<< "frontend not intended for regular use!" << endl;
+			cout << "kernelgen: no input files" << endl;
+			return 0;
+		}
 
-	// We may be called with all the arguments stored in some file and
-	// passed with @file. Expand them into argv before processing.
-	expandargv(&argc, &argv);
+		// We may be called with all the arguments stored in some file and
+		// passed with @file. Expand them into argv before processing.
+		expandargv(&argc, &argv);
 
-	if (argc == 1)
-		return 0;
-	/*for (int i = 0; argv[i]; i++)
-	 fprintf(stderr, "%s ", argv[i]);
-	 fprintf(stderr, "\n");*/
+		if (argc == 1)
+			return 0;
 
-	// Supported source code files extensions.
-	vector<const char*> ext;
-	ext.push_back(".c");
-	ext.push_back(".cpp");
-	ext.push_back(".f");
-	ext.push_back(".f90");
-	ext.push_back(".F");
-	ext.push_back(".F90");
+		// Supported source code files extensions.
+		vector<const char*> ext;
+		ext.push_back(".c");
+		ext.push_back(".cpp");
+		ext.push_back(".f");
+		ext.push_back(".f90");
+		ext.push_back(".F");
+		ext.push_back(".F90");
 
-	// Find source code input.
-	// Note simple frontend does not support multiple inputs.
-	const char* input = NULL;
-	for (int i = 0; argv[i]; i++) {
-		for (int j = 0; j != ext.size(); j++) {
-			if (!a_ends_with_b(argv[i], ext[j]))
-				continue;
+		// Find source code input.
+		// Note simple frontend does not support multiple inputs.
+		for (int i = 0; argv[i]; i++) {
+			for (int j = 0; j != ext.size(); j++) {
+				if (!a_ends_with_b(argv[i], ext[j]))
+					continue;
 
-			if (input) {
-				fprintf(stderr, "Multiple input files are not supported\n");
-				fprintf(stderr, "in the kernelgen-simple frontend\n");
-				return 1;
+				if (input) {
+					fprintf(stderr, "Multiple input files are not supported\n");
+					fprintf(stderr, "in the kernelgen-simple frontend\n");
+					return 1;
+				}
+
+				input = argv[i];
 			}
-
-			input = argv[i];
 		}
-	}
 
-	//
-	// Find output file in args.
-	// There could be "-c" or "-o" option or both.
-	// With "-c" source is compiled only, producing by default
-	// an object file with same basename as source.
-	// With "-o" source could either compiled only (with additional
-	// "-c") or fully linked, but in both cases output is sent to
-	// explicitly defined file after "-o" option.
-	//
-	vector<char> output_vector;
-	char* output = NULL;
-	for (int i = 0; argv[i]; i++) {
-		if (!strcmp(argv[i], "-o")) {
-			i++;
-			output = argv[i];
-			break;
-		}
-	}
-	if (input && !output) {
-		output_vector.reserve(strlen(input + 1));
-		output = &output_vector[0];
-		strcpy(output, input);
-
-		// Replace source extension with object extension.
-		for (int i = strlen(output); i >= 0; i--) {
-			if (output[i] == '.') {
-				output[i + 1] = 'o';
-				output[i + 2] = '\0';
+		//
+		// Find output file in args.
+		// There could be "-c" or "-o" option or both.
+		// With "-c" source is compiled only, producing by default
+		// an object file with same basename as source.
+		// With "-o" source could either compiled only (with additional
+		// "-c") or fully linked, but in both cases output is sent to
+		// explicitly defined file after "-o" option.
+		//
+		vector<char> output_vector;
+		for (int i = 0; argv[i]; i++) {
+			if (!strcmp(argv[i], "-o")) {
+				i++;
+				output = argv[i];
 				break;
 			}
 		}
+		if (input && !output) {
+			output_vector.reserve(strlen(input + 1));
+			output = &output_vector[0];
+			strcpy(output, input);
 
-		// Trim path.
-		for (int i = strlen(output); i >= 0; i--) {
-			if (output[i] == '/') {
-				output = output + i + 1;
-				break;
+			// Replace source extension with object extension.
+			for (int i = strlen(output); i >= 0; i--) {
+				if (output[i] == '.') {
+					output[i + 1] = 'o';
+					output[i + 2] = '\0';
+					break;
+				}
+			}
+
+			// Trim path.
+			for (int i = strlen(output); i >= 0; i--) {
+				if (output[i] == '/') {
+					output = output + i + 1;
+					break;
+				}
 			}
 		}
-	}
-	if (input || output)
-		cout
-				<< "kernelgen: note \"simple\" is a development frontend not intended for regular use!"
-				<< endl;
+		if (input || output)
+			cout
+					<< "kernelgen: note \"simple\" is a development frontend not intended for regular use!"
+					<< endl;
 
-	fallback_args_t* fallback_args = new fallback_args_t();
-	fallback_args->argc = argc;
-	fallback_args->argv = argv;
-	fallback_args->input = input;
-	fallback_args->output = output;
-	tracker = new PassTracker(input, &fallback, fallback_args);
+		fallback_args_t* fallback_args = new fallback_args_t();
+		fallback_args->argc = argc;
+		fallback_args->argv = argv;
+		fallback_args->input = input;
+		fallback_args->output = output;
+		tracker = new PassTracker(input, &fallback, fallback_args);
+	}
 
 	// Execute either compiler or linker.
 	int result;

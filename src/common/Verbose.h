@@ -145,4 +145,7 @@ namespace kernelgen {
 
 } // namespace kernelgen
 
+// Output command line from the given vector of arguments.
+llvm::raw_ostream& operator<<(llvm::raw_ostream& OS, std::vector<const char*>& args);
+
 #endif // VERBOSE_H

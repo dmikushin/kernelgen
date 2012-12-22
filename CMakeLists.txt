@@ -149,7 +149,7 @@ set_property(TARGET kernelgen-ct APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-ct APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-ct bugpoint frontend LLVM-${LLVM_VERSION}svn)
+target_link_libraries(kernelgen-ct bugpoint frontend common LLVM-${LLVM_VERSION}svn rt)
 
 #
 # CUDA BINDINGS

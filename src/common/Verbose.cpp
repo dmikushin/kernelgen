@@ -43,3 +43,12 @@ Verbose::Mode Verbose::Loader      ( 1 << 8 );
 Verbose::Action Verbose::Flush     ( 0 );
 
 } // kernelgen
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& OS, std::vector<const char*>& args)
+{
+	for (int i = 0, ie = args.size(); i != ie; i++)
+		if (args[i]) OS << args[i] << " ";
+	OS << "\n";
+	return OS;
+}
+
