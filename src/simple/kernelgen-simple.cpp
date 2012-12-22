@@ -64,11 +64,14 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Support/MDBuilder.h"
 
+#include "KernelGen.h"
 #include "GlobalDependences.h"
 #include "BranchedLoopExtractor.h"
+#include "Timer.h"
 #include "TrackedPassManager.h"
 
 using namespace kernelgen;
+using namespace kernelgen::utils;
 using namespace llvm;
 using namespace llvm::object;
 using namespace llvm::sys;
@@ -153,6 +156,8 @@ static void fallback(void* arg) {
 
 static int compile(int argc, char** argv, const char* input,
 		const char* output) {
+	TimingInfo CompileTI("kernelgen-simple");
+
 	//
 	// 1) Compile source code using the regular compiler.
 	// Place output to the temporary file.
@@ -173,6 +178,8 @@ static int compile(int argc, char** argv, const char* input,
 		return 1;
 	}
 	{
+		TimeRegion TCompile(CompileTI.getTimer("Regular compilation"));
+
 		// Replace or add temporary output to the command line.
 		vector<const char*> args;
 		args.reserve(argc);
@@ -214,6 +221,8 @@ static int compile(int argc, char** argv, const char* input,
 	LLVMContext &context = getGlobalContext();
 	auto_ptr<Module> m;
 	{
+		TimeRegion TCompile(CompileTI.getTimer("DragonEgg compilation"));
+
 		SmallString<128> llvm_output_vector;
 		if (unique_file(tmp_mask, fd, llvm_output_vector)) {
 			cout << "Cannot generate gcc output file name" << endl;
@@ -280,32 +289,35 @@ static int compile(int argc, char** argv, const char* input,
 	// passes to the resulting module.
 	//
 	{
-		PassManager manager;
-		manager.add(new TargetData(m.get()));
-		manager.add(createFixPointersPass());
-		manager.add(createInstructionCombiningPass());
-		manager.add(createMoveUpCastsPass());
-		manager.add(createInstructionCombiningPass());
-		manager.add(createEarlyCSEPass());
-		manager.add(createCFGSimplificationPass());
-		manager.run(*m);
-	}
-	{
-		EnableLoadPRE.setValue(false);
-		DisableLoadsDeletion.setValue(true);
-		DisablePromotion.setValue(true);
-		PassManager manager;
-		manager.add(new TargetData(m.get()));
-		manager.add(createBasicAliasAnalysisPass());
-		manager.add(createLICMPass());
-		manager.add(createGVNPass());
-		manager.run(*m);
-	}
-	{
-		PassManager manager;
-		manager.add(createBranchedLoopExtractorPass());
-		manager.add(createCFGSimplificationPass());
-		manager.run(*m);
+		TimeRegion TCompile(CompileTI.getTimer("Loops extraction"));
+		{
+			PassManager manager;
+			manager.add(new TargetData(m.get()));
+			manager.add(createFixPointersPass());
+			manager.add(createInstructionCombiningPass());
+			manager.add(createMoveUpCastsPass());
+			manager.add(createInstructionCombiningPass());
+			manager.add(createEarlyCSEPass());
+			manager.add(createCFGSimplificationPass());
+			manager.run(*m);
+		}
+		{
+			EnableLoadPRE.setValue(false);
+			DisableLoadsDeletion.setValue(true);
+			DisablePromotion.setValue(true);
+			PassManager manager;
+			manager.add(new TargetData(m.get()));
+			manager.add(createBasicAliasAnalysisPass());
+			manager.add(createLICMPass());
+			manager.add(createGVNPass());
+			manager.run(*m);
+		}
+		{
+			PassManager manager;
+			manager.add(createBranchedLoopExtractorPass());
+			manager.add(createCFGSimplificationPass());
+			manager.run(*m);
+		}
 	}
 
 	verifyModule(*m);
@@ -317,6 +329,8 @@ static int compile(int argc, char** argv, const char* input,
 	// object symbol and embed it into the final object file.
 	//
 	{
+		TimeRegion TCompile(CompileTI.getTimer("Embedding LLVM IR into object"));
+
 		SmallString<128> llvm_output_vector;
 		if (unique_file(tmp_mask, fd, llvm_output_vector)) {
 			cout << "Cannot generate gcc output file name" << endl;
@@ -521,6 +535,7 @@ int getArchiveObjData(string& filename, vector<char>& container,
 }
 
 static int link(int argc, char** argv, const char* input, const char* output) {
+
 	//
 	// 1) Check if there is "-c" option around. In this
 	// case there is just compilation, not linking, but

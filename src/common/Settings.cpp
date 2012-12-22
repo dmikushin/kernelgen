@@ -21,14 +21,14 @@
 
 kernelgen::Settings::Settings() : runmode(KERNELGEN_RUNMODE_UNDEF), verbose(0), debug(0)
 {
+	// Load verbose level.
+	char* cverbose = getenv("kernelgen_verbose");
+	if (cverbose)
+		verbose.setMode(Verbose::Mode(atoi(cverbose)));
+
 	char* crunmode = getenv("kernelgen_runmode");
 	if (crunmode) {
 		runmode = atoi(crunmode);
-
-		// Load verbose level.
-		char* cverbose = getenv("kernelgen_verbose");
-		if (cverbose)
-			verbose.setMode(Verbose::Mode(atoi(cverbose)));
 
 		// Load debug level.
 		char* cdebug = getenv("kernelgen_debug");

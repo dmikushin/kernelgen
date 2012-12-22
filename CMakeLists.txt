@@ -138,7 +138,7 @@ add_executable(kernelgen-simple ${simple_sources})
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-simple APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-simple bugpoint common frontend LLVM-${LLVM_VERSION}svn libelf iberty)
+target_link_libraries(kernelgen-simple bugpoint common frontend LLVM-${LLVM_VERSION}svn libelf iberty rt)
 
 #
 # GCC COMPILE-TIME PLUGIN

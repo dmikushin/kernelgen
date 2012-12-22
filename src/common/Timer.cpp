@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Util.h"
+#include "Timer.h"
 
-using namespace kernelgen::runtime;
+using namespace kernelgen::utils;
 
 #include <stdint.h>
 #include <time.h>
@@ -74,3 +74,25 @@ double timer::get_elapsed(timespec* start)
 	return get_diff(time_start, time_stop);	
 }
 
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Mutex.h"
+
+#include "KernelGen.h"
+
+using namespace kernelgen;
+using namespace llvm;
+
+static ManagedStatic<sys::SmartMutex<true> > TimingInfoMutex;
+
+/// getTimer - Return the timer with the specified name, if verbose mode is set
+/// to make perf reports.
+Timer *TimingInfo::getTimer(StringRef TimerName) {
+	sys::SmartScopedLock<true> Lock(*TimingInfoMutex);
+	if ((settings.getVerboseMode() & Verbose::Perf) == 0)
+		return NULL;
+
+	Timer *&T = TimingData[TimerName];
+	if (T == 0)
+		T = new Timer(TimerName, TG);
+	return T;
+}
