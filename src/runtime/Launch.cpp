@@ -34,21 +34,20 @@ using namespace kernelgen::utils;
 using namespace llvm;
 using namespace std;
 
-#ifdef KERNELGEN_LOAD_KERNELS_LAZILY
 // Read source into LLVM module for the specified kernel.
 void load_kernel(Kernel* kernel) {
 	LLVMContext& context = getGlobalContext();
 
-	SMDiagnostic diag;
 	if (!kernel)
 		THROW("Invalid kernel item");
 
 	// Load IR from source.
-	MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
-	Module* m = ParseIR(buffer, diag, context);
+	string err;
+	MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(
+			StringRef(kernel->source.data(), kernel->source.size()), "", false);
+	Module* m = ParseBitcodeFile(buffer, context, &err);
 	if (!m)
-		THROW(
-				kernel->name << ":" << diag.getLineNo() << ": " << diag.getLineContents() << ": " << diag.getMessage());
+		THROW(kernel->name << ": " << err);
 	m->setModuleIdentifier(kernel->name + "_module");
 
 	for (Module::iterator fi = m->begin(), fe = m->end(); fi != fe; fi++)
@@ -105,9 +104,7 @@ void load_kernel(Kernel* kernel) {
 	ir << (*m);
 	kernel->loaded = true;
 	kernel->module = m;
-	//m->dump();
 }
-#endif
 
 // Launch the specified kernel.
 int kernelgen_launch(Kernel* kernel, unsigned long long szdata,

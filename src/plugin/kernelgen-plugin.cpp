@@ -35,6 +35,7 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
@@ -186,18 +187,19 @@ extern "C" void callback (void*, void*)
 		string_name += main_input_filename;
 		
 		// The LLVM IR source data.
-		string string_data;
-		raw_string_ostream stream_data(string_data);
-		stream_data << (*m);
-	
+		SmallVector<char, 128> moduleBitcode;
+		raw_svector_ostream moduleBitcodeStream(moduleBitcode);
+		WriteBitcodeToFile(m, moduleBitcodeStream);
+		moduleBitcodeStream.flush();
+
 		// Create the constant string with the specified content.
-		tree index_type = build_index_type(size_int(string_data.length()));
+		tree index_type = build_index_type(size_int(moduleBitcode.size()));
 		tree const_char_type = build_qualified_type(
 			unsigned_char_type_node, TYPE_QUAL_CONST);
 		tree string_type = build_array_type(const_char_type, index_type);
 		string_type = build_variant_type_copy(string_type);
 		TYPE_STRING_FLAG(string_type) = 1;
-		tree string_val = build_string(string_data.length(), string_data.data());
+		tree string_val = build_string(moduleBitcode.size(), moduleBitcode.data());
 		TREE_TYPE(string_val) = string_type;
 
 		// Create a global string variable and assign it with a

@@ -96,12 +96,11 @@ int main(int argc, char* argv[], char* envp[]) {
 		// Load the regular main function prototype.
 		// It is needed to correctly select the argument list.
 		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(
-				symbols[0]->getData());
-		SMDiagnostic diag;
-		Module* m = ParseIR(buffer, diag, context);
+				StringRef(symbols[0]->getData(), symbols[0]->getSize()), "", false);
+		string err;
+		Module* m = getLazyBitcodeModule(buffer, context, &err);
 		if (!m)
-			THROW("__kernelgen_regular_main:" << diag.getLineNo() << ": " <<
-					diag.getLineContents() << ": " << diag.getMessage());
+			THROW(err);
 		regular_main = m->getFunction("__kernelgen_regular_main");
 		if (!regular_main)
 			THROW("Cannot find the __kernelgen_regular_main function");
@@ -137,11 +136,10 @@ int main(int argc, char* argv[], char* envp[]) {
 		for (vector<csymbol*>::iterator i = symbols.begin(), ie = symbols.end();
 				i != ie; i++) {
 			csymbol* symbol = *i;
-			const char* data = symbol->getData();
 			const string& name = symbol->getName();
 			Kernel* kernel = new Kernel();
 			kernel->name = name;
-			kernel->source = data;
+			kernel->source = string(symbol->getData(), symbol->getSize());
 			kernel->loaded = false;
 
 			// Initially, all targets are supported.
@@ -243,6 +241,9 @@ int main(int argc, char* argv[], char* envp[]) {
 				MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
 						monitor_source);
 				monitor_module = ParseIR(buffer1, diag, context);
+				if (!monitor_module)
+					THROW(
+							"Cannot load KernelGen monitor kernel module: " << diag.getMessage());
 			}
 
 			// Load LLVM IR for KernelGen runtime functions, if not yet loaded.

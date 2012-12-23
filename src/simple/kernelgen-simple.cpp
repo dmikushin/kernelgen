@@ -38,6 +38,7 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -559,7 +560,6 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		return 1;
 	}
 	LLVMContext &context = getGlobalContext();
-	SMDiagnostic diag;
 	Module composite("composite", context);
 	if (elf_version(EV_CURRENT) == EV_NONE) {
 		cerr << "ELF library initialization failed: " << elf_errmsg(-1) << endl;
@@ -689,30 +689,29 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				// Since our objects are not fully linked, offset in st_value
 				// is relative and must be shifted by section offset to get
 				// the absolute value.
-				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(
-						image + okernelgen + symbol.st_value);
-				if (!buffer) {
+				auto_ptr<MemoryBuffer> buffer;
+				buffer.reset(MemoryBuffer::getMemBuffer(
+						StringRef((char*)(image + okernelgen + symbol.st_value), symbol.st_size - 1),
+						"", false));
+				if (!buffer.get()) {
 					cerr << "Error reading object file symbol " << name << endl;
 					return 1;
 				}
 				auto_ptr<Module> m;
-				m.reset(ParseIR(buffer, diag, context));
+				string err;
+				m.reset(ParseBitcodeFile(buffer.get(), context, &err));
 				if (!m.get()) {
-					cerr << "Error parsing LLVM IR module from symbol " << name
-							<< endl;
+					cerr << "Error parsing LLVM module bitcode from symbol " << name <<
+							" : " << err << endl;
 					return 1;
 				}
 
-				string err;
 				if (Linker::LinkModules(&composite, m.get(),
 						Linker::DestroySource, &err)) {
 					cerr << "Error linking module " << name << " : " << err
 							<< endl;
 					return 1;
 				}
-
-				// TODO: to reduce memory footprint, try:
-				// composite.Dematerialize() all globals.
 			}
 		}
 		elf_end(e);
@@ -1375,15 +1374,16 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 					// as object binary. Method: create another module
 					// with a global variable incorporating the contents
 					// of entire module and emit it for X86_64 target.
-					string ir_string;
-					raw_string_ostream ir(ir_string);
-					ir << loop;
+					SmallVector<char, 128> loopBitcode;
+					raw_svector_ostream loopBitcodeStream(loopBitcode);
+					WriteBitcodeToFile(&loop, loopBitcodeStream);
+					loopBitcodeStream.flush();
 					Module obj_m("kernelgen", context);
-					Constant* name = ConstantDataArray::getString(context,
-							ir_string, true);
+					Constant* container = ConstantDataArray::get(context,
+							ArrayRef<uint8_t>((uint8_t*)loopBitcode.data(), loopBitcode.size()));
 					GlobalVariable* GV1 = new GlobalVariable(obj_m,
-							name->getType(), true,
-							GlobalValue::LinkerPrivateLinkage, name,
+							container->getType(), true,
+							GlobalValue::LinkerPrivateLinkage, container,
 							func->getName(), 0, false);
 
 					PassManager manager;
@@ -1517,14 +1517,15 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 			// as object binary. Method: create another module
 			// with a global variable incorporating the contents
 			// of entire module and emit it for X86_64 target.
-			string ir_string;
-			raw_string_ostream ir(ir_string);
-			ir << composite;
+			SmallVector<char, 128> compositeBitcode;
+			raw_svector_ostream compositeBitcodeStream(compositeBitcode);
+			WriteBitcodeToFile(&composite, compositeBitcodeStream);
+			compositeBitcodeStream.flush();
 			Module obj_m("kernelgen", context);
-			Constant* name = ConstantDataArray::getString(context, ir_string,
-					true);
-			GlobalVariable* GV1 = new GlobalVariable(obj_m, name->getType(),
-					true, GlobalValue::LinkerPrivateLinkage, name,
+			Constant* container = ConstantDataArray::get(context,
+					ArrayRef<uint8_t>((uint8_t*)compositeBitcode.data(), compositeBitcode.size()));
+			GlobalVariable* GV1 = new GlobalVariable(obj_m, container->getType(),
+					true, GlobalValue::LinkerPrivateLinkage, container,
 					"__kernelgen_main", 0, false);
 
 			PassManager manager;
