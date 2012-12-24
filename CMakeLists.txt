@@ -55,9 +55,9 @@ include_directories("${POLLY_ROOT}/include")
 include_directories("${POLLY_INCLUDE}")
 include_directories("${CLOOG_INCLUDE}")
 include_directories("${ISL_INCLUDE}")
-include_directories("${CMAKE_INSTALL_PREFIX}/opt/kenrelgen/include/")
-include_directories("${CMAKE_INSTALL_PREFIX}/opt/kernelgen/include/libelf")
-include_directories("${CMAKE_INSTALL_PREFIX}/opt/kenrelgen/lib/libffi-3.0.11/include")
+include_directories("${CMAKE_INSTALL_PREFIX}/include/")
+include_directories("${CMAKE_INSTALL_PREFIX}/include/libelf")
+include_directories("${CMAKE_INSTALL_PREFIX}/lib/libffi-3.0.11/include")
 include_directories("/usr/include/i686-linux-gnu")
 include_directories("/usr/include/x86_64-linux-gnu")
 
@@ -72,8 +72,8 @@ endforeach()
 
 link_directories("${LLVM_ROOT}/build/${LLVM_MODE}/lib")
 link_directories("${POLLY_ROOT}/${LLVM_MODE}/lib")
-link_directories("${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib")
-link_directories("${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib64")
+link_directories("${CMAKE_INSTALL_PREFIX}/lib")
+link_directories("${CMAKE_INSTALL_PREFIX}/lib64")
 
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT}")
 
@@ -82,13 +82,13 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT}")
 #
 add_library(libelf STATIC IMPORTED)
 set_property(TARGET libelf PROPERTY
-	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib/libelf.a")
+	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/lib/libelf.a")
 add_library(libffi STATIC IMPORTED)
 set_property(TARGET libffi PROPERTY
-	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib/libffi.a")
+	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/lib/libffi.a")
 add_library(libmhash STATIC IMPORTED)
 set_property(TARGET libmhash PROPERTY
-	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib/libmhash.a")
+	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/lib/libmhash.a")
 
 #
 # BUGPOINT AUTO-TESTING TOOL
