@@ -22,7 +22,6 @@ execute_process(COMMAND svnversion -n ${PROJECT_SOURCE_DIR}/src OUTPUT_VARIABLE 
 message("Compiling KernelGen version ${KERNELGEN_VERSION}")
 
 set(OPT 0 CACHE STRING "Optimization level (0-3)")
-set(BOOTSTRAP_ROOT "$ENV{HOME}/rpmbuild/CHROOT/opt/kernelgen" CACHE STRING "The KernelGen bootsrap root")
 set(RPM_ROOT "$ENV{HOME}/rpmbuild/BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
 set(LLVM_MODE "Debug+Asserts" CACHE STRING "The LLVM build mode")
@@ -56,9 +55,9 @@ include_directories("${POLLY_ROOT}/include")
 include_directories("${POLLY_INCLUDE}")
 include_directories("${CLOOG_INCLUDE}")
 include_directories("${ISL_INCLUDE}")
-include_directories("${BOOTSTRAP_ROOT}/include/")
-include_directories("${BOOTSTRAP_ROOT}/include/libelf")
-include_directories("${BOOTSTRAP_ROOT}/lib/libffi-3.0.11/include")
+include_directories("${CMAKE_INSTALL_PREFIX}/opt/kenrelgen/include/")
+include_directories("${CMAKE_INSTALL_PREFIX}/opt/kernelgen/include/libelf")
+include_directories("${CMAKE_INSTALL_PREFIX}/opt/kenrelgen/lib/libffi-3.0.11/include")
 include_directories("/usr/include/i686-linux-gnu")
 include_directories("/usr/include/x86_64-linux-gnu")
 
@@ -73,8 +72,8 @@ endforeach()
 
 link_directories("${LLVM_ROOT}/build/${LLVM_MODE}/lib")
 link_directories("${POLLY_ROOT}/${LLVM_MODE}/lib")
-link_directories("${BOOTSTRAP_ROOT}/lib")
-link_directories("${BOOTSTRAP_ROOT}/lib64")
+link_directories("${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib")
+link_directories("${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib64")
 
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT}")
 
@@ -83,13 +82,13 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT}")
 #
 add_library(libelf STATIC IMPORTED)
 set_property(TARGET libelf PROPERTY
-	IMPORTED_LOCATION "${BOOTSTRAP_ROOT}/lib/libelf.a")
+	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib/libelf.a")
 add_library(libffi STATIC IMPORTED)
 set_property(TARGET libffi PROPERTY
-	IMPORTED_LOCATION "${BOOTSTRAP_ROOT}/lib/libffi.a")
+	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib/libffi.a")
 add_library(libmhash STATIC IMPORTED)
 set_property(TARGET libmhash PROPERTY
-	IMPORTED_LOCATION "${BOOTSTRAP_ROOT}/lib/libmhash.a")
+	IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/opt/kernelgen/lib/libmhash.a")
 
 #
 # BUGPOINT AUTO-TESTING TOOL
