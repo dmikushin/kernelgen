@@ -19,8 +19,14 @@
 #include "llvm/Constants.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/IRBuilder.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TypeBuilder.h"
+#include "llvm/Target/Mangler.h"
 
 #include <dlfcn.h>
 
@@ -38,8 +44,52 @@ CallInst* kernelgen::runtime::WrapCallIntoHostcall(CallInst* call, Kernel* kerne
 
 	VERBOSE("Host call: " << callee->getName().data() << "\n");
 
+	// Create target machine for NATIVE target and get its target data.
+	if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
+		InitializeAllTargets();
+		InitializeAllTargetMCs();
+		InitializeAllAsmPrinters();
+		InitializeAllAsmParsers();
+
+		Triple triple;
+		triple.setTriple(sys::getDefaultTargetTriple());
+		string err;
+		TargetOptions options;
+		const Target* target = TargetRegistry::lookupTarget(
+				triple.getTriple(), err);
+		if (!target)
+			THROW("Error auto-selecting target for module '" << err << "'." << endl <<
+					"Please use the -march option to explicitly pick a target.");
+		targets[KERNELGEN_RUNMODE_NATIVE].reset(
+				target->createTargetMachine(triple.getTriple(), "", "",
+						options, Reloc::PIC_, CodeModel::Default));
+		if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
+			THROW("Could not allocate target machine");
+
+		// Override default to generate verbose assembly.
+		targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(
+				true);
+	}
+
+	// Create mangler.
+	const Target& target = targets[KERNELGEN_RUNMODE_NATIVE].get()->getTarget();
+	const StringRef& triple = targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetTriple();
+	const MCAsmInfo *MAI = target.createMCAsmInfo(triple);
+	if (!MAI)
+		THROW("Unable to create target asm info");
+	const MCRegisterInfo *MRI = target.createMCRegInfo(triple);
+	if (!MRI)
+		THROW("Unable to create target register info!");
+	MCContext* mccontext = new MCContext(*MAI, *MRI, 0);
+	Mangler mangler(*mccontext, *targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData());
+
+	// Translate callee name into mangled name.
+	SmallString<128> ssname;
+	mangler.getNameWithPrefix(ssname, callee->getName().data());
+	string name(ssname.data(), ssname.size());
+
 	// Locate entire hostcall in the native code.
-	void* host_func = (void*)dlsym(NULL, callee->getName().data());
+	void* host_func = (void*)dlsym(NULL, name.c_str());
 	if (!host_func) THROW("Cannot dlsym " << dlerror());
 	
 	kernel->target[KERNELGEN_RUNMODE_NATIVE].binary = (KernelFunc)host_func;
