@@ -17,7 +17,7 @@
  
    // @TODO: Can we just disable this?
    GlobalDirective = "\t// .globl\t";
-+
++  AlignDirective = "\t// .align\t";
 +  WeakDefDirective = "\t// .weak\t";
  }
 --- a/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(revision 157736)
