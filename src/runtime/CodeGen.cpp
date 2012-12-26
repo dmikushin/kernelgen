@@ -15,17 +15,15 @@
 #include "Runtime.h"
 #include "cuda_dyloader.h"
 #include "KernelGen.h"
+#include "Platform.h"
 
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
+#include "llvm/MC/MCSymbol.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetOptions.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_os_ostream.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -49,9 +47,6 @@ using namespace std;
 
 static bool debug = false;
 
-// Target machines for runmodes.
-auto_ptr<TargetMachine> kernelgen::targets[KERNELGEN_RUNMODE_COUNT];
-
 // The filename of the temp file containing main kernel.
 static string kernelgen_main_filename;
 
@@ -68,34 +63,6 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 	switch (runmode) {
 
 	case KERNELGEN_RUNMODE_NATIVE: {
-
-		// Create target machine for NATIVE target and get its target data.
-		if (!targets[KERNELGEN_RUNMODE_NATIVE].get()) {
-			InitializeAllTargets();
-			InitializeAllTargetMCs();
-			InitializeAllAsmPrinters();
-			InitializeAllAsmParsers();
-
-			Triple triple;
-			triple.setTriple(sys::getDefaultTargetTriple());
-			string err;
-			TargetOptions options;
-			const Target* target = TargetRegistry::lookupTarget(
-					triple.getTriple(), err);
-			if (!target)
-				THROW("Error auto-selecting target for module '" << err << "'." << endl <<
-						"Please use the -march option to explicitly pick a target.");
-			targets[KERNELGEN_RUNMODE_NATIVE].reset(
-					target->createTargetMachine(triple.getTriple(), "", "",
-							options, Reloc::PIC_, CodeModel::Default));
-			if (!targets[KERNELGEN_RUNMODE_NATIVE].get())
-				THROW("Could not allocate target machine");
-
-			// Override default to generate verbose assembly.
-			targets[KERNELGEN_RUNMODE_NATIVE].get()->setAsmVerbosityDefault(
-					true);
-		}
-
 		// Setup output stream.
 		string bin_string;
 		raw_string_ostream bin_stream(bin_string);
@@ -104,9 +71,9 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		// Ask the target to add backend passes as necessary.
 		PassManager manager;
 		const TargetData* tdata =
-				targets[KERNELGEN_RUNMODE_NATIVE].get()->getTargetData();
+				platforms[KERNELGEN_RUNMODE_NATIVE]->machine->getTargetData();
 		manager.add(new TargetData(*tdata));
-		if (targets[KERNELGEN_RUNMODE_NATIVE].get()->addPassesToEmitFile(
+		if (platforms[KERNELGEN_RUNMODE_NATIVE]->machine->addPassesToEmitFile(
 				manager, bin_raw_stream, TargetMachine::CGFT_ObjectFile,
 				CodeGenOpt::Aggressive))
 			THROW("Target does not support generation of this file type");
@@ -151,6 +118,12 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		if (!handle)
 			THROW("Cannot dlopen " << dlerror());
 
+		// Translate name into mangled name.
+		StringRef mangledName =
+				platforms[KERNELGEN_RUNMODE_NATIVE]->mangler.get()->getSymbol(
+						m->getFunction(name))->getName();
+		name == string(mangledName.data(), mangledName.size());
+
 		KernelFunc kernel_func = (KernelFunc) dlsym(handle, name.c_str());
 		if (!kernel_func)
 			THROW("Cannot dlsym " << dlerror());
@@ -161,42 +134,6 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 	}
 
 	case KERNELGEN_RUNMODE_CUDA: {
-
-		// Create target machine for CUDA target and get its target data.
-		if (!targets[KERNELGEN_RUNMODE_CUDA].get()) {
-			InitializeAllTargets();
-			InitializeAllTargetMCs();
-			InitializeAllAsmPrinters();
-			InitializeAllAsmParsers();
-
-			const Target* target = NULL;
-			Triple triple(m->getTargetTriple());
-			if (triple.getTriple().empty())
-				triple.setTriple(sys::getDefaultTargetTriple());
-			for (TargetRegistry::iterator it = TargetRegistry::begin(), ie =
-					TargetRegistry::end(); it != ie; ++it) {
-				if (!strcmp(it->getName(), "nvptx64")) {
-					target = &*it;
-					break;
-				}
-			}
-
-			if (!target)
-				THROW("LLVM is built without NVPTX Backend support");
-
-			stringstream sarch;
-			sarch << cuda_context->getSubarch();
-			targets[KERNELGEN_RUNMODE_CUDA].reset(
-					target->createTargetMachine(triple.getTriple(), sarch.str(),
-							"", TargetOptions(), Reloc::PIC_,
-							CodeModel::Default, CodeGenOpt::Aggressive));
-			if (!targets[KERNELGEN_RUNMODE_CUDA].get())
-				THROW("Could not allocate target machine");
-
-			// Override default to generate verbose assembly.
-			targets[KERNELGEN_RUNMODE_CUDA].get()->setAsmVerbosityDefault(true);
-		}
-
 		// Setup output stream.
 		string ptx_string;
 		raw_string_ostream ptx_stream(ptx_string);
@@ -205,9 +142,9 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		// Ask the target to add backend passes as necessary.
 		PassManager manager;
 		const TargetData* tdata =
-				targets[KERNELGEN_RUNMODE_CUDA].get()->getTargetData();
+				platforms[KERNELGEN_RUNMODE_CUDA]->machine->getTargetData();
 		manager.add(new TargetData(*tdata));
-		if (targets[KERNELGEN_RUNMODE_CUDA].get()->addPassesToEmitFile(manager,
+		if (platforms[KERNELGEN_RUNMODE_CUDA]->machine->addPassesToEmitFile(manager,
 				ptx_raw_stream, TargetMachine::CGFT_AssemblyFile,
 				CodeGenOpt::Aggressive))
 			THROW("Target does not support generation of this file type");
@@ -306,7 +243,6 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 
 			kernelgen_main_filename = tmp3.getName();
 		} else {
-
 			// Check if loop kernel contains unresolved calls and resolve them
 			// using the load-effective layout obtained from the main kernel.
 			CUBIN::ResolveExternalCalls(
@@ -348,6 +284,12 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			tmp_stream.close();
 		}
 
+		// Translate name into mangled name.
+		StringRef mangledName =
+				platforms[KERNELGEN_RUNMODE_CUDA]->mangler.get()->getSymbol(
+						m->getFunction(name))->getName();
+		name == string(mangledName.data(), mangledName.size());
+
 		CUfunction kernel_func = NULL;
 		if (name == "__kernelgen_main") {
 			// Load CUBIN from string into module.
@@ -360,19 +302,6 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 
 			CU_SAFE_CALL(cuModuleGetFunction(&kernel_func, module, name.c_str()));
 		} else {
-			// FIXME: The following ugly fix mimics the backend asm printer
-			// mangler behavior. We should instead get names from the real
-			// mangler, but currently it is unclear how to instantiate it,
-			// since it needs MCContext, which is not available here.
-			string dot = "2E_";
-			for (size_t index = name.find(".", 0);
-					index = name.find(".", index); index++) {
-				if (index == string::npos)
-					break;
-				name.replace(index, 1, "_");
-				name.insert(index + 1, dot);
-			}
-
 			// Load kernel function from the binary opcodes.
 			CU_SAFE_CALL(cudyLoadCubin((CUDYfunction*) &kernel_func,
 					cuda_context->loader, (char*) tmp3.getName().c_str(),

@@ -23,7 +23,7 @@ using namespace kernelgen::runtime;
 using namespace std;
 
 // Setup the device global memory pool initial configuration.
-kernelgen_memory_t* kernelgen::runtime::init_memory_pool(size_t szpool)
+kernelgen_memory_t* kernelgen::runtime::InitMemoryPool(size_t szpool)
 {
 	szpool += 4096;
 

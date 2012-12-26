@@ -315,7 +315,7 @@ int main(int argc, char* argv[], char* envp[]) {
 			char* cszheap = getenv("kernelgen_szheap");
 			if (cszheap)
 				szheap = atoi(cszheap);
-			kernelgen_memory_t* memory = init_memory_pool(szheap);
+			kernelgen_memory_t* memory = InitMemoryPool(szheap);
 
 			// Duplicate argv into device memory.
 			// Note in addition to actiual arguments we must pass pass

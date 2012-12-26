@@ -323,11 +323,11 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 }
 static void runPollyNATIVE(Kernel *kernel, Size3 *sizeOfLoops)
 {
-	return runPolly(kernel, sizeOfLoops, false, NULL);
+	runPolly(kernel, sizeOfLoops, false, NULL);
 }
 static void runPollyCUDA(Kernel *kernel, Size3 *sizeOfLoops, bool *isThereAtLeastOneParallelLoop)
 {
-	return runPolly(kernel, sizeOfLoops, true, isThereAtLeastOneParallelLoop);
+	runPolly(kernel, sizeOfLoops, true, isThereAtLeastOneParallelLoop);
 }
 void substituteGridParams(Kernel* kernel,dim3 & gridDim, dim3 & blockDim)
 {

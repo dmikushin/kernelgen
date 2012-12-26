@@ -179,9 +179,6 @@ extern int NumOfGVars;
 // order of globals in which they were stored in addressesOfGlobalVariables
 extern std::map<llvm::StringRef, uint64_t> orderOfGlobals;
 
-// Target machines for runmodes.
-extern std::auto_ptr<llvm::TargetMachine> targets[KERNELGEN_RUNMODE_COUNT];
-
 namespace runtime {
 
 // Compile kernel with the specified arguments,
@@ -196,7 +193,7 @@ KernelFunc Codegen(int runmode, Kernel* kernel, llvm::Module* module);
 extern kernelgen::bind::cuda::context* cuda_context;
 
 // Setup the device global memory pool initial configuration.
-kernelgen_memory_t* init_memory_pool(size_t szpool);
+kernelgen_memory_t* InitMemoryPool(size_t szpool);
 
 // Wrap call instruction into host function call wrapper.
 llvm::CallInst* WrapCallIntoHostcall(llvm::CallInst* call, Kernel* kernel);
@@ -234,4 +231,3 @@ extern "C" void kernelgen_hostcall(kernelgen::Kernel* kernel,
 extern "C" void kernelgen_hostcall_memsync();
 
 #endif // KERNELGEN_RUNTIME_H
-
