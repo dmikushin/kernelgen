@@ -192,7 +192,7 @@ struct CUDYfunction_t
 		elf_end(e);
 	
 		if (regcount == -1)
-			THROW("Cannot determine the kernel regcount", CUDA_ERROR_INVALID_SOURCE);
+			THROW("Cannot find kernel " << name << " in " << cubin, CUDA_ERROR_INVALID_SOURCE);
 
 		VERBOSE("regcount = " << regcount << ", size = " << szbinary << "\n");
 	}

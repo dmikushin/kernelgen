@@ -122,7 +122,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		StringRef mangledName =
 				platforms[KERNELGEN_RUNMODE_NATIVE]->mangler.get()->getSymbol(
 						m->getFunction(name))->getName();
-		name == string(mangledName.data(), mangledName.size());
+		name = string(mangledName.data(), mangledName.size());
 
 		KernelFunc kernel_func = (KernelFunc) dlsym(handle, name.c_str());
 		if (!kernel_func)
@@ -288,7 +288,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		StringRef mangledName =
 				platforms[KERNELGEN_RUNMODE_CUDA]->mangler.get()->getSymbol(
 						m->getFunction(name))->getName();
-		name == string(mangledName.data(), mangledName.size());
+		name = string(mangledName.data(), mangledName.size());
 
 		CUfunction kernel_func = NULL;
 		if (name == "__kernelgen_main") {
