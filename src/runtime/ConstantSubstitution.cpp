@@ -51,7 +51,7 @@ int isAllowedInstruction(const Value * const &someValue)
 	return 0;
 }
 
-void makeUseTreeForIntegerArgs(UseTreeNode * const &useNode, const TargetData * const &targetData)
+void makeUseTreeForIntegerArgs(UseTreeNode* const &useNode, const TargetData * const &targetData)
 {
 	const Value* sourceValue = useNode->sourceValue;
 	for (Value::const_use_iterator useIterator = sourceValue->use_begin(),
@@ -64,7 +64,7 @@ void makeUseTreeForIntegerArgs(UseTreeNode * const &useNode, const TargetData * 
 		// before LoadInst in each branch of UseTree must be only GEPs and BitCasts
 		assert(inst = isAllowedInstruction(User));
 
-		UseTreeNode * newUseNode;
+		UseTreeNode* newUseNode;
 		if(inst == GEP || inst == Cast) {
 			newUseNode = new UseTreeNode();
 			newUseNode->sourceValue = User;
@@ -74,12 +74,11 @@ void makeUseTreeForIntegerArgs(UseTreeNode * const &useNode, const TargetData * 
 		case GEP: {
 			// GEP increase offset and change type
 			// new Type is newUseNode->sourceValue->getType()
-			const GetElementPtrInst * GEPInst = dyn_cast<GetElementPtrInst>(User);
-			std::vector<Value *> Indices(GEPInst->idx_begin(),GEPInst->idx_end());
+			const GetElementPtrInst* GEPInst = dyn_cast<GetElementPtrInst>(User);
+			std::vector<Value*> Indices(GEPInst->idx_begin(), GEPInst->idx_end());
 			newUseNode->currentOffset += targetData->getIndexedOffset(
-			                                 useNode->sourceValue->getType(), // old type from which we make GEP
-			                                 ArrayRef<Value *>(Indices)       // Indices of GEP
-			                             );
+				useNode->sourceValue->getType(), // old type from which we make GEP
+				ArrayRef<Value*>(Indices));     // Indices of GEP
 			makeUseTreeForIntegerArgs(newUseNode, targetData);
 		}
 		break;
@@ -89,7 +88,7 @@ void makeUseTreeForIntegerArgs(UseTreeNode * const &useNode, const TargetData * 
 			makeUseTreeForIntegerArgs(newUseNode, targetData);
 			break;
 		case Load:
-			LoadInstOffsets[(LoadInst *)User] = useNode->currentOffset;
+			LoadInstOffsets[(LoadInst*)User] = useNode->currentOffset;
 			//alignment?
 			break;
 		case Store:
@@ -103,7 +102,7 @@ void makeUseTreeForIntegerArgs(UseTreeNode * const &useNode, const TargetData * 
 void computeLoadInstOffsets(const Value * sourceArg,const TargetData * targetData)
 {
 	UseTreeNode *useTree = new UseTreeNode();
-		useTree->currentOffset = 0;
+	useTree->currentOffset = 0;
 	useTree->sourceValue = sourceArg;
 	
 	// Bypass Use Tree of argument
@@ -116,43 +115,43 @@ void ConstantSubstitution(Function * func, void * args)
 {
 	LoadInstOffsets.clear();
 	Function::arg_iterator AI = func->arg_begin();
-	Value * sourceArg = (Value *)AI;
+	Value* sourceArg = (Value*)AI;
 	
-	//argument must be a pointer
-	assert( sourceArg -> getType() -> isPointerTy() );
-	TargetData * targetData = new TargetData(func->getParent());
+	// Argument must be a pointer.
+	assert(sourceArg->getType()->isPointerTy());
+	TargetData* targetData = new TargetData(func->getParent());
 	
-	//compute offsets of args
-	//each arg is LoadInst from some offset in structure of args
-	computeLoadInstOffsets(sourceArg,targetData);
+	// Compute offsets of args (each arg is LoadInst from
+	// some offset in structure of args).
+	computeLoadInstOffsets(sourceArg, targetData);
 
 	VERBOSE(Verbose::Polly << "    Integer args substituted:\n" << Verbose::Default);
-	for(MapIterator arg = LoadInstOffsets.begin(),
+	for (MapIterator arg = LoadInstOffsets.begin(),
 		argEnd = LoadInstOffsets.end(); arg != argEnd; arg++) {
-		LoadInst * load = arg->first;
-		Type * type = load->getType();
+		LoadInst* load = arg->first;
+		Type* type = load->getType();
 		
-		// for each integer arg
-		// replace uses of arg's LoadInst by Constant
-		if(type->isIntegerTy()) {
+		// For each integer arg: replace uses of arg's LoadInst by Constant.
+		if (type->isIntegerTy()) {
 			assert(targetData->getTypeStoreSize(type) <= 8);
 			uint64_t value = 0;
 			int offset = arg->second;
 			memcpy(&value, ((char *)args) + offset, targetData->getTypeStoreSize(type));
-			ConstantInt * constant = ConstantInt::get(cast<IntegerType>(type), value);
+			ConstantInt* constant = ConstantInt::get(cast<IntegerType>(type), value);
 			load->replaceAllUsesWith(constant);
 			load->eraseFromParent();
 			VERBOSE(Verbose::Polly << "        offset = " << arg->second <<
 					", value = " << constant->getValue().toString(10, true) << "\n" <<
 					Verbose::Default);
+			continue;
 		}
-		if(type->isPointerTy()) {
+		if (type->isPointerTy()) {
 			assert(targetData->getTypeStoreSize(type) <= 8);
 			uint64_t ptrValue = 0;
 			int offset = arg->second;
 			memcpy(&ptrValue, ((char *)args) + offset, targetData->getTypeStoreSize(type));
 			
-			load -> replaceAllUsesWith(
+			load->replaceAllUsesWith(
 			    ConstantExpr::getIntToPtr(
 			    ConstantInt::get( targetData->getIntPtrType(func->getParent()->getContext()),(uint64_t)ptrValue,false),
 			       type));
@@ -161,7 +160,9 @@ void ConstantSubstitution(Function * func, void * args)
 			
 			VERBOSE(Verbose::Polly << "        offset = " << arg->second <<
 					", ptrValue = " << ptrValue << "\n" << Verbose::Default);
+			continue;
 		}
+
+		THROW("Only integer and pointer constants could be substituted");
 	}
-	return;
 }
