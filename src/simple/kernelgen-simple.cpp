@@ -127,13 +127,20 @@ struct fallback_args_t {
 static void fallback(void* arg) {
 	fallback_args_t* args = (fallback_args_t*) arg;
 	int argc = args->argc;
-	vector<const char*> argv(args->argv, args->argv + argc);
+	vector<const char*> argv;
+	if (argc)
+		argv.assign(args->argv, args->argv + argc);
+	argv.push_back(NULL);
 
 	// Compile source code using the regular compiler.
 	VERBOSE(Verbose::Summary << argv << Verbose::Default);
-	size_t nenvars;
-	for (int i = 0; environ[i]; i++) nenvars++;
-	vector<const char*> env(environ, environ + nenvars);
+	vector<const char*> env;
+	if (environ)
+	{
+		size_t nenvars = 0;
+		for (int i = 0; environ[i]; i++) nenvars++;
+		env.assign(environ, environ + nenvars);
+	}
 	env.push_back("KERNELGEN_FALLBACK=1");
 	env.push_back(NULL);
 	string err;
@@ -188,9 +195,13 @@ static int compile(int argc, char** argv, const char* input,
 		args.push_back(NULL);
 		args[0] = compiler;
 		VERBOSE(Verbose::Summary << args << Verbose::Default);
-		size_t nenvars;
-		for (int i = 0; environ[i]; i++) nenvars++;
-		vector<const char*> env(environ, environ + nenvars);
+		vector<const char*> env;
+		if (environ)
+		{
+			size_t nenvars = 0;
+			for (int i = 0; environ[i]; i++) nenvars++;
+			env.assign(environ, environ + nenvars);
+		}
 		env.push_back("KERNELGEN_FALLBACK=1");
 		env.push_back(NULL);
 		int status = Program::ExecuteAndWait(
@@ -248,9 +259,13 @@ static int compile(int argc, char** argv, const char* input,
 		args.push_back(NULL);
 		args[0] = compiler;
 		VERBOSE(Verbose::Summary << args << Verbose::Default);
-		size_t nenvars;
-		for (int i = 0; environ[i]; i++) nenvars++;
-		vector<const char*> env(environ, environ + nenvars);
+		vector<const char*> env;
+		if (environ)
+		{
+			size_t nenvars = 0;
+			for (int i = 0; environ[i]; i++) nenvars++;
+			env.assign(environ, environ + nenvars);
+		}
 		env.push_back("KERNELGEN_FALLBACK=1");
 		env.push_back(NULL);
 		int status = Program::ExecuteAndWait(
@@ -329,13 +344,17 @@ static int compile(int argc, char** argv, const char* input,
 		// as object binary. Method: create another module
 		// with a global variable incorporating the contents
 		// of entire module and emit it for X86_64 target.
-		string ir_string;
-		raw_string_ostream ir(ir_string);
-		ir << (*m.get());
+		SmallVector<char, 128> moduleBitcode;
+		raw_svector_ostream moduleBitcodeStream(moduleBitcode);
+		WriteBitcodeToFile(m.get(), moduleBitcodeStream);
+		moduleBitcodeStream.flush();
 		Module obj_m("kernelgen", context);
-		Constant* name = ConstantDataArray::getString(context, ir_string, true);
-		GlobalVariable* GV1 = new GlobalVariable(obj_m, name->getType(), true,
-				GlobalValue::LinkerPrivateLinkage, name, input, 0, false);
+		Constant* container = ConstantDataArray::get(context,
+				ArrayRef<uint8_t>((uint8_t*)moduleBitcode.data(), moduleBitcode.size()));
+		GlobalVariable* GV1 = new GlobalVariable(obj_m,
+				container->getType(), true,
+				GlobalValue::LinkerPrivateLinkage, container,
+				input, 0, false);
 
 		InitializeAllTargets();
 		InitializeAllTargetMCs();
@@ -691,7 +710,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				// the absolute value.
 				auto_ptr<MemoryBuffer> buffer;
 				buffer.reset(MemoryBuffer::getMemBuffer(
-						StringRef((char*)(image + okernelgen + symbol.st_value), symbol.st_size - 1),
+						StringRef((char*)(image + okernelgen + symbol.st_value), symbol.st_size - symbol.st_size % 4),
 						"", false));
 				if (!buffer.get()) {
 					cerr << "Error reading object file symbol " << name << endl;
@@ -1638,9 +1657,13 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		args.push_back(NULL);
 		args[0] = compiler;
 		VERBOSE(Verbose::Summary << args << Verbose::Default);
-		size_t nenvars;
-		for (int i = 0; environ[i]; i++) nenvars++;
-		vector<const char*> env(environ, environ + nenvars);
+		vector<const char*> env;
+		if (environ)
+		{
+			size_t nenvars = 0;
+			for (int i = 0; environ[i]; i++) nenvars++;
+			env.assign(environ, environ + nenvars);
+		}
 		env.push_back("KERNELGEN_FALLBACK=1");
 		env.push_back(NULL);
 		int status = Program::ExecuteAndWait(
