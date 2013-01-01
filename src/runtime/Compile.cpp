@@ -77,7 +77,6 @@ extern cl::opt<bool> IgnoreAliasing;
 
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL, bool * isThereAtLeastOneParallelLoop = NULL);
-Pass* createRuntimeAliasAnalysisPass();
 
 Pass* createTransformAccessesPass();
 Pass* createInspectDependencesPass();
@@ -267,7 +266,6 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 		//registerPollyPreoptPasses(polly);
 		//polly.add(polly::createIslScheduleOptimizerPass());
 		if (kernel->name != "__kernelgen_main") {
-			//polly.add(createRuntimeAliasAnalysisPass());
 		    polly.add(createTransformAccessesPass()); // create General Form for each scop's memory Access
 		    polly.add(createSizeOfLoopsPass(&sizes, isThereAtLeastOneParallelLoop));  // compute size of loops
 		    polly.add(createScopDescriptionPass());   // print scop description

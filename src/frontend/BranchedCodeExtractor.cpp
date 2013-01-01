@@ -503,7 +503,7 @@ void BranchedCodeExtractor::makeFunctionBody(Function * LoopFunction,
 		GetElementPtrInst *GEP = GetElementPtrInst::Create(
 			structArg, Idx, "load_ptr_" + inputs[i]->getName(), TI);
 
-		// create LoadInstruction from adress, which returned by instruction GEP
+		// create LoadInstruction from address, which returned by instruction GEP
 		// inserted it before terminator
 		Value* RewriteVal;
 		if (inputs[i]->getType() == i1Ty)

@@ -163,6 +163,6 @@ void ConstantSubstitution(Function * func, void * args)
 			continue;
 		}
 
-		THROW("Only integer and pointer constants could be substituted");
+		//THROW("Only integer and pointer constants could be substituted");
 	}
 }
