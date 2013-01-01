@@ -655,6 +655,7 @@ KERNELGEN_FALLBACK=1 make install -j%{njobs}
 cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build
 KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
+%if %glibc
 #
 # Install GLIBC
 #
