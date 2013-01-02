@@ -116,10 +116,11 @@ void kernelgen_hostcall(
 {
 	params = params_;
 
-	// Compile native kernel, if there is source code.
+	// Compile native kernel, if there is source code and not already compiled.
 	KernelFunc* func =
 		&kernel->target[KERNELGEN_RUNMODE_NATIVE].binary;
-	*func = Compile(KERNELGEN_RUNMODE_NATIVE, kernel);
+	if (!*func)
+		*func = Compile(KERNELGEN_RUNMODE_NATIVE, kernel);
 
 	Dl_info info;
 	if (settings.getVerboseMode() & Verbose::Hostcall)
