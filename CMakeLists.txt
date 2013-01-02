@@ -22,7 +22,7 @@ execute_process(COMMAND svnversion -n ${PROJECT_SOURCE_DIR}/src OUTPUT_VARIABLE 
 message("Compiling KernelGen version ${KERNELGEN_VERSION}")
 
 set(OPT 0 CACHE STRING "Optimization level (0-3)")
-set(RPM_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE STRING "The RPM install prefix")
+set(RPM_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}/../.." CACHE STRING "The RPM install prefix")
 set(RPM_ROOT "$ENV{HOME}/rpmbuild/BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
 set(LLVM_MODE "Debug+Asserts" CACHE STRING "The LLVM build mode")
@@ -177,15 +177,15 @@ target_link_libraries(kernelgen-asfermi)
 #
 # CUDA LLVM IR -LEVEL INCLUDES
 #
-add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/cuda/monitor.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
-	${PROJECT_SOURCE_DIR}/src/cuda/include/monitor.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/cuda/monitor.bc)
-add_custom_target(cuda_monitor ALL DEPENDS ${PROJECT_BINARY_DIR}/cuda/monitor.bc)
-add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/cuda/runtime.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
-	${PROJECT_SOURCE_DIR}/src/cuda/include/runtime.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/cuda/runtime.bc)
-add_custom_target(cuda_runtime ALL DEPENDS ${PROJECT_BINARY_DIR}/cuda/runtime.bc)
-add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/cuda/math.bc COMMAND opt
-	${PROJECT_SOURCE_DIR}/src/cuda/include/math.bc -o ${PROJECT_BINARY_DIR}/cuda/math.bc)
-add_custom_target(cuda_math ALL DEPENDS ${PROJECT_BINARY_DIR}/cuda/math.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/monitor.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
+	${PROJECT_SOURCE_DIR}/src/cuda/include/monitor.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/monitor.bc)
+add_custom_target(cuda_monitor ALL DEPENDS ${PROJECT_BINARY_DIR}/monitor.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/runtime.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
+	${PROJECT_SOURCE_DIR}/src/cuda/include/runtime.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/runtime.bc)
+add_custom_target(cuda_runtime ALL DEPENDS ${PROJECT_BINARY_DIR}/runtime.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/math.bc COMMAND opt
+	${PROJECT_SOURCE_DIR}/src/cuda/include/math.bc -o ${PROJECT_BINARY_DIR}/math.bc)
+add_custom_target(cuda_math ALL DEPENDS ${PROJECT_BINARY_DIR}/math.bc)
 
 #
 # RUNTIME LIBRARY
@@ -239,7 +239,7 @@ INSTALL(TARGETS
 	DESTINATION lib)
 # include/cuda
 INSTALL(FILES
-	${PROJECT_BINARY_DIR}/cuda/math.bc
-	${PROJECT_BINARY_DIR}/cuda/monitor.bc
-	${PROJECT_BINARY_DIR}/cuda/runtime.bc
+	${PROJECT_BINARY_DIR}/math.bc
+	${PROJECT_BINARY_DIR}/monitor.bc
+	${PROJECT_BINARY_DIR}/runtime.bc
 	DESTINATION include/cuda)

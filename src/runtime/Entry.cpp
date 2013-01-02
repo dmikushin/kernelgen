@@ -237,13 +237,12 @@ int main(int argc, char* argv[], char* envp[]) {
 						std::istreambuf_iterator<char>());
 				tmp_stream.close();
 
-				SMDiagnostic diag;
-				MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
+				string err;
+				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(
 						monitor_source);
-				monitor_module = ParseIR(buffer1, diag, context);
+				monitor_module = ParseBitcodeFile(buffer, context, &err);
 				if (!monitor_module)
-					THROW(
-							"Cannot load KernelGen monitor kernel module: " << diag.getMessage());
+					THROW("Cannot load KernelGen monitor kernel module: " << err);
 			}
 
 			// Load LLVM IR for KernelGen runtime functions, if not yet loaded.
@@ -260,13 +259,12 @@ int main(int argc, char* argv[], char* envp[]) {
 						std::istreambuf_iterator<char>());
 				tmp_stream.close();
 
-				SMDiagnostic diag;
-				MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(
+				string err;
+				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(
 						runtime_source);
-				runtime_module = ParseIR(buffer1, diag, context);
+				runtime_module = ParseBitcodeFile(buffer, context, &err);
 				if (!runtime_module)
-					THROW(
-							"Cannot load KernelGen runtime functions module: " << diag.getMessage());
+					THROW("Cannot load KernelGen runtime functions module: " << err);
 			}
 
 			// Load LLVM IR for CUDA runtime functions, if not yet loaded.
@@ -282,12 +280,11 @@ int main(int argc, char* argv[], char* envp[]) {
 						std::istreambuf_iterator<char>());
 				tmp_stream.close();
 
-				SMDiagnostic diag;
-				MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(cuda_source);
-				cuda_module = ParseIR(buffer1, diag, context);
+				string err;
+				MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(cuda_source);
+				cuda_module = ParseBitcodeFile(buffer, context, &err);
 				if (!cuda_module)
-					THROW(
-							"Cannot load CUDA math functions module: " << diag.getMessage());
+					THROW("Cannot load CUDA math functions module: " << err);
 
 				// Mark all module functions as device functions.
 				for (Module::iterator F = cuda_module->begin(), FE =
