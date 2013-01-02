@@ -663,12 +663,11 @@ KernelFunc kernelgen::runtime::Compile(
 	LLVMContext &context = getGlobalContext();
 	if (!m) {
 		// Load LLVM IR source into module.
-		SMDiagnostic diag;
+		string err;
 		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(kernel->source);
-		m = ParseIR(buffer, diag, context);
+		m = ParseBitcodeFile(buffer, context, &err);
 		if (!m)
-			THROW(kernel->name << ":" << diag.getLineNo() << ": " <<
-			      diag.getLineContents() << ": " << diag.getMessage());
+			THROW("Cannot load LLVM module for kernel " << kernel->name << ": " << err);
 		m->setModuleIdentifier(kernel->name + "_module");
 		kernel->module = m;
 	}

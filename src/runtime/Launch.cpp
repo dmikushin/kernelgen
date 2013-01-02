@@ -99,9 +99,11 @@ void load_kernel(Kernel* kernel) {
 								Type::getInt8PtrTy(context)));
 			}
 
-	kernel->source = "";
-	raw_string_ostream ir(kernel->source);
-	ir << (*m);
+	SmallVector<char, 128> moduleBitcode;
+	raw_svector_ostream moduleBitcodeStream(moduleBitcode);
+	WriteBitcodeToFile(m, moduleBitcodeStream);
+	moduleBitcodeStream.flush();
+	kernel->source.assign(moduleBitcode.data(), moduleBitcode.size());
 	kernel->loaded = true;
 	kernel->module = m;
 }
