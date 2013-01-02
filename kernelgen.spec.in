@@ -770,6 +770,45 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMJIT.a
 #
 # GLIBC
 #
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libm.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libutil.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnsl.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_hesiod.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_files.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/ld-linux-x86-64.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcidn.so.1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnsl.so.1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libpthread.so.0
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libutil.so.1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_db.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_nis.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_nis.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_db.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libdl.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcrypt.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_nisplus.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcrypt.so.1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libm.so.6
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libresolv.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/librt.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_hesiod.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_compat.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libthread_db.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libanl.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libanl.so.1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_dns.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libc.so.6
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libthread_db.so.1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libBrokenLocale.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_compat.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_nisplus.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libdl.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_dns.so.2
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_files.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcidn.so
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/librt.so.1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libBrokenLocale.so.1
+rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libresolv.so.2
 
 
 
