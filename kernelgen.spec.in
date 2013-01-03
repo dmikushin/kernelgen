@@ -689,18 +689,9 @@ ln -s ../../../../bin/kernelgen-simple lto-wrapper
 %endif
 
 
-
 #
-# Final cleanup (off for fast repack).
+# Remove some files from installation.
 #
-%clean
-
-
-
-#
-# Files included into binary distribution.
-#
-%files
 #
 # LLVM
 #
@@ -818,9 +809,19 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcidn.so
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/librt.so.1
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libBrokenLocale.so.1
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libresolv.so.2
+
+
 #
-# Package all the rest
+# Final cleanup (off for fast repack).
 #
+%clean
+
+
+
+#
+# Files included into binary distribution.
+#
+%files
 /opt/kernelgen/*
 
 
