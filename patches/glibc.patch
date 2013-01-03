@@ -1,5 +1,5 @@
---- a/glibc-2.15/configure	2013-01-01 23:11:00.863897012 +0100
-+++ b/glibc-2.15/configure	2013-01-01 23:18:06.247879122 +0100
+--- a/glibc-2.17/configure	2013-01-01 23:11:00.863897012 +0100
++++ b/glibc-2.17/configure	2013-01-01 23:18:06.247879122 +0100
 @@ -4803,13 +4803,21 @@
    # Found it, now check the version.
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking version of $LD" >&5
