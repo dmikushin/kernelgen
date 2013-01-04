@@ -368,7 +368,7 @@ cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
 ../configure --prefix=%{build_prefix}
-sed -i "s/slibdir\s=/slibdir = \${prefix}\/../lib/" config.make
+sed -i "s/slibdir\s=/slibdir = \${prefix}\/..\/lib/" config.make
 %endif
 %endif
 %if %kernelgen
