@@ -366,7 +366,7 @@ cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --sysconfdir=$RPM_BUILD_ROOT/%{prefix}/.. --localstatedir=$RPM_BUILD_ROOT/%{prefix}/.. --libdir=$RPM_BUILD_ROOT/%{prefix}/..
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --sysconfdir=$RPM_BUILD_ROOT/%{prefix}/etc --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share
 %endif
 %endif
 %if %kernelgen
