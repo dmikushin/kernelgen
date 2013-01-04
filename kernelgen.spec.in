@@ -311,9 +311,10 @@ cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
 mkdir build
 cd build/
 %if %gcc_bootstrap
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-gmp-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-mpc-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/opt/kernelgen/bin/kernelgen-ld
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-gmp-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-mpc-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/opt/kernelgen/bin/kernelgen-ld --target=x86_64-linux-gnu
 %else
-../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-gmp-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-mpc-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/opt/kernelgen/bin/kernelgen-ld --disable-bootstrap
+../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-gmp-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --with-mpc-include=$RPM_INSTALL_PREFIX/opt/kernelgen/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/opt/kernelgen/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/opt/kernelgen/bin/kernelgen-ld --targ
+et=x86_64-linux-gnu --disable-bootstrap
 %endif
 %endif
 %if %netcdf
@@ -363,6 +364,7 @@ cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
 ../configure --prefix=$RPM_BUILD_ROOT/opt/kernelgen
+sed -i "s/slibdir\s=/slibdir = \${prefix}\/lib\/x86_64-linux-gnu/" config.make
 %endif
 %endif
 %if %kernelgen
@@ -767,48 +769,6 @@ rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMAnalysis.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMipo.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMSelectionDAG.a
 rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libLLVMJIT.a
-#
-# GLIBC
-#
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libm.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libutil.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnsl.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_hesiod.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_files.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/ld-linux-x86-64.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcidn.so.1
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnsl.so.1
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libpthread.so.0
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libutil.so.1
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_db.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_nis.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_nis.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_db.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libdl.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcrypt.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_nisplus.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcrypt.so.1
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libm.so.6
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libresolv.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/librt.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_hesiod.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_compat.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libthread_db.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libanl.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libanl.so.1
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_dns.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libc.so.6
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libthread_db.so.1
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libBrokenLocale.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_compat.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_nisplus.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libdl.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_dns.so.2
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libnss_files.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libcidn.so
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/librt.so.1
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libBrokenLocale.so.1
-rm -rf $RPM_BUILD_ROOT/opt/kernelgen/lib/libresolv.so.2
 
 
 #
