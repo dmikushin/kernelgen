@@ -29,7 +29,7 @@
 
 # Path prefixes
 %define build_prefix KERNELGEN_BUILD_PREFIX
-%define install_prefix = KERNELGEN_INSTALL_PREFIX
+%define install_prefix KERNELGEN_INSTALL_PREFIX
 
 # Switch on or off the compilation of particular parts
 # of the package (for bootstrapping).
