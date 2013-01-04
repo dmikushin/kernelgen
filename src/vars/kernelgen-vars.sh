@@ -12,5 +12,5 @@
 ##
 ##===----------------------------------------------------------------------===//
 
-export PATH=$PATH:CMAKE_INSTALL_PREFIX/usr/bin
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:CMAKE_INSTALL_PREFIX/usr/lib:CMAKE_INSTALL_PREFIX/usr/lib32:CMAKE_INSTALL_PREFIX/usr/lib64
+export PATH=$PATH:CMAKE_INSTALL_PREFIX/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:CMAKE_INSTALL_PREFIX/lib:CMAKE_INSTALL_PREFIX/usr/lib32:CMAKE_INSTALL_PREFIX/lib64
