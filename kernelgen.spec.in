@@ -360,12 +360,16 @@ cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 %endif
 %if %glibc
 #
-# Configure GLIBC
+# Configure GLIBC (64-bit and 32-bit)
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
 ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --sysconfdir=$RPM_BUILD_ROOT/%{prefix}/etc --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share
+cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
+mkdir build-32
+cd build-32
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --sysconfdir=$RPM_BUILD_ROOT/%{prefix}/etc --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share --host=i686-linux-gnu --build=i686-linux-gnu CFLAGS="-m32 -march=i686"
 %endif
 %endif
 %if %kernelgen
@@ -538,13 +542,19 @@ KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
 %if %glibc
 #
-# Build GLIBC
+# Build GLIBC (64-bit and 32-bit)
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build
 %if %debug
 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector"
 %else
 KERNELGEN_FALLBACK=1 make -j%{njobs}
+%endif
+cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
+%if %debug
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -m32 -march=i686"
+%else
+KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-m32 -O2 -march=i686"
 %endif
 %endif
 %endif
@@ -667,6 +677,8 @@ KERNELGEN_FALLBACK=1 make install -j%{njobs}
 # Install GLIBC
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build
+KERNELGEN_FALLBACK=1 make install -j%{njobs}
+cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
 KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 
