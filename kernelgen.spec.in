@@ -796,7 +796,7 @@ echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin" >>$RPM_INSTA
 echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
 echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib64" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
 %if %kernelgen
-sed -i s!$RPM_BUILD_ROOT!%$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin/kernelgen-vars.sh
+sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin/kernelgen-vars.sh
 %endif
 
 %changelog
