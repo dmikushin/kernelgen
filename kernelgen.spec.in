@@ -365,11 +365,11 @@ cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --libdir=$RPM_BUILD_ROOT/%{prefix}/../lib/x86_64-linux-gnu --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share --host=x86_64-linux-gnu --build=x86_64-linux-gnu
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build-32
 cd build-32
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --libdir=$RPM_BUILD_ROOT/%{prefix}/../lib/i686-linux-gnu --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share --host=i686-linux-gnu --build=i686-linux-gnu CC="$CC -m32" CFLAGS="$CFLAGS -march=i686"
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share --host=i686-linux-gnu --build=i686-linux-gnu CC="$CC -m32" CFLAGS="$CFLAGS -march=i686"
 %endif
 %endif
 %if %kernelgen
@@ -674,12 +674,17 @@ KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 %if %glibc
 #
-# Install GLIBC
+# Install GLIBC (64-bit and 32-bit)
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build
 KERNELGEN_FALLBACK=1 make install -j%{njobs}
+mv $RPM_BUILD_ROOT/lib $RPM_BUILD_ROOT/x86_64-linux-gnu
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
+mv $RPM_BUILD_ROOT/lib $RPM_BUILD_ROOT/i686-linux-gnu
 KERNELGEN_FALLBACK=1 make install -j%{njobs}
+mkdir -p $RPM_BUILD_DIR/lib
+mv $RPM_BUILD_ROOT/x86_64-linux-gnu $RPM_BUILD_ROOT/lib/
+mv $RPM_BUILD_ROOT/i686-linux-gnu $RPM_BUILD_ROOT/lib/
 %endif
 
 
