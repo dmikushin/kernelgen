@@ -365,11 +365,11 @@ cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --sysconfdir=$RPM_BUILD_ROOT/%{prefix}/etc --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --libdir=$RPM_BUILD_ROOT/%{prefix}/../lib/x86_64-linux-gnu --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build-32
 cd build-32
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --sysconfdir=$RPM_BUILD_ROOT/%{prefix}/etc --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share --host=i686-linux-gnu --build=i686-linux-gnu CC="$CC -m32" CFLAGS="$CFLAGS -march=i686"
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --libdir=$RPM_BUILD_ROOT/%{prefix}/../lib/i686-linux-gnu --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share --host=i686-linux-gnu --build=i686-linux-gnu CC="$CC -m32" CFLAGS="$CFLAGS -march=i686"
 %endif
 %endif
 %if %kernelgen
