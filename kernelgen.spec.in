@@ -316,7 +316,7 @@ cd build/
 %if %gcc_bootstrap
 ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-ld
 %else
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-ld --disable-bootstrap --with-sysroot=$RPM_INSTALL_PREFIX/%{prefix}/..
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-ld --disable-bootstrap
 %endif
 %endif
 %if %netcdf
@@ -365,11 +365,13 @@ cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share --host=x86_64-linux-gnu --build=x86_64-linux-gnu
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --host=x86_64-linux-gnu --build=x86_64-linux-gnu
+echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/" >>config.make
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build-32
 cd build-32
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/.. --bindir=$RPM_BUILD_ROOT/%{prefix}/bin --sbindir=$RPM_BUILD_ROOT/%{prefix}/sbin --libexecdir=$RPM_BUILD_ROOT/%{prefix}/libexec --includedir=$RPM_BUILD_ROOT/%{prefix}/include --datarootdir=$RPM_BUILD_ROOT/%{prefix}/share --datadir=$RPM_BUILD_ROOT/%{prefix}/share --host=i686-linux-gnu --build=i686-linux-gnu CC="$CC -m32" CFLAGS="$CFLAGS -march=i686"
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --host=i686-linux-gnu --build=i686-linux-gnu CC="$CC -m32" CFLAGS="$CFLAGS -march=i686"
+echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32" >>config.make
 %endif
 %endif
 %if %kernelgen
@@ -678,18 +680,8 @@ KERNELGEN_FALLBACK=1 make install -j%{njobs}
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build
 KERNELGEN_FALLBACK=1 make install -j%{njobs}
-mv $RPM_BUILD_ROOT/%{prefix}/../lib $RPM_BUILD_ROOT/%{prefix}/../x86_64-linux-gnu
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
 KERNELGEN_FALLBACK=1 make install -j%{njobs}
-mv $RPM_BUILD_ROOT/%{prefix}/../lib $RPM_BUILD_ROOT/%{prefix}/../i686-linux-gnu
-mkdir -p $RPM_BUILD_ROOT/%{prefix}/../lib
-mv $RPM_BUILD_ROOT/%{prefix}/../x86_64-linux-gnu $RPM_BUILD_ROOT/%{prefix}/../lib/
-mv $RPM_BUILD_ROOT/%{prefix}/../i686-linux-gnu $RPM_BUILD_ROOT/%{prefix}/../lib/
-cd $RPM_BUILD_ROOT/%{prefix}/../lib
-ln -s $RPM_BUILD_ROOT/%{prefix}/../lib/i686-linux-gnu/ld-linux.so.2
-mkdir -p $RPM_BUILD_ROOT/%{prefix}/../lib64
-cd $RPM_BUILD_ROOT/%{prefix}/../lib64
-ln -s $RPM_BUILD_ROOT/%{prefix}/../lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
 %endif
 
 
