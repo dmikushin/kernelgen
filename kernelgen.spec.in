@@ -685,6 +685,11 @@ mv $RPM_BUILD_ROOT/%{prefix}/../lib $RPM_BUILD_ROOT/%{prefix}/../i686-linux-gnu
 mkdir -p $RPM_BUILD_ROOT/%{prefix}/../lib
 mv $RPM_BUILD_ROOT/%{prefix}/../x86_64-linux-gnu $RPM_BUILD_ROOT/%{prefix}/../lib/
 mv $RPM_BUILD_ROOT/%{prefix}/../i686-linux-gnu $RPM_BUILD_ROOT/%{prefix}/../lib/
+cd $RPM_BUILD_ROOT/%{prefix}/../lib
+ln -s $RPM_BUILD_ROOT/%{prefix}/../lib/i686-linux-gnu/ld-linux.so.2
+mkdir -p $RPM_BUILD_ROOT/%{prefix}/../lib64
+cd $RPM_BUILD_ROOT/%{prefix}/../lib64
+ln -s $RPM_BUILD_ROOT/%{prefix}/../lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
 %endif
 
 
