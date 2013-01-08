@@ -365,12 +365,12 @@ cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --host=x86_64-linux-gnu --build=x86_64-linux-gnu
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --host=x86_64-linux-gnu --build=x86_64-linux-gnu --enable-obsolete-rpc
 echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/" >>config.make
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build-32
 cd build-32
-../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32 --host=i686-linux-gnu --build=i686-linux-gnu CC="$CC -m32" CFLAGS="$CFLAGS -march=i686"
+../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32 --host=i686-linux-gnu --build=i686-linux-gnu CC="$CC -m32" CFLAGS="$CFLAGS -march=i686" --enable-obsolete-rpc
 echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32" >>config.make
 %endif
 %endif
