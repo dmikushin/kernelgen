@@ -843,7 +843,6 @@ sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/libpthread.so
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libc.so
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libpthread.so
-%endif
 %if %gcc
 #
 # Create GCC spec with alternative locations for used 32-bit and 64-bit
@@ -852,6 +851,7 @@ sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen
 $RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin/kernelgen-gcc -dumpspecs >$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/specs
 sed -i s!/lib64/ld-linux-x86-64.so.2!$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ld-linux-x86-64.so.2!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/specs
 sed -i s!/lib/ld-linux.so.2!$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/ld-linux.so.2!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/specs
+%endif
 %endif
 %if %kernelgen
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin/kernelgen-vars.sh
