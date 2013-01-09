@@ -808,6 +808,13 @@ mkdir -p $RPM_INSTALL_PREFIX/etc/ld.so.conf.d
 echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
 echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
 echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib64" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
+mkdir -p $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/
+echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
+echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
+echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
+echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib64" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
+echo "include $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf.d/*.conf" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
+ln -s /etc/ld.so.conf.d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf.d
 %if %glibc
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/libc.so
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/libpthread.so
