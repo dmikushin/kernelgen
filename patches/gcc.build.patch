@@ -515,7 +515,7 @@
  
    obstack_begin (&temporary_obstack, 0);
    temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
-@@ -1622,6 +1675,42 @@
+@@ -1622,6 +1675,44 @@
  	}
      }
  
@@ -550,6 +550,8 @@
 +      rpaths_ptr += strlen("-rpath=");
 +      memcpy(rpaths_ptr, library_path_tok, strlen(library_path_tok));
 +      rpaths_ptr += strlen(library_path_tok);
++      *rpaths_ptr = '\0';
++      rpaths_ptr++;
 +      *ld1++ = *ld2++ = rpath_arg;
 +      library_path_tok = strtok(NULL, ":");
 +    }
@@ -558,7 +560,7 @@
  #ifdef COLLECT_EXPORT_LIST
    /* This is added only for debugging purposes.  */
    if (debug)
-@@ -1949,6 +2038,8 @@
+@@ -1949,6 +2040,8 @@
    maybe_unlink (export_file);
  #endif
  
@@ -567,7 +569,7 @@
    return 0;
  }
  
-@@ -2668,8 +2759,8 @@
+@@ -2668,8 +2761,8 @@
               the LTO objects list if found.  */
            for (p = buf; (ch = *p) != '\0' && ch != '\n'; p++)
              if (ch == ' '  && p[1] == '_' && p[2] == '_'
