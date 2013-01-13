@@ -484,7 +484,7 @@
 +    {
 +       error("LIBRARY_PATH must be defined!\n");
 +    }
-+  char* library_path_dup = strdup(library_path);
++  char* library_path_dup = xstrdup(library_path);
 +  char* library_path_tok = strtok(library_path_dup, ":");
 +  while (library_path_tok)
 +    {
@@ -541,7 +541,7 @@
 +  
 +  char* rpaths = XCNEWVEC(char, szrpaths + nrpaths * (strlen("-rpath=") + 1));
 +  char* rpaths_ptr = rpaths;
-+  library_path_dup = strdup(library_path);
++  library_path_dup = xstrdup(library_path);
 +  library_path_tok = strtok(library_path_dup, ":");
 +  while (library_path_tok)
 +    {
