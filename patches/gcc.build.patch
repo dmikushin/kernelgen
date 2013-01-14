@@ -564,16 +564,18 @@
  #ifdef COLLECT_EXPORT_LIST
    /* This is added only for debugging purposes.  */
    if (debug)
-@@ -1949,6 +2044,8 @@
+@@ -1949,6 +2044,10 @@
    maybe_unlink (export_file);
  #endif
  
++#ifdef KERNELGEN_ENABLE_RPATHS
 +  free(rpaths);
++#endif
 +
    return 0;
  }
  
-@@ -2668,8 +2765,8 @@
+@@ -2668,8 +2767,8 @@
               the LTO objects list if found.  */
            for (p = buf; (ch = *p) != '\0' && ch != '\n'; p++)
              if (ch == ' '  && p[1] == '_' && p[2] == '_'
