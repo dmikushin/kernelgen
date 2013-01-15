@@ -808,34 +808,6 @@ mkdir -p $RPM_INSTALL_PREFIX/etc/ld.so.conf.d
 echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
 %if %glibc
 #
-# Add the same paths for libraries into our local GLIBC configs.
-#
-echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
-echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib64" >>$RPM_INSTALL_PREFIX/etc/ld.so.conf.d/kernelgen.conf
-#
-# Create ld.so.conf for our own GLIBC, including there a link
-# to system-wide configs dir /etc/ld.so.conf.d
-#
-mkdir -p $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/
-echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
-echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
-echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
-echo "$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib64" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
-echo "include $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf.d/*.conf" >>$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf
-#
-# Linking system-wide /etc/ld.so.conf.d
-#
-ln -s /etc/ld.so.conf.d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/etc/ld.so.conf.d
-#
-# Link ldconfig of our local GLIBC cache
-#
-ln -s $RPM_INSTALL_PREFIX/opt/kernelgen/usr/sbin/kernelgen-ldconfig $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/sbin/ldconfig
-#
-# Update ldconfig cache (unfortunately, user would need to do that
-# manually each time new software is installed on the host system).
-#
-$RPM_INSTALL_PREFIX/opt/kernelgen/usr/sbin/kernelgen-ldconfig
-#
 # Update GROUP info of GLIBC shared libraries with respect to the
 # actuall install prefix.
 #
@@ -844,6 +816,11 @@ sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libc.so
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libpthread.so
 %if %gcc
+#
+# Remove all rpaths for dynamic loaders (not permitted by GLIBC).
+#
+chrpath -d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ld-linux-x86-64.so.2
+chrpath -d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/ld-linux.so.2
 #
 # Create GCC spec with alternative locations for used 32-bit and 64-bit
 # dynamic linkers.
