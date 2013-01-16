@@ -11,12 +11,14 @@
 cmake_minimum_required (VERSION 2.6)
 project (kernelgen)
 
-set (stenfw_VERSION_MAJOR 0)
-set (stenfw_VERSION_MINOR 2)
+set(stenfw_VERSION_MAJOR 0)
+set(stenfw_VERSION_MINOR 2)
 
-#INCLUDE(CheckIncludeFile)
-#INCLUDE(CheckLibraryExists)
-#INCLUDE(CheckCSourceRuns)
+#
+# Do not allow CMake to strip RPATHs, because KernelGen uses it
+# to find its library dir and its own version of GLIBC.
+#
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 execute_process(COMMAND svnversion -n ${PROJECT_SOURCE_DIR}/src OUTPUT_VARIABLE KERNELGEN_VERSION)
 message("Compiling KernelGen version ${KERNELGEN_VERSION}")
