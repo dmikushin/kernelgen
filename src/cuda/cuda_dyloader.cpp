@@ -194,7 +194,7 @@ struct CUDYfunction_t
 		if (regcount == -1)
 			THROW("Cannot find kernel " << name << " in " << cubin, CUDA_ERROR_INVALID_SOURCE);
 
-		VERBOSE("regcount = " << regcount << ", size = " << szbinary << "\n");
+		VERBOSE(name << ": regcount = " << regcount << ", size = " << szbinary << "\n");
 	}
 
 	CUDYfunction_t(CUDYloader_t* loader,
