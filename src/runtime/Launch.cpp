@@ -239,23 +239,26 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 					"    blockDim = " << blockDim << "\n" << "    gridDim = " <<
 					gridDim << "\n" << Verbose::Reset << Verbose::Flush);
 			timer t;
-			float kernel_time;
+			float only_kernel_time;
 			size_t szshmem = 0;
 			CU_SAFE_CALL(cudyLaunch((CUDYfunction) kernel_func, gridDim.x,
 					gridDim.y, gridDim.z, blockDim.x, blockDim.y,
 					blockDim.z, szshmem, &data,
 					cuda_context->getSecondaryStream(),
-					&kernel_time));
+					&only_kernel_time));
 
 			// Wait for loop kernel completion.
 			CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+
+			double time = t.get_elapsed();
 
 			VERBOSE(Verbose::Always << Verbose::Cyan <<
 					"Finishing kernel " << kernel->name << "\n" <<
 					Verbose::Reset << Verbose::Default << Verbose::Flush);
 
-			VERBOSE(Verbose::Perf << kernel->name << " time = " << t.get_elapsed() << " sec\n" <<
-					"only the kernel execution time = " << kernel_time << " sec\n" << Verbose::Default);
+			VERBOSE(Verbose::Perf << kernel->name << " time = " << time << " sec\n" <<
+					kernel->name << " only kernel time = " << only_kernel_time << " sec\n" <<
+					Verbose::Default);
 			break;
 		}
 

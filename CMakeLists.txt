@@ -225,6 +225,14 @@ add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/kernelgen-vars.sh
 add_custom_target(kernelgen_vars ALL DEPENDS ${PROJECT_BINARY_DIR}/kernelgen-vars.sh)
 
 #
+# BUILD WRAPPER (SHOULD BE USED WHEN BUILDING PARTS
+# OF KERNELGEN IN BOOTSTRAPPED MODE).
+#
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/kernelgen-build
+	COMMAND cp ${PROJECT_SOURCE_DIR}/src/build/kernelgen-build ${PROJECT_BINARY_DIR}/kernelgen-build)
+add_custom_target(kernelgen-build ALL DEPENDS ${PROJECT_BINARY_DIR}/kernelgen-build)
+
+#
 # INSTALL
 #
 # bin
@@ -232,6 +240,7 @@ INSTALL(TARGETS
 	kernelgen-asfermi kernelgen-simple kernelgen-version
 	DESTINATION bin)
 INSTALL(PROGRAMS
+	${PROJECT_BINARY_DIR}/kernelgen-build
 	${PROJECT_BINARY_DIR}/kernelgen-dragonegg
 	${PROJECT_BINARY_DIR}/kernelgen-vars.sh
 	DESTINATION bin)
