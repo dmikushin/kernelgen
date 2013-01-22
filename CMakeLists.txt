@@ -233,6 +233,13 @@ add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/kernelgen-build
 add_custom_target(kernelgen-build ALL DEPENDS ${PROJECT_BINARY_DIR}/kernelgen-build)
 
 #
+# KERNELGEN BUILDBOT (BURAN)
+#
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/kernelgen-buran
+	COMMAND cp ${PROJECT_SOURCE_DIR}/src/buran/kernelgen-buran ${PROJECT_BINARY_DIR}/kernelgen-buran)
+add_custom_target(kernelgen-buran ALL DEPENDS ${PROJECT_BINARY_DIR}/kernelgen-buran)
+
+#
 # INSTALL
 #
 # bin
@@ -241,6 +248,7 @@ INSTALL(TARGETS
 	DESTINATION bin)
 INSTALL(PROGRAMS
 	${PROJECT_BINARY_DIR}/kernelgen-build
+	${PROJECT_BINARY_DIR}/kernelgen-buran
 	${PROJECT_BINARY_DIR}/kernelgen-dragonegg
 	${PROJECT_BINARY_DIR}/kernelgen-vars.sh
 	DESTINATION bin)
