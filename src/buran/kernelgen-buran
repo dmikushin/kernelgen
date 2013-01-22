@@ -367,7 +367,7 @@ sub build_and_test_kernelgen
 		my($kernelgen_tests) = $_[1];
 	
 		#
-		# The base path of tests.
+		# Checkout tests.
 		#
 		my($cmd) = "mkdir -p $SOURCES";
 		print "$cmd\n";
@@ -375,10 +375,14 @@ sub build_and_test_kernelgen
 		$cmd = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests";
 		print "$cmd\n";
 		`$cmd`;
-		$cmd = "cd $SOURCES/kernelgen_tests && make clean && make test1 2>&1";
+		$cmd = "cd $SOURCES/kernelgen_tests/behavior && make clean && make test1 2>&1";
 		print "$cmd\n";
+		
+		#
+		# Perform behavior tests.
+		#
 		my(@lines) = split("\n", `bash -c "source $CHROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
-		my($text) = "<h1>Behavior tests</h1>\n<table cellpadding=\"10\">";
+		my($text) = "<h1 style=\"font-size:small;\">Behavior tests</h1>\n<table cellpadding=\"10\">";
 		foreach $line (@lines)
 		{	
 			if ($line =~ m/[\*]+\sTEST\s\(1\)\s'([^']+)'\s[\*]+/)
@@ -429,6 +433,17 @@ sub build_and_test_kernelgen
 			}
 		}
 		$text .= "</table>";
+
+		#
+		# Run performance tests.
+		#
+		$text .= "<h1 style=\"font-size:small;\">Performance tests</h1>\n<table cellpadding=\"10\">";
+		# TODO:
+		$text .= "</table>";
+
+		#
+		# Cleanup.
+		#
 		$cmd = "rm -rf $SOURCES/kernelgen_tests";
 		print "$cmd\n";
 		`$cmd`;
@@ -905,6 +920,8 @@ switch ($target)
 
 		my($version) = `kernelgen-version`;
 		mail("r$version : test suite report", "$start<br/>\n<br/>\n$report<br/>\n<br/>\n$end<br/>\n<br/>");
+		
+		exit(0);
 	}
 	else
 	{
