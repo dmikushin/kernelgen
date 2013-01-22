@@ -369,7 +369,10 @@ sub build_and_test_kernelgen
 		#
 		# The base path of tests.
 		#
-		my($cmd) = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests";
+		my($cmd) = "mkdir -p $SOURCES";
+		print "$cmd\n";
+		`$cmd`;
+		$cmd = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests";
 		print "$cmd\n";
 		`$cmd`;
 		$cmd = "cd $SOURCES/kernelgen_tests && make clean && make test1 2>&1";
@@ -388,15 +391,15 @@ sub build_and_test_kernelgen
 					{
 						if ($line =~ m/[\*]+\sTEST\s\(1\)\s'$name'\sFAILED!\s[\*]+/)
 						{
-					  $text .= "<tr>";
-					  $text .= "<td style=\"border: 2px solid; color: red; font-size:larger; width: auto;\"><b>$name</b></td>";
-					  $text .= "<td style=\"border: 1px solid; font-size:larger; width: auto;\">#.###### sec</td>";
-					  $text .= "<td></td>";
-					  $text .= "</tr>";						
+							$text .= "<tr>";
+							$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>$name</b></td>";
+							$text .= "<td style=\"border: 1px solid; width: auto;\">#.###### sec</td>";
+							$text .= "<td></td>";
+							$text .= "</tr>";						
 							$failed = 1;
 
 							$text .= "<tr>";
-						 $text .= "<td style=\"border: 1px solid;\" colspan=3>";
+							$text .= "<td style=\"border: 1px solid; font-size:small;\" colspan=3>";
 						}
 					}
 					else
@@ -414,8 +417,8 @@ sub build_and_test_kernelgen
 				if (!$failed)
 				{
 					$text .= "<tr>";
-					$text .= "<td style=\"border: 2px solid; color: green; font-size:larger; width: auto;\"><b>$name</b></td>";
-					$text .= "<td style=\"border: 1px solid; font-size:larger; width: auto;\">#.###### sec</td>";
+					$text .= "<td style=\"border: 2px solid; color: green; width: auto;\"><b>$name</b></td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">#.###### sec</td>";
 					$text .= "<td></td>";
 					$text .= "</tr>";
 				}
