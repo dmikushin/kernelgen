@@ -378,7 +378,7 @@ sub build_and_test_kernelgen
 		$cmd = "cd $SOURCES/kernelgen_tests && make clean && make test1 2>&1";
 		print "$cmd\n";
 		my(@lines) = split("\n", `bash -c "source $CHROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
-		my($text) = "<table cellpadding=\"10\">";
+		my($text) = "<h1>Behavior tests</h1>\n<table cellpadding=\"10\">";
 		foreach $line (@lines)
 		{	
 			if ($line =~ m/[\*]+\sTEST\s\(1\)\s'([^']+)'\s[\*]+/)
