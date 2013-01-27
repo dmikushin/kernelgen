@@ -811,8 +811,8 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_DRAGONEGG/$dragonegg_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_LIBFFI/$libffi_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_MHASH/$mhash_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_GLIBC/$glibc_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_GLIBC32/$glibc32_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_GLIBC/$glibc_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_KERNELGEN/$kernelgen_enable/g;
 
 		print SPEC "$line\n";
