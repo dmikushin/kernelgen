@@ -282,7 +282,7 @@ sub build_and_test_kernelgen
 	#
 	# RPM command usable without administrative permissions
 	#
-	my($RPM) = "rpm --dbpath $CHROOT/rpmdb/ --relocate /=$CHROOT";
+	my($RPM) = "rpm --dbpath $CHROOT/rpmdb/ --badreloc --relocate /=$CHROOT";
 
 	#
 	# Checkout the component source code 
