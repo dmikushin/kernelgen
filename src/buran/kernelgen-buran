@@ -142,7 +142,6 @@ sub build_and_test_kernelgen
 			$libffi_enable = 0;
 			$mhash_enable = 0;
 			$glibc_enable = 0;
-			$glibc32_enable = $glibc32_enable && $glibc_enable;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -166,7 +165,6 @@ sub build_and_test_kernelgen
 			$libffi_enable = 0;
 			$mhash_enable = 0;
 			$glibc_enable = 0;
-			$glibc32_enable = $glibc32_enable && $glibc_enable;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -190,7 +188,6 @@ sub build_and_test_kernelgen
 			$libffi_enable = 1;
 			$mhash_enable = 1;
 			$glibc_enable = 0;
-			$glibc32_enable = $glibc32_enable && $glibc_enable;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -215,7 +212,6 @@ sub build_and_test_kernelgen
                         $libffi_enable = 1;
                         $mhash_enable = 1;
                         $glibc_enable = 1;
-			$glibc32_enable = $glibc32_enable && $glibc_enable;
                         $kernelgen_enable = 1;
 
                         $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
@@ -240,7 +236,6 @@ sub build_and_test_kernelgen
 			$libffi_enable = 1;
 			$mhash_enable = 1;
 			$glibc_enable = 1;
-			$glibc32_enable = $glibc32_enable && $glibc_enable;
 			$kernelgen_enable = 1;
 
 			my($LDFLAGS64) = "";
@@ -282,6 +277,11 @@ sub build_and_test_kernelgen
 		{
 			print "Unknown bootstrap mode: $bootstrap_mode\n";
 			return -1;
+		}
+
+		if ($glibc_enable && $glibc32_enable)
+		{
+			$glibc32_enable = 1;
 		}
 	}
 
@@ -381,14 +381,15 @@ sub build_and_test_kernelgen
 		$cmd = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests";
 		print "$cmd\n";
 		`$cmd`;
-		$cmd = "cd $SOURCES/kernelgen_tests/behavior && make clean && make test1 2>&1";
-		print "$cmd\n";
 		
 		#
-		# Perform behavior tests.
+		# Run behavior tests.
 		#
+		$cmd = "cd $SOURCES/kernelgen_tests/behavior && make clean && make test1 2>&1";
+		print "$cmd\n";
 		my(@lines) = split("\n", `bash -c "source $CHROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
 		my($text) = "<h1 style=\"font-size:small;\">Behavior tests</h1>\n<table cellpadding=\"10\">";
+		my($empty) = 1;
 		foreach $line (@lines)
 		{	
 			if ($line =~ m/[\*]+\sTEST\s\(1\)\s'([^']+)'\s[\*]+/)
@@ -403,13 +404,13 @@ sub build_and_test_kernelgen
 						{
 							$text .= "<tr>";
 							$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>$name</b></td>";
-							$text .= "<td style=\"border: 1px solid; width: auto;\">#.###### sec</td>";
+							$text .= "<td></td>";
 							$text .= "<td></td>";
 							$text .= "</tr>";						
 							$failed = 1;
 
 							$text .= "<tr>";
-							$text .= "<td style=\"border: 1px solid; font-size:small;\" colspan=3>";
+							$text .= "<td style=\"border: 1px solid; font-size:small;\">";
 						}
 					}
 					else
@@ -428,7 +429,7 @@ sub build_and_test_kernelgen
 				{
 					$text .= "<tr>";
 					$text .= "<td style=\"border: 2px solid; color: green; width: auto;\"><b>$name</b></td>";
-					$text .= "<td style=\"border: 1px solid; width: auto;\">#.###### sec</td>";
+					$text .= "<td></td>";
 					$text .= "<td></td>";
 					$text .= "</tr>";
 				}
@@ -436,15 +437,92 @@ sub build_and_test_kernelgen
 				{
 					$text .= "</td></tr>";
 				}
+				
+				$empty = 0;
 			}
 		}
-		$text .= "</table>";
+		if ($empty)
+		{
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>Failed to run behavior test suite</b></td>";
+			$text .= "<td></td>";
+			$text .= "<td></td>";
+			$text .= "</tr>";
+			
+			my($output) = join("", @lines);
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 1px solid; font-size:small;\">$output</td>";
+			$text .= "</tr>";
+		}
+		$text .= "</table><br/><br/>";
 
 		#
 		# Run performance tests.
 		#
+		$cmd = "cd $SOURCES/kernelgen_tests/perf && make clean && make test.kernelgen 2>&1";
+		print "$cmd\n";
+		my($content) = join("", `bash -c "source $CHROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
 		$text .= "<h1 style=\"font-size:small;\">Performance tests</h1>\n<table cellpadding=\"10\">";
-		# TODO:
+		if ($content =~ m/Data\sfor\sreport\s\>\>\n(?<CONTENT>.*)\<\<\sData\sfor\sreport/xs)
+		{
+			$content = $+{CONTENT};
+			my(@lines) = split("\n", $content);
+			my($iline) = 0;
+			for ( ; $iline < scalar(@lines); $iline++)
+			{
+				my($line) = $lines[$iline];
+				
+				my($name) = "unknown";
+				$line =~ s/^(?<NAME>\w+)\s\&\s//;
+				if (defined($+{NAME}))
+				{
+					$name = $+{NAME};
+				}
+				
+				my($time) = "N/A";
+				$line =~ s/^(?<TIME>[^\&]+)\s//;
+				if (defined($+{TIME}))
+				{
+					$time = $+{TIME};
+					$time =~ s/\s//;
+				}
+				
+				my($nregs) = "N/A";
+				$line =~ s/^(?<NREGS>[0-9]+)//;
+				if (defined($+{NREGS}))
+				{
+					$nregs = $+{NREGS};
+				}
+
+				$text .= "<tr>";
+				if (($time ne "N/A") and ($nregs ne "N/A"))
+				{
+					$text .= "<td style=\"border: 2px solid; color: green; width: auto;\"><b>$name</b></td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">$time sec</td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">$nregs regs</td>";
+				}
+				else
+				{
+					$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>$name</b></td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">N/A</td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">N/A</td>";
+				}
+				$text .= "<td></td>";
+				$text .= "</tr>";
+			}
+		}
+		else
+		{
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>Failed to run performance test suite</b></td>";
+			$text .= "<td></td>";
+			$text .= "<td></td>";
+			$text .= "</tr>";
+			
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 1px solid; font-size:small;\">$content</td>";
+			$text .= "</tr>";
+		}
 		$text .= "</table>";
 
 		#
