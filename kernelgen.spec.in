@@ -47,6 +47,7 @@
 %define libffi KERNELGEN_ENABLE_LIBFFI
 %define mhash KERNELGEN_ENABLE_MHASH
 %define glibc KERNELGEN_ENABLE_GLIBC
+%define glibc32 KERNELGEN_ENABLE_GLIBC32
 %define kernelgen KERNELGEN_ENABLE_KERNELGEN
 
 %if (%target == "fedora")
@@ -368,10 +369,12 @@ cd build
 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --host=x86_64-linux-gnu --build=x86_64-linux-gnu --enable-obsolete-rpc
 echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/" >>config.make
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
+%if %glibc32
 mkdir build-32
 cd build-32
 CC="$CC -m32 $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32 --host=i686-linux-gnu --build=i686-linux-gnu CFLAGS="$CFLAGS -march=i686" --enable-obsolete-rpc
 echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32" >>config.make
+%endif
 %endif
 %endif
 %if %kernelgen
@@ -552,11 +555,13 @@ CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS
 %else
 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
+%if %glibc32
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
 %if %debug
 CC="$CC $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686"
 %else
 CC="$CC -m32 $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686"
+%endif
 %endif
 %endif
 %endif
@@ -680,8 +685,10 @@ CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build
 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%if %glibc32
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
 CC="$CC $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%endif
 %endif
 
 
@@ -813,14 +820,19 @@ echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin" >>$RPM_INSTA
 #
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/libc.so
 sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/libpthread.so
-sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libc.so
-sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libpthread.so
+if [ -f $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libc.so ] then
+  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libc.so
+fi
+if [ -f $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libpthread.so ] then
+  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/libpthread.so
+fi
 %if %gcc
 #
 # Remove all rpaths for dynamic loaders (not permitted by GLIBC).
+# TODO: does not work for 32-bit ld-linux.so.2
 #
 chrpath -d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ld-linux-x86-64.so.2
-chrpath -d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/ld-linux.so.2
+#chrpath -d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32/ld-linux.so.2
 #
 # Create GCC spec with alternative locations for used 32-bit and 64-bit
 # dynamic linkers.
