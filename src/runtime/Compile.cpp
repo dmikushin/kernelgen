@@ -770,9 +770,9 @@ KernelFunc kernelgen::runtime::Compile(
             
 			// Add ReadNone attribute to calls (Polly workaround).
 			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
-				if(func->isDeclaration()) {
+				if (func->isDeclaration()) {
   					Function *Src = cuda_module->getFunction(func->getName());
-					if(!Src) continue;
+					if (!Src) continue;
 
 					for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
 						use_iter != use_iter_end; use_iter++)
@@ -794,11 +794,16 @@ KernelFunc kernelgen::runtime::Compile(
 
 			// Remove ReadNone attribute from calls (Polly workaround).
 			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
-				for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
-					use_iter != use_iter_end; use_iter++)
-				{
-					CallInst* call = cast<CallInst>(*use_iter);
-					call->setAttributes(func->getAttributes());
+				if (func->isDeclaration()) {
+  					Function *Src = cuda_module->getFunction(func->getName());
+					if (!Src) continue;
+
+					for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+						use_iter != use_iter_end; use_iter++)
+					{
+						CallInst* call = cast<CallInst>(*use_iter);
+						call->setAttributes(func->getAttributes());
+					}
 				}
 			}
 
