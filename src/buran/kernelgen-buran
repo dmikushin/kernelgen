@@ -981,7 +981,7 @@ switch ($target)
 		# Build parts of the system, starting from stage, determined
 		# by existance of certain files.
 		my($result) = 0;
-		if (! -e "$CHROOT/$prefix/lib/libgmp.a")
+		if ((! -e "$CHROOT/$prefix/lib/libgmp.a") and (! -e "$CHROOT/$prefix/lib64/libgmp.a"))
 		{
 			$result = build_and_test_kernelgen("gmp", $start);
 			if ($result)
@@ -989,7 +989,7 @@ switch ($target)
 				exit($result);
 			}
 		}
-		if (! -e "$CHROOT/$prefix/lib/libmpfr.a")
+		if ((! -e "$CHROOT/$prefix/lib/libmpfr.a") and (! -e "$CHROOT/$prefix/lib64/libmpfr.a"))
 		{
 			$result = build_and_test_kernelgen("mpfr", $start);
 			if ($result)
