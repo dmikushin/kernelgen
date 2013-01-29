@@ -24,10 +24,10 @@
 use Switch;
 
 # Installation directory.
-my($CHROOT) = $ENV{'HOME'} . "/rpmbuild/CHROOT";
+my($CHROOT) = $ENV{'HOME'} . "/rpmbuild/CHROOT_release";
 
 # NOTE: Do not forget to adjust the debug/release mode setting!
-my($debug) = 1;
+my($debug) = 0;
 
 # NOTE: Do not forget to adjust the fullrepack on/off mode setting!
 my($fullrepack) = 1;
@@ -117,16 +117,40 @@ sub build_and_test_kernelgen
 	my($libffi_enable) = 0;
 	my($mhash_enable) = 0;
 	my($glibc_enable) = 0;
-	my($glibc32_enable) = 0;
+	my($glibc32_enable) = 1;
 	my($kernelgen_enable) = 0;
 	my($COMPILERS) = "";
 	switch ($bootstrap_mode)
 	{
-		case "gmp+mpfr"
+		case "gmp"
 		{
-			print "=================================\n";
-			print "Bootstrapping stage 1: gmp + mpfr\n";
-			print "=================================\n";
+			print "==========================\n";
+			print "Bootstrapping stage 1: gmp\n";
+			print "==========================\n";
+
+			$cloog_enable = 0;
+			$llvm_enable = 0;
+			$binutils_enable = 0;
+			$gmp_enable = 1;
+			$mpfr_enable = 0;
+			$mpc_enable = 0;
+			$libelf_enable = 0;
+			$gcc_enable = 0;
+			$gcc_enable_bootstrap = 0;
+			$netcdf_enable = 0;
+			$dragonegg_enable = 0;
+			$libffi_enable = 0;
+			$mhash_enable = 0;
+			$glibc_enable = 0;
+			$kernelgen_enable = 0;
+
+			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
+		}
+		case "mpfr"
+		{
+			print "===========================\n";
+			print "Bootstrapping stage 2: mpfr\n";
+			print "===========================\n";
 
 			$cloog_enable = 0;
 			$llvm_enable = 0;
@@ -149,7 +173,7 @@ sub build_and_test_kernelgen
 		case "binutils+mpc"
 		{
 			print "=====================================\n";
-			print "Bootstrapping stage 2: binutils + mpc\n";
+			print "Bootstrapping stage 3: binutils + mpc\n";
 			print "=====================================\n";
 			$cloog_enable = 1;
 			$llvm_enable = 0;
@@ -172,7 +196,7 @@ sub build_and_test_kernelgen
 		case "gcc"
 		{
 			print "==========================\n";
-			print "Bootstrapping stage 3: gcc\n";
+			print "Bootstrapping stage 4: gcc\n";
 			print "==========================\n";
 			$cloog_enable = 1;
 			$llvm_enable = 1;
@@ -195,7 +219,7 @@ sub build_and_test_kernelgen
                 case "llvm+glibc"
                 {
                         print "===================================\n";
-                        print "Bootstrapping stage 4: llvm + glibc\n";
+                        print "Bootstrapping stage 5: llvm + glibc\n";
                         print "===================================\n";
                         $cloog_enable = 1;
                         $llvm_enable = 1;
@@ -959,7 +983,15 @@ switch ($target)
 		my($result) = 0;
 		if (! -e "$CHROOT/$prefix/lib/libgmp.a")
 		{
-			$result = build_and_test_kernelgen("gmp+mpfr", $start);
+			$result = build_and_test_kernelgen("gmp", $start);
+			if ($result)
+			{
+				exit($result);
+			}
+		}
+		if (! -e "$CHROOT/$prefix/lib/libmpfr.a")
+		{
+			$result = build_and_test_kernelgen("mpfr", $start);
 			if ($result)
 			{
 				exit($result);
