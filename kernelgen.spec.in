@@ -246,7 +246,7 @@ cd $RPM_BUILD_DIR/cloog
 ./autogen.sh
 mkdir build
 cd build
-CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}
+CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib64
 %endif
 %if %llvm
 #
