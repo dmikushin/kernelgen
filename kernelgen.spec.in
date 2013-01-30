@@ -278,7 +278,7 @@ CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS
 cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
 mkdir build
 cd build/
-CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes
+CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
 %endif
 %if %mpfr
 #
@@ -287,7 +287,7 @@ CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS
 cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
 mkdir build
 cd build/
-CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib64
+CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib
 %endif
 %if %mpc
 #
@@ -296,7 +296,7 @@ CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS
 cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
 mkdir build
 cd build/
-CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib64
+CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib
 %endif
 %if %libelf
 #
