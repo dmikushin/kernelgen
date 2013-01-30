@@ -257,9 +257,9 @@ mkdir build
 cp -rf include/ build/include/
 cd build
 %if %debug
-CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix}
+CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix}
 %else
-CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix}
+CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix}
 %endif
 %endif
 %if %binutils
