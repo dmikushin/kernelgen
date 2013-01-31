@@ -16,7 +16,6 @@
 #include "llvm/Instructions.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
-#include "llvm/PassManager.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IRReader.h"
@@ -24,8 +23,6 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include "KernelGen.h"
 
@@ -289,31 +286,10 @@ int main(int argc, char* argv[], char* envp[]) {
 				if (!cuda_module)
 					THROW("Cannot load CUDA math functions module: " << err);
 
-				// Mark all module functions as device functions
-				// and make them always inline.
+				// Mark all module functions as device functions.
 				for (Module::iterator F = cuda_module->begin(), FE =
 						cuda_module->end(); F != FE; F++)
-				{
 					F->setCallingConv(CallingConv::PTX_Device);
-					F->addFnAttr(Attribute::AlwaysInline);
-				}
-				
-				// Optimize the module to get everything inlined.
-				PassManager manager;
-				PassManagerBuilder builder;
-				builder.Inliner = createFunctionInliningPass();
-				builder.OptLevel = 3;
-				builder.DisableSimplifyLibCalls = true;
-				builder.populateModulePassManager(manager);
-				manager.run(*cuda_module);
-				
-				// Strip always inline attribute from the optimized
-				// functions.
-				for (Module::iterator F = cuda_module->begin(), FE =
-						cuda_module->end(); F != FE; F++)
-				{
-					F->removeFnAttr(Attribute::AlwaysInline);
-				}								
 			}
 
 			// Initialize callback structure.
