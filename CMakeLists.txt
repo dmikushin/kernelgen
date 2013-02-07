@@ -143,6 +143,16 @@ endforeach()
 target_link_libraries(kernelgen-simple bugpoint common frontend LLVM-${LLVM_VERSION}svn libelf iberty rt)
 
 #
+# LLVM/POLLY TESTER
+#
+aux_source_directory(src/polly polly_sources)
+add_executable(kernelgen-polly ${polly_sources})
+foreach(DEFINE ${LLVM_MACROS})
+	set_property(TARGET kernelgen-polly APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
+endforeach()
+target_link_libraries(kernelgen-polly kernelgen-rt common LLVMPolly LLVM-${LLVM_VERSION}svn cloog-isl isl)
+
+#
 # GCC COMPILE-TIME PLUGIN
 #
 aux_source_directory(src/plugin plugin_sources)
@@ -244,7 +254,7 @@ add_custom_target(kernelgen-buran ALL DEPENDS ${PROJECT_BINARY_DIR}/kernelgen-bu
 #
 # bin
 INSTALL(TARGETS
-	kernelgen-asfermi kernelgen-simple kernelgen-version
+	kernelgen-asfermi kernelgen-simple kernelgen-polly kernelgen-version
 	DESTINATION bin)
 INSTALL(PROGRAMS
 	${PROJECT_BINARY_DIR}/kernelgen-build

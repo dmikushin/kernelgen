@@ -24,10 +24,10 @@
 use Switch;
 
 # Installation directory.
-my($CHROOT) = $ENV{'HOME'} . "/rpmbuild/CHROOT_release";
+my($CHROOT) = $ENV{'HOME'} . "/rpmbuild/CHROOT";
 
 # NOTE: Do not forget to adjust the debug/release mode setting!
-my($debug) = 0;
+my($debug) = 1;
 
 # NOTE: Do not forget to adjust the fullrepack on/off mode setting!
 my($fullrepack) = 1;
