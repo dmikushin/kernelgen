@@ -1,6 +1,6 @@
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-snapshot/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
-@@ -0,0 +1,304 @@
+@@ -0,0 +1,306 @@
 +/* main.c: defines main() for cc1, cc1plus, etc.
 +   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
 +
