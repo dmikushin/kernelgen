@@ -104,19 +104,6 @@ void getAllDependencesForValue(llvm::GlobalValue * value,
 		DepsByType & dependencesByType);
 }
 
-static void addKernelgenPasses(const PassManagerBuilder &Builder,
-		PassManagerBase &PM) {
-	PM.add(createFixPointersPass());
-	PM.add(createInstructionCombiningPass());
-	PM.add(createMoveUpCastsPass());
-	PM.add(createInstructionCombiningPass());
-	PM.add(createBasicAliasAnalysisPass());
-	PM.add(createGVNPass());
-	//PM.add(createEarlyCSEPass());
-	PM.add(createBranchedLoopExtractorPass());
-	PM.add(createVerifierPass());
-}
-
 struct fallback_args_t {
 	int argc;
 	char** argv;
@@ -304,10 +291,24 @@ static int compile(int argc, char** argv, const char* input,
 			PassManager manager;
 			manager.add(new TargetData(m.get()));
 			manager.add(createBasicAliasAnalysisPass());
-			manager.add(createLICMPass());
+ 			manager.add(createLICMPass());
 			manager.add(createGVNPass());
-			manager.run(*m);
+ 			manager.run(*m);
 		}
+		/*{
+			PassManager manager;
+			manager.add(new TargetData(m.get()));
+			manager.add(createBasicAliasAnalysisPass());
+			manager.add(createInstructionCombiningPass());
+			manager.add(createCFGSimplificationPass());
+			manager.add(createScalarReplAggregatesPass());
+			manager.add(createSimplifyLibCallsPass());
+			manager.add(createInstructionCombiningPass());
+			manager.add(createCFGSimplificationPass());
+			manager.add(createLoopRotatePass());
+			manager.add(createLICMPass());
+			manager.run(*m);
+		}*/
 		{
 			PassManager manager;
 			manager.add(createBranchedLoopExtractorPass());

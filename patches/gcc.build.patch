@@ -233,7 +233,7 @@
 +  int rcompiler = 0;
 +  {
 +    // Create new argc & argv.
-+    int compiler_argc = argc + 5; // + 5 more arguments
++    int compiler_argc = argc + 7; // + 7 more arguments
 +    vector<const char*> compiler_argv_vector;
 +    compiler_argv_vector.resize(compiler_argc + 1);
 +    char** compiler_argv = (char**)&compiler_argv_vector[0];
@@ -247,6 +247,8 @@
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
++    compiler_argv[i++] = "-O1";
++    compiler_argv[i++] = "-fplugin-arg-dragonegg-enable-gcc-optzns";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
 +    compiler_argv[i++] = "-D_KERNELGEN";
 +    compiler_argv[i++] = NULL;

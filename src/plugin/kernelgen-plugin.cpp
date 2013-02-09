@@ -106,19 +106,6 @@ extern cl::opt<bool> EnableLoadPRE;
 extern cl::opt<bool> DisableLoadsDeletion;
 extern cl::opt<bool> DisablePromotion;
 
-static void addKernelgenPasses(const PassManagerBuilder &Builder, PassManagerBase &PM)
-{
-	PM.add(createFixPointersPass());
-	PM.add(createInstructionCombiningPass());
-	PM.add(createMoveUpCastsPass());
-	PM.add(createInstructionCombiningPass());
-	PM.add(createBasicAliasAnalysisPass());
-	PM.add(createGVNPass()); 
-	//PM.add(createEarlyCSEPass());
-	PM.add(createBranchedLoopExtractorPass());
-	PM.add(createVerifierPass());
-}
-
 // A fallback function to be called in case kernelgen-enabled
 // compilation process fails by some reason. This function
 // must be defined by the the gcc fronend.
@@ -163,8 +150,21 @@ extern "C" void callback (void*, void*)
 			manager.add(createLICMPass());
 			manager.add(createGVNPass());
 			manager.run(*m);
-
 		}
+		/*{
+			PassManager manager;
+			manager.add(new TargetData(m));
+			manager.add(createBasicAliasAnalysisPass());
+			manager.add(createInstructionCombiningPass());
+			manager.add(createCFGSimplificationPass());
+			manager.add(createScalarReplAggregatesPass());
+			manager.add(createSimplifyLibCallsPass());
+			manager.add(createInstructionCombiningPass());
+			manager.add(createCFGSimplificationPass());
+			manager.add(createLoopRotatePass());
+			manager.add(createLICMPass());
+			manager.run(*m);
+		}*/
 		{
 			PassManager manager;
 			manager.add(createBranchedLoopExtractorPass());
