@@ -246,13 +246,13 @@
 +    string plugin_path = "-fplugin=dragonegg.so";
 +    compiler_argv[i++] = (char*)plugin_path.c_str();
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
++    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
 +    char* gccopt = getenv("KERNELGEN_GCC_OPT");
 +    if (gccopt)
 +    {
-+      compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
++      compiler_argv[i++] = "-fplugin-arg-dragonegg-enable-gcc-optzns";
 +      compiler_argv[i++] = gccopt;
 +    }
-+    compiler_argv[i++] = "-fplugin-arg-dragonegg-enable-gcc-optzns";
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
 +    compiler_argv[i++] = "-D_KERNELGEN";
 +    compiler_argv[i++] = NULL;

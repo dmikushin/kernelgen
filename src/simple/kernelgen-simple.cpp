@@ -238,6 +238,12 @@ static int compile(int argc, char** argv, const char* input,
 		args.push_back("-fplugin=dragonegg.so");
 		args.push_back("-fplugin-arg-dragonegg-emit-ir");
 		args.push_back("-fplugin-arg-dragonegg-llvm-ir-optimize=0");
+		char* gccopt = getenv("KERNELGEN_GCC_OPT");
+		if (gccopt)
+		{
+			args.push_back("-fplugin-arg-dragonegg-enable-gcc-optzns");
+			args.push_back(gccopt);
+		}
 		args.push_back("-fkeep-inline-functions");
 		args.push_back("-D_KERNELGEN");
 		args.push_back("-S");
