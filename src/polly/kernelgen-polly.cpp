@@ -74,6 +74,7 @@ namespace llvm
 	void RemoveStatistics();
 }
 extern cl::opt<bool> IgnoreAliasing;
+//extern cl::opt<bool> AllowNonAffine;
 
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL, bool * isThereAtLeastOneParallelLoop = NULL);
 Pass* createTransformAccessesPass();
@@ -149,6 +150,7 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 	}
 
 	IgnoreAliasing.setValue(true);
+	//AllowNonAffine.setValue(true);
 	polly::CUDA.setValue(mode);
 
 	if (settings.getVerboseMode() & Verbose::Polly)
@@ -270,5 +272,6 @@ int main(int argc, char* argv[])
 	bool isThereAtLeastOneParallelLoop;
 	runPolly(&kernel, &sizeOfLoops, true, &isThereAtLeastOneParallelLoop);
 
+	source.take();
 	return 0;
 }

@@ -230,4 +230,7 @@ extern "C" void kernelgen_hostcall(kernelgen::Kernel* kernel,
 // during kernelgen_hostcall.
 extern "C" void kernelgen_hostcall_memsync();
 
+// Get KernelGen's work stream.
+extern "C" void kernelgen_get_stream(void** stream);
+
 #endif // KERNELGEN_RUNTIME_H

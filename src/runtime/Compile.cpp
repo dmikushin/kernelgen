@@ -74,6 +74,7 @@ namespace llvm
 	void RemoveStatistics();
 }
 extern cl::opt<bool> IgnoreAliasing;
+//extern cl::opt<bool> AllowNonAffine;
 
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL, bool * isThereAtLeastOneParallelLoop = NULL);
@@ -250,7 +251,14 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 		polly.run(*kernel->module);
 	}
 
+	/*{
+		PassManager manager;
+		manager.add(createScalarReplAggregatesPass());
+		manager.run(*kernel->module);
+	}*/
+
 	IgnoreAliasing.setValue(true);
+	//AllowNonAffine.setValue(true);
 	polly::CUDA.setValue(mode);
 
 	if (settings.getVerboseMode() & Verbose::Polly)
