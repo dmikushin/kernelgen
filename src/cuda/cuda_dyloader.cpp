@@ -92,41 +92,54 @@ struct CUDYfunction_t
 	
 	unsigned int offset;
 
+	// Read CUBIN function from file.
 	CUDYfunction_t(CUDYloader_t* loader,
-		char* cubin, const char* name) : loader(loader), regcount(-1)
+		const char* name, char* cubin) : loader(loader), regcount(-1)
+	{	
+		// Read cubin from file
+		stringstream stream(stringstream::in | stringstream::out |
+			stringstream::binary);
+		ifstream f(cubin, ios::in | ios::binary);
+		stream << f.rdbuf();
+		f.close();
+		string content = stream.str();
+		if (strncmp(content.c_str(), ELFMAG, SELFMAG))
+		{
+			THROW("Expected ELF magic in the beginning of CUBIN ELF\n");
+		}
+		Initialize(name, content.c_str(), content.length());
+	}
+
+	// Read CUBIN function from memory buffer.
+	CUDYfunction_t(CUDYloader_t* loader,
+		const char* name, char* cubin, size_t size) : loader(loader), regcount(-1)
+	{
+		// Search for ELF magic in cubin. If found, then content
+		// is supplied, otherwise - filename.
+		stringstream stream(stringstream::in | stringstream::out |
+			stringstream::binary);
+		if (strncmp(cubin, ELFMAG, SELFMAG))
+		{
+			THROW("Expected ELF magic in the beginning of CUBIN ELF\n");
+		}
+		Initialize(name, cubin, size);
+	}
+	
+	void Initialize(const char* name, const char* content, size_t size)
 	{
 		// Build kernel name as it should appear in cubin ELF.
 		stringstream namestream;
 		namestream << ".text." << name;
 		string elfname = namestream.str();
 	
-		// Search for ELF magic in cubin. If found, then content
-		// is supplied, otherwise - filename.
-		stringstream stream(stringstream::in | stringstream::out |
-			stringstream::binary);
-		if (strncmp(cubin, ELFMAG, 4))
-		{
-			ifstream f(cubin, ios::in | ios::binary);
-			stream << f.rdbuf();
-			f.close();
-		}
-		else
-		{
-			stream << cubin;
-		}
-	
 		// Extract kernel details: regcount, opcodes and their size.
 		// Method: walk thorough the cubin using ELF tools and dump
 		// details of the first kernel found (section starting with
 		// ".text.").
-		string content = stream.str();
 		Elf* e = NULL;
 		try
 		{
-			ElfW(Ehdr)* elf_header = (ElfW(Ehdr)*)content.c_str();
-			size_t size = (size_t)elf_header->e_phoff +
-				elf_header->e_phentsize *  elf_header->e_phnum;
-			e = elf_memory((char*)content.c_str(), size);
+			e = elf_memory((char*)content, size);
 			size_t shstrndx;
 			if (elf_getshdrstrndx(e, &shstrndx))
 			{
@@ -158,7 +171,7 @@ struct CUDYfunction_t
 				// Extract binary opcodes and size.
 				szbinary = shdr.sh_size;
 				binary.resize(szbinary);
-				memcpy(&binary[0], (char*)content.c_str() + shdr.sh_offset, szbinary);
+				memcpy(&binary[0], content + shdr.sh_offset, szbinary);
 				
 				// For asynchronous data transfers to work, need to
 				// pin memory for binary content.
@@ -192,7 +205,7 @@ struct CUDYfunction_t
 		elf_end(e);
 	
 		if (regcount == -1)
-			THROW("Cannot find kernel " << name << " in " << cubin, CUDA_ERROR_INVALID_SOURCE);
+			THROW("Cannot find kernel " << name << " in " << content, CUDA_ERROR_INVALID_SOURCE);
 
 		VERBOSE(name << ": regcount = " << regcount << ", size = " << szbinary << "\n");
 	}
@@ -662,15 +675,34 @@ CUresult cudyInit(CUDYloader* loader, int capacity, string host_cubin)
 }
 
 // Load kernel function with the specified name from cubin file
-// or memory buffer into dynamic loader context.
+// into dynamic loader context.
 CUresult cudyLoadCubin(CUDYfunction* function,
-	CUDYloader loader, char* cubin, const char* name,
+	CUDYloader loader, const char* name, char* cubin,
 	CUstream stream)
 {
 	try
 	{
 		// Create function.
-		*function = new CUDYfunction_t(loader, cubin, name);
+		*function = new CUDYfunction_t(loader, name, cubin);
+		return loader->Load(*function, stream);
+	}
+	catch (CUresult cuerr)
+	{
+		return cuerr;
+	}
+	return CUDA_SUCCESS;
+}
+
+// Load kernel function with the specified name from memory buffer
+// into dynamic loader context.
+CUresult cudyLoadCubinData(CUDYfunction* function,
+	CUDYloader loader, const char* name, char* cubin, size_t size,
+	CUstream stream)
+{
+	try
+	{
+		// Create function.
+		*function = new CUDYfunction_t(loader, name, cubin, size);
 		return loader->Load(*function, stream);
 	}
 	catch (CUresult cuerr)

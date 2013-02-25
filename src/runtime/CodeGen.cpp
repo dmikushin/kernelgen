@@ -304,8 +304,8 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		} else {
 			// Load kernel function from the binary opcodes.
 			CU_SAFE_CALL(cudyLoadCubin((CUDYfunction*) &kernel_func,
-					cuda_context->loader, (char*) tmp3.getName().c_str(),
-					name.c_str(), cuda_context->getSecondaryStream()));
+					cuda_context->loader, name.c_str(),
+					(char*)tmp3.getName().c_str(), cuda_context->getSecondaryStream()));
 		}
 
 		VERBOSE("Loaded '" << name << "' at: " << kernel_func << "\n");

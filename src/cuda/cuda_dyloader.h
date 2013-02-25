@@ -39,9 +39,15 @@ typedef struct CUDYfunction_t* CUDYfunction;
 CUresult cudyInit(CUDYloader* loader, int capacity, std::string host_cubin = "");
 
 // Load kernel function with the specified name from cubin file
-// or memory buffer into dynamic loader context.
+// into dynamic loader context.
 CUresult cudyLoadCubin(CUDYfunction* function,
-	CUDYloader loader, char* cubin, const char* name,
+	CUDYloader loader, const char* name, char* cubin,
+	CUstream stream);
+
+// Load kernel function with the specified name from memory buffer
+// into dynamic loader context.
+CUresult cudyLoadCubinData(CUDYfunction* function,
+	CUDYloader loader, const char* name, char* cubin, size_t size,
 	CUstream stream);
 
 // Load kernel function from the specified assembly opcodes
