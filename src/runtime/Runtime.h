@@ -195,6 +195,9 @@ extern kernelgen::bind::cuda::context* cuda_context;
 // Setup the device global memory pool initial configuration.
 kernelgen_memory_t* InitMemoryPool(size_t szpool);
 
+// Base address of GPU dynamic memory pool.
+extern kernelgen_memory_t* memory_pool;
+
 // Wrap call instruction into host function call wrapper.
 llvm::CallInst* WrapCallIntoHostcall(llvm::CallInst* call, Kernel* kernel);
 

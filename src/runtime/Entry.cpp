@@ -66,6 +66,9 @@ std::map<llvm::StringRef, uint64_t> kernelgen::orderOfGlobals;
 // TODO: sort out how to turn it into auto_ptr.
 kernelgen::bind::cuda::context* kernelgen::runtime::cuda_context = NULL;
 
+// Base address of GPU dynamic memory pool.
+kernelgen_memory_t* kernelgen::runtime::memory_pool;
+
 // Monitoring module and kernel (applicable for some targets).
 Module* kernelgen::runtime::monitor_module = NULL;
 KernelFunc kernelgen::runtime::monitor_kernel;
@@ -312,7 +315,7 @@ int main(int argc, char* argv[], char* envp[]) {
 			char* cszheap = getenv("kernelgen_szheap");
 			if (cszheap)
 				szheap = atoi(cszheap);
-			kernelgen_memory_t* memory = InitMemoryPool(szheap);
+			memory_pool = InitMemoryPool(szheap);
 
 			// Duplicate argv into device memory.
 			// Note in addition to actiual arguments we must pass pass
@@ -372,7 +375,7 @@ int main(int argc, char* argv[], char* envp[]) {
 			args_host.argc = argc;
 			args_host.argv = argv_dev;
 			args_host.callback = callback_dev;
-			args_host.memory = memory;
+			args_host.memory = memory_pool;
 			main_args_t* args_dev = NULL;
 			CU_SAFE_CALL(cuMemAlloc((void**) &args_dev, sizeof(main_args_t)));
 			CU_SAFE_CALL(cuMemcpyHtoD(args_dev, &args_host, sizeof(main_args_t)));

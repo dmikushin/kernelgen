@@ -77,6 +77,7 @@ link_directories("${LLVM_ROOT}/build/${LLVM_MODE}/lib")
 link_directories("${POLLY_ROOT}/${LLVM_MODE}/lib")
 link_directories("${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib")
 link_directories("${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib64")
+link_directories("/opt/cuda/lib64")
 
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT}")
 
@@ -174,8 +175,10 @@ endforeach()
 target_link_libraries(kernelgen-cuda common LLVM-${LLVM_VERSION}svn libelf)
 list(REMOVE_ITEM cuda_sources
 	"${PROJECT_SOURCE_DIR}/src/cuda/cuda_dyloader.cpp"
-	"${PROJECT_SOURCE_DIR}/src/cuda/Cuda.cpp"
 	"${PROJECT_SOURCE_DIR}/src/cuda/AlignData.cpp"
+	"${PROJECT_SOURCE_DIR}/src/cuda/Cuda.cpp"
+	"${PROJECT_SOURCE_DIR}/src/cuda/Launch.cpp"
+	"${PROJECT_SOURCE_DIR}/src/cuda/Memory.cpp"
 	"${PROJECT_SOURCE_DIR}/src/cuda/MergeCubins.cpp"
 	"${PROJECT_SOURCE_DIR}/src/cuda/InsertLEPC.cpp"
 	"${PROJECT_SOURCE_DIR}/src/cuda/GetLoadEffectiveLayout.cpp"
@@ -198,6 +201,12 @@ add_custom_target(cuda_runtime ALL DEPENDS ${PROJECT_BINARY_DIR}/runtime.bc)
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/math.bc COMMAND opt
 	${PROJECT_SOURCE_DIR}/src/cuda/include/math.bc -o ${PROJECT_BINARY_DIR}/math.bc)
 add_custom_target(cuda_math ALL DEPENDS ${PROJECT_BINARY_DIR}/math.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/malloc.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
+	${PROJECT_SOURCE_DIR}/src/cuda/include/malloc.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/malloc.bc)
+add_custom_target(cuda_malloc ALL DEPENDS ${PROJECT_BINARY_DIR}/malloc.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/free.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
+	${PROJECT_SOURCE_DIR}/src/cuda/include/free.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/free.bc)
+add_custom_target(cuda_free ALL DEPENDS ${PROJECT_BINARY_DIR}/free.bc)
 
 #
 # RUNTIME LIBRARY
@@ -213,7 +222,7 @@ set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn libelf rt gmp libmhash dl libffi)
+target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn libelf rt gmp libmhash dl libffi cudart)
 
 #
 # VERSION PRINTER
@@ -268,6 +277,8 @@ INSTALL(TARGETS
 	DESTINATION lib)
 # include/cuda
 INSTALL(FILES
+	${PROJECT_BINARY_DIR}/free.bc
+	${PROJECT_BINARY_DIR}/malloc.bc
 	${PROJECT_BINARY_DIR}/math.bc
 	${PROJECT_BINARY_DIR}/monitor.bc
 	${PROJECT_BINARY_DIR}/runtime.bc
