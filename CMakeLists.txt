@@ -172,6 +172,7 @@ add_library(kernelgen-cuda SHARED ${cuda_sources})
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-cuda APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
+set_property(TARGET kernelgen-cuda APPEND PROPERTY COMPILE_DEFINITIONS "NO_MAIN")
 target_link_libraries(kernelgen-cuda common LLVM-${LLVM_VERSION}svn libelf)
 list(REMOVE_ITEM cuda_sources
 	"${PROJECT_SOURCE_DIR}/src/cuda/cuda_dyloader.cpp"
