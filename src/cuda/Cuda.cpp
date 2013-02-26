@@ -39,6 +39,7 @@ cuDeviceGetAttribute_t cuDeviceGetAttribute;
 cuInit_t cuInit;
 cuDeviceGet_t cuDeviceGet;
 cuCtxCreate_t cuCtxCreate;
+cuCtxGetDevice_t cuCtxGetDevice;
 cuCtxSynchronize_t cuCtxSynchronize;
 cuMemAlloc_t cuMemAlloc_;
 cuMemFree_t cuMemFree_;
@@ -131,6 +132,7 @@ context::context(void* handle, int capacity) :
 		DL_SAFE_CALL(cuInit, "");
 		DL_SAFE_CALL(cuDeviceGet, "");
 		DL_SAFE_CALL(cuCtxCreate, "_v2");
+		DL_SAFE_CALL(cuCtxGetDevice, "");
 		DL_SAFE_CALL(cuCtxSynchronize, "");
 		DL_SAFE_CALL(cuMemAllocHost, "_v2");
 		DL_SAFE_CALL(cuMemFreeHost, "");
@@ -168,7 +170,7 @@ context::context(void* handle, int capacity) :
 	// KernelGen-managed process always works with device #0.
 	// In order to work with other devices, application should
 	// control this using CUDA_VISIBLE_DEVICES env variable.
-	int device;
+	CUdevice device;
 	CU_SAFE_CALL(cuDeviceGet(&device, 0));
 
 	// Determine device compute capability. Here we require used GPU

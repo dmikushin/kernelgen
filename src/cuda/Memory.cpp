@@ -127,3 +127,23 @@ extern "C" int cudaFree(void* ptr)
 	return 0;
 }
 
+#define cudaMemcpyHostToDevice 1
+#define cudaMemcpyDeviceToHost 2
+
+extern "C" int cudaMemcpy(void* dst, void* src, size_t size, int kind)
+{
+	switch (kind)
+	{
+	case cudaMemcpyHostToDevice :
+		CU_SAFE_CALL(cuMemcpyHtoDAsync(dst, src, size,
+			cuda_context->getSecondaryStream()));
+		return 0;
+	case cudaMemcpyDeviceToHost :
+		CU_SAFE_CALL(cuMemcpyDtoHAsync(dst, src, size,
+			cuda_context->getSecondaryStream()));
+		return 0;
+	default :
+		THROW("Unsupported cudaMemcpy wrapper copying kind: " << kind);
+	}
+}
+

@@ -663,14 +663,7 @@ struct CUDYloader_t
 // and optionally attach it to the specified hosting cubin image.
 CUresult cudyInit(CUDYloader* loader, int capacity, string host_cubin)
 {
-	try
-	{
-		*loader = new CUDYloader_t(capacity, host_cubin);
-	}
-	catch (CUresult cuerr)
-	{
-		return cuerr;
-	}
+	*loader = new CUDYloader_t(capacity, host_cubin);
 	return CUDA_SUCCESS;
 }
 
@@ -680,17 +673,9 @@ CUresult cudyLoadCubin(CUDYfunction* function,
 	CUDYloader loader, const char* name, char* cubin,
 	CUstream stream)
 {
-	try
-	{
-		// Create function.
-		*function = new CUDYfunction_t(loader, name, cubin);
-		return loader->Load(*function, stream);
-	}
-	catch (CUresult cuerr)
-	{
-		return cuerr;
-	}
-	return CUDA_SUCCESS;
+	// Create function.
+	*function = new CUDYfunction_t(loader, name, cubin);
+	return loader->Load(*function, stream);
 }
 
 // Load kernel function with the specified name from memory buffer
@@ -699,17 +684,9 @@ CUresult cudyLoadCubinData(CUDYfunction* function,
 	CUDYloader loader, const char* name, char* cubin, size_t size,
 	CUstream stream)
 {
-	try
-	{
-		// Create function.
-		*function = new CUDYfunction_t(loader, name, cubin, size);
-		return loader->Load(*function, stream);
-	}
-	catch (CUresult cuerr)
-	{
-		return cuerr;
-	}
-	return CUDA_SUCCESS;
+	// Create function.
+	*function = new CUDYfunction_t(loader, name, cubin, size);
+	return loader->Load(*function, stream);
 }
 
 // Load kernel function from the specified assembly opcodes
@@ -718,17 +695,9 @@ CUresult cudyLoadOpcodes(CUDYfunction* function,
 	CUDYloader loader, char* opcodes, size_t nopcodes,
 	int regcount, CUstream stream)
 {
-	try
-	{
-		// Create function.
-		*function = new CUDYfunction_t(loader, opcodes, nopcodes, regcount);
-		return loader->Load(*function, stream);
-	}
-	catch (CUresult cuerr)
-	{
-		return cuerr;
-	}
-	return CUDA_SUCCESS;
+	// Create function.
+	*function = new CUDYfunction_t(loader, opcodes, nopcodes, regcount);
+	return loader->Load(*function, stream);
 }
 
 // Launch kernel function through the dynamic loader.
@@ -737,15 +706,8 @@ CUresult cudyLaunch(CUDYfunction function,
 	unsigned int bx, unsigned int by, unsigned int bz,
 	size_t szshmem, void* args, CUstream stream, float* time)
 {
-	try
-	{
-		return function->loader->Launch(function,
-			gx, gy, gz, bx, by, bz, szshmem, args, stream, time);
-	}
-	catch (CUresult cuerr)
-	{
-		return cuerr;
-	}
+	return function->loader->Launch(function,
+		gx, gy, gz, bx, by, bz, szshmem, args, stream, time);
 }
 
 // Dispose the specified CUDA dynamic loader instance.

@@ -25,12 +25,13 @@
 #include <map>
 #include <string>
 
-typedef struct CUevent_st* 	CUevent;
-typedef struct CUmodule_st*	CUmodule;
-typedef int 			CUresult;
-typedef struct CUstream_st*	CUstream;
-typedef struct CUfunction_st*	CUfunction;
-typedef void*			CUdeviceptr;
+typedef struct CUevent_st*      CUevent;
+typedef struct CUmodule_st*     CUmodule;
+typedef int                     CUresult;
+typedef struct CUstream_st*     CUstream;
+typedef struct CUfunction_st*   CUfunction;
+typedef void*                   CUdeviceptr;
+typedef size_t                  CUdevice;
 
 #define CUDA_SUCCESS					0
 #define CUDA_ERROR_OUT_OF_MEMORY			2
@@ -60,11 +61,12 @@ typedef void*			CUdeviceptr;
 namespace kernelgen { namespace bind { namespace cuda {
 
 typedef CUresult (*cuDeviceComputeCapability_t)(int*, int*, int);
-typedef CUresult (*cuDeviceGetProperties_t)(void*, int);
-typedef CUresult (*cuDeviceGetAttribute_t)(int*, int, int);
+typedef CUresult (*cuDeviceGetProperties_t)(void*, CUdevice);
+typedef CUresult (*cuDeviceGetAttribute_t)(int*, int, CUdevice);
 typedef CUresult (*cuInit_t)(unsigned int);
-typedef CUresult (*cuDeviceGet_t)(int*, int);
+typedef CUresult (*cuDeviceGet_t)(CUdevice*, int);
 typedef CUresult (*cuCtxCreate_t)(void**, unsigned int, int);
+typedef CUresult (*cuCtxGetDevice_t)(CUdevice*);
 typedef CUresult (*cuCtxSynchronize_t)(void);
 typedef CUresult (*cuMemAlloc_t)(void**, size_t);
 typedef CUresult (*cuMemFree_t)(void*);
@@ -105,6 +107,7 @@ extern cuDeviceGetAttribute_t cuDeviceGetAttribute;
 extern cuInit_t cuInit;
 extern cuDeviceGet_t cuDeviceGet;
 extern cuCtxCreate_t cuCtxCreate;
+extern cuCtxGetDevice_t cuCtxGetDevice;
 extern cuCtxSynchronize_t cuCtxSynchronize;
 extern cuMemAlloc_t cuMemAlloc_;
 extern cuMemFree_t cuMemFree_;
