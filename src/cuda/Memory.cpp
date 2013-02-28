@@ -36,9 +36,8 @@ extern "C" int cudaMalloc(void** ptr, size_t size)
 {
 	struct cudaMalloc_t
 	{
-		void** ptr;
+		void* ptr;
 		size_t size;
-		void* ptrv;
 	};
 
 	static Module* malloc_module = NULL;
@@ -86,7 +85,6 @@ extern "C" int cudaMalloc(void** ptr, size_t size)
 	// Pack call arguments.
 	{
 		cudaMalloc_t args;
-		args.ptr = &args_dev->ptrv;
 		args.size = size;
 		CU_SAFE_CALL(cuMemcpyHtoDAsync(args_dev, &args, sizeof(cudaMalloc_t), stream));
 	}
@@ -114,7 +112,7 @@ extern "C" int cudaMalloc(void** ptr, size_t size)
 
 	// Unpack call result.
 	{
-		CU_SAFE_CALL(cuMemcpyDtoHAsync(ptr, &args_dev->ptrv, sizeof(void*), stream));
+		CU_SAFE_CALL(cuMemcpyDtoHAsync(ptr, &args_dev->ptr, sizeof(void*), stream));
 	}
 
 	return 0;

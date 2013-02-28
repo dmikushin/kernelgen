@@ -20,12 +20,12 @@
 
 struct malloc_callback_t
 {
-	void** ptr;
+	void* ptr;
 	size_t size;
 };
 
 extern "C" __attribute__((global)) void kernelgen_malloc(int* callback, unsigned int* __kernelgen_memory)
 {
 	malloc_callback_t* cb = (malloc_callback_t*)callback;
-	*cb->ptr = kernelgen_malloc_device(cb->size, __kernelgen_memory);
+	cb->ptr = kernelgen_malloc_device(cb->size, __kernelgen_memory);
 }
