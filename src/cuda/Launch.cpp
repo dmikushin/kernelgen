@@ -111,27 +111,27 @@ public :
 			// First, load input ELF.
 			if ((e = elf_memory(start, size)) == 0)
 			{
-				THROW("elf_memory() failed for " << start << ": " << elf_errmsg(-1));
+				THROW("elf_memory() failed for " << (void*)start << ": " << elf_errmsg(-1));
 			}
 
 			// Load executable header.
 			GElf_Ehdr ehdr;
 			if (!gelf_getehdr(e, &ehdr))
 			{
-				THROW("gelf_getehdr() failed for " << start << ": " << elf_errmsg(-1));
+				THROW("gelf_getehdr() failed for " << (void*)start << ": " << elf_errmsg(-1));
 			}
 
 			// Determine CUBIN compute capability.
 			virt_cc = (ehdr.e_flags & 0xff0000) >> 16;
 			real_cc = ehdr.e_flags & 0x0000ff;
 			
-			VERBOSE("Cubin " << start << " is compute_" << virt_cc << "/sm_" << real_cc << "\n");
+			VERBOSE("Cubin " << (void*)start << " is compute_" << virt_cc << "/sm_" << real_cc << "\n");
 
 			// Get sections names section index.
 			size_t shstrndx;
 			if (elf_getshdrstrndx(e, &shstrndx))
 			{
-				THROW("elf_getshdrstrndx() failed for " << start << ": " << elf_errmsg(-1));
+				THROW("elf_getshdrstrndx() failed for " << (void*)start << ": " << elf_errmsg(-1));
 			}
 
 			// Locate the symbol table.
@@ -141,7 +141,7 @@ public :
 				// Get section header.
 				GElf_Shdr shdr;
 				if (!gelf_getshdr(scn, &shdr)) {
-					THROW("gelf_getshdr() failed for " << start << ": " << elf_errmsg(-1));
+					THROW("gelf_getshdr() failed for " << (void*)start << ": " << elf_errmsg(-1));
 				}
 
 				// If section is not a symbol table:
@@ -166,13 +166,13 @@ public :
 					GElf_Sym sym;
 					if (!gelf_getsym(data, i, &sym))
 					{
-						THROW("gelf_getsym() failed for " << start << ": " << elf_errmsg(-1));
+						THROW("gelf_getsym() failed for " << (void*)start << ": " << elf_errmsg(-1));
 					}
 					char* name = elf_strptr(e, strndx, sym.st_name);
 					if (!name)
 					{
 						THROW("Cannot get the name of " << i << "-th symbol for " <<
-							start << ": " << elf_errmsg(-1));
+							(void*)start << ": " << elf_errmsg(-1));
 					}
 					if (!strncmp(name, ".text.", strlen(".text.")))
 					{
@@ -409,7 +409,7 @@ public:
 				continue;
 
 			cubins[icubin++] = Cubin((char*)data + offset, size - offset);
-			VERBOSE("Found cubin @ " << filename << "/.nv_fatbin ~ " << (char*)data + offset << "\n");
+			VERBOSE("Found cubin @ " << filename << "/.nv_fatbin ~ " << (void*)((char*)data + offset) << "\n");
 		}
 		cubinsIndex.Merge(cubins);
 		
@@ -455,7 +455,7 @@ void __cudaRegisterFunction(void** fatCubinHandle,
 	__cudaRegisterFunction_(fatCubinHandle, hostFun, deviceFun, deviceName,
 		thread_limit, tid, bid, bDim, gDim, wSize);
 	
-	VERBOSE("Registered kernel function " << hostFun << " -> " << deviceName << "\n");
+	VERBOSE("Registered kernel function " << (void*)hostFun << " -> " << deviceName << "\n");
 }
 
 /*void __cudaRegisterVar(void** fatCubinHandle, char* hostVar,
@@ -470,7 +470,7 @@ void __cudaRegisterFunction(void** fatCubinHandle,
 {
 }*/
 
-int cudaFuncSetCacheConfig(int config)
+int cudaFuncSetCacheConfig(void* func, int config)
 {
 	// TODO: Have uberkerns for every possible setting of cache config?
 	return 0;
@@ -527,7 +527,7 @@ int cudaLaunch(char* entry)
 	{
 		THROW("Cannot find kernel name for address " << entry << " in \"" << filename << "\"");
 	}
-	VERBOSE("Launching kernel \"" << kernelName.c_str() << "\" @ " << entry << "\n");
+	VERBOSE("Launching kernel \"" << kernelName.c_str() << "\" @ " << (void*)entry << "\n");
 	
 	size_t szarguments = currKernelConfig.arguments.size();
 	return cubinsIndex.LaunchKernel(kernelName.c_str(),
