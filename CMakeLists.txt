@@ -223,7 +223,7 @@ set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn libelf rt gmp libmhash dl libffi cudart)
+target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn libelf rt gmp libmhash dl libffi)
 
 #
 # VERSION PRINTER
