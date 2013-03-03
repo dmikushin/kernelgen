@@ -656,6 +656,31 @@ static bool processCallTreeLoop(Kernel* kernel, Module* m, Function* f)
 	return true;
 }
 
+static void setBlockDim(const char* varname, dim3& blockDim)
+{
+	char* cblockDim = getenv(varname);
+	if (cblockDim)
+	{
+		std::vector<int> dims;
+		std::stringstream ss(cblockDim);
+		int i;
+		while (ss >> i)
+		{
+			dims.push_back(i);
+			if (ss.peek() == ',')
+				ss.ignore();
+		}
+		if (dims.size() != 3)
+		{
+			VERBOSE(varname << " ignored due to invalid format: " << cblockDim);
+		}
+		else
+		{
+			blockDim = dim3(dims[0], dims[1], dims[2]);
+		}
+	}
+}
+
 KernelFunc kernelgen::runtime::Compile(
     int runmode, Kernel* kernel, Module* module, void * data, int szdata, int szdatai)
 {
@@ -844,21 +869,34 @@ KernelFunc kernelgen::runtime::Compile(
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
 			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
 			if (launchParameters.x * launchParameters.y * launchParameters.z > cuda_context->getThreadsPerBlock())
-			switch (numberOfLoops)
 			{
-			case 0:
-				blockDim = dim3(1, 1, 1);
-				assert(false);
-				break;
-			case 1:
-				blockDim = dim3(512, 1, 1);
-				break;
-			case 2:
-				blockDim = dim3(32, 16, 1);
-				break;
-			case 3:
-				blockDim = dim3(32, 4, 4);
-				break;
+				static dim3 blockDim0d = dim3(1, 1, 1);
+				static dim3 blockDim1d = dim3(512, 1, 1);
+				static dim3 blockDim2d = dim3(32, 16, 1);
+				static dim3 blockDim3d = dim3(32, 4, 4);
+				static int blockDim_init = 0;
+				if (!blockDim_init)
+				{
+					setBlockDim("kernelgen_blockdim1d", blockDim1d);
+					setBlockDim("kernelgen_blockdim2d", blockDim2d);
+					setBlockDim("kernelgen_blockdim3d", blockDim3d);
+				}
+				switch (numberOfLoops)
+				{
+				case 0:
+					blockDim = blockDim0d;
+					assert(false);
+					break;
+				case 1:
+					blockDim = blockDim1d;
+					break;
+				case 2:
+					blockDim = blockDim2d;
+					break;
+				case 3:
+					blockDim = blockDim3d;
+					break;
+				}
 			}
 			else
 			{ 
