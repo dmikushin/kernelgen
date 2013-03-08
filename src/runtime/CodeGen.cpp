@@ -191,7 +191,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 				char* cmaxrregcount = getenv("kernelgen_maxrregcount");
 				if (cmaxrregcount)
 					maxrregcount = atoi(cmaxrregcount);
-				maxrregcount_init = 0;
+				maxrregcount_init = 1;
 			}
 
 			const char* __maxrregcount = "--maxrregcount";
