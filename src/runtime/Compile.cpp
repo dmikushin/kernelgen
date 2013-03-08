@@ -880,6 +880,7 @@ KernelFunc kernelgen::runtime::Compile(
 					setBlockDim("kernelgen_blockdim1d", blockDim1d);
 					setBlockDim("kernelgen_blockdim2d", blockDim2d);
 					setBlockDim("kernelgen_blockdim3d", blockDim3d);
+					blockDim_init = 1;
 				}
 				switch (numberOfLoops)
 				{

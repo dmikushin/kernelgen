@@ -181,8 +181,21 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			args[i++] = tmp3.getName().c_str();
 			args[i++] = "--cloning=no";
 
+			static int maxrregcount = 63;
+			if ((cuda_context->getSubarchMajor() == 3) &&
+				(cuda_context->getSubarchMinor() >= 5))
+				maxrregcount = 255;
+			static int maxrregcount_init = 0;
+			if (!maxrregcount_init)
+			{
+				char* cmaxrregcount = getenv("kernelgen_maxrregcount");
+				if (cmaxrregcount)
+					maxrregcount = atoi(cmaxrregcount);
+				maxrregcount_init = 0;
+			}
+
 			const char* __maxrregcount = "--maxrregcount";
-			string maxrregcount;
+			string smaxrregcount;
 			if (name != "__kernelgen_main") {
 				// Calculate and apply the maximum register count
 				// constraint, depending on used compute grid dimensions.
@@ -192,21 +205,15 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 				// some time to work on it.
 				dim3 blockDim = kernel->target[runmode].blockDim;
 				int maxregcount = cuda_context->getRegsPerBlock() /
-						(blockDim.x * blockDim.y * blockDim.z) - 4;
-				if ((cuda_context->getSubarchMajor() == 3) &&
-						(cuda_context->getSubarchMinor() >= 5)) {
-					if (maxregcount > 128)
-						maxregcount = 128;
-				} else {
-					if (maxregcount > 63)
-						maxregcount = 63;
-				}
+					(blockDim.x * blockDim.y * blockDim.z) - 4;
+				if (maxregcount > maxrregcount)
+					maxregcount = maxrregcount;
 
 				args[i++] = __maxrregcount;
-				stringstream smaxrregcount;
-				smaxrregcount << maxregcount;
-				maxrregcount = smaxrregcount.str();
-				args[i++] = maxrregcount.c_str();
+				stringstream ssmaxrregcount;
+				ssmaxrregcount << maxregcount;
+				smaxrregcount = ssmaxrregcount.str();
+				args[i++] = smaxrregcount.c_str();
 			}
 
 			const char* _g = "-g";
