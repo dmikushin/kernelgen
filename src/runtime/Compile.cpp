@@ -681,6 +681,11 @@ static void setBlockDim(const char* varname, dim3& blockDim)
 	}
 }
 
+static void addPartialUnrollLoopsPass(const PassManagerBuilder &Builder, PassManagerBase &PM)
+{
+	PM.add(createLoopUnrollPass(-1, -1, 1 /* Enable partial unrolling */));
+}
+
 KernelFunc kernelgen::runtime::Compile(
     int runmode, Kernel* kernel, Module* module, void * data, int szdata, int szdatai)
 {
@@ -871,9 +876,9 @@ KernelFunc kernelgen::runtime::Compile(
 			if (launchParameters.x * launchParameters.y * launchParameters.z > cuda_context->getThreadsPerBlock())
 			{
 				static dim3 blockDim0d = dim3(1, 1, 1);
-				static dim3 blockDim1d = dim3(512, 1, 1);
-				static dim3 blockDim2d = dim3(32, 16, 1);
-				static dim3 blockDim3d = dim3(32, 4, 4);
+				static dim3 blockDim1d = dim3(128, 1, 1);
+				static dim3 blockDim2d = dim3(128, 1, 1);
+				static dim3 blockDim3d = dim3(128, 1, 1);
 				static int blockDim_init = 0;
 				if (!blockDim_init)
 				{
@@ -1012,6 +1017,12 @@ KernelFunc kernelgen::runtime::Compile(
 			PassManager manager;
 			PassManagerBuilder builder;
 
+			// Adding extension to perform partial loops unrolling.
+			// Otherwise, the default pass manager builder will include
+			// loops unroller without partial option.
+			builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+				addPartialUnrollLoopsPass);
+
 			// Do not inline anything in loop kernels. All kernel function
 			// dependencies will be taken from the main kernel module.
 			builder.Inliner = 0;
@@ -1019,6 +1030,7 @@ KernelFunc kernelgen::runtime::Compile(
 			builder.OptLevel = 3;
 			builder.SizeLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
+			builder.DisableUnrollLoops = true;
 			builder.Vectorize = false;
 			builder.populateModulePassManager(manager);
 	
