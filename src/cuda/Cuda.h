@@ -50,6 +50,11 @@ typedef size_t                  CUdevice;
 #define CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK       1
 #define CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK    12
 
+#define CU_FUNC_CACHE_PREFER_NONE    0
+#define CU_FUNC_CACHE_PREFER_SHARED  1
+#define CU_FUNC_CACHE_PREFER_L1      2
+#define CU_FUNC_CACHE_PREFER_EQUAL   3
+
 #define CU_SAFE_CALL(x) \
 	    do { CUresult err = x; if (err != CUDA_SUCCESS) { \
 	        cerr << "Error \"" << (int)err << "\" in \"" << "" #x "\" (" << \
@@ -100,6 +105,7 @@ typedef CUresult (*cuEventElapsedTime_t)(float*, CUevent, CUevent);
 typedef CUresult (*cuEventRecord_t)(CUevent, CUstream);
 typedef CUresult (*cuEventSynchronize_t)(CUevent);
 typedef CUresult (*cuFuncGetAttribute_t)(int*, int, CUfunction);
+typedef CUresult (*cuCtxSetCacheConfig_t)(int);
 
 extern cuDeviceComputeCapability_t cuDeviceComputeCapability;
 extern cuDeviceGetProperties_t cuDeviceGetProperties;

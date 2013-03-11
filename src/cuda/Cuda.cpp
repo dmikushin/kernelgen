@@ -72,6 +72,7 @@ cuEventElapsedTime_t cuEventElapsedTime;
 cuEventRecord_t cuEventRecord;
 cuEventSynchronize_t cuEventSynchronize;
 cuFuncGetAttribute_t cuFuncGetAttribute;
+cuCtxSetCacheConfig_t cuCtxSetCacheConfig;
 
 CUresult cuMemAlloc(void** ptr, size_t size) {
 	// Create a possibly unaligned base buffer and
@@ -163,6 +164,7 @@ context::context(void* handle, int capacity) :
 		DL_SAFE_CALL(cuEventRecord, "");
 		DL_SAFE_CALL(cuEventSynchronize, "");
 		DL_SAFE_CALL(cuFuncGetAttribute, "");
+		DL_SAFE_CALL(cuCtxSetCacheConfig, "");
 	}
 
 	CU_SAFE_CALL(cuInit(0));
@@ -192,6 +194,10 @@ context::context(void* handle, int capacity) :
 			CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK, device));
 
 	CU_SAFE_CALL(cuCtxCreate(&ctx, CU_CTX_MAP_HOST, device));
+
+	// Since KernelGen does not utilize shared memory at the moment,
+	// use larger L1 cache by default.
+	CU_SAFE_CALL(cuCtxSetCacheConfig(CU_FUNC_CACHE_PREFER_L1));
 
 	// Initialize LEPC buffer.
 	size_t szlepc = 4;
