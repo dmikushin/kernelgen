@@ -31,6 +31,7 @@
 #include "Runtime.h"
 #include "kernelgen_interop.h"
 
+#include <dlfcn.h>
 #include <ffi.h>
 #include <fstream>
 #include <iostream>
@@ -78,6 +79,10 @@ Module* kernelgen::runtime::runtime_module = NULL;
 
 // CUDA module (applicable for some targets).
 Module* kernelgen::runtime::cuda_module = NULL;
+
+// KernelGen plugins.
+std::vector<kernelgen_after_ptx_t> kernelgen::runtime::pluginsAfterPTX;
+std::vector<kernelgen_after_cubin_t> kernelgen::runtime::pluginsAfterCUBIN;
 
 void load_kernel(Kernel* kernel);
 
@@ -293,6 +298,28 @@ int main(int argc, char* argv[], char* envp[]) {
 				for (Module::iterator F = cuda_module->begin(), FE =
 						cuda_module->end(); F != FE; F++)
 					F->setCallingConv(CallingConv::PTX_Device);
+			}
+			
+			// Initialize plugins.
+			char* plugins = getenv("kernelgen_plugins");
+			if (plugins)
+			{
+				stringstream ss(plugins);
+				string plugin;
+				while (std::getline(ss, plugin, ':'))
+				{
+					void* handle = dlopen(plugin.c_str(), RTLD_NOW);
+					if (!handle)
+						THROW("Cannot dlopen " << plugin << " " << dlerror());
+					kernelgen_after_ptx_t afterPTX =
+						(kernelgen_after_ptx_t)dlsym(handle, "kernelgen_after_ptx");
+					if (afterPTX)
+						pluginsAfterPTX.push_back(afterPTX);
+					kernelgen_after_cubin_t afterCUBIN =
+						(kernelgen_after_cubin_t)dlsym(handle, "kernelgen_after_cubin");
+					if (afterCUBIN)
+						pluginsAfterCUBIN.push_back(afterCUBIN);
+				}
 			}
 
 			// Initialize callback structure.

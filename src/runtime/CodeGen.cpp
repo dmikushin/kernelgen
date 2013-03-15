@@ -58,8 +58,14 @@ static unsigned int kernelgen_main_lepc_offset;
 // using the corresponding LLVM backends.
 KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		Module* m) {
+
+	// Get target-specific mangling for kernel name.
+	StringRef mangledName =
+			platforms[runmode]->mangler.get()->getSymbol(
+					m->getFunction(kernel->name))->getName();
+	string name = string(mangledName.data(), mangledName.size());
+
 	// Codegen LLVM IR into PTX or host, depending on the runmode.
-	string name = kernel->name;
 	switch (runmode) {
 
 	case KERNELGEN_RUNMODE_NATIVE: {
@@ -160,6 +166,10 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		TempFile tmp2 = Temp::getFile("%%%%%%%%.ptx");
 		if (settings.getVerboseMode() != Verbose::Disable) tmp2.keep();
 		tmp2.download(ptx_string.c_str(), ptx_string.size());
+
+		// Perform AfterPTX plugins invocation.
+		for (int i = 0, e = pluginsAfterPTX.size(); i != e; i++)
+			pluginsAfterPTX[i](ptx_string, name);
 
 		// Compile PTX code in temporary file to CUBIN.
 		TempFile tmp3 = Temp::getFile("%%%%%%%%.cubin");
@@ -278,24 +288,28 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			}
 		}
 
-		// Load CUBIN into string.
-		string cubin;
+		if (pluginsAfterCUBIN.size())
 		{
-			std::ifstream tmp_stream(tmp3.getName().c_str());
-			tmp_stream.seekg(0, std::ios::end);
-			cubin.reserve(tmp_stream.tellg());
-			tmp_stream.seekg(0, std::ios::beg);
+			// Load CUBIN into string.
+			string cubin_string;
+			{
+				std::ifstream tmp_stream(tmp3.getName().c_str());
+				tmp_stream.seekg(0, std::ios::end);
+				cubin_string.reserve(tmp_stream.tellg());
+				tmp_stream.seekg(0, std::ios::beg);
 
-			cubin.assign((std::istreambuf_iterator<char>(tmp_stream)),
-					std::istreambuf_iterator<char>());
-			tmp_stream.close();
+				cubin_string.assign((std::istreambuf_iterator<char>(tmp_stream)),
+						std::istreambuf_iterator<char>());
+				tmp_stream.close();
+			}
+
+			// Perform AfterCUBIN plugins invocation.
+			for (int i = 0, e = pluginsAfterCUBIN.size(); i != e; i++)
+				pluginsAfterCUBIN[i](cubin_string, name);
+			
+			// Refill tmp file with new CUBIN content.
+			tmp3.download(cubin_string.c_str(), cubin_string.size());
 		}
-
-		// Translate name into mangled name.
-		StringRef mangledName =
-				platforms[KERNELGEN_RUNMODE_CUDA]->mangler.get()->getSymbol(
-						m->getFunction(name))->getName();
-		name = string(mangledName.data(), mangledName.size());
 
 		CUfunction kernel_func = NULL;
 		if (name == "__kernelgen_main") {

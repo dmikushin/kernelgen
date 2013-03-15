@@ -337,6 +337,7 @@ struct CUDYloader_t
 			stream << "\t\t!Kernel uberkern" << regcount << endl;
 			stream << "\t\t!RegCount " << regcount << endl;
 			stream << "\t\t!Param 256 1" << endl;
+			//stream << "\t\t!Shared 256" << endl;
 			stream << "/* 0x0000 */\tJMP c" << bank << "[0x8];" << endl;
 			stream << "\t\t!EndKernel" << endl;
 		}

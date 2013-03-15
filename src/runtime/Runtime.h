@@ -29,6 +29,7 @@
 #include "KernelGen.h"
 
 #include "kernelgen_interop.h"
+#include "kernelgen_plugin.h"
 
 // Unified kernel or hostcall arguments descriptor.
 struct CallbackData
@@ -210,6 +211,10 @@ extern llvm::Module* runtime_module;
 
 // CUDA module (applicable for some targets).
 extern llvm::Module* cuda_module;
+
+// KernelGen plugins.
+extern std::vector<kernelgen_after_ptx_t> pluginsAfterPTX;
+extern std::vector<kernelgen_after_cubin_t> pluginsAfterCUBIN;
 
 } }
 
