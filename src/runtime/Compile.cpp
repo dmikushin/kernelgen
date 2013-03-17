@@ -59,6 +59,8 @@
 
 #include "GlobalDependences.h"
 
+#include "kernelgen-version.h"
+
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;

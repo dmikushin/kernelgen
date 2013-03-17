@@ -69,6 +69,8 @@
 #include "BranchedLoopExtractor.h"
 #include "Timer.h"
 #include "TrackedPassManager.h"
+
+#include "kernelgen-version.h"
  
 extern "C"
 {

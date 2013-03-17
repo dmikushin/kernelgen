@@ -47,6 +47,7 @@ include_directories("${PROJECT_SOURCE_DIR}/src/cuda")
 include_directories("${PROJECT_SOURCE_DIR}/src/frontend")
 include_directories("${PROJECT_SOURCE_DIR}/src/include")
 include_directories("${PROJECT_SOURCE_DIR}/src/runtime")
+include_directories("${PROJECT_SOURCE_DIR}/src/version")
 include_directories("${GCC_ROOT}/gcc/")
 include_directories("${GCC_ROOT}/build/gcc/")
 include_directories("${GCC_ROOT}/include/")
@@ -93,6 +94,13 @@ set_property(TARGET libffi PROPERTY
 add_library(libmhash STATIC IMPORTED)
 set_property(TARGET libmhash PROPERTY
 	IMPORTED_LOCATION "${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib/libmhash.a")
+
+#
+# VERSION MACRO HEADER FOR DEPENDENCY CHECKS
+#
+add_custom_target(kernelgen-version-header ALL COMMAND
+        ${PROJECT_SOURCE_DIR}/src/version/kernelgen-version ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/src/version/kernelgen-version.h)
 
 #
 # BUGPOINT AUTO-TESTING TOOL
@@ -158,11 +166,11 @@ target_link_libraries(kernelgen-polly kernelgen-rt common LLVMPolly LLVM-${LLVM_
 #
 aux_source_directory(src/plugin plugin_sources)
 add_library(kernelgen-ct SHARED ${plugin_sources})
-set_property(TARGET kernelgen-ct APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_VERSION=\"${KERNELGEN_VERSION}\"")
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-ct APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
 target_link_libraries(kernelgen-ct bugpoint frontend common LLVM-${LLVM_VERSION}svn rt)
+add_dependencies(kernelgen-ct kernelgen-version-header)
 
 #
 # CUDA BINDINGS
@@ -219,18 +227,18 @@ set_property(SOURCE src/runtime/SizeOfLoops.cpp APPEND PROPERTY COMPILE_FLAGS "-
 set_property(SOURCE src/runtime/RuntimeAliasAnalysis.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
 set_property(SOURCE src/runtime/ScopInspection.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
 set_property(SOURCE src/runtime/TransformAccesses.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
-set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_VERSION=\"${KERNELGEN_VERSION}\"")
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
 target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn libelf rt gmp libmhash dl libffi)
+add_dependencies(kernelgen-rt kernelgen-version-header)
 
 #
 # VERSION PRINTER
 #
 aux_source_directory(src/version version_sources)
 add_executable(kernelgen-version ${version_sources})
-set_property(TARGET kernelgen-version APPEND PROPERTY COMPILE_DEFINITIONS "KERNELGEN_VERSION=\"${KERNELGEN_VERSION}\"")
+add_dependencies(kernelgen-version kernelgen-version-header)
 
 #
 # DRAGONEGG WRAPPER
