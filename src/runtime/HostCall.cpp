@@ -103,9 +103,6 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 
 	CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
 	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
-
-	VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
-			"(" << base << " - " << align << ") + " << size << "\n" << Verbose::Default);
 }
 
 typedef void (*func_t)();

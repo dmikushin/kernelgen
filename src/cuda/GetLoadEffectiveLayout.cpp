@@ -61,7 +61,7 @@ static size_t GetKernelSize(string kernel_name, vector<char>& mcubin)
 		if (elf_getshdrstrndx(e, &shstrndx))
 			THROW("elf_getshdrstrndx() failed for " << kernel_name << ": " << elf_errmsg(-1));
 
-		// Find the target kernel section and get its data size.
+		// Find the target kernel section and get its size.
 		Elf_Scn* scn = elf_nextscn(e, NULL);
 		for (int i = 1 ; scn != NULL; scn = elf_nextscn(e, scn), i++)
 		{
@@ -78,14 +78,8 @@ static size_t GetKernelSize(string kernel_name, vector<char>& mcubin)
 
 			if (name != kernel_name) continue;
 
-			// Get section data.
-			Elf_Data* data = elf_getdata(scn, NULL);
-			if (!data)
-				THROW("Expected section " << name << " to contain data in " << kernel_name);
-
 			elf_end(e);
-
-			return data->d_size;
+			return shdr.sh_size;
 		}
 
 		THROW("Kernel " << kernel_name << " not found in CUBIN");
