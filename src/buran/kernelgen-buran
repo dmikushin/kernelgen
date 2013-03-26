@@ -199,7 +199,7 @@ sub build_and_test_kernelgen
 			print "Bootstrapping stage 4: gcc\n";
 			print "==========================\n";
 			$cloog_enable = 1;
-			$llvm_enable = 1;
+			$llvm_enable = 0;
 			$binutils_enable = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
@@ -590,8 +590,6 @@ sub build_and_test_kernelgen
 			Type    => 'text/html',
 			Data    => $text);
 		$msg->send();
-
-		print "$text\n";
 	}
 
 	#
@@ -903,7 +901,8 @@ sub build_and_test_kernelgen
 				#
 				my($end) = POSIX::strftime("Build finished: %m/%d/%Y %H:%M:%S<br/>\n", localtime);
 
-				mail("r$kernelgen_rev +llvm r$llvm_rev : build succeeded", "$start<br/>\n<br/>\n$report<br/>\n<br/>\n$end<br/>\n<br/>\n$ftplog");
+				mail("r$kernelgen_rev +llvm r$llvm_rev : build succeeded", "$start<br/>\n<br/>\n$report<br/>\n<br/>\n$end<br/>\n<br/>\n");
+				print "Build completed successfully!\n";
 			}
 		}
 		else
@@ -916,7 +915,8 @@ sub build_and_test_kernelgen
 			#
 			# Send report about the installation failure.
 			#
-			mail("r$kernelgen_rev +llvm r$llvm_rev : installation failure", "$start<br/>\n<br/>\n$end<br/>\n<br/>\n$ftplog");
+			mail("r$kernelgen_rev +llvm r$llvm_rev : installation failure", "$start<br/>\n<br/>\n$end<br/>\n<br/>\nSee log file for deatils: $LOGFILE");
+			print "Installation failed, aborting.\n";
 		}
 	}
 	else
@@ -930,7 +930,8 @@ sub build_and_test_kernelgen
 		# Send report about the build failure.
 		#
 		my($ftplog) = ""; # "See log for details: " . copy_log_to_ftp($LOGFILE, $llvm_rev, $kernelgen_rev);
-		mail("r$kernelgen_rev +llvm r$llvm_rev : build failure", "$start<br/>\n<br/>\n$end<br/>\n<br/>\n$ftplog");
+		mail("r$kernelgen_rev +llvm r$llvm_rev : build failure", "$start<br/>\n<br/>\n$end<br/>\n<br/>\nSee log file for deatils: $LOGFILE");
+		print "Build failed, aborting.\n";
 	}
 
 	#
