@@ -236,7 +236,7 @@ sub build_and_test_kernelgen
                         $libffi_enable = 1;
                         $mhash_enable = 1;
                         $glibc_enable = 1;
-                        $kernelgen_enable = 1;
+                        $kernelgen_enable = 0;
 
                         $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
                 }
