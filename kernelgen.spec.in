@@ -243,7 +243,7 @@ cd $RPM_BUILD_DIR
 #
 sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog 1
 cd $RPM_BUILD_DIR/cloog
-./get_submodule.sh
+./get_submodules.sh
 ./autogen.sh
 mkdir build
 cd build
