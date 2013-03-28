@@ -17,6 +17,7 @@
 
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Constants.h"
+#include "llvm/Function.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Instructions.h"
 #include "llvm/Linker.h"
@@ -41,6 +42,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/MDBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/IRBuilder.h"
@@ -717,7 +719,9 @@ KernelFunc kernelgen::runtime::Compile(
 	{
 		if(runmode == KERNELGEN_RUNMODE_CUDA)
 		    deleteCallsToKernelgenLaunch(m);
+
 		substituteGlobalsByTheirAddresses(m);
+
 		// Substitute integer and pointer arguments.
 		if (szdatai != 0)
 			ConstantSubstitution(f, data);
@@ -1037,6 +1041,42 @@ KernelFunc kernelgen::runtime::Compile(
 			builder.populateModulePassManager(manager);
 	
 			manager.run(*m);
+
+			// XXX Experimental workaround for matvec and matmul tests:
+			// Make loads not to alias with stores. This way LLVM will be able
+			// to optimize reduction.
+			if ((kernel->name == "__kernelgen_matvec_loop_7") ||
+				(kernel->name == "__kernelgen_matmul__loop_3"))
+			{
+				NamedMDNode* RootMD = m->getOrInsertNamedMetadata(kernel->name + "_TBAA");
+				MDBuilder MDB(context);
+				MDNode* Root = MDB.createTBAARoot(kernel->name);
+				MDNode* Inputs = MDB.createTBAANode("inputs", Root, true /* isConstant */);
+				MDNode* Outputs = MDB.createTBAANode("outputs", Root);
+				RootMD->addOperand(Root);
+				RootMD->addOperand(Inputs);
+				RootMD->addOperand(Outputs);
+				for (Function::iterator BB = f->begin(), BBE = f->end(); BB != BBE; BB++)
+				{
+					for (BasicBlock::iterator II = BB->begin(), IIE = BB->end(); II != IIE; II++)
+					{
+						LoadInst* LI = dyn_cast<LoadInst>(cast<Value>(II));
+						if (LI)
+						{
+							LI->setMetadata(llvm::LLVMContext::MD_tbaa, Inputs);
+							continue;
+						}
+						StoreInst* SI = dyn_cast<StoreInst>(cast<Value>(II));
+						if (SI)
+						{
+							SI->setMetadata(llvm::LLVMContext::MD_tbaa, Outputs);
+							continue;
+						}
+					}
+				}
+
+				manager.run(*m);
+			}
 		}
 		else
 		{
