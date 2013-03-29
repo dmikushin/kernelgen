@@ -687,7 +687,7 @@ static void setBlockDim(const char* varname, dim3& blockDim)
 
 static void addPartialUnrollLoopsPass(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
-	PM.add(createLoopUnrollPass(-1, -1, 1 /* Enable partial unrolling */));
+	PM.add(createLoopUnrollPass(-1, 3 /* UnrollCount */, 1 /* Enable partial unrolling */));
 }
 
 KernelFunc kernelgen::runtime::Compile(
