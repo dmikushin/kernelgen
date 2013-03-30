@@ -687,7 +687,7 @@ static void setBlockDim(const char* varname, dim3& blockDim)
 
 static void addPartialUnrollLoopsPass(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
-	PM.add(createLoopUnrollPass(-1, 3 /* UnrollCount */, 1 /* Enable partial unrolling */));
+	PM.add(createLoopUnrollPass(-1, 2 /* UnrollCount */, 1 /* Enable partial unrolling */));
 }
 
 KernelFunc kernelgen::runtime::Compile(
@@ -1026,8 +1026,8 @@ KernelFunc kernelgen::runtime::Compile(
 			// Adding extension to perform partial loops unrolling.
 			// Otherwise, the default pass manager builder will include
 			// loops unroller without partial option.
-			builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-				addPartialUnrollLoopsPass);
+			//builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+			//	addPartialUnrollLoopsPass);
 
 			// Do not inline anything in loop kernels. All kernel function
 			// dependencies will be taken from the main kernel module.
@@ -1038,16 +1038,16 @@ KernelFunc kernelgen::runtime::Compile(
 			builder.DisableSimplifyLibCalls = true;
 			builder.DisableUnrollLoops = true;
 			builder.Vectorize = false;
-			builder.populateModulePassManager(manager);
 	
-			manager.run(*m);
-
 			// XXX Experimental workaround for matvec and matmul tests:
 			// Make loads not to alias with stores. This way LLVM will be able
 			// to optimize reduction.
 			if ((kernel->name == "__kernelgen_matvec_loop_7") ||
 				(kernel->name == "__kernelgen_matmul__loop_3"))
 			{
+				builder.populateModulePassManager(manager);
+				manager.run(*m);
+
 				NamedMDNode* RootMD = m->getOrInsertNamedMetadata(kernel->name + "_TBAA");
 				MDBuilder MDB(context);
 				MDNode* Root = MDB.createTBAARoot(kernel->name);
@@ -1074,6 +1074,24 @@ KernelFunc kernelgen::runtime::Compile(
 						}
 					}
 				}
+
+				// Adding extension to perform partial loops unrolling.
+				// Otherwise, the default pass manager builder will include
+				// loops unroller without partial option.
+				builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+					addPartialUnrollLoopsPass);
+				builder.populateModulePassManager(manager);
+
+				manager.run(*m);
+			}
+			else
+			{
+				// Adding extension to perform partial loops unrolling.
+				// Otherwise, the default pass manager builder will include
+				// loops unroller without partial option.
+				builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+					addPartialUnrollLoopsPass);
+				builder.populateModulePassManager(manager);
 
 				manager.run(*m);
 			}
