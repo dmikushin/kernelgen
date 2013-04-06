@@ -101,6 +101,7 @@ Patch14:	glibc.patch
 Patch15:	gcc.patch
 Patch16:        gcc-multiarch.patch
 Patch17:        gcc.build.patch
+Patch18:        netcdf.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -234,6 +235,9 @@ cd $RPM_BUILD_DIR
 %if (%target == debian)
 %patch16 -p1
 %endif
+%endif
+%if %netcdf
+%patch18 -p1
 %endif
 %endif
 
