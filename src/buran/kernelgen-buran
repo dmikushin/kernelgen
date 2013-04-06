@@ -1039,6 +1039,7 @@ switch ($target)
 
 		my($version) = `kernelgen-version`;
 		mail("r$version : test suite report", "$start<br/>\n<br/>\n$report<br/>\n<br/>\n$end<br/>\n<br/>");
+		print "Testing completed.\n";
 		
 		exit(0);
 	}

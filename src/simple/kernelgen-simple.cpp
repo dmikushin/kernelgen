@@ -1159,6 +1159,60 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 
 	const TargetData* tdata = machine.get()->getTargetData();
 
+	Path kernelgenSimplePath(Program::FindProgramByName("kernelgen-simple"));
+	if (kernelgenSimplePath.empty())
+		THROW("Cannot locate kernelgen binaries folder, is it included into $PATH ?");
+	string kernelgenPath = kernelgenSimplePath.getDirname().str();
+
+	// Load LLVM IR for KernelGen runtime functions, if not yet loaded.
+	Module* runtime_module = NULL;
+	{
+		string runtimeModulePath = kernelgenPath + "/../include/cuda/runtime.bc";
+		std::ifstream tmp_stream(runtimeModulePath.c_str());
+		tmp_stream.seekg(0, std::ios::end);
+		string runtime_source = "";
+		runtime_source.reserve(tmp_stream.tellg());
+		tmp_stream.seekg(0, std::ios::beg);
+
+		runtime_source.assign(
+				std::istreambuf_iterator<char>(tmp_stream),
+				std::istreambuf_iterator<char>());
+		tmp_stream.close();
+
+		string err;
+		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(
+				runtime_source);
+		runtime_module = ParseBitcodeFile(buffer, context, &err);
+		if (!runtime_module)
+			THROW("Cannot load KernelGen runtime functions module: " << err);
+	}
+
+	// Load LLVM IR for CUDA runtime functions, if not yet loaded.
+	Module* cuda_module = NULL;
+	{
+		string cudaModulePath = kernelgenPath + "/../include/cuda/math.bc";
+		std::ifstream tmp_stream(cudaModulePath.c_str());
+		tmp_stream.seekg(0, std::ios::end);
+		string cuda_source = "";
+		cuda_source.reserve(tmp_stream.tellg());
+		tmp_stream.seekg(0, std::ios::beg);
+
+		cuda_source.assign(std::istreambuf_iterator<char>(tmp_stream),
+				std::istreambuf_iterator<char>());
+		tmp_stream.close();
+
+		string err;
+		MemoryBuffer* buffer = MemoryBuffer::getMemBuffer(cuda_source);
+		cuda_module = ParseBitcodeFile(buffer, context, &err);
+		if (!cuda_module)
+			THROW("Cannot load CUDA math functions module: " << err);
+
+		// Mark all module functions as device functions.
+		for (Module::iterator F = cuda_module->begin(), FE =
+				cuda_module->end(); F != FE; F++)
+			F->setCallingConv(CallingConv::PTX_Device);
+	}
+
 	//
 	// 5) Transform the composite module into "main" kernel,
 	// executing serial portions of code on device.
@@ -1303,7 +1357,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				 GV->setInitializer(MapValue(I->getInitializer(), VMap));
 				 }*/
 
-				// Similarly, copy over required function bodies now...
+				// Similarly, copy over required function bodies now.
 				for (function_iter iter = dependences.functions.begin(),
 						iter_end = dependences.functions.end();
 						iter != iter_end; ++iter) {
@@ -1325,7 +1379,11 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 						for (Function::arg_iterator argI = I->arg_begin(),
 								argE = I->arg_end(); argI != argE; ++argI)
 							VMap.erase(argI);
+						
+						continue;
 					}
+					
+					
 				}
 
 				// And aliases.
@@ -1359,11 +1417,24 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 
 				// Append "always inline" attribute to all existing functions
 				// in loop module.
+				bool hostcalls = false;
 				for (Module::iterator f = loop.begin(), fe = loop.end();
 						f != fe; f++) {
 					Function* func = f;
 					if (func->isDeclaration())
+					{
+						if (!hostcalls)
+						{
+							// Ensure we don't have external calls for entire function.
+							// If we do, the loop is not eligible for GPU execution, and could be
+							// only launched over the host call, without any further processing.
+							Function* MathFunc = cuda_module->getFunction(func->getName());
+							Function* RuntimeFunc = runtime_module->getFunction(func->getName());
+							if (!MathFunc && !RuntimeFunc)
+								hostcalls = true;
+						}
 						continue;
+					}
 
 					f->removeFnAttr(Attribute::NoInline);
 					f->addFnAttr(Attribute::AlwaysInline);
@@ -1372,12 +1443,14 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				verifyModule(loop);
 
 				/* // Delete unused globals.
-				 for (Module::global_iterator iter = loop.global_begin(),
-				 iter_end = loop.global_end(); iter != iter_end; iter++)
-				 if(!iter->isDeclaration())
-				 iter->setLinkage(GlobalValue::LinkerPrivateLinkage);*/
+				for (Module::global_iterator iter = loop.global_begin(),
+					iter_end = loop.global_end(); iter != iter_end; iter++)
+					if(!iter->isDeclaration())
+						iter->setLinkage(GlobalValue::LinkerPrivateLinkage);*/
 
 				// Perform inlining (required by Polly).
+				// No need to inline, if we already have seen hostcalls.
+				if (!hostcalls)
 				{
 					PassManager manager;
 					manager.add(createFunctionInliningPass());
