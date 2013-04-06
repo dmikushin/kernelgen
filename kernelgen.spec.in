@@ -9,7 +9,7 @@
 ##===----------------------------------------------------------------------===//
 
 # Disable rpath checking
-%define __arch_install_post /usr/lib/rpm/check-buildroot
+%define __arch_install_post %{nil}
 
 # Disable unpackaged files terminate build
 %define _unpackaged_files_terminate_build 0
