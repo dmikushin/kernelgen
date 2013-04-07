@@ -8,8 +8,8 @@
 ##
 ##===----------------------------------------------------------------------===//
 
-# Disable post-checking
-#%define __arch_install_post %{nil}
+# Disable all post-checking
+%define __arch_install_post %{nil}
 
 # Disable unpackaged files terminate build
 %define _unpackaged_files_terminate_build 0

@@ -24,10 +24,10 @@
 use Switch;
 
 # Installation directory.
-my($CHROOT) = $ENV{'HOME'} . "/rpmbuild/CHROOT";
+my($CHROOT) = $ENV{'HOME'} . "/rpmbuild/CHROOT_release";
 
 # NOTE: Do not forget to adjust the debug/release mode setting!
-my($debug) = 1;
+my($debug) = 0;
 
 # NOTE: Do not forget to adjust the fullrepack on/off mode setting!
 my($fullrepack) = 1;
@@ -77,6 +77,7 @@ my($glibc) = "http://ftp.gnu.org/gnu/glibc/$glibc_snapshot.tar.gz";
 my($old_llvm_rev) = 157485;
 my($new_llvm_rev) = 157485;
 my($openmpi_rev) = 27216;
+my($kernelgen_rev) = -1;
 
 #
 # Build the KernelGen binary package and test it against the
@@ -338,6 +339,7 @@ sub build_and_test_kernelgen
 			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url -r $repos_rev $base_name";
 			print "$cmd\n";
 			`$cmd`;
+			print "Checked all components @ revision $repos_rev\n";
 		}
 		else
 		{
@@ -352,7 +354,7 @@ sub build_and_test_kernelgen
 				if ($line =~ m/Checked\sout\srevision\s(\d+)\./)
 				{
 					$rev = $1;
-					print "Checking all components @ revision $rev\n";
+					print "Checked all components @ revision $rev\n";
 					last;
 				}
 			}
@@ -730,7 +732,7 @@ sub build_and_test_kernelgen
 	#
 	# Get the trunk of KernelGen.
 	#
-	my($kernelgen_rev) = checkout_and_archive("kernelgen", $kernelgen, -1, "$SOURCES");
+	$kernelgen_rev = checkout_and_archive("kernelgen", $kernelgen, $kernelgen_rev, "$SOURCES");
 	#
 	# From KernelGen extract patches to $SOURCES.
 	#
