@@ -6,7 +6,7 @@
                 ;;
 -             *gfortran)
 -                if (gfortran --version | grep '(GCC 4.1.' || gfortran --version | grep '(GCC 4.0.'); then
-+             *gfortran|kernelgen-gfortran)
++             *gfortran*)
 +                if ($FC --version | grep '(GCC 4.1.' || $FC --version | grep '(GCC 4.0.'); then
  
  $as_echo "#define gFortran 1" >>confdefs.h
