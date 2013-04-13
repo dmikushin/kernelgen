@@ -925,6 +925,30 @@ KernelFunc kernelgen::runtime::Compile(
 			// Substitute grid parameters to reduce amount of instructions
 			// and used registers.
 			substituteGridParams(kernel, gridDim, blockDim);
+			
+			// Setup .reqntid - the number of threads in thread block (CTA)
+			// for PTX code optimization.
+			// !nvvm.annotations = !{!1, !2}
+			// !1 = metadata !{void (float*)* @kernel_func_reqntid, metadata !"kernel", i32 1}
+			// !2 = metadata !{void (float*)* @kernel_func_reqntid,
+			//	metadata !"reqntidx", i32 11,
+			//	metadata !"reqntidy", i32 22,
+			//	metadata !"reqntidz", i32 33}
+			NamedMDNode* NVVMRootMD = m->getOrInsertNamedMetadata("nvvm.annotations");
+			Value* FuncDeclOps[3] = { f,
+				MDString::get(context, "kernel"),
+				ConstantInt::get(Type::getInt32Ty(context), 1) };
+			MDNode* FuncDecl = MDNode::get(context, FuncDeclOps);
+			Value* FuncAttrsOps[7] = { f,
+				MDString::get(context, "reqntidx"),
+				ConstantInt::get(Type::getInt32Ty(context), blockDim.x),
+				MDString::get(context, "reqntidy"),
+				ConstantInt::get(Type::getInt32Ty(context), blockDim.y),
+				MDString::get(context, "reqntidz"),
+				ConstantInt::get(Type::getInt32Ty(context), blockDim.z) };
+			MDNode* FuncAttrs = MDNode::get(context, FuncAttrsOps);
+			NVVMRootMD->addOperand(FuncDecl);
+			NVVMRootMD->addOperand(FuncAttrs);		
 		}
 
 		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
