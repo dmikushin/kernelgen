@@ -94,8 +94,8 @@ int main(int argc, char* argv[], char* envp[]) {
 	// Retrieve the regular main entry function prototype out of
 	// the internal table.
 	Function* regular_main = NULL;
-	celf e("/proc/self/exe", "");
-	//celf e("/RHM/users/work/dmikushin/forge/kernelgen/tests/behavior/hello_c/hello_c", "");
+	celf e(argv[0], "");
+	//celf e("/proc/self/exe", "");
 	cregex regex("^__kernelgen_main$", REG_EXTENDED | REG_NOSUB);
 	vector<csymbol*> symbols = e.getSymtab()->find(regex);
 	if (!symbols.size()) {
