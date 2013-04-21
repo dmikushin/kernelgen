@@ -125,10 +125,9 @@ bool TransformAccesses::runOnScop(Scop &scop)
 		ScopStmt * stmt = *stmt_iterator;
 		assert(strcmp(stmt -> getBaseName(),"FinalRead"));
 
-
 		for (ScopStmt::memacc_iterator access_iterator=stmt->memacc_begin(), access_iterator_end = stmt->memacc_end();
 		    access_iterator != access_iterator_end; access_iterator++) {
-
+		    
 			MemoryAccess* memoryAccess=*access_iterator;
 			int allocSize = memoryAccess->getElemTypeSize();/// !!!!!!
 			int storeSize = memoryAccess->getElemTypeSize();
@@ -238,6 +237,67 @@ bool TransformAccesses::runOnScop(Scop &scop)
 		}
 
 	}
+
+	/*// Iterate through all SCoP statements and find independent
+	// memory accesses.
+	list<MemoryAccess*> IndepMA;
+	for (Scop::iterator StmtI1 = S->begin(), StmtE1 = S->end(); StmtI1 != StmtE1; StmtI1++)
+	{
+		ScopStmt* Stmt = *StmtI1;
+
+		for (ScopStmt::memacc_iterator MAI1 = Stmt->memacc_begin(),
+			MAE1 = Stmt->memacc_end(); (MAI1 != MAE1) && IndependentMA; MAI1++)
+		{
+			MemoryAccess* MA1 = *MAI1;
+			const Value* BA1 = memoryAccess->getBaseAddr();
+			ConstantInt* BAC1 = cast<ConstantInt>(expr->getOperand(0));
+			uint64_t Addr1 = baseAddressConstant->getZExtValue();					
+
+			for (Scop::iterator StmtI2 = S->begin(), StmtE2 = S->end(); StmtI2 != StmtE2; StmtI2++)
+			{
+				ScopStmt* Stmt = *StmtI2;
+
+				for (ScopStmt::memacc_iterator MAI2 = Stmt->memacc_begin(),
+					MAE2 = Stmt->memacc_end(); (MAI2 != MAE2) && IndependentMA; MAI2++)
+				{
+					MemoryAccess* MA2 = *MAI2;
+					const Value* BA2 = memoryAccess->getBaseAddr();
+					ConstantInt* BAC2 = cast<ConstantInt>(expr->getOperand(0));
+					uint64_t Addr2 = baseAddressConstant->getZExtValue();					
+				}
+			}
+		}
+
+
+		// Iterate through all instructions in basic block.
+		for (BasicBlock::Iterator II = BB->begin(), IE = BB->end(); II != IE; II++)
+		{
+			Instruction* I = II;
+			MemoryAccess* MA1 = Stmt->lookupAccessFor(I);
+			if (!MA1) continue;
+			
+			// Check if there are no memory accesses, that fall into
+			// MA's address range and have different read/write mode.
+			bool IndependentMA = true;
+			for (Scop::iterator StmtI2 = S->begin(), StmtE2 = S->end();
+				(StmtI2 != StmtE2) && IndependentMA; StmtI2++)
+			{
+				ScopStmt * stmt = *stmt_iterator;
+
+				for (ScopStmt::memacc_iterator MAI = Stmt->memacc_begin(),
+					MAE = Stmt->memacc_end(); (MAI != MAE) && IndependentMA; MAI++)
+				{
+					MemoryAccess* MA2 = *AI;
+					
+					// TODO: if MA1 intersects with MA2 and has different
+					// read/write mode, then MA1 is not independent.
+					IndependentMA = false;
+				}
+			}
+			
+			if (IndependentMA)
+		}
+	}*/
 
 	return false;
 }
