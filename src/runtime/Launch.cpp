@@ -263,8 +263,12 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 		}
 
 		// Create host-pinned callback structure buffer.
-		struct kernelgen_callback_t callback;
-		CU_SAFE_CALL(cuMemHostRegister(&callback,
+		// Note buffer is intentionally placed onto heap, otherwise
+		// Valgrind may have problems updating the buffer data.
+		vector<struct kernelgen_callback_t> vcallback;
+		vcallback.resize(1);
+		struct kernelgen_callback_t* callback = &vcallback[0];
+		CU_SAFE_CALL(cuMemHostRegister(callback,
 				sizeof(struct kernelgen_callback_t), 0));
 
 		// Launch main GPU kernel.
@@ -335,24 +339,27 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			// Copy callback structure back to host memory and
 			// check the state.
 			CU_SAFE_CALL(cuMemcpyDtoHAsync(
-					&callback, kernel->target[RUNMODE].callback,
+					callback, kernel->target[RUNMODE].callback,
 					sizeof(struct kernelgen_callback_t),
 					cuda_context->getSecondaryStream()));
 			CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
-			switch (callback.state) {
+			/*printf("lock = %d, state = %d, kernel = %p, szdata = %d, szdatai = %d, data = %p\n",
+				callback->lock, callback->state, callback->kernel,
+				callback->szdata, callback->szdatai, callback->data);*/
+			switch (callback->state) {
 			case KERNELGEN_STATE_INACTIVE: {
 				VERBOSE("Kernel " << kernel->name << " has finished\n");
 				break;
 			}
 			case KERNELGEN_STATE_LOOPCALL: {
 				// Launch the loop kernel.
-				if (kernelgen_launch(callback.kernel, callback.szdata,
-						callback.szdatai, callback.data) != -1)
+				if (kernelgen_launch(callback->kernel, callback->szdata,
+						callback->szdatai, callback->data) != -1)
 					break;
 
 				// If kernel is not supported on device, launch it as
 				// a host call.
-				if (!callback.kernel->target[RUNMODE].supported) {
+				if (!callback->kernel->target[RUNMODE].supported) {
 					timer t;
 					LLVMContext& context = kernel->module->getContext();
 					FunctionType* FunctionTy = TypeBuilder<void(types::i<32>*),
@@ -362,10 +369,10 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 							Type::getInt8PtrTy(context),
 							Type::getInt8PtrTy(context), NULL);
 					CallbackData data;
-					data.args = callback.data;
-					kernelgen_hostcall(callback.kernel, FunctionTy, StructTy,
+					data.args = callback->data;
+					kernelgen_hostcall(callback->kernel, FunctionTy, StructTy,
 							&data);
-					VERBOSE(Verbose::Perf << callback.kernel->name << " time = " <<
+					VERBOSE(Verbose::Perf << callback->kernel->name << " time = " <<
 							t.get_elapsed() << " sec\n" << Verbose::Default);
 					break;
 				}
@@ -385,26 +392,26 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			case KERNELGEN_STATE_HOSTCALL: {
 				// Copy arguments to the host memory.
 				vector<char> vdata;
-				vdata.resize(callback.szdata);
+				vdata.resize(callback->szdata);
 				CallbackData* data = (CallbackData*)&vdata[0];
-				CU_SAFE_CALL(cuMemcpyDtoHAsync(data, callback.data, callback.szdata,
+				CU_SAFE_CALL(cuMemcpyDtoHAsync(data, callback->data, callback->szdata,
 						cuda_context->getSecondaryStream()));
 				CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
 
 				timer t;
 				{
-					kernelgen_hostcall(callback.kernel, data->FunctionTy,
+					kernelgen_hostcall(callback->kernel, data->FunctionTy,
 							data->StructTy, data);
 				}
-				VERBOSE(Verbose::Perf << callback.kernel->name << " time = " <<
+				VERBOSE(Verbose::Perf << callback->kernel->name << " time = " <<
 						t.get_elapsed() << " sec\n" << Verbose::Default);
 				break;
 			}
 			default:
-				THROW("Unknown callback state : " << callback.state);
+				THROW("Unknown callback state : " << callback->state);
 			}
 
-			if (callback.state == KERNELGEN_STATE_INACTIVE)
+			if (callback->state == KERNELGEN_STATE_INACTIVE)
 				break;
 
 			// Launch monitor GPU kernel.
@@ -430,7 +437,7 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 
 		// Finally, synchronize kernel stream.
 		CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getPrimaryStream()));
-		CU_SAFE_CALL(cuMemHostUnregister(&callback));
+		CU_SAFE_CALL(cuMemHostUnregister(callback));
 
 		break;
 	}
