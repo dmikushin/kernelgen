@@ -94,7 +94,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 		if (settings.getVerboseMode() != Verbose::Disable) tmp1.keep();
 		tmp1.download(bin_string.c_str(), bin_string.size());
 
-		// Link first and second objects together into third one.
+		// Link object into shared library.
 		TempFile tmp2 = Temp::getFile("%%%%%%%%.so");
 		if (settings.getVerboseMode() != Verbose::Disable) tmp2.keep();
 		{

@@ -203,6 +203,9 @@ void kernelgen_hostcall(
 					if (map == (void*)-1)
 						THROW("Cannot map host memory onto " << base << " + " << size);
 
+					// Copy device memory to host mapped memory.
+					CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
+
 					// Track the mapped memory in list of mappings,
 					// to synchronize them after the hostcall finishes.
 					struct mmap_t mmapping;
@@ -210,6 +213,9 @@ void kernelgen_hostcall(
 					mmapping.size = size;
 					mmapping.align = align;								
 					mmappings.push_back(mmapping);
+
+					VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
+							"(" << base << " - " << align << ") + " << size << "\n" << Verbose::Default);
 				}
 				else
 				{
@@ -221,18 +227,18 @@ void kernelgen_hostcall(
 							mmapping->size + mmapping->align, size + align, 0);
 						if (remap == (void*)-1)
 							THROW("Cannot map host memory onto " << base << " + " << size);
-					
+
+						// Copy device memory to host mapped memory.
+						CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
+
 						// Store new size & align.
 						mmapping->size = size;
 						mmapping->align = align;
+
+						VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
+								"(" << base << " - " << align << ") + " << size << "\n" << Verbose::Default);
 					}
 				}
-
-				// Copy device memory to host mapped memory.
-				CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
-
-				VERBOSE(Verbose::DataIO << "Mapped memory " << (void*)((char*)base - align) <<
-						"(" << base << " - " << align << ") + " << size << "\n" << Verbose::Default);
 			}
 		}
 	}
@@ -285,9 +291,9 @@ void kernelgen_hostcall(
 	if (sigaction(SIGSEGV, &sa_old, &sa_new) == -1)
         	THROW("Error in sigaction " << errno);
 
-    activeKernel = NULL;
+	activeKernel = NULL;
 
-    VERBOSE(Verbose::Hostcall << "Finished hostcall handler\n" << Verbose::Default);
+	VERBOSE(Verbose::Hostcall << "Finished hostcall handler\n" << Verbose::Default);
 }
 
 void kernelgen_hostcall_memsync()
