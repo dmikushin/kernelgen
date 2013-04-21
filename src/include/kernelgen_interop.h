@@ -30,20 +30,24 @@
  */
 
 // Main kernel is inactive (finished execution).
-#define KERNELGEN_STATE_INACTIVE	0
+#define KERNELGEN_STATE_INACTIVE       -1
+
+// Main kernel state is unknown/unset (this value
+// is unused for security reasons).
+#define KERNELGEN_STATE_UNKNOWN         0
 
 // Main kernel is running.
-#define KERNELGEN_STATE_ACTIVE		1
+#define KERNELGEN_STATE_ACTIVE          1
 
 // Main kernel requested to execute another kernel.
-#define KERNELGEN_STATE_LOOPCALL	2
+#define KERNELGEN_STATE_LOOPCALL        2
 
 // Main kernel requested
-#define KERNELGEN_STATE_HOSTCALL	3
+#define KERNELGEN_STATE_HOSTCALL        3
 
 // Loop kernel not launched, main kernel should use
 // the fallback branch.
-#define KERNELGEN_STATE_FALLBACK	-1
+#define KERNELGEN_STATE_FALLBACK        4
 
 #ifdef __cplusplus
 namespace kernelgen
@@ -57,6 +61,7 @@ struct Kernel;
 struct CallbackData;
 
 // Defines callback status structure.
+#pragma pack(push, 1)
 struct kernelgen_callback_t
 {
 	// The synchronization lock shared between
@@ -85,6 +90,7 @@ struct kernelgen_callback_t
 	// The callback data.
 	struct CallbackData* data;
 };
+#pragma pack(pop)
 
 #include <string.h>
 

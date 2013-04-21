@@ -43,6 +43,8 @@
 #include <fstream>
 #include <vector>
 
+#include "kernelgen_interop.h"
+
 //#define KERNELGEN_PRIVATIZE
 
 using namespace llvm;
@@ -745,7 +747,7 @@ CallInst* BranchedCodeExtractor::createCallAndBranch(
 	if(makeBranch)
 	{
 	    Value* Cond = new ICmpInst(*callAndBranchBlock, ICmpInst::ICMP_EQ,
-		   call, ConstantInt::get(Type::getInt32Ty(context), -1));
+		   call, ConstantInt::get(Type::getInt32Ty(context), KERNELGEN_STATE_FALLBACK));
 	    BranchInst::Create(header, loadAndSwitchExitBlock, Cond, callAndBranchBlock);
 	} else
 		BranchInst::Create(loadAndSwitchExitBlock, callAndBranchBlock);

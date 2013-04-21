@@ -55,6 +55,13 @@ __attribute__((device)) __attribute__((always_inline)) int __iAtomicCAS(volatile
 	return ret;
 }
 
+__attribute__((device)) __attribute__((always_inline)) void __threadfence()
+{
+	asm("{\n\t"
+		"membar.gl;\n\t"
+	"}\n\t");
+}
+
 __attribute__((device)) __attribute__((always_inline)) void kernelgen_hostcall(unsigned char* kernel,
 	unsigned long long szdata, unsigned long long szdatai, unsigned int* data)
 {
@@ -71,6 +78,7 @@ __attribute__((device)) __attribute__((always_inline)) void kernelgen_hostcall(u
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
 	callback->data = (struct CallbackData*)data;
+	__threadfence();
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 }
@@ -88,8 +96,8 @@ __attribute__((device)) __attribute((always_inline)) int kernelgen_launch(unsign
 {
 	// Client passes NULL for name/entry argument to indicate
 	// the call is performed from kernel loop and must always
-	// return -1.
-	if (!kernel) return -1;
+	// return KERNELGEN_STATE_FALLBACK.
+	if (!kernel) return KERNELGEN_STATE_FALLBACK;
 
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
@@ -102,12 +110,13 @@ __attribute__((device)) __attribute((always_inline)) int kernelgen_launch(unsign
 	callback->szdata = szdata;
 	callback->szdatai = szdatai;
 	callback->data = (struct CallbackData*)data;
+	__threadfence();
 	__iAtomicCAS(&callback->lock, 0, 1);
 	while (__iAtomicCAS(&callback->lock, 0, 0)) continue;
 
 	// The launch status is returned through the
-	// state value. If it is -1, then serial version
-	// of kernel is executed in the main thread.
+	// state value. If it is KERNELGEN_STATE_FALLBACK, then
+	// serial version of kernel is executed in the main thread.
 	return callback->state;
 }
 
@@ -117,6 +126,7 @@ __attribute__((device)) __attribute__((always_inline)) void kernelgen_finish()
 	struct kernelgen_callback_t* callback =
 		(struct kernelgen_callback_t*)__kernelgen_callback;
 	callback->state = KERNELGEN_STATE_INACTIVE;
+	__threadfence();
 	__iAtomicCAS(&callback->lock, 0, 1);
 }
 
