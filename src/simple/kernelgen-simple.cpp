@@ -134,7 +134,7 @@ static void fallback(void* arg) {
 	int status = Program::ExecuteAndWait(Program::FindProgramByName(compiler),
 			&argv[0], &env[0], NULL, 0, 0, &err);
 	if (status) {
-		cerr << err;
+		cerr << "Error executing " << argv[0] << ": " << err << endl;
 		exit(1);
 	}
 
@@ -195,7 +195,7 @@ static int compile(int argc, char** argv, const char* input,
 				Program::FindProgramByName(compiler), &args[0], &env[0], NULL,
 				0, 0, &err);
 		if (status) {
-			cerr << err;
+			cerr << "Error executing " << args[0] << ": " << err << endl;
 			return status;
 		}
 	}
@@ -265,7 +265,7 @@ static int compile(int argc, char** argv, const char* input,
 				Program::FindProgramByName(compiler), &args[0], &env[0], NULL,
 				0, 0, &err);
 		if (status) {
-			cerr << err;
+			cerr << "Error executing " << args[0] << ": " << err << endl;
 			return status;
 		}
 
@@ -424,7 +424,7 @@ static int compile(int argc, char** argv, const char* input,
 					Program::FindProgramByName(objcopy), &args[0], NULL, NULL,
 					0, 0, &err);
 			if (status) {
-				cerr << err;
+				cerr << "Error executing " << args[0] << ": " << err << endl;
 				return status;
 			}
 		}
@@ -444,7 +444,7 @@ static int compile(int argc, char** argv, const char* input,
 					Program::FindProgramByName(linker), &args[0], NULL, NULL, 0,
 					0, &err);
 			if (status) {
-				cerr << err;
+				cerr << "Error executing " << args[0] << ": " << err << endl;
 				return status;
 			}
 		}
@@ -1538,7 +1538,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 							Program::FindProgramByName(linker), &args[0], NULL,
 							NULL, 0, 0, &err);
 					if (status) {
-						cerr << err;
+						cerr << "Error executing " << args[0] << ": " << err << endl;
 						return status;
 					}
 
@@ -1678,7 +1678,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 					Program::FindProgramByName(linker), &args[0], NULL, NULL, 0,
 					0, &err);
 			if (status) {
-				cerr << err;
+				cerr << "Error executing " << args[0] << ": " << err << endl;
 				return status;
 			}
 
@@ -1707,7 +1707,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				Program::FindProgramByName(objcopy), &args[0], NULL, NULL, 0, 0,
 				&err);
 		if (status) {
-			cerr << err;
+			cerr << "Error executing " << args[0] << ": " << err << endl;
 			return status;
 		}
 	}
@@ -1750,7 +1750,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				Program::FindProgramByName(compiler), &args[0], &env[0], NULL,
 				0, 0, &err);
 		if (status) {
-			cerr << err;
+			cerr << "Error executing " << args[0] << ": " << err << endl;
 			return status;
 		}
 	} else {
@@ -1803,7 +1803,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 						Program::FindProgramByName(objcopy), &args[0], NULL,
 						NULL, 0, 0, &err);
 				if (status) {
-					cerr << err;
+					cerr << "Error executing " << args[0] << ": " << err << endl;
 					return status;
 				}
 			}
