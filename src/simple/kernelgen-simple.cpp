@@ -83,7 +83,6 @@ const char* compiler = "kernelgen-gfortran";
 const char* linker = "ld";
 const char* objcopy = "objcopy";
 const char* cp = "cp";
-const char* as = "as";
 
 TimingInfo TI("kernelgen-simple");
 

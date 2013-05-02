@@ -99,7 +99,7 @@ int main(int argc, char* argv[], char* envp[]) {
 	cregex regex("^__kernelgen_main$", REG_EXTENDED | REG_NOSUB);
 	vector<csymbol*> symbols = e.getSymtab()->find(regex);
 	if (!symbols.size()) {
-		THROW("Cannot find the __kernelgen_main symbol");
+		THROW("Cannot find the __kernelgen_main symbol. Is application compiled with KernelGen?");
 	} else {
 		// Load the regular main function prototype.
 		// It is needed to correctly select the argument list.
