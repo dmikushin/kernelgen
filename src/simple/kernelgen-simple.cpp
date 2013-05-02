@@ -83,6 +83,7 @@ const char* compiler = "kernelgen-gfortran";
 const char* linker = "ld";
 const char* objcopy = "objcopy";
 const char* cp = "cp";
+const char* as = "as";
 
 TimingInfo TI("kernelgen-simple");
 
@@ -177,6 +178,7 @@ static int compile(int argc, char** argv, const char* input,
 			}
 			args.push_back(argv[i]);
 		}
+		args.push_back("-flto");
 		args.push_back("-o");
 		args.push_back(gcc_output.c_str());
 		args.push_back(NULL);
@@ -429,6 +431,8 @@ static int compile(int argc, char** argv, const char* input,
 			}
 		}
 
+		// Link gcc-generated object, object containing LLVM IR and object
+		// containing __kernelgen symbol into single relocatable object.
 		{
 			vector<const char*> args;
 			args.push_back(linker);
