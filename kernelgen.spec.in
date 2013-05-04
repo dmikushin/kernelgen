@@ -222,7 +222,7 @@ cd $RPM_BUILD_DIR
 %patch11 -p1
 %endif
 %if %cloog
-%patch12 -p1
+#%patch12 -p1
 %endif
 %if %libelf
 %patch13 -p1
@@ -248,7 +248,7 @@ cd $RPM_BUILD_DIR
 #
 # Configure CLooG.
 #
-sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog 1
+sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
 cd $RPM_BUILD_DIR/cloog
 ./autogen.sh
 mkdir build
