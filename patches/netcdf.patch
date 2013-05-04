@@ -1,0 +1,13 @@
+--- a/netcdf-snapshot/configure	2013-04-06 21:21:44.498664763 +0400
++++ b/netcdf-snapshot/configure	2013-04-06 21:10:47.042637506 +0400
+@@ -24008,8 +24008,8 @@
+ $as_echo "#define pgiFortran 1" >>confdefs.h
+ 
+                ;;
+-             *gfortran)
+-                if (gfortran --version | grep '(GCC 4.1.' || gfortran --version | grep '(GCC 4.0.'); then
++             *gfortran*)
++                if ($FC --version | grep '(GCC 4.1.' || $FC --version | grep '(GCC 4.0.'); then
+ 
+ $as_echo "#define gFortran 1" >>confdefs.h
+ 
