@@ -12,11 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Target/TargetData.h"
-#include "llvm/Instructions.h"
-#include "llvm/Type.h"
-#include "llvm/Function.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Constants.h"
 #include <set>
 #include <map>
 #include <iostream>
@@ -51,7 +51,7 @@ int isAllowedInstruction(const Value * const &someValue)
 	return 0;
 }
 
-void makeUseTreeForIntegerArgs(UseTreeNode* const &useNode, const TargetData * const &targetData)
+void makeUseTreeForIntegerArgs(UseTreeNode* const &useNode, const DataLayout * const &DL)
 {
 	const Value* sourceValue = useNode->sourceValue;
 	for (Value::const_use_iterator useIterator = sourceValue->use_begin(),
@@ -76,16 +76,16 @@ void makeUseTreeForIntegerArgs(UseTreeNode* const &useNode, const TargetData * c
 			// new Type is newUseNode->sourceValue->getType()
 			const GetElementPtrInst* GEPInst = dyn_cast<GetElementPtrInst>(User);
 			std::vector<Value*> Indices(GEPInst->idx_begin(), GEPInst->idx_end());
-			newUseNode->currentOffset += targetData->getIndexedOffset(
+			newUseNode->currentOffset += DL->getIndexedOffset(
 				useNode->sourceValue->getType(), // old type from which we make GEP
 				ArrayRef<Value*>(Indices));     // Indices of GEP
-			makeUseTreeForIntegerArgs(newUseNode, targetData);
+			makeUseTreeForIntegerArgs(newUseNode, DL);
 		}
 		break;
 		case Cast:
 			// Cast change only Type
 			// new Type is newUseNode->sourceValue->getType()
-			makeUseTreeForIntegerArgs(newUseNode, targetData);
+			makeUseTreeForIntegerArgs(newUseNode, DL);
 			break;
 		case Load:
 			LoadInstOffsets[(LoadInst*)User] = useNode->currentOffset;
@@ -99,7 +99,7 @@ void makeUseTreeForIntegerArgs(UseTreeNode* const &useNode, const TargetData * c
 	}
 }
 
-void computeLoadInstOffsets(const Value * sourceArg,const TargetData * targetData)
+void computeLoadInstOffsets(const Value * sourceArg,const DataLayout * DL)
 {
 	UseTreeNode *useTree = new UseTreeNode();
 	useTree->currentOffset = 0;
@@ -107,7 +107,7 @@ void computeLoadInstOffsets(const Value * sourceArg,const TargetData * targetDat
 	
 	// Bypass Use Tree of argument
 	// side effect - fill in LoadInstOffsets
-	makeUseTreeForIntegerArgs(useTree,targetData);
+	makeUseTreeForIntegerArgs(useTree,DL);
 	delete useTree;
 }
 
@@ -119,11 +119,11 @@ void ConstantSubstitution(Function * func, void * args)
 	
 	// Argument must be a pointer.
 	assert(sourceArg->getType()->isPointerTy());
-	TargetData* targetData = new TargetData(func->getParent());
+	DataLayout* DL = new DataLayout(func->getParent());
 	
 	// Compute offsets of args (each arg is LoadInst from
 	// some offset in structure of args).
-	computeLoadInstOffsets(sourceArg, targetData);
+	computeLoadInstOffsets(sourceArg, DL);
 
 	VERBOSE(Verbose::Polly << "    Integer args substituted:\n" << Verbose::Default);
 	for (MapIterator arg = LoadInstOffsets.begin(),
@@ -133,10 +133,10 @@ void ConstantSubstitution(Function * func, void * args)
 		
 		// For each integer arg: replace uses of arg's LoadInst by Constant.
 		if (type->isIntegerTy()) {
-			assert(targetData->getTypeStoreSize(type) <= 8);
+			assert(DL->getTypeStoreSize(type) <= 8);
 			uint64_t value = 0;
 			int offset = arg->second;
-			memcpy(&value, ((char *)args) + offset, targetData->getTypeStoreSize(type));
+			memcpy(&value, ((char *)args) + offset, DL->getTypeStoreSize(type));
 			ConstantInt* constant = ConstantInt::get(cast<IntegerType>(type), value);
 			load->replaceAllUsesWith(constant);
 			load->eraseFromParent();
@@ -146,14 +146,14 @@ void ConstantSubstitution(Function * func, void * args)
 			continue;
 		}
 		if (type->isPointerTy()) {
-			assert(targetData->getTypeStoreSize(type) <= 8);
+			assert(DL->getTypeStoreSize(type) <= 8);
 			uint64_t ptrValue = 0;
 			int offset = arg->second;
-			memcpy(&ptrValue, ((char *)args) + offset, targetData->getTypeStoreSize(type));
+			memcpy(&ptrValue, ((char *)args) + offset, DL->getTypeStoreSize(type));
 			
 			load->replaceAllUsesWith(
 			    ConstantExpr::getIntToPtr(
-			    ConstantInt::get( targetData->getIntPtrType(func->getParent()->getContext()),(uint64_t)ptrValue,false),
+			    ConstantInt::get( DL->getIntPtrType(func->getParent()->getContext()),(uint64_t)ptrValue,false),
 			       type));
 			
 			load->eraseFromParent();

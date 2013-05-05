@@ -17,10 +17,10 @@
 #include "KernelGen.h"
 #include "Platform.h"
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_os_ostream.h"
@@ -76,9 +76,9 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 
 		// Ask the target to add backend passes as necessary.
 		PassManager manager;
-		const TargetData* tdata =
-				platforms[KERNELGEN_RUNMODE_NATIVE]->machine->getTargetData();
-		manager.add(new TargetData(*tdata));
+		const DataLayout* DL =
+				platforms[KERNELGEN_RUNMODE_NATIVE]->machine->getDataLayout();
+		manager.add(new DataLayout(*DL));
 		if (platforms[KERNELGEN_RUNMODE_NATIVE]->machine->addPassesToEmitFile(
 				manager, bin_raw_stream, TargetMachine::CGFT_ObjectFile,
 				CodeGenOpt::Aggressive))
@@ -147,9 +147,9 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 
 		// Ask the target to add backend passes as necessary.
 		PassManager manager;
-		const TargetData* tdata =
-				platforms[KERNELGEN_RUNMODE_CUDA]->machine->getTargetData();
-		manager.add(new TargetData(*tdata));
+		const DataLayout* DL =
+				platforms[KERNELGEN_RUNMODE_CUDA]->machine->getDataLayout();
+		manager.add(new DataLayout(*DL));
 		if (platforms[KERNELGEN_RUNMODE_CUDA]->machine->addPassesToEmitFile(manager,
 				ptx_raw_stream, TargetMachine::CGFT_AssemblyFile,
 				CodeGenOpt::Aggressive))

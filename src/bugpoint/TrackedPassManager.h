@@ -16,8 +16,8 @@
 #ifndef TRACKED_PASS_MANAGER
 #define TRACKED_PASS_MANAGER
 
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Transforms/Utils/Cloning.h"

@@ -15,8 +15,8 @@
 #include "Runtime.h"
 #include "Util.h"
 
-#include "llvm/DerivedTypes.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/DataLayout.h"
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -128,7 +128,7 @@ void kernelgen_hostcall(
 			VERBOSE("Host kernel call " << (void*)*func << "\n");
 	}
 
-	TargetData* TD = new TargetData(kernel->module);
+	DataLayout* DL = new DataLayout(kernel->module);
 
 	if (szpage == -1)
 		szpage = sysconf(_SC_PAGESIZE);
@@ -156,10 +156,10 @@ void kernelgen_hostcall(
 	{
 		Type* ArgTy = StructTy->getElementType(i + 2);
 		args[i] = ffiTypeFor(ArgTy);
-		ArgBytes += TD->getTypeStoreSize(ArgTy);
+		ArgBytes += DL->getTypeStoreSize(ArgTy);
 	}
 
-	const StructLayout* layout = TD->getStructLayout(StructTy);
+	const StructLayout* layout = DL->getStructLayout(StructTy);
 	SmallVector<uint8_t, 128> ArgData;
 	ArgData.resize(ArgBytes);
 	uint8_t *ArgDataPtr = ArgData.data();
@@ -168,7 +168,7 @@ void kernelgen_hostcall(
 	{
 		Type* ArgTy = StructTy->getElementType(i + 2);
 		int offset = layout->getElementOffset(i + 2);
-		size_t size = TD->getTypeStoreSize(ArgTy);
+		size_t size = DL->getTypeStoreSize(ArgTy);
 		void** address = (void**)((char*)params + offset);
 		memcpy(ArgDataPtr, address, size);
 		values[i] = ArgDataPtr;
@@ -306,16 +306,16 @@ void kernelgen_hostcall_memsync()
 	Kernel* kernel = activeKernel;
 	StructType* StructTy = activeStructTy;
 
-	TargetData* TD = new TargetData(kernel->module);
+	DataLayout* DL = new DataLayout(kernel->module);
 
-	const StructLayout* layout = TD->getStructLayout(StructTy);
+	const StructLayout* layout = DL->getStructLayout(StructTy);
 
 	// Refresh arguments and return value pointer.
 	for (int i = 0; i < NumArgs; i++)
 	{
 		Type* ArgTy = StructTy->getElementType(i + 2);
 		int offset = layout->getElementOffset(i + 2);
-		size_t size = TD->getTypeStoreSize(ArgTy);
+		size_t size = DL->getTypeStoreSize(ArgTy);
 		void* address = (void*)((char*)params + offset);
 		memcpy(address, values[i], size);
 	}

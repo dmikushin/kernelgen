@@ -13,12 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
-#include "llvm/Intrinsics.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -27,9 +27,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
-#include "llvm/Support/TypeBuilder.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -1072,12 +1072,10 @@ ExtractCodeRegion(Loop *L, LoopInfo &LI)
 
         // If the old function is no-throw, so is the new one.
         if (parentFunction->doesNotThrow())
-                loopFunction->setDoesNotThrow(true);
+                loopFunction->setDoesNotThrow();
 
 	// Never inline the extracted function.
-	const AttrListPtr attr = loopFunction->getAttributes();
-	const AttrListPtr attr_new = attr.addAttr(~0U, Attribute::NoInline);
-	loopFunction->setAttributes(attr_new);
+	loopFunction->addFnAttr(Attribute::NoInline);
 
 	// Reset to default visibility.
 	loopFunction->setVisibility(GlobalValue::DefaultVisibility);

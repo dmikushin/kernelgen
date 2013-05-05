@@ -35,7 +35,7 @@ TargetPlatform::TargetPlatform(const Target* target, TargetMachine* machine,
 	if (!MRI)
 		THROW("Unable to create target register info!");
 	mccontext.reset(new MCContext(*MAI, *MRI, 0));
-	mangler.reset(new Mangler(*mccontext.get(), *machine->getTargetData()));
+	mangler.reset(new Mangler(*mccontext.get(), *machine->getDataLayout()));
 }
 
 // Get target platform for the specified runmode.

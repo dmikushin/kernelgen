@@ -17,13 +17,13 @@
 #include "Platform.h"
 #include "Runtime.h"
 
-#include "llvm/Constants.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/IRBuilder.h"
-#include "llvm/Support/TypeBuilder.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Target/Mangler.h"
 
 #include <dlfcn.h>
@@ -178,7 +178,6 @@ CallInst* kernelgen::runtime::WrapCallIntoHostcall(CallInst* call, Kernel* kerne
 	newcall->setCallingConv(call->getCallingConv());
 	//newcall->setAttributes(call->getAttributes());
 	newcall->setDebugLoc(call->getDebugLoc());
-	newcall->setOnlyReadsMemory(false);
 
 	// Replace function from device module.
 	if (retTy->isVoidTy())

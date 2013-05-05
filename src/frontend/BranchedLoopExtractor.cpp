@@ -16,11 +16,11 @@
 
 #define DEBUG_TYPE "loop-extract-with-branch"
 
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/PassSupport.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/LoopPass.h"

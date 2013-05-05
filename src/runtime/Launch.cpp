@@ -18,13 +18,12 @@
 #include <iomanip>
 #include <mhash.h>
 
-#include "llvm/Constants.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
 
 using namespace kernelgen;

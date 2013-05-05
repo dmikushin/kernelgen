@@ -24,10 +24,10 @@
 use Switch;
 
 # Installation directory.
-my($CHROOT) = $ENV{'HOME'} . "/rpmbuild/CHROOT_release";
+my($CHROOT) = $ENV{'HOME'} . "/rpmbuild/CHROOT_catchup";
 
 # NOTE: Do not forget to adjust the debug/release mode setting!
-my($debug) = 0;
+my($debug) = 1;
 
 # NOTE: Do not forget to adjust the fullrepack on/off mode setting!
 my($fullrepack) = 1;
@@ -68,14 +68,14 @@ my($libffi_snapshot) = "libffi-3.0.11";
 my($libffi) = "http://ltsp.mirrors.tds.net/pub/sourceware.org/libffi/$libffi_snapshot.tar.gz";
 my($mhash_snapshot) = "mhash-0.9.9.9";
 my($mhash) = "http://acelnmp.googlecode.com/files/$mhash_snapshot.tar.gz";
-my($kernelgen) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/trunk";
+my($kernelgen) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/branches/catchup";
 my($kernelgen_tests) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/tests";
 my($openmpi) = "http://svn.open-mpi.org/svn/ompi/trunk";
 my($glibc_snapshot) = "glibc-2.17";
 my($glibc) = "http://ftp.gnu.org/gnu/glibc/$glibc_snapshot.tar.gz";
 
-my($old_llvm_rev) = 157485;
-my($new_llvm_rev) = 157485;
+my($old_llvm_rev) = 181135;
+my($new_llvm_rev) = 181135;
 my($openmpi_rev) = 27216;
 my($kernelgen_rev) = -1; # 1769;
 

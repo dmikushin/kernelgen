@@ -16,23 +16,23 @@
 #include "polly/RegisterPasses.h"
 
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Constants.h"
-#include "llvm/Function.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Linker.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Support/TypeBuilder.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -42,10 +42,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/MDBuilder.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IR/IRBuilder.h"
 #include "polly/ScopInfo.h"
 
 #include "Runtime.h"
@@ -112,7 +112,7 @@ void deleteCallsToKernelgenLaunch(Module *m)
 		kernelgenLaunch->eraseFromParent();
 		
 		PassManager manager;
-		manager.add(new TargetData(m));
+		manager.add(new DataLayout(m));
 		manager.add(createInstructionCombiningPass());
 		//manager.add(createEarlyCSEPass());
 		manager.add(createCFGSimplificationPass());
@@ -198,7 +198,7 @@ static void registerPollyPreoptPasses(llvm::PassManagerBase &PM)
 	PM.add(polly::createIndVarSimplifyPass());        // Canonicalize indvars
 
 	PM.add(polly::createCodePreparationPass());
-	PM.add(polly::createRegionSimplifyPass());
+	//PM.add(polly::createRegionSimplifyPass());
 
 	// FIXME: The next two passes should not be necessary here. They are currently
 	//        because of two problems:
@@ -212,7 +212,7 @@ static void registerPollyPreoptPasses(llvm::PassManagerBase &PM)
 	//           As a result we need to run the RegionSimplify pass again to
 	//           recover them
 	PM.add(polly::createIndVarSimplifyPass());
-	PM.add(polly::createRegionSimplifyPass());
+	//PM.add(polly::createRegionSimplifyPass());
 }
 
 void getAllocasAndMaximumSize(Function *f,list<Value *> *allocasForArgs, unsigned long long * maximumSizeOfData )
@@ -249,7 +249,7 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 {
 	{
 		PassManager polly;
-		polly.add(new TargetData(kernel->module));
+		polly.add(new DataLayout(kernel->module));
 		registerPollyPreoptPasses(polly);
 		//polly.add(polly::createIslScheduleOptimizerPass());
 		polly.run(*kernel->module);
@@ -274,7 +274,7 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 	vector<Size3> sizes;
 	{
 		PassManager polly;
-		polly.add(new TargetData(kernel->module));
+		polly.add(new DataLayout(kernel->module));
 		//registerPollyPreoptPasses(polly);
 		//polly.add(polly::createIslScheduleOptimizerPass());
 		if (kernel->name != "__kernelgen_main") {
@@ -727,7 +727,7 @@ KernelFunc kernelgen::runtime::Compile(
 			ConstantSubstitution(f, data);
 		{
 			PassManager manager;
-			manager.add(new TargetData(m));
+			manager.add(new DataLayout(m));
 			manager.add(createInstructionCombiningPass());
 			//manager.add(createEarlyCSEPass());
 			manager.add(createCFGSimplificationPass());
@@ -738,7 +738,7 @@ KernelFunc kernelgen::runtime::Compile(
 	// Add signature record.
 	Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
 	GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),
-		true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version", 0, false);
+		true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version");
 
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
@@ -823,9 +823,9 @@ KernelFunc kernelgen::runtime::Compile(
 					{
 						CallInst* call = cast<CallInst>(*use_iter);
 
-						const AttrListPtr attr = func->getAttributes();
-						const AttrListPtr attr_new = attr.addAttr(
-							~0U /*attr.getNumSlots()*/, Attribute::ReadNone);
+						const AttributeSet attr = func->getAttributes();
+						const AttributeSet attr_new = attr.addAttribute(
+							context, AttributeSet::FunctionIndex, Attribute::ReadNone);
 						call->setAttributes(attr_new);
 					}
 				}
@@ -972,7 +972,7 @@ KernelFunc kernelgen::runtime::Compile(
 
 			// Evaluate ConstantExpr::SizeOf to integer number ConstantInt
 			PassManager manager;
-			manager.add(new TargetData(m));
+			manager.add(new DataLayout(m));
 			manager.add(createInstructionCombiningPass());
 			manager.run(*m);
 			
@@ -1061,7 +1061,6 @@ KernelFunc kernelgen::runtime::Compile(
 			builder.SizeLevel = 3;
 			builder.DisableSimplifyLibCalls = true;
 			builder.DisableUnrollLoops = true;
-			builder.Vectorize = false;
 	
 			// XXX Experimental workaround for matvec and matmul tests:
 			// Make loads not to alias with stores. This way LLVM will be able
