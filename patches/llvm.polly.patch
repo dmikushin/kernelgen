@@ -505,7 +505,7 @@
  
      simplifyRegion(&S, this);
  
-+    Module *M = region->getEntry()->getParent()->getParent();
++    Module *M = S.getRegion().getEntry()->getParent()->getParent();
 +    if (CUDA) addCUDADeclarations(M);
 +
      BasicBlock *StartBlock = executeScopConditionally(S, this);
@@ -516,7 +516,7 @@
                           CodeGen.getParallelLoops().begin(),
                           CodeGen.getParallelLoops().end());
 +
-+    assert(!verifyFunction(*(region->getEntry()->getParent())) && 
++    assert(!verifyFunction(*(S.getRegion().getEntry()->getParent())) && 
 +                           "Verification failed for the generated function");
 +
      return true;
