@@ -9,59 +9,6 @@
  LOADABLE_MODULE = 1
  
  include $(LEVEL)/Makefile.config
---- a/llvm/tools/polly/include/polly/ScopInfo.h	(revision 181135)
-+++ b/llvm/tools/polly/include/polly/ScopInfo.h	(working copy)
-@@ -92,9 +92,15 @@
-     MayWrite
-   };
- 
-+  enum RelationType {
-+    RelationType_general = 0,
-+    RelationType_polly = 1
-+  };
-+
- private:
--  isl_map *AccessRelation;
-   enum AccessType Type;
-+  unsigned ElemTypeSize;
- 
-   const Value *BaseAddr;
-   std::string BaseName;
-@@ -107,6 +113,10 @@
-   /// Updated access relation read from JSCOP file.
-   isl_map *newAccessRelation;
- 
-+  RelationType currentRelationType;
-+  isl_map *GeneralAccessRelation;
-+  isl_map *PollyAccessRelation;
-+
- public:
-   // @brief Create a memory access from an access in LLVM-IR.
-   //
-@@ -132,6 +142,14 @@
- 
-   isl_map *getAccessRelation() const;
- 
-+  void setCurrentRelationType(RelationType relationType);
-+
-+  RelationType getCurrentRelationType();
-+
-+  void setGeneralAccessRelation(isl_map *accessRelation);
-+
-+  void setPollyAccessRelation(isl_map *accessRelation);
-+
-   /// @brief Get an isl string representing this access function.
-   std::string getAccessRelationStr() const;
- 
-@@ -139,6 +157,8 @@
- 
-   const std::string &getBaseName() const { return BaseName; }
- 
-+  unsigned getElemTypeSize() const { return ElemTypeSize; }
-+
-   const Instruction *getAccessInstruction() const { return Inst; }
- 
-   /// @brief Get the new access function imported from JSCOP file
 --- a/llvm/tools/polly/lib/Analysis/Dependences.cpp	(revision 181135)
 +++ b/llvm/tools/polly/lib/Analysis/Dependences.cpp	(working copy)
 @@ -30,6 +30,10 @@
@@ -727,3 +674,56 @@ Index: ScopDetection.cpp
      return true;
    }
  
+--- a/llvm/tools/polly/include/polly/ScopInfo.h	(revision 181135)
++++ b/llvm/tools/polly/include/polly/ScopInfo.h	(working copy)
+@@ -92,9 +92,14 @@
+     MayWrite
+   };
+ 
++  enum RelationType {
++    RelationType_general = 0,
++    RelationType_polly = 1
++  };
++
+ private:
+-  isl_map *AccessRelation;
+   enum AccessType Type;
++  unsigned ElemTypeSize;
+ 
+   const Value *BaseAddr;
+   std::string BaseName;
+@@ -107,6 +112,10 @@
+   /// Updated access relation read from JSCOP file.
+   isl_map *newAccessRelation;
+ 
++  RelationType currentRelationType;
++  isl_map *GeneralAccessRelation;
++  isl_map *PollyAccessRelation;
++
+ public:
+   // @brief Create a memory access from an access in LLVM-IR.
+   //
+@@ -132,6 +141,14 @@
+ 
+   isl_map *getAccessRelation() const;
+ 
++  void setCurrentRelationType(RelationType relationType);
++
++  RelationType getCurrentRelationType();
++
++  void setGeneralAccessRelation(isl_map *accessRelation);
++
++  void setPollyAccessRelation(isl_map *accessRelation);
++
+   /// @brief Get an isl string representing this access function.
+   std::string getAccessRelationStr() const;
+ 
+@@ -139,6 +156,8 @@
+ 
+   const std::string &getBaseName() const { return BaseName; }
+ 
++  unsigned getElemTypeSize() const { return ElemTypeSize; }
++
+   const Instruction *getAccessInstruction() const { return Inst; }
+ 
+   /// @brief Get the new access function imported from JSCOP file
