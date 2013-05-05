@@ -544,7 +544,7 @@
    /// Updated access relation read from JSCOP file.
    isl_map *newAccessRelation;
  
-+  RelationType currentRelationType;
++  RelationType CurrentRelationType;
 +  isl_map *GeneralAccessRelation;
 +  isl_map *PollyAccessRelation;
 +
