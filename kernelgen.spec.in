@@ -202,7 +202,7 @@ tar -xf $RPM_SOURCE_DIR/KERNELGEN_GLIBC_SNAP.tar.gz
 %if %fullrepack
 cd $RPM_BUILD_DIR
 %if %dragonegg
-%patch0 -p1
+#%patch0 -p1
 %patch1 -p1
 %endif
 %if %llvm
