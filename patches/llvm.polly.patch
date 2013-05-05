@@ -56,158 +56,6 @@
    /// @brief Get the dependences in this Scop.
    ///
    /// @param Kinds This integer defines the different kinds of dependences
---- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(revision 181135)
-+++ b/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(working copy)
-@@ -225,7 +225,10 @@
- //===----------------------------------------------------------------------===//
- 
- MemoryAccess::~MemoryAccess() {
--  isl_map_free(AccessRelation);
-+  if (PollyAccessRelation)
-+    isl_map_free(PollyAccessRelation);
-+  if (GeneralAccessRelation)
-+    isl_map_free(GeneralAccessRelation);
-   isl_map_free(newAccessRelation);
- }
- 
-@@ -254,11 +257,43 @@
- }
- 
- isl_map *MemoryAccess::getAccessRelation() const {
--  return isl_map_copy(AccessRelation);
-+  return (CurrentRelationType == RelationType_polly) ?
-+    isl_map_copy(PollyAccessRelation) : isl_map_copy(GeneralAccessRelation);
- }
- 
-+void  MemoryAccess::setCurrentRelationType(MemoryAccess::RelationType relationType)
-+{
-+  if (relationType == RelationType_polly)
-+    assert(PollyAccessRelation &&
-+      "PollyAccessRelation was set before setCurrentRelationType");
-+  else
-+    assert(GeneralAccessRelation && "GeneralAccessRelation was set before setCurrentRelationType");
-+  CurrentRelationType = relationType;
-+}
-+
-+MemoryAccess::RelationType MemoryAccess::getCurrentRelationType()
-+{
-+  return CurrentRelationType;
-+}
-+
-+void MemoryAccess::setGeneralAccessRelation(isl_map *accessRelation)
-+{
-+  if (GeneralAccessRelation)
-+    isl_map_free(GeneralAccessRelation);
-+  GeneralAccessRelation = isl_map_copy(accessRelation);
-+}
-+
-+void MemoryAccess::setPollyAccessRelation(isl_map *accessRelation)
-+{
-+  if (PollyAccessRelation)
-+    isl_map_free(PollyAccessRelation);
-+  PollyAccessRelation = isl_map_copy(accessRelation);
-+}
-+
- std::string MemoryAccess::getAccessRelationStr() const {
--  return stringFromIslObj(AccessRelation);
-+  isl_map *relation = (CurrentRelationType == RelationType_polly) ?
-+    PollyAccessRelation:GeneralAccessRelation;
-+  return stringFromIslObj(relation);
- }
- 
- isl_map *MemoryAccess::getNewAccessRelation() const {
-@@ -277,7 +312,8 @@
- 
- MemoryAccess::MemoryAccess(const IRAccess &Access, const Instruction *AccInst,
-                            ScopStmt *Statement)
--    : Inst(AccInst) {
-+    : Inst(AccInst), GeneralAccessRelation(NULL),
-+      CurrentRelationType(RelationType_polly) {
-   newAccessRelation = NULL;
-   Type = Access.isRead() ? Read : Write;
-   statement = Statement;
-@@ -287,7 +323,7 @@
- 
-   if (!Access.isAffine()) {
-     Type = (Type == Read) ? Read : MayWrite;
--    AccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
-+    PollyAccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
-     return;
-   }
- 
-@@ -303,33 +339,40 @@
-   isl_int v;
-   isl_int_init(v);
-   isl_int_set_si(v, Access.getElemSizeInBytes());
-+  ElemTypeSize = Access.getElemSizeInBytes();
-   Affine = isl_pw_aff_scale_down(Affine, v);
-   isl_int_clear(v);
- 
--  AccessRelation = isl_map_from_pw_aff(Affine);
-+  PollyAccessRelation = isl_map_from_pw_aff(Affine);
-   isl_space *Space = Statement->getDomainSpace();
--  AccessRelation = isl_map_set_tuple_id(
-+  PollyAccessRelation = isl_map_set_tuple_id(
-       PollyAccessRelation, isl_dim_in, isl_space_get_tuple_id(Space, isl_dim_set));
-   isl_space_free(Space);
--  AccessRelation = isl_map_set_tuple_name(AccessRelation, isl_dim_out,
-+  PollyAccessRelation = isl_map_set_tuple_name(
-       PollyAccessRelation, isl_dim_out, getBaseName().c_str());
- }
- 
- void MemoryAccess::realignParams() {
-+  assert(CurrentRelationType == RelationType_polly &&
-+    "Polly relation type is expected");
-   isl_space *ParamSpace = statement->getParent()->getParamSpace();
--  AccessRelation = isl_map_align_params(AccessRelation, ParamSpace);
-+  PollyAccessRelation = isl_map_align_params(PollyAccessRelation, ParamSpace);
-+  if (GeneralAccessRelation)
-+    GeneralAccessRelation = isl_map_align_params(GeneralAccessRelation,
-+                                                 ParamSpace);
- }
- 
--MemoryAccess::MemoryAccess(const Value *BaseAddress, ScopStmt *Statement) {
-+MemoryAccess::MemoryAccess(const Value *BaseAddress, ScopStmt *Statement)
-+    : GeneralAccessRelation(NULL), CurrentRelationType(RelationType_polly) {
-   newAccessRelation = NULL;
-   BaseAddr = BaseAddress;
-   Type = Read;
-   statement = Statement;
- 
-   isl_basic_map *BasicAccessMap = createBasicAccessMap(Statement);
--  AccessRelation = isl_map_from_basic_map(BasicAccessMap);
-+  PollyAccessRelation = isl_map_from_basic_map(BasicAccessMap);
-   isl_space *ParamSpace = Statement->getParent()->getParamSpace();
--  AccessRelation = isl_map_align_params(AccessRelation, ParamSpace);
-+  PollyAccessRelation = isl_map_align_params(PollyAccessRelation, ParamSpace);
- }
- 
- void MemoryAccess::print(raw_ostream &OS) const {
-@@ -352,6 +395,7 @@
- //     : i0 = o0, i1 = o1, ..., i(X-1) = o(X-1), iX < oX
- //
- static isl_map *getEqualAndLarger(isl_space *setDomain) {
-+   
-   isl_space *Space = isl_space_map_from_set(setDomain);
-   isl_map *Map = isl_map_universe(isl_space_copy(Space));
-   isl_local_space *MapLocalSpace = isl_local_space_from_space(Space);
-@@ -421,10 +465,14 @@
- }
- 
- bool MemoryAccess::isStrideZero(const isl_map *Schedule) const {
-+  assert(CurrentRelationType == RelationType_polly &&
-+    "Polly relation type is expected");
-   return isStrideX(Schedule, 0);
- }
- 
- bool MemoryAccess::isStrideOne(const isl_map *Schedule) const {
-+  assert(CurrentRelationType == RelationType_polly &&
-+    "Polly relation type is expected");
-   return isStrideX(Schedule, 1);
- }
- 
-Index: ScopDetection.cpp
-===================================================================
 --- a/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	(revision 181135)
 +++ b/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	(working copy)
 @@ -74,7 +74,7 @@
@@ -727,3 +575,155 @@ Index: ScopDetection.cpp
    const Instruction *getAccessInstruction() const { return Inst; }
  
    /// @brief Get the new access function imported from JSCOP file
+--- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(revision 181135)
++++ b/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(working copy)
+@@ -225,7 +225,10 @@
+ //===----------------------------------------------------------------------===//
+ 
+ MemoryAccess::~MemoryAccess() {
+-  isl_map_free(AccessRelation);
++  if (PollyAccessRelation)
++    isl_map_free(PollyAccessRelation);
++  if (GeneralAccessRelation)
++    isl_map_free(GeneralAccessRelation);
+   isl_map_free(newAccessRelation);
+ }
+ 
+@@ -254,11 +257,43 @@
+ }
+ 
+ isl_map *MemoryAccess::getAccessRelation() const {
+-  return isl_map_copy(AccessRelation);
++  return (CurrentRelationType == RelationType_polly) ?
++    isl_map_copy(PollyAccessRelation) : isl_map_copy(GeneralAccessRelation);
+ }
+ 
++void  MemoryAccess::setCurrentRelationType(MemoryAccess::RelationType relationType)
++{
++  if (relationType == RelationType_polly)
++    assert(PollyAccessRelation &&
++      "PollyAccessRelation was set before setCurrentRelationType");
++  else
++    assert(GeneralAccessRelation && "GeneralAccessRelation was set before setCurrentRelationType");
++  CurrentRelationType = relationType;
++}
++
++MemoryAccess::RelationType MemoryAccess::getCurrentRelationType()
++{
++  return CurrentRelationType;
++}
++
++void MemoryAccess::setGeneralAccessRelation(isl_map *accessRelation)
++{
++  if (GeneralAccessRelation)
++    isl_map_free(GeneralAccessRelation);
++  GeneralAccessRelation = isl_map_copy(accessRelation);
++}
++
++void MemoryAccess::setPollyAccessRelation(isl_map *accessRelation)
++{
++  if (PollyAccessRelation)
++    isl_map_free(PollyAccessRelation);
++  PollyAccessRelation = isl_map_copy(accessRelation);
++}
++
+ std::string MemoryAccess::getAccessRelationStr() const {
+-  return stringFromIslObj(AccessRelation);
++  isl_map *relation = (CurrentRelationType == RelationType_polly) ?
++    PollyAccessRelation:GeneralAccessRelation;
++  return stringFromIslObj(relation);
+ }
+ 
+ isl_map *MemoryAccess::getNewAccessRelation() const {
+@@ -277,7 +312,8 @@
+ 
+ MemoryAccess::MemoryAccess(const IRAccess &Access, const Instruction *AccInst,
+                            ScopStmt *Statement)
+-    : Inst(AccInst) {
++    : Inst(AccInst), GeneralAccessRelation(NULL),
++      CurrentRelationType(RelationType_polly) {
+   newAccessRelation = NULL;
+   Type = Access.isRead() ? Read : Write;
+   statement = Statement;
+@@ -287,7 +323,7 @@
+ 
+   if (!Access.isAffine()) {
+     Type = (Type == Read) ? Read : MayWrite;
+-    AccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
++    PollyAccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
+     return;
+   }
+ 
+@@ -303,33 +339,40 @@
+   isl_int v;
+   isl_int_init(v);
+   isl_int_set_si(v, Access.getElemSizeInBytes());
++  ElemTypeSize = Access.getElemSizeInBytes();
+   Affine = isl_pw_aff_scale_down(Affine, v);
+   isl_int_clear(v);
+ 
+-  AccessRelation = isl_map_from_pw_aff(Affine);
++  PollyAccessRelation = isl_map_from_pw_aff(Affine);
+   isl_space *Space = Statement->getDomainSpace();
+-  AccessRelation = isl_map_set_tuple_id(
+-      AccessRelation, isl_dim_in, isl_space_get_tuple_id(Space, isl_dim_set));
++  PollyAccessRelation = isl_map_set_tuple_id(
++      PollyAccessRelation, isl_dim_in, isl_space_get_tuple_id(Space, isl_dim_set));
+   isl_space_free(Space);
+-  AccessRelation = isl_map_set_tuple_name(AccessRelation, isl_dim_out,
+-                                          getBaseName().c_str());
++  PollyAccessRelation = isl_map_set_tuple_name(
++      PollyAccessRelation, isl_dim_out, getBaseName().c_str());
+ }
+ 
+ void MemoryAccess::realignParams() {
++  assert(CurrentRelationType == RelationType_polly &&
++    "Polly relation type is expected");
+   isl_space *ParamSpace = statement->getParent()->getParamSpace();
+-  AccessRelation = isl_map_align_params(AccessRelation, ParamSpace);
++  PollyAccessRelation = isl_map_align_params(PollyAccessRelation, ParamSpace);
++  if (GeneralAccessRelation)
++    GeneralAccessRelation = isl_map_align_params(GeneralAccessRelation,
++                                                 ParamSpace);
+ }
+ 
+-MemoryAccess::MemoryAccess(const Value *BaseAddress, ScopStmt *Statement) {
++MemoryAccess::MemoryAccess(const Value *BaseAddress, ScopStmt *Statement)
++    : GeneralAccessRelation(NULL), CurrentRelationType(RelationType_polly) {
+   newAccessRelation = NULL;
+   BaseAddr = BaseAddress;
+   Type = Read;
+   statement = Statement;
+ 
+   isl_basic_map *BasicAccessMap = createBasicAccessMap(Statement);
+-  AccessRelation = isl_map_from_basic_map(BasicAccessMap);
++  PollyAccessRelation = isl_map_from_basic_map(BasicAccessMap);
+   isl_space *ParamSpace = Statement->getParent()->getParamSpace();
+-  AccessRelation = isl_map_align_params(AccessRelation, ParamSpace);
++  PollyAccessRelation = isl_map_align_params(PollyAccessRelation, ParamSpace);
+ }
+ 
+ void MemoryAccess::print(raw_ostream &OS) const {
+@@ -352,6 +395,7 @@
+ //     : i0 = o0, i1 = o1, ..., i(X-1) = o(X-1), iX < oX
+ //
+ static isl_map *getEqualAndLarger(isl_space *setDomain) {
++   
+   isl_space *Space = isl_space_map_from_set(setDomain);
+   isl_map *Map = isl_map_universe(isl_space_copy(Space));
+   isl_local_space *MapLocalSpace = isl_local_space_from_space(Space);
+@@ -421,10 +465,14 @@
+ }
+ 
+ bool MemoryAccess::isStrideZero(const isl_map *Schedule) const {
++  assert(CurrentRelationType == RelationType_polly &&
++    "Polly relation type is expected");
+   return isStrideX(Schedule, 0);
+ }
+ 
+ bool MemoryAccess::isStrideOne(const isl_map *Schedule) const {
++  assert(CurrentRelationType == RelationType_polly &&
++    "Polly relation type is expected");
+   return isStrideX(Schedule, 1);
+ }
+ 
