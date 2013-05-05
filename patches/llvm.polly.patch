@@ -10,7 +10,7 @@
  
  include $(LEVEL)/Makefile.config
 --- a/llvm/tools/polly/include/polly/ScopInfo.h	(revision 181135)
-+++ a/llvm/tools/polly/include/polly/ScopInfo.h	(working copy)
++++ b/llvm/tools/polly/include/polly/ScopInfo.h	(working copy)
 @@ -92,9 +92,15 @@
      MayWrite
    };
