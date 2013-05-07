@@ -9,8 +9,8 @@
    GVALinkage External = GVA_StrongExternal;
  
    Linkage L = FD->getLinkage();
---- a/llvm/build/tools/clang/lib/CodeGen/TargetInfo.cpp	(revision 181135)
-+++ b/llvm/build/tools/clang/lib/CodeGen/TargetInfo.cpp	(working copy)
+--- a/llvm/tools/clang/lib/CodeGen/TargetInfo.cpp	(revision 181135)
++++ b/llvm/tools/clang/lib/CodeGen/TargetInfo.cpp	(working copy)
 @@ -4059,7 +4059,25 @@
    if (FI.getCallingConvention() != llvm::CallingConv::C)
      return;
