@@ -138,7 +138,7 @@ int main(int argc, char* argv[], char* envp[]) {
 	if (RUNMODE != KERNELGEN_RUNMODE_UNDEF)
 	{
 		// Build kernels index.
-		VERBOSE("Building kernels index ...");
+		VERBOSE("Building kernels index ...\n");
 		cregex regex("^__kernelgen_.*$", REG_EXTENDED | REG_NOSUB);
 		vector<csymbol*> symbols = e.getSymtab()->find(regex);
 		for (vector<csymbol*>::iterator i = symbols.begin(), ie = symbols.end();
