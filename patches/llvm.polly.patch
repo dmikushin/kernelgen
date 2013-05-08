@@ -439,15 +439,18 @@
    codegenForSequential(f);
  }
  
-@@ -893,7 +1211,7 @@
-   LLVMContext &Context = F->getContext();
+@@ -723,6 +1029,11 @@
+   parallelCodeGeneration = false;
  
-   BasicBlock *CondBB =
--      SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), P);
-+        SplitBlock(Builder.GetInsertBlock(), Builder.GetInsertPoint(), P);
-   CondBB->setName("polly.cond");
-   BasicBlock *MergeBB = SplitBlock(CondBB, CondBB->begin(), P);
-   MergeBB->setName("polly.merge");
+   const clast_stmt *stmt = (const clast_stmt*) r;
++  
++  if(CUDA && ((goodNestedParallelLoopsCount =
++    GoodNestedParallelLoops(stmt->next)) > 0) )
++    createCUDAGridParamsAndPosInGridBlocks();
++
+   if (stmt->next)
+     codegen(stmt->next);
+ }
 @@ -983,6 +1301,52 @@
  
    CodeGeneration() : ScopPass(ID) {}
