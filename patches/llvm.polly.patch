@@ -730,3 +730,17 @@
    return isStrideX(Schedule, 1);
  }
  
+--- a/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(revision 181135)
++++ b/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(working copy)
+@@ -967,6 +1285,11 @@
+   parallelCodeGeneration = false;
+ 
+   const clast_stmt *stmt = (const clast_stmt *)r;
++
++  if(CUDA && ((goodNestedParallelLoopsCount =
++    GoodNestedParallelLoops(stmt->next)) > 0) )
++    createCUDAGridParamsAndPosInGridBlocks();
++
+   if (stmt->next)
+     codegen(stmt->next);
+ }
