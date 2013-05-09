@@ -301,3 +301,17 @@
 +    DrvInterface = NVPTX::NVCL;
 +  }
  }
+Index: /home/dmikushin/rpmbuild/BUILD/llvm/lib/CodeGen/LexicalScopes.cpp
+===================================================================
+--- a/llvm/lib/CodeGen/LexicalScopes.cpp	(revision 181135)
++++ b/llvm/lib/CodeGen/LexicalScopes.cpp	(working copy)
+@@ -201,7 +201,8 @@
+   if (Scope.isLexicalBlock()) {
+     DILexicalBlock DB(N);
+     DIDescriptor ParentDesc = DB.getContext();
+-    Parent = getOrCreateAbstractScope(ParentDesc);
++    if (ParentDesc)
++      Parent = getOrCreateAbstractScope(ParentDesc);
+   }
+   AScope = new LexicalScope(Parent, DIDescriptor(N), NULL, true);
+   AbstractScopeMap[N] = AScope;
