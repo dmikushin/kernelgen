@@ -90,60 +90,63 @@ Pass* createSetRelationTypePass(MemoryAccess::RelationType relationType = Memory
 
 void deleteCallsToKernelgenLaunch(Module *m)
 {
-	Type *int32Ty = Type::getInt32Ty(m->getContext());
-	Constant *minusOne = ConstantInt::get(int32Ty,-1,true);
-
+	// Find kernelgen_launch in module.
 	Function *kernelgenLaunch = m->getFunction("kernelgen_launch");
+	if (!kernelgenLaunch) return;
+	
+	// Replace all kernelgen_launch calls with fallbacks.
 	std::list<CallInst *> launchCalls;
-	if(kernelgenLaunch) {
-
-		for(Value::use_iterator user = kernelgenLaunch->use_begin(), userEnd = kernelgenLaunch->use_end();
-		    user!=userEnd; user++) {
-			Value *userValue = *user;
-			assert(isa<CallInst>(*userValue));
-			CallInst *callInst = cast<CallInst>(userValue);
-			callInst->replaceAllUsesWith(minusOne);
-			launchCalls.push_back(callInst);//]callInst->eraseFromParent();
-
-		}
-		for(std::list<CallInst *>::iterator iter = launchCalls.begin(), iterEnd = launchCalls.end();
-		iter != iterEnd; iter++)
-			(*iter)->eraseFromParent();
-		kernelgenLaunch->eraseFromParent();
-		
-		PassManager manager;
-		manager.add(new DataLayout(m));
-		manager.add(createInstructionCombiningPass());
-		//manager.add(createEarlyCSEPass());
-		manager.add(createCFGSimplificationPass());
-		manager.run(*m);
-
-		GlobalVariable * memoryForKernelArgs = m->getGlobalVariable("memoryForKernelArgs");
-		assert(memoryForKernelArgs);
-		
-		std::stack<Value *> notHanldledUsers;
-		std::list<StoreInst *> storesToMemory;
-		
-		notHanldledUsers.push(memoryForKernelArgs);
-		while(!notHanldledUsers.empty())
-		{
-			Value *val = notHanldledUsers.top();
-			notHanldledUsers.pop();
-		    for(Value::use_iterator user = val->use_begin(), userEnd = val->use_end();
-		        user!=userEnd; user++)
-			{
-		    	assert(!isa<LoadInst>(**user));
-				if(isa<StoreInst>(**user))
-					storesToMemory.push_back(cast<StoreInst>(*user));
-				else
-					notHanldledUsers.push(*user);
-			}
-		}
-		
-		for(std::list<StoreInst *>::iterator iter = storesToMemory.begin(), iterEnd = storesToMemory.end();
-		iter != iterEnd; iter++)
-			(*iter)->eraseFromParent();
+	Type *int32Ty = Type::getInt32Ty(m->getContext());
+	Constant *minusOne = ConstantInt::get(int32Ty, KERNELGEN_STATE_FALLBACK, true);
+	for (Value::use_iterator user = kernelgenLaunch->use_begin(),
+		userEnd = kernelgenLaunch->use_end(); user != userEnd; user++)
+	{
+		Value *userValue = *user;
+		assert(isa<CallInst>(*userValue));
+		CallInst *callInst = cast<CallInst>(userValue);
+		callInst->replaceAllUsesWith(minusOne);
+		launchCalls.push_back(callInst);
 	}
+	for (std::list<CallInst *>::iterator iter = launchCalls.begin(),
+		iterEnd = launchCalls.end(); iter != iterEnd; iter++)
+		(*iter)->eraseFromParent();
+	kernelgenLaunch->eraseFromParent();
+
+	// Perform some optimizations passes, that are supposed to
+	// eliminate loads created by kernelgen_launch.
+	PassManager manager;
+	manager.add(new DataLayout(m));
+	manager.add(createInstructionCombiningPass());
+	//manager.add(createEarlyCSEPass());
+	manager.add(createCFGSimplificationPass());
+	manager.run(*m);
+
+	// Find global variable tracking memory for launched kernel
+	// arguments.
+	GlobalVariable * memoryForKernelArgs = m->getGlobalVariable("memoryForKernelArgs");
+	assert(memoryForKernelArgs);
+
+	// Eliminate stores created by kernelgen_launch.
+	std::stack<Value *> notHanldledUsers;
+	std::list<StoreInst *> storesToMemory;	
+	notHanldledUsers.push(memoryForKernelArgs);
+	while (!notHanldledUsers.empty())
+	{
+		Value *val = notHanldledUsers.top();
+		notHanldledUsers.pop();
+		for (Value::use_iterator user = val->use_begin(), userEnd = val->use_end();
+			user != userEnd; user++)
+		{
+			assert(!isa<LoadInst>(**user));
+			if (isa<StoreInst>(**user))
+				storesToMemory.push_back(cast<StoreInst>(*user));
+			else
+				notHanldledUsers.push(*user);
+		}
+	}
+	for (std::list<StoreInst *>::iterator iter = storesToMemory.begin(),
+		iterEnd = storesToMemory.end(); iter != iterEnd; iter++)
+		(*iter)->eraseFromParent();
 }
 
 Size3 convertLoopSizesToLaunchParameters(Size3 LoopSizes)
