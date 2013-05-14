@@ -233,7 +233,7 @@ cd $RPM_BUILD_DIR
 %if %gcc
 %patch15 -p1
 %if (%target == debian)
-%patch16 -p1
+#%patch16 -p1
 %endif
 %endif
 %if %netcdf
