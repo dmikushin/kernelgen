@@ -235,6 +235,7 @@ cd $RPM_BUILD_DIR
 %if (%target == debian)
 #%patch16 -p1
 %endif
+%patch17 -p1
 %endif
 %if %netcdf
 %patch18 -p1
@@ -533,10 +534,6 @@ CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS
 GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make clean
 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make
 %endif
-%endif
-%if %gcc
-cd $RPM_BUILD_DIR
-patch -p1 <$RPM_SOURCE_DIR/gcc.build.patch
 %endif
 %if %libffi
 #
