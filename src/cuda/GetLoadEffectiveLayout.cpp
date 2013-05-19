@@ -31,6 +31,7 @@
 #include <map>
 #include <stdlib.h>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 using namespace kernelgen;

@@ -28,6 +28,7 @@
 #include <gelf.h>
 #include <iostream>
 #include <libasfermi.h>
+#include <unistd.h>
 #include <vector>
 
 using namespace kernelgen::runtime;

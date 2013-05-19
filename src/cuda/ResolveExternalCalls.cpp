@@ -29,6 +29,7 @@
 #include <iostream>
 #include <libasfermi.h>
 #include <map>
+#include <unistd.h>
 #include <vector>
 
 #define CUBIN_FUNC_RELOC_TYPE 5
