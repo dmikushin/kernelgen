@@ -73,13 +73,10 @@
 
 #include "kernelgen-version.h"
  
-extern "C"
-{
-	#include "gcc-plugin.h"
-	#include "cp/cp-tree.h"
-	#include "langhooks.h"
-	#include "tree-flow.h"
-}
+#include "gcc-plugin.h"
+#include "cp/cp-tree.h"
+#include "langhooks.h"
+#include "tree-flow.h"
 
 using namespace kernelgen;
 using namespace kernelgen::utils;
