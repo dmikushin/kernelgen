@@ -270,44 +270,14 @@
  .c.o:
  	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
  
-@@ -2792,7 +2795,7 @@
- plugin.o : plugin.c $(PLUGIN_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-    $(DIAGNOSTIC_CORE_H) $(TREE_H) $(TREE_PASS_H) intl.h $(PLUGIN_VERSION_H) $(GGC_H)
+--- a/gcc-snapshot/gcc/main.c	2011-01-03 23:52:22.000000000 +0300
++++ b/gcc-snapshot/gcc/main.c	2013-05-19 06:37:06.360688970 +0400
+@@ -24,6 +24,292 @@
+ #include "diagnostic-core.h"
+ #include "toplev.h"
  
--main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(DIAGNOSTIC_CORE_H)
-+main.o : main.cpp $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(DIAGNOSTIC_CORE_H)
- 
- host-default.o : host-default.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-    hosthooks.h $(HOSTHOOKS_DEF_H)
---- /dev/null	2013-05-17 16:52:46.087759944 +0400
-+++ b/gcc-snapshot/gcc/main.cpp	2013-05-19 03:59:56.464816418 +0400
-@@ -0,0 +1,307 @@
-+/* main.c: defines main() for cc1, cc1plus, etc.
-+   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
++#ifdef __cplusplus
 +
-+This file is part of GCC.
-+
-+GCC is free software; you can redistribute it and/or modify it under
-+the terms of the GNU General Public License as published by the Free
-+Software Foundation; either version 3, or (at your option) any later
-+version.
-+
-+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-+WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+for more details.
-+
-+You should have received a copy of the GNU General Public License
-+along with GCC; see the file COPYING3.  If not see
-+<http://www.gnu.org/licenses/>.  */
-+
-+#include "config.h"
-+#include "system.h"
-+#include "coretypes.h"
-+#include "tm.h"
-+#include "diagnostic-core.h"
-+#include "params.h"
-+#include "toplev.h"
 +#include <stdlib.h>
 +#include <fcntl.h>
 +#include <gelf.h>	
@@ -589,3 +559,16 @@
 +
 +  return rcompiler;
 +}
++
++#else
++
+ int main (int argc, char **argv);
+ 
+ /* We define main() to call toplev_main(), which is defined in toplev.c.
+@@ -35,3 +321,6 @@
+ {
+   return toplev_main (argc, argv);
+ }
++
++#endif // __cplusplus
++
