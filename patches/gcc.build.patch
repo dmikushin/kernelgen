@@ -242,6 +242,15 @@
  
  # -------------------------------
  # Standard autoconf-set variables
+@@ -229,7 +229,7 @@
+ ifneq ($(ENABLE_BUILD_WITH_CXX),yes)
+ COMPILER = $(CC)
+ COMPILER_FLAGS = $(CFLAGS)
+-LINKER = $(CC)
++LINKER = $(CXX)
+ LINKER_FLAGS = $(CFLAGS)
+ else
+ COMPILER = $(CXX)
 @@ -1033,7 +1033,7 @@
  LIBS = @LIBS@ libcommon.a $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) \
  	$(LIBDECNUMBER) $(HOST_LIBS)
