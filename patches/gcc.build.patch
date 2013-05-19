@@ -232,12 +232,11 @@
  
 --- a/gcc-snapshot/gcc/main.c	2011-01-03 23:52:22.000000000 +0300
 +++ b/gcc-snapshot/gcc/main.c	2013-05-19 06:37:06.360688970 +0400
-@@ -24,6 +24,292 @@
+@@ -24,14 +24,284 @@
  #include "diagnostic-core.h"
  #include "toplev.h"
  
-+#ifdef __cplusplus
-+
+-int main (int argc, char **argv);
 +#include <stdlib.h>
 +#include <fcntl.h>
 +#include <gelf.h>	
@@ -247,10 +246,10 @@
 +#include <vector>
 +
 +using namespace std;
-+
-+/* We define main() to call toplev_main(), which is defined in toplev.c.
-+   We do this in a separate file in order to allow the language front-end
-+   to define a different main(), if it so desires.  */
+ 
+ /* We define main() to call toplev_main(), which is defined in toplev.c.
+    We do this in a separate file in order to allow the language front-end
+    to define a different main(), if it so desires.  */
 +int main (int argc, char **argv);
 +
 +/* We define an intermediate buffer to store the dragonegg.so plugin result.
@@ -370,10 +369,11 @@
 +  toplev_main(gargc, gargv);
 +  exit(0);
 +}
-+
-+int
-+main (int argc, char **argv)
-+{
+ 
+ int
+ main (int argc, char **argv)
+ {
+-  return toplev_main (argc, argv);
 +  gargc = argc;
 +  gargv = argv;
 +
@@ -518,17 +518,4 @@
 +  }
 +
 +  return rcompiler;
-+}
-+
-+#else
-+
- int main (int argc, char **argv);
- 
- /* We define main() to call toplev_main(), which is defined in toplev.c.
-@@ -35,3 +321,6 @@
- {
-   return toplev_main (argc, argv);
  }
-+
-+#endif // __cplusplus
-+
