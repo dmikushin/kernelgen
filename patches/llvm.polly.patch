@@ -9,33 +9,6 @@
  LOADABLE_MODULE = 1
  
  include $(LEVEL)/Makefile.config
---- a/llvm/tools/polly/lib/Analysis/Dependences.cpp	(revision 181135)
-+++ b/llvm/tools/polly/lib/Analysis/Dependences.cpp	(working copy)
-@@ -30,6 +30,10 @@
- #include "llvm/Support/Debug.h"
- #include "llvm/Support/CommandLine.h"
- 
-+#define CLOOG_INT_GMP 1
-+#include "cloog/cloog.h"
-+#include "cloog/isl/cloog.h"
-+
- #include <isl/aff.h>
- #include <isl/flow.h>
- #include <isl/map.h>
-@@ -242,6 +246,13 @@
-   return IsParallel;
- }
- 
-+bool Dependences::isParallelFor(const clast_for *f) {
-+  isl_set *Domain = isl_set_from_cloog_domain(f->domain);
-+  assert(Domain && "Cannot access domain of loop");
-+
-+  return isParallelDimension(isl_set_copy(Domain), isl_set_n_dim(Domain));
-+}
-+
- void Dependences::printScop(raw_ostream &OS) const {
-   std::string RAWString, WARString, WAWString;
- 
 --- a/llvm/tools/polly/include/polly/Dependences.h	(revision 181135)
 +++ b/llvm/tools/polly/include/polly/Dependences.h	(working copy)
 @@ -84,6 +84,17 @@
@@ -67,16 +40,260 @@
  IgnoreAliasing("polly-ignore-aliasing",
                 cl::desc("Ignore possible aliasing of the array bases"),
                 cl::Hidden, cl::init(false));
---- a/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(revision 181135)
+--- a/llvm/tools/polly/include/polly/ScopInfo.h	(revision 181135)
++++ b/llvm/tools/polly/include/polly/ScopInfo.h	(working copy)
+@@ -92,9 +92,14 @@
+     MayWrite
+   };
+ 
++  enum RelationType {
++    RelationType_general = 0,
++    RelationType_polly = 1
++  };
++
+ private:
+-  isl_map *AccessRelation;
+   enum AccessType Type;
++  unsigned ElemTypeSize;
+ 
+   const Value *BaseAddr;
+   std::string BaseName;
+@@ -107,6 +112,10 @@
+   /// Updated access relation read from JSCOP file.
+   isl_map *newAccessRelation;
+ 
++  RelationType CurrentRelationType;
++  isl_map *GeneralAccessRelation;
++  isl_map *PollyAccessRelation;
++
+ public:
+   // @brief Create a memory access from an access in LLVM-IR.
+   //
+@@ -132,6 +141,14 @@
+ 
+   isl_map *getAccessRelation() const;
+ 
++  void setCurrentRelationType(RelationType relationType);
++
++  RelationType getCurrentRelationType();
++
++  void setGeneralAccessRelation(isl_map *accessRelation);
++
++  void setPollyAccessRelation(isl_map *accessRelation);
++
+   /// @brief Get an isl string representing this access function.
+   std::string getAccessRelationStr() const;
+ 
+@@ -139,6 +156,8 @@
+ 
+   const std::string &getBaseName() const { return BaseName; }
+ 
++  unsigned getElemTypeSize() const { return ElemTypeSize; }
++
+   const Instruction *getAccessInstruction() const { return Inst; }
+ 
+   /// @brief Get the new access function imported from JSCOP file
+--- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(revision 181135)
++++ b/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(working copy)
+@@ -225,7 +225,10 @@
+ //===----------------------------------------------------------------------===//
+ 
+ MemoryAccess::~MemoryAccess() {
+-  isl_map_free(AccessRelation);
++  if (PollyAccessRelation)
++    isl_map_free(PollyAccessRelation);
++  if (GeneralAccessRelation)
++    isl_map_free(GeneralAccessRelation);
+   isl_map_free(newAccessRelation);
+ }
+ 
+@@ -254,11 +257,43 @@
+ }
+ 
+ isl_map *MemoryAccess::getAccessRelation() const {
+-  return isl_map_copy(AccessRelation);
++  return (CurrentRelationType == RelationType_polly) ?
++    isl_map_copy(PollyAccessRelation) : isl_map_copy(GeneralAccessRelation);
+ }
+ 
++void  MemoryAccess::setCurrentRelationType(MemoryAccess::RelationType relationType)
++{
++  if (relationType == RelationType_polly)
++    assert(PollyAccessRelation &&
++      "PollyAccessRelation was set before setCurrentRelationType");
++  else
++    assert(GeneralAccessRelation && "GeneralAccessRelation was set before setCurrentRelationType");
++  CurrentRelationType = relationType;
++}
++
++MemoryAccess::RelationType MemoryAccess::getCurrentRelationType()
++{
++  return CurrentRelationType;
++}
++
++void MemoryAccess::setGeneralAccessRelation(isl_map *accessRelation)
++{
++  if (GeneralAccessRelation)
++    isl_map_free(GeneralAccessRelation);
++  GeneralAccessRelation = isl_map_copy(accessRelation);
++}
++
++void MemoryAccess::setPollyAccessRelation(isl_map *accessRelation)
++{
++  if (PollyAccessRelation)
++    isl_map_free(PollyAccessRelation);
++  PollyAccessRelation = isl_map_copy(accessRelation);
++}
++
+ std::string MemoryAccess::getAccessRelationStr() const {
+-  return stringFromIslObj(AccessRelation);
++  isl_map *relation = (CurrentRelationType == RelationType_polly) ?
++    PollyAccessRelation:GeneralAccessRelation;
++  return stringFromIslObj(relation);
+ }
+ 
+ isl_map *MemoryAccess::getNewAccessRelation() const {
+@@ -277,7 +312,8 @@
+ 
+ MemoryAccess::MemoryAccess(const IRAccess &Access, const Instruction *AccInst,
+                            ScopStmt *Statement)
+-    : Inst(AccInst) {
++    : Inst(AccInst), GeneralAccessRelation(NULL),
++      CurrentRelationType(RelationType_polly) {
+   newAccessRelation = NULL;
+   Type = Access.isRead() ? Read : Write;
+   statement = Statement;
+@@ -287,7 +323,7 @@
+ 
+   if (!Access.isAffine()) {
+     Type = (Type == Read) ? Read : MayWrite;
+-    AccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
++    PollyAccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
+     return;
+   }
+ 
+@@ -303,33 +339,40 @@
+   isl_int v;
+   isl_int_init(v);
+   isl_int_set_si(v, Access.getElemSizeInBytes());
++  ElemTypeSize = Access.getElemSizeInBytes();
+   Affine = isl_pw_aff_scale_down(Affine, v);
+   isl_int_clear(v);
+ 
+-  AccessRelation = isl_map_from_pw_aff(Affine);
++  PollyAccessRelation = isl_map_from_pw_aff(Affine);
+   isl_space *Space = Statement->getDomainSpace();
+-  AccessRelation = isl_map_set_tuple_id(
+-      AccessRelation, isl_dim_in, isl_space_get_tuple_id(Space, isl_dim_set));
++  PollyAccessRelation = isl_map_set_tuple_id(
++      PollyAccessRelation, isl_dim_in, isl_space_get_tuple_id(Space, isl_dim_set));
+   isl_space_free(Space);
+-  AccessRelation = isl_map_set_tuple_name(AccessRelation, isl_dim_out,
+-                                          getBaseName().c_str());
++  PollyAccessRelation = isl_map_set_tuple_name(
++      PollyAccessRelation, isl_dim_out, getBaseName().c_str());
+ }
+ 
+ void MemoryAccess::realignParams() {
++  assert(CurrentRelationType == RelationType_polly &&
++    "Polly relation type is expected");
+   isl_space *ParamSpace = statement->getParent()->getParamSpace();
+-  AccessRelation = isl_map_align_params(AccessRelation, ParamSpace);
++  PollyAccessRelation = isl_map_align_params(PollyAccessRelation, ParamSpace);
++  if (GeneralAccessRelation)
++    GeneralAccessRelation = isl_map_align_params(GeneralAccessRelation,
++                                                 ParamSpace);
+ }
+ 
+-MemoryAccess::MemoryAccess(const Value *BaseAddress, ScopStmt *Statement) {
++MemoryAccess::MemoryAccess(const Value *BaseAddress, ScopStmt *Statement)
++    : GeneralAccessRelation(NULL), CurrentRelationType(RelationType_polly) {
+   newAccessRelation = NULL;
+   BaseAddr = BaseAddress;
+   Type = Read;
+   statement = Statement;
+ 
+   isl_basic_map *BasicAccessMap = createBasicAccessMap(Statement);
+-  AccessRelation = isl_map_from_basic_map(BasicAccessMap);
++  PollyAccessRelation = isl_map_from_basic_map(BasicAccessMap);
+   isl_space *ParamSpace = Statement->getParent()->getParamSpace();
+-  AccessRelation = isl_map_align_params(AccessRelation, ParamSpace);
++  PollyAccessRelation = isl_map_align_params(PollyAccessRelation, ParamSpace);
+ }
+ 
+ void MemoryAccess::print(raw_ostream &OS) const {
+@@ -352,6 +395,7 @@
+ //     : i0 = o0, i1 = o1, ..., i(X-1) = o(X-1), iX < oX
+ //
+ static isl_map *getEqualAndLarger(isl_space *setDomain) {
++   
+   isl_space *Space = isl_space_map_from_set(setDomain);
+   isl_map *Map = isl_map_universe(isl_space_copy(Space));
+   isl_local_space *MapLocalSpace = isl_local_space_from_space(Space);
+@@ -421,10 +465,14 @@
+ }
+ 
+ bool MemoryAccess::isStrideZero(const isl_map *Schedule) const {
++  assert(CurrentRelationType == RelationType_polly &&
++    "Polly relation type is expected");
+   return isStrideX(Schedule, 0);
+ }
+ 
+ bool MemoryAccess::isStrideOne(const isl_map *Schedule) const {
++  assert(CurrentRelationType == RelationType_polly &&
++    "Polly relation type is expected");
+   return isStrideX(Schedule, 1);
+ }
+ 
+--- a/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	(revision 182229)
++++ b/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	(working copy)
+@@ -73,7 +73,7 @@
+              cl::value_desc("function-name"), cl::ValueRequired, cl::init(""),
+              cl::cat(PollyCategory));
+ 
+-static cl::opt<bool>
++cl::opt<bool>
+ IgnoreAliasing("polly-ignore-aliasing",
+                cl::desc("Ignore possible aliasing of the array bases"),
+                cl::Hidden, cl::init(false), cl::cat(PollyCategory));
+--- a/llvm/tools/polly/lib/Analysis/Dependences.cpp	(revision 182229)
++++ b/llvm/tools/polly/lib/Analysis/Dependences.cpp	(working copy)
+@@ -25,6 +25,11 @@
+ #include "polly/Options.h"
+ #include "polly/ScopInfo.h"
+ #include "polly/Support/GICHelper.h"
++
++#define CLOOG_INT_GMP 1
++#include "cloog/cloog.h"
++#include "cloog/isl/cloog.h"
++
+ #include <isl/aff.h>
+ #include <isl/flow.h>
+ #include <isl/map.h>
+@@ -238,6 +243,13 @@
+   return IsParallel;
+ }
+ 
++bool Dependences::isParallelFor(const clast_for *f) {
++  isl_set *Domain = isl_set_from_cloog_domain(f->domain);
++  assert(Domain && "Cannot access domain of loop");
++
++  return isParallelDimension(isl_set_copy(Domain), isl_set_n_dim(Domain));
++}
++
+ void Dependences::printScop(raw_ostream &OS) const {
+   std::string RAWString, WARString, WAWString;
+ 
+--- a/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(revision 182229)
 +++ b/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(working copy)
-@@ -40,6 +40,7 @@
- #include "llvm/ADT/SetVector.h"
+@@ -42,6 +42,7 @@
  #include "llvm/ADT/PostOrderIterator.h"
  #include "llvm/Analysis/LoopInfo.h"
-+#include "llvm/Analysis/Verifier.h"
  #include "llvm/Analysis/ScalarEvolutionExpander.h"
- #include "llvm/Support/CommandLine.h"
++#include "llvm/Analysis/Verifier.h"
  #include "llvm/Support/Debug.h"
+ #include "llvm/IR/DataLayout.h"
+ #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 @@ -54,9 +55,11 @@
  
  #include <vector>
@@ -89,8 +306,8 @@
  
  struct isl_set;
  
-@@ -77,6 +80,20 @@
-     cl::Hidden, cl::init(""));
+@@ -78,6 +81,20 @@
+           cl::init(""), cl::cat(PollyCategory));
  #endif /* GPU_CODEGEN */
  
 +cl::opt<bool>
@@ -110,7 +327,7 @@
  typedef DenseMap<const char *, Value *> CharMapT;
  
  /// Class to generate LLVM-IR that calculates the value of a clast_expr.
-@@ -166,6 +183,59 @@
+@@ -167,6 +184,59 @@
    llvm_unreachable("Unknown clast binary expression type");
  }
  
@@ -170,7 +387,7 @@
  Value *ClastExpCodeGen::codegen(const clast_reduction *r, Type *Ty) {
    assert((r->type == clast_red_min || r->type == clast_red_max ||
            r->type == clast_red_sum) && "Clast reduction type not supported");
-@@ -216,6 +286,24 @@
+@@ -217,6 +287,24 @@
  public:
    const std::vector<std::string> &getParallelLoops();
  
@@ -195,8 +412,8 @@
  private:
    // The Scop we code generate.
    Scop *S;
-@@ -317,6 +405,228 @@
-                   unsigned &LoopDepth, unsigned &NonPLoopDepth);
+@@ -319,6 +407,228 @@
+                                     unsigned &NonPLoopDepth);
  #endif /* GPU_CODEGEN */
  
 +  void createCUDAGridParamsAndPosInGridBlocks() {
@@ -424,7 +641,7 @@
    /// @brief Check if a loop is parallel
    ///
    /// Detect if a clast_for loop can be executed in parallel.
-@@ -870,6 +1180,14 @@
+@@ -875,6 +1185,14 @@
    }
  #endif
  
@@ -439,7 +656,19 @@
    codegenForSequential(f);
  }
  
-@@ -983,6 +1301,52 @@
+@@ -979,6 +1297,11 @@
+   parallelCodeGeneration = false;
+ 
+   const clast_stmt *stmt = (const clast_stmt *)r;
++
++  if(CUDA && ((goodNestedParallelLoopsCount =
++    GoodNestedParallelLoops(stmt->next)) > 0) )
++    createCUDAGridParamsAndPosInGridBlocks();
++
+   if (stmt->next)
+     codegen(stmt->next);
+ }
+@@ -995,6 +1318,52 @@
  
    CodeGeneration() : ScopPass(ID) {}
  
@@ -492,7 +721,7 @@
    bool runOnScop(Scop &S) {
      ParallelLoops.clear();
  
-@@ -991,6 +1355,9 @@
+@@ -1003,6 +1372,9 @@
  
      simplifyRegion(&S, this);
  
@@ -502,7 +731,7 @@
      BasicBlock *StartBlock = executeScopConditionally(S, this);
  
      IRBuilder<> Builder(StartBlock->begin());
-@@ -1002,6 +1369,10 @@
+@@ -1014,6 +1386,10 @@
      ParallelLoops.insert(ParallelLoops.begin(),
                           CodeGen.getParallelLoops().begin(),
                           CodeGen.getParallelLoops().end());
@@ -513,222 +742,3 @@
      return true;
    }
  
---- a/llvm/tools/polly/include/polly/ScopInfo.h	(revision 181135)
-+++ b/llvm/tools/polly/include/polly/ScopInfo.h	(working copy)
-@@ -92,9 +92,14 @@
-     MayWrite
-   };
- 
-+  enum RelationType {
-+    RelationType_general = 0,
-+    RelationType_polly = 1
-+  };
-+
- private:
--  isl_map *AccessRelation;
-   enum AccessType Type;
-+  unsigned ElemTypeSize;
- 
-   const Value *BaseAddr;
-   std::string BaseName;
-@@ -107,6 +112,10 @@
-   /// Updated access relation read from JSCOP file.
-   isl_map *newAccessRelation;
- 
-+  RelationType CurrentRelationType;
-+  isl_map *GeneralAccessRelation;
-+  isl_map *PollyAccessRelation;
-+
- public:
-   // @brief Create a memory access from an access in LLVM-IR.
-   //
-@@ -132,6 +141,14 @@
- 
-   isl_map *getAccessRelation() const;
- 
-+  void setCurrentRelationType(RelationType relationType);
-+
-+  RelationType getCurrentRelationType();
-+
-+  void setGeneralAccessRelation(isl_map *accessRelation);
-+
-+  void setPollyAccessRelation(isl_map *accessRelation);
-+
-   /// @brief Get an isl string representing this access function.
-   std::string getAccessRelationStr() const;
- 
-@@ -139,6 +156,8 @@
- 
-   const std::string &getBaseName() const { return BaseName; }
- 
-+  unsigned getElemTypeSize() const { return ElemTypeSize; }
-+
-   const Instruction *getAccessInstruction() const { return Inst; }
- 
-   /// @brief Get the new access function imported from JSCOP file
---- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(revision 181135)
-+++ b/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(working copy)
-@@ -225,7 +225,10 @@
- //===----------------------------------------------------------------------===//
- 
- MemoryAccess::~MemoryAccess() {
--  isl_map_free(AccessRelation);
-+  if (PollyAccessRelation)
-+    isl_map_free(PollyAccessRelation);
-+  if (GeneralAccessRelation)
-+    isl_map_free(GeneralAccessRelation);
-   isl_map_free(newAccessRelation);
- }
- 
-@@ -254,11 +257,43 @@
- }
- 
- isl_map *MemoryAccess::getAccessRelation() const {
--  return isl_map_copy(AccessRelation);
-+  return (CurrentRelationType == RelationType_polly) ?
-+    isl_map_copy(PollyAccessRelation) : isl_map_copy(GeneralAccessRelation);
- }
- 
-+void  MemoryAccess::setCurrentRelationType(MemoryAccess::RelationType relationType)
-+{
-+  if (relationType == RelationType_polly)
-+    assert(PollyAccessRelation &&
-+      "PollyAccessRelation was set before setCurrentRelationType");
-+  else
-+    assert(GeneralAccessRelation && "GeneralAccessRelation was set before setCurrentRelationType");
-+  CurrentRelationType = relationType;
-+}
-+
-+MemoryAccess::RelationType MemoryAccess::getCurrentRelationType()
-+{
-+  return CurrentRelationType;
-+}
-+
-+void MemoryAccess::setGeneralAccessRelation(isl_map *accessRelation)
-+{
-+  if (GeneralAccessRelation)
-+    isl_map_free(GeneralAccessRelation);
-+  GeneralAccessRelation = isl_map_copy(accessRelation);
-+}
-+
-+void MemoryAccess::setPollyAccessRelation(isl_map *accessRelation)
-+{
-+  if (PollyAccessRelation)
-+    isl_map_free(PollyAccessRelation);
-+  PollyAccessRelation = isl_map_copy(accessRelation);
-+}
-+
- std::string MemoryAccess::getAccessRelationStr() const {
--  return stringFromIslObj(AccessRelation);
-+  isl_map *relation = (CurrentRelationType == RelationType_polly) ?
-+    PollyAccessRelation:GeneralAccessRelation;
-+  return stringFromIslObj(relation);
- }
- 
- isl_map *MemoryAccess::getNewAccessRelation() const {
-@@ -277,7 +312,8 @@
- 
- MemoryAccess::MemoryAccess(const IRAccess &Access, const Instruction *AccInst,
-                            ScopStmt *Statement)
--    : Inst(AccInst) {
-+    : Inst(AccInst), GeneralAccessRelation(NULL),
-+      CurrentRelationType(RelationType_polly) {
-   newAccessRelation = NULL;
-   Type = Access.isRead() ? Read : Write;
-   statement = Statement;
-@@ -287,7 +323,7 @@
- 
-   if (!Access.isAffine()) {
-     Type = (Type == Read) ? Read : MayWrite;
--    AccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
-+    PollyAccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
-     return;
-   }
- 
-@@ -303,33 +339,40 @@
-   isl_int v;
-   isl_int_init(v);
-   isl_int_set_si(v, Access.getElemSizeInBytes());
-+  ElemTypeSize = Access.getElemSizeInBytes();
-   Affine = isl_pw_aff_scale_down(Affine, v);
-   isl_int_clear(v);
- 
--  AccessRelation = isl_map_from_pw_aff(Affine);
-+  PollyAccessRelation = isl_map_from_pw_aff(Affine);
-   isl_space *Space = Statement->getDomainSpace();
--  AccessRelation = isl_map_set_tuple_id(
--      AccessRelation, isl_dim_in, isl_space_get_tuple_id(Space, isl_dim_set));
-+  PollyAccessRelation = isl_map_set_tuple_id(
-+      PollyAccessRelation, isl_dim_in, isl_space_get_tuple_id(Space, isl_dim_set));
-   isl_space_free(Space);
--  AccessRelation = isl_map_set_tuple_name(AccessRelation, isl_dim_out,
--                                          getBaseName().c_str());
-+  PollyAccessRelation = isl_map_set_tuple_name(
-+      PollyAccessRelation, isl_dim_out, getBaseName().c_str());
- }
- 
- void MemoryAccess::realignParams() {
-+  assert(CurrentRelationType == RelationType_polly &&
-+    "Polly relation type is expected");
-   isl_space *ParamSpace = statement->getParent()->getParamSpace();
--  AccessRelation = isl_map_align_params(AccessRelation, ParamSpace);
-+  PollyAccessRelation = isl_map_align_params(PollyAccessRelation, ParamSpace);
-+  if (GeneralAccessRelation)
-+    GeneralAccessRelation = isl_map_align_params(GeneralAccessRelation,
-+                                                 ParamSpace);
- }
- 
--MemoryAccess::MemoryAccess(const Value *BaseAddress, ScopStmt *Statement) {
-+MemoryAccess::MemoryAccess(const Value *BaseAddress, ScopStmt *Statement)
-+    : GeneralAccessRelation(NULL), CurrentRelationType(RelationType_polly) {
-   newAccessRelation = NULL;
-   BaseAddr = BaseAddress;
-   Type = Read;
-   statement = Statement;
- 
-   isl_basic_map *BasicAccessMap = createBasicAccessMap(Statement);
--  AccessRelation = isl_map_from_basic_map(BasicAccessMap);
-+  PollyAccessRelation = isl_map_from_basic_map(BasicAccessMap);
-   isl_space *ParamSpace = Statement->getParent()->getParamSpace();
--  AccessRelation = isl_map_align_params(AccessRelation, ParamSpace);
-+  PollyAccessRelation = isl_map_align_params(PollyAccessRelation, ParamSpace);
- }
- 
- void MemoryAccess::print(raw_ostream &OS) const {
-@@ -352,6 +395,7 @@
- //     : i0 = o0, i1 = o1, ..., i(X-1) = o(X-1), iX < oX
- //
- static isl_map *getEqualAndLarger(isl_space *setDomain) {
-+   
-   isl_space *Space = isl_space_map_from_set(setDomain);
-   isl_map *Map = isl_map_universe(isl_space_copy(Space));
-   isl_local_space *MapLocalSpace = isl_local_space_from_space(Space);
-@@ -421,10 +465,14 @@
- }
- 
- bool MemoryAccess::isStrideZero(const isl_map *Schedule) const {
-+  assert(CurrentRelationType == RelationType_polly &&
-+    "Polly relation type is expected");
-   return isStrideX(Schedule, 0);
- }
- 
- bool MemoryAccess::isStrideOne(const isl_map *Schedule) const {
-+  assert(CurrentRelationType == RelationType_polly &&
-+    "Polly relation type is expected");
-   return isStrideX(Schedule, 1);
- }
- 
---- a/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(revision 181135)
-+++ b/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(working copy)
-@@ -967,6 +1285,11 @@
-   parallelCodeGeneration = false;
- 
-   const clast_stmt *stmt = (const clast_stmt *)r;
-+
-+  if(CUDA && ((goodNestedParallelLoopsCount =
-+    GoodNestedParallelLoops(stmt->next)) > 0) )
-+    createCUDAGridParamsAndPosInGridBlocks();
-+
-   if (stmt->next)
-     codegen(stmt->next);
- }
