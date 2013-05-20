@@ -1,14 +1,3 @@
---- a/llvm/tools/clang/lib/AST/ASTContext.cpp	(revision 157736)
-+++ b/llvm/tools/clang/lib/AST/ASTContext.cpp	(working copy)
-@@ -6548,6 +6548,8 @@
- }
- 
- GVALinkage ASTContext::GetGVALinkageForFunction(const FunctionDecl *FD) {
-+  return GVA_StrongExternal;
-+
-   GVALinkage External = GVA_StrongExternal;
- 
-   Linkage L = FD->getLinkage();
 --- a/llvm/tools/clang/lib/CodeGen/TargetInfo.cpp	(revision 181135)
 +++ b/llvm/tools/clang/lib/CodeGen/TargetInfo.cpp	(working copy)
 @@ -4059,7 +4059,25 @@
@@ -38,3 +27,14 @@
  }
  
  llvm::Value *NVPTXABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
+--- a/llvm/tools/clang/lib/AST/ASTContext.cpp	(revision 182229)
++++ b/llvm/tools/clang/lib/AST/ASTContext.cpp	(working copy)
+@@ -7789,6 +7789,8 @@
+ }
+ 
+ GVALinkage ASTContext::GetGVALinkageForFunction(const FunctionDecl *FD) {
++  return GVA_StrongExternal;
++
+   if (!FD->isExternallyVisible())
+     return GVA_Internal;
+ 
