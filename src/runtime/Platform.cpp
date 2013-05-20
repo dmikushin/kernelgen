@@ -28,12 +28,12 @@ TargetPlatforms platforms;
 TargetPlatform::TargetPlatform(const Target* target, TargetMachine* machine,
 		StringRef triple) : target(target), machine(machine), triple(triple)
 {
-	const MCAsmInfo *MAI = target->createMCAsmInfo(triple);
-	if (!MAI)
-		THROW("Unable to create target asm info");
 	const MCRegisterInfo *MRI = target->createMCRegInfo(triple);
 	if (!MRI)
-		THROW("Unable to create target register info!");
+		THROW("Unable to create target register info");
+	const MCAsmInfo *MAI = target->createMCAsmInfo(*MRI, triple);
+	if (!MAI)
+		THROW("Unable to create target asm info");
 	mccontext.reset(new MCContext(*MAI, *MRI, 0));
 	mangler.reset(new Mangler(*mccontext.get(), *machine->getDataLayout()));
 }
