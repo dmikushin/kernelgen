@@ -51,6 +51,8 @@
 %define mhash KERNELGEN_ENABLE_MHASH
 %define glibc KERNELGEN_ENABLE_GLIBC
 %define glibc32 KERNELGEN_ENABLE_GLIBC32
+%define db KERNELGEN_ENABLE_DB
+%define cobol KERNELGEN_ENABLE_COBOL
 %define kernelgen KERNELGEN_ENABLE_KERNELGEN
 
 %if (%target == "fedora")
@@ -80,7 +82,7 @@
 AutoReq: 0
 
 Name:           kernelgen
-Version:        0.2
+Version:        0.23
 Release:        %{release}
 Summary:        Compiler with automatic generation of GPU kernels from the regular source code
 Patch0:         dragonegg.ptx.patch
@@ -99,9 +101,7 @@ Patch12:	cloog.checkout.patch
 Patch13:        libelf.patch
 Patch14:	glibc.patch
 Patch15:	gcc.patch
-Patch16:        gcc-multiarch.patch
-Patch17:        gcc.build.patch
-Patch18:        netcdf.patch
+Patch16:        netcdf.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -193,7 +193,16 @@ tar -xf $RPM_SOURCE_DIR/KERNELGEN_MHASH_SNAP.tar.gz
 rm -rf $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 tar -xf $RPM_SOURCE_DIR/KERNELGEN_GLIBC_SNAP.tar.gz
 %endif
+%if %db
+rm -rf $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
+tar -xf $RPM_SOURCE_DIR/KERNELGEN_DB_SNAP.tar.gz
 %endif
+%if %cobol
+rm -rf $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP
+tar -xf $RPM_SOURCE_DIR/KERNELGEN_COBOL_SNAP.tar.gz
+%endif
+%endif
+
 
 
 #
@@ -202,7 +211,6 @@ tar -xf $RPM_SOURCE_DIR/KERNELGEN_GLIBC_SNAP.tar.gz
 %if %fullrepack
 cd $RPM_BUILD_DIR
 %if %dragonegg
-#%patch0 -p1
 %patch1 -p1
 %endif
 %if %llvm
@@ -232,13 +240,9 @@ cd $RPM_BUILD_DIR
 %endif
 %if %gcc
 %patch15 -p1
-%if (%target == debian)
-#%patch16 -p1
-%endif
-%patch17 -p1
 %endif
 %if %netcdf
-%patch18 -p1
+%patch16 -p1
 %endif
 %endif
 
@@ -391,6 +395,22 @@ cd build-32
 CC="$CC -m32 $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32 --host=i686-linux-gnu --build=i686-linux-gnu CFLAGS="$CFLAGS -march=i686" --enable-obsolete-rpc
 echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32" >>config.make
 %endif
+%endif
+%if %db
+#
+# Configure Berkeley DB
+#
+cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
+mkdir build
+KERNELGEN_FALLBACK=1 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../dist/configure --prefix=$RPM_BUILD_ROOT/%{prefix}
+%endif
+%if %cobol
+#
+# Configure COBOL
+#
+cd $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP
+mkdir build
+KERNELGEN_FALLBACK=1 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --program-prefix=kernelgen- --with-cc=kernelgen-gcc --with-gnu-ld --with-db=$RPM_INSTALL_PREFIX/%{prefix}/lib/libdb.a --prefix=$RPM_BUILD_ROOT/%{prefix}
 %endif
 %endif
 %if %kernelgen
@@ -576,6 +596,29 @@ CC="$CC -m32 $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LD
 %endif
 %endif
 %endif
+%if db
+#
+# Build Berkeley DB.
+#
+cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build
+%if %debug
+make -j%{njobs} CFLAGS="-g -O0"
+%else
+make -j%{njobs}
+%endif
+%endif
+%if cobol
+#
+# Build COBOL
+#
+cd $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP/build
+%if %debug
+make -j%{njobs} CFLAGS="-g -O0"
+%else
+make -j%{njobs}
+%endif
+%endif
+%endif
 %endif
 %if %kernelgen
 #
@@ -701,6 +744,20 @@ CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
 CC="$CC $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
+%endif
+%if %db
+#
+# Install DB
+#
+cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build
+CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%endif
+%if %cobol
+#
+# Install COBOL
+#
+cd $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP/build
+CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 
 

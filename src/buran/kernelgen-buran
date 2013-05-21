@@ -73,9 +73,13 @@ my($kernelgen_tests) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/sv
 my($openmpi) = "http://svn.open-mpi.org/svn/ompi/trunk";
 my($glibc_snapshot) = "glibc-2.17";
 my($glibc) = "http://ftp.gnu.org/gnu/glibc/$glibc_snapshot.tar.gz";
+my($db_snapshot) = "db-5.3.21";
+my($db) = "http://download.oracle.com/berkeley-db/$db_snapshot.tar.gz";
+my($cobol_snapshot) = "open-cobol-1.1";
+my($cobol) = "ftp://ftp.uwsg.indiana.edu/pub/FreeBSD/ports/distfiles/$cobol_snapshot.tar.gz";
 
-my($old_llvm_rev) = 182229;
-my($new_llvm_rev) = 182229;
+my($old_llvm_rev) = 182420;
+my($new_llvm_rev) = 182420;
 my($openmpi_rev) = 27216;
 my($kernelgen_rev) = -1; # 1769;
 
@@ -119,6 +123,7 @@ sub build_and_test_kernelgen
 	my($mhash_enable) = 0;
 	my($glibc_enable) = 0;
 	my($glibc32_enable) = 1;
+	my($cobol_enable) = 0;
 	my($kernelgen_enable) = 0;
 	my($COMPILERS) = "";
 	switch ($bootstrap_mode)
@@ -143,6 +148,8 @@ sub build_and_test_kernelgen
 			$libffi_enable = 0;
 			$mhash_enable = 0;
 			$glibc_enable = 0;
+			$db_enable = 0;
+			$cobol_enable = 0;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -167,6 +174,8 @@ sub build_and_test_kernelgen
 			$libffi_enable = 0;
 			$mhash_enable = 0;
 			$glibc_enable = 0;
+			$db_enable = 0;
+			$cobol_enable = 0;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -190,6 +199,8 @@ sub build_and_test_kernelgen
 			$libffi_enable = 0;
 			$mhash_enable = 0;
 			$glibc_enable = 0;
+			$db_enable = 0;
+			$cobol_enable = 0;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -213,6 +224,8 @@ sub build_and_test_kernelgen
 			$libffi_enable = 1;
 			$mhash_enable = 1;
 			$glibc_enable = 0;
+			$db_enable = 0;
+			$cobol_enable = 0;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -237,6 +250,8 @@ sub build_and_test_kernelgen
                         $libffi_enable = 1;
                         $mhash_enable = 1;
                         $glibc_enable = 1;
+			$db_enable = 1;
+			$cobol_enable = 0;
                         $kernelgen_enable = 0;
 
                         $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
@@ -261,6 +276,8 @@ sub build_and_test_kernelgen
 			$libffi_enable = 1;
 			$mhash_enable = 1;
 			$glibc_enable = 1;
+			$db_enable = 1;
+			$cobol_enable = 1;
 			$kernelgen_enable = 1;
 
 			my($LDFLAGS64) = "";
@@ -710,6 +727,26 @@ sub build_and_test_kernelgen
 	}
 
 	#
+	# Get the source code of Berkeley DB.
+	#
+	if (! -e "$SOURCES/$db_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $db";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of COBOL.
+	#
+	if (! -e "$SOURCES/$cobol_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $cobol";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
 	# Get the source code of LibFFI.
 	#
 	if (! -e "$SOURCES/$libffi_snapshot.tar.gz")
@@ -774,6 +811,8 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_LIBFFI_SNAP          - The base name of archive with LibFFI source code
 	#   KERNELGEN_MHASH_SNAP           - The base name of archive with MHASH source code
 	#   KERNELGEN_GLIBC_SNAP           - The base name of archive with GLIBC source code
+	#   KERNELGEN_DB_SNAP              - The base name of archive with Berkeley DB source code
+	#   KERNELGEN_COBOL_SNAP           - The base name of archive with COBOL source code
 	#
 	#   KERNELGEN_ENABLE_CLOOG         - Enable build of CLooG
 	#   KERNELGEN_ENABLE_LLVM          - Enable build of LLVM
@@ -790,6 +829,8 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_ENABLE_MHASH         - Enable build of MHASH
 	#   KERNELGEN_ENABLE_GLIBC         - Enable build of GLIBC
 	#   KERNELGEN_ENABLE_GLIBC32       - Enable 32-bit build of GLIBC
+	#   KERNELGEN_ENABLE_DB            - Enable build of Berkeley DB
+	#   KERNELGEN_ENABLE_COBOL         - Enable build of COBOL
 	#   KERNELGEN_ENABLE_KERNELGEN     - Enable build of KernelGen
 	#
 	# Write down the final spec file.
@@ -820,6 +861,8 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_LIBFFI_SNAP/$libffi_snapshot/g;
 		$line =~ s/KERNELGEN_MHASH_SNAP/$mhash_snapshot/g;
 		$line =~ s/KERNELGEN_GLIBC_SNAP/$glibc_snapshot/g;
+		$line =~ s/KERNELGEN_DB_SNAP/$db_snapshot/g;
+		$line =~ s/KERNELGEN_COBOL_SNAP/$cobol_snapshot/g;
 
 		$line =~ s/KERNELGEN_ENABLE_CLOOG/$cloog_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_LLVM/$llvm_enable/g;
@@ -837,6 +880,8 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_MHASH/$mhash_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_GLIBC32/$glibc32_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_GLIBC/$glibc_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_DB/$db_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_COBOL/$cobol_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_KERNELGEN/$kernelgen_enable/g;
 
 		print SPEC "$line\n";
@@ -1016,7 +1061,7 @@ switch ($target)
 				exit($result);
 			}
 		}
-		if (! -e "$CHROOT/$prefix/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/ld-linux-x86-64.so.2")
+		if (! -e "$CHROOT/$prefix/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2")
 		{
 			$result = build_and_test_kernelgen("llvm+glibc", $start);
 			if ($result)
