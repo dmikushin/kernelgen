@@ -402,6 +402,7 @@ echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/3
 #
 cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
 mkdir build
+cd build/
 KERNELGEN_FALLBACK=1 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../dist/configure --prefix=$RPM_BUILD_ROOT/%{prefix}
 %endif
 %if %cobol
@@ -410,6 +411,7 @@ KERNELGEN_FALLBACK=1 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS6
 #
 cd $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP
 mkdir build
+cd build/
 KERNELGEN_FALLBACK=1 CC="$CC $LDFLAGS64" CXX="$CXX $LDFLAGS64" FC="$FC $LDFLAGS64" F77="$F77 $LDFLAGS64" ../configure --program-prefix=kernelgen- --with-cc=kernelgen-gcc --with-gnu-ld --with-db=$RPM_INSTALL_PREFIX/%{prefix}/lib/libdb.a --prefix=$RPM_BUILD_ROOT/%{prefix}
 %endif
 %endif
