@@ -225,22 +225,22 @@ cd $RPM_BUILD_DIR
 %patch8 -p1
 %endif
 %if %binutils
-%patch10 -p1
+%patch9 -p1
 %endif
 %if %openmpi
-%patch11 -p1
+%patch10 -p1
 %endif
 %if %libelf
-%patch12 -p1
+%patch11 -p1
 %endif
 %if %glibc
-%patch13 -p1
+%patch12 -p1
 %endif
 %if %gcc
-%patch14 -p1
+%patch13 -p1
 %endif
 %if %netcdf
-%patch15 -p1
+%patch14 -p1
 %endif
 %endif
 
