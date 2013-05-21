@@ -607,7 +607,6 @@ make -j%{njobs} CFLAGS="-g -O0"
 make -j%{njobs}
 %endif
 %endif
-%endif
 %if %cobol
 #
 # Build COBOL
