@@ -51,7 +51,7 @@
 %define mhash KERNELGEN_ENABLE_MHASH
 %define glibc KERNELGEN_ENABLE_GLIBC
 %define glibc32 KERNELGEN_ENABLE_GLIBC32
-%define db KERNELGEN_ENABLE_DB
+%define db_enable KERNELGEN_ENABLE_DB
 %define cobol KERNELGEN_ENABLE_COBOL
 %define kernelgen KERNELGEN_ENABLE_KERNELGEN
 
@@ -193,7 +193,7 @@ tar -xf $RPM_SOURCE_DIR/KERNELGEN_MHASH_SNAP.tar.gz
 rm -rf $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 tar -xf $RPM_SOURCE_DIR/KERNELGEN_GLIBC_SNAP.tar.gz
 %endif
-%if %db
+%if %db_enable
 rm -rf $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
 tar -xf $RPM_SOURCE_DIR/KERNELGEN_DB_SNAP.tar.gz
 %endif
@@ -396,7 +396,7 @@ CC="$CC -m32 $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LD
 echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.6.4/32" >>config.make
 %endif
 %endif
-%if %db
+%if %db_enable
 #
 # Configure Berkeley DB
 #
@@ -745,7 +745,7 @@ cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
 CC="$CC $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 %endif
-%if %db
+%if %db_enable
 #
 # Install DB
 #
