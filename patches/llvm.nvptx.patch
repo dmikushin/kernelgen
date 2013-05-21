@@ -122,23 +122,6 @@
    std::string getTargetName() const { return TargetName; }
  
    unsigned getPTXVersion() const { return PTXVersion; }
---- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(revision 181135)
-+++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(working copy)
-@@ -12,12 +12,13 @@
- //
- //===----------------------------------------------------------------------===//
- 
-+#define GET_SUBTARGETINFO_ENUM
- #include "NVPTXAsmPrinter.h"
- #include "MCTargetDesc/NVPTXMCAsmInfo.h"
- #include "NVPTX.h"
- #include "NVPTXInstrInfo.h"
- #include "NVPTXNumRegisters.h"
--#include "NVPTXRegisterInfo.h"
-+#include "NVPTXGenSubtargetInfo.inc"
- #include "NVPTXTargetMachine.h"
- #include "NVPTXUtilities.h"
- #include "cl_common_defines.h"
 --- a/llvm/lib/Target/NVPTX/NVPTX.h	(revision 181135)
 +++ b/llvm/lib/Target/NVPTX/NVPTX.h	(working copy)
 @@ -69,11 +69,6 @@
