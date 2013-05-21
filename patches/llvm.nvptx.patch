@@ -72,100 +72,6 @@
    default:
      llvm_unreachable("Custom lowering not defined for operation");
    }
---- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(revision 181135)
-+++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(working copy)
-@@ -405,6 +405,15 @@
-   SmallString<128> Str;
-   raw_svector_ostream O(Str);
- 
-+  // Emit the global Fake Stack Object
-+  const MachineFrameInfo *MFI = MF->getFrameInfo();
-+  int NumBytes = (int) MFI->getStackSize();
-+  if (NumBytes) {
-+    O << ".visible .global .align " << MFI->getMaxAlignment() << " .b8 \t"
-+        << DEPOTNAME
-+        << getFunctionNumber() << "[" << NumBytes << "];\n\n";
-+  }
-+
-   // Set up
-   MRI = &MF->getRegInfo();
-   F = MF->getFunction();
-@@ -439,6 +448,12 @@
-   raw_svector_ostream O(Str);
-   emitDemotedVars(MF->getFunction(), O);
-   OutStreamer.EmitRawText(O.str());
-+
-+  // For KernelGen main kernel - emit membar instructions,
-+  // to be replaced by control code injection at CUBIN level.
-+  if (CurrentFnSym->getName() == "__kernelgen_main")
-+    for (int i = 0; i < 6; i++)
-+      OutStreamer.EmitRawText(StringRef("\tmembar.sys;\n"));
- }
- 
- void NVPTXAsmPrinter::EmitFunctionBodyEnd() {
-@@ -1038,6 +1053,8 @@
- void NVPTXAsmPrinter::emitLinkageDirective(const GlobalValue *V,
-                                            raw_ostream &O) {
-   if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA) {
-+    if (V->hasWeakLinkage() || V->hasLinkOnceLinkage())
-+      O << ".weak ";
-     if (V->hasExternalLinkage()) {
-       if (isa<GlobalVariable>(V)) {
-         const GlobalVariable *GVar = cast<GlobalVariable>(V);
-@@ -1206,6 +1223,7 @@
-     // Ptx allows variable initilization only for constant and global state
-     // spaces.
-     if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
-+         (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
-          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
-          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST)) &&
-         GVar->hasInitializer()) {
-@@ -1230,6 +1248,7 @@
-       // Ptx allows variable initilization only for constant and
-       // global state spaces.
-       if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
-+           (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
-            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
-            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST)) &&
-           GVar->hasInitializer()) {
-@@ -1298,6 +1317,7 @@
-     O << "local";
-     break;
-   case llvm::ADDRESS_SPACE_GLOBAL:
-+  case llvm::ADDRESS_SPACE_GENERIC:
-     O << "global";
-     break;
-   case llvm::ADDRESS_SPACE_CONST:
-@@ -1661,8 +1681,6 @@
-   const MachineFrameInfo *MFI = MF.getFrameInfo();
-   int NumBytes = (int) MFI->getStackSize();
-   if (NumBytes) {
--    O << "\t.local .align " << MFI->getMaxAlignment() << " .b8 \t" << DEPOTNAME
--      << getFunctionNumber() << "[" << NumBytes << "];\n";
-     if (nvptxSubtarget.is64Bit()) {
-       O << "\t.reg .b64 \t%SP;\n";
-       O << "\t.reg .b64 \t%SPL;\n";
-@@ -1888,16 +1906,14 @@
-   case Type::ArrayTyID:
-   case Type::VectorTyID:
-   case Type::StructTyID: {
--    if (isa<ConstantArray>(CPV) || isa<ConstantVector>(CPV) ||
--        isa<ConstantStruct>(CPV)) {
-+    if (isa<ConstantAggregateZero>(CPV))
-+      aggBuffer->addZeros(Bytes);
-+    else {
-       int ElementSize = TD->getTypeAllocSize(CPV->getType());
-       bufferAggregateConstant(CPV, aggBuffer);
-       if (Bytes > ElementSize)
-         aggBuffer->addZeros(Bytes - ElementSize);
--    } else if (isa<ConstantAggregateZero>(CPV))
--      aggBuffer->addZeros(Bytes);
--    else
--      llvm_unreachable("Unexpected Constant type");
-+    }
-     break;
-   }
- 
 --- a/llvm/lib/Target/NVPTX/NVPTX.td	(revision 181135)
 +++ b/llvm/lib/Target/NVPTX/NVPTX.td	(working copy)
 @@ -42,6 +42,18 @@
@@ -301,8 +207,6 @@
 +    DrvInterface = NVPTX::NVCL;
 +  }
  }
-Index: /home/dmikushin/rpmbuild/BUILD/llvm/lib/CodeGen/LexicalScopes.cpp
-===================================================================
 --- a/llvm/lib/CodeGen/LexicalScopes.cpp	(revision 181135)
 +++ b/llvm/lib/CodeGen/LexicalScopes.cpp	(working copy)
 @@ -201,7 +201,8 @@
@@ -315,3 +219,112 @@ Index: /home/dmikushin/rpmbuild/BUILD/llvm/lib/CodeGen/LexicalScopes.cpp
    }
    AScope = new LexicalScope(Parent, DIDescriptor(N), NULL, true);
    AbstractScopeMap[N] = AScope;
+--- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(revision 182420)
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(working copy)
+@@ -12,12 +12,13 @@
+ //
+ //===----------------------------------------------------------------------===//
+ 
++#define GET_SUBTARGETINFO_ENUM
+ #include "NVPTXAsmPrinter.h"
+ #include "MCTargetDesc/NVPTXMCAsmInfo.h"
+ #include "NVPTX.h"
+ #include "NVPTXInstrInfo.h"
+ #include "NVPTXNumRegisters.h"
+-#include "NVPTXRegisterInfo.h"
++#include "NVPTXGenSubtargetInfo.inc"
+ #include "NVPTXTargetMachine.h"
+ #include "NVPTXUtilities.h"
+ #include "cl_common_defines.h"
+@@ -411,6 +412,15 @@
+     emitGlobals(*MF->getFunction()->getParent());
+     GlobalsEmitted = true;
+   }
++
++  // Emit the global Fake Stack Object
++  const MachineFrameInfo *MFI = MF->getFrameInfo();
++  int NumBytes = (int) MFI->getStackSize();
++  if (NumBytes) {
++    O << ".visible .global .align " << MFI->getMaxAlignment() << " .b8 \t"
++        << DEPOTNAME
++        << getFunctionNumber() << "[" << NumBytes << "];\n\n";
++  }
+   
+   // Set up
+   MRI = &MF->getRegInfo();
+@@ -446,6 +456,12 @@
+   raw_svector_ostream O(Str);
+   emitDemotedVars(MF->getFunction(), O);
+   OutStreamer.EmitRawText(O.str());
++
++  // For KernelGen main kernel - emit membar instructions,
++  // to be replaced by control code injection at CUBIN level.
++  if (CurrentFnSym->getName() == "__kernelgen_main")
++    for (int i = 0; i < 6; i++)
++      OutStreamer.EmitRawText(StringRef("\tmembar.sys;\n"));
+ }
+ 
+ void NVPTXAsmPrinter::EmitFunctionBodyEnd() {
+@@ -1054,6 +1070,8 @@
+ void NVPTXAsmPrinter::emitLinkageDirective(const GlobalValue *V,
+                                            raw_ostream &O) {
+   if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA) {
++    if (V->hasWeakLinkage() || V->hasLinkOnceLinkage())
++      O << ".weak ";
+     if (V->hasExternalLinkage()) {
+       if (isa<GlobalVariable>(V)) {
+         const GlobalVariable *GVar = cast<GlobalVariable>(V);
+@@ -1227,6 +1245,7 @@
+     // Ptx allows variable initilization only for constant and global state
+     // spaces.
+     if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
++         (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
+          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
+          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST)) &&
+         GVar->hasInitializer()) {
+@@ -1251,6 +1270,7 @@
+       // Ptx allows variable initilization only for constant and
+       // global state spaces.
+       if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
++           (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
+            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
+            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST)) &&
+           GVar->hasInitializer()) {
+@@ -1319,6 +1339,7 @@
+     O << "local";
+     break;
+   case llvm::ADDRESS_SPACE_GLOBAL:
++  case llvm::ADDRESS_SPACE_GENERIC:
+     O << "global";
+     break;
+   case llvm::ADDRESS_SPACE_CONST:
+@@ -1690,8 +1711,6 @@
+   const MachineFrameInfo *MFI = MF.getFrameInfo();
+   int NumBytes = (int) MFI->getStackSize();
+   if (NumBytes) {
+-    O << "\t.local .align " << MFI->getMaxAlignment() << " .b8 \t" << DEPOTNAME
+-      << getFunctionNumber() << "[" << NumBytes << "];\n";
+     if (nvptxSubtarget.is64Bit()) {
+       O << "\t.reg .b64 \t%SP;\n";
+       O << "\t.reg .b64 \t%SPL;\n";
+@@ -1917,16 +1936,14 @@
+   case Type::ArrayTyID:
+   case Type::VectorTyID:
+   case Type::StructTyID: {
+-    if (isa<ConstantArray>(CPV) || isa<ConstantVector>(CPV) ||
+-        isa<ConstantStruct>(CPV)) {
++    if (isa<ConstantAggregateZero>(CPV))
++      aggBuffer->addZeros(Bytes);
++    else {
+       int ElementSize = TD->getTypeAllocSize(CPV->getType());
+       bufferAggregateConstant(CPV, aggBuffer);
+       if (Bytes > ElementSize)
+         aggBuffer->addZeros(Bytes - ElementSize);
+-    } else if (isa<ConstantAggregateZero>(CPV))
+-      aggBuffer->addZeros(Bytes);
+-    else
+-      llvm_unreachable("Unexpected Constant type");
++    }
+     break;
+   }
+ 
