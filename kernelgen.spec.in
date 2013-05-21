@@ -620,7 +620,6 @@ make -j%{njobs}
 %endif
 %endif
 %endif
-%endif
 %if %kernelgen
 #
 # Build KernelGen
