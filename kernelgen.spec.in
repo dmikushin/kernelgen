@@ -88,22 +88,21 @@ Name:           kernelgen
 Version:        0.23
 Release:        %{release}
 Summary:        Compiler with automatic generation of GPU kernels from the regular source code
-Patch0:         dragonegg.ptx.patch
-Patch1:         dragonegg.patch
-Patch2:         llvm.polly.patch
-Patch3:         llvm.scev.patch
-Patch4:         llvm.statistic.patch
-Patch5:         llvm.opts.patch
-Patch6:         llvm.nvptx.patch
-Patch7:         llvm.clang.patch
-Patch8:		llvm.transforms.patch
-Patch9:		llvm.rand.patch
-Patch10:	binutils.patch
-Patch11:	openmpi.cuda.patch
-Patch12:        libelf.patch
-Patch13:	glibc.patch
-Patch14:	gcc.patch
-Patch15:        netcdf.patch
+Patch0:         dragonegg.patch
+Patch1:         llvm.polly.patch
+Patch2:         llvm.scev.patch
+Patch3:         llvm.statistic.patch
+Patch4:         llvm.opts.patch
+Patch5:         llvm.nvptx.patch
+Patch6:         llvm.clang.patch
+Patch7:		llvm.transforms.patch
+Patch8:		llvm.rand.patch
+Patch9: 	binutils.patch
+Patch10:	openmpi.cuda.patch
+Patch11:        libelf.patch
+Patch12:	glibc.patch
+Patch13:	gcc.patch
+Patch14:        netcdf.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -224,7 +223,6 @@ cd $RPM_BUILD_DIR
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
-%patch9 -p1
 %endif
 %if %binutils
 %patch10 -p1
