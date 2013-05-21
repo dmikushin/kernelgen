@@ -596,7 +596,7 @@ CC="$CC -m32 $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LD
 %endif
 %endif
 %endif
-%if db
+%if %db_enable
 #
 # Build Berkeley DB.
 #
@@ -607,7 +607,8 @@ make -j%{njobs} CFLAGS="-g -O0"
 make -j%{njobs}
 %endif
 %endif
-%if cobol
+%endif
+%if %cobol
 #
 # Build COBOL
 #
