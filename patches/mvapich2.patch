@@ -1,0 +1,20 @@
+--- a/mvapich-snapshot/src/pm/mpirun/mpirun_rsh.c	2013-05-22 01:38:42.352023240 -0400
++++ b/mvapich-snapshot/src/pm/mpirun/mpirun_rsh.c	2013-05-22 01:44:16.812037106 -0400
+@@ -1715,11 +1715,14 @@
+                 }
+             }
+             if (getpath(pathbuf, PATH_MAX) && file_exists(pathbuf)) {
+-                command = mkstr("cd %s; %s %s %s %s/mpispawn 0", wd, ENV_CMD, mpispawn_env, env, pathbuf);
++                command = mkstr("cd %s; %s %s %s %s/%smpispawn%s 0", wd, ENV_CMD, mpispawn_env, env, pathbuf,
++                    PROGRAM_PREFIX, PROGRAM_SUFFIX);
+             } else if (use_dirname) {
+-                command = mkstr("cd %s; %s %s %s %s/mpispawn 0", wd, ENV_CMD, mpispawn_env, env, binary_dirname);
++                command = mkstr("cd %s; %s %s %s %s/%smpispawn%s 0", wd, ENV_CMD, mpispawn_env, env, binary_dirname,
++                    PROGRAM_PREFIX, PROGRAM_SUFFIX);
+             } else {
+-                command = mkstr("cd %s; %s %s %s mpispawn 0", wd, ENV_CMD, mpispawn_env, env);
++                command = mkstr("cd %s; %s %s %s %smpispawn%s 0", wd, ENV_CMD, mpispawn_env, env,
++                    PROGRAM_PREFIX, PROGRAM_SUFFIX);
+             }
+ 
+             /* If the user request an execution with an alternate group

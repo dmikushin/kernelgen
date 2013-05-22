@@ -72,7 +72,8 @@ my($mhash_snapshot) = "mhash-0.9.9.9";
 my($mhash) = "http://acelnmp.googlecode.com/files/$mhash_snapshot.tar.gz";
 my($kernelgen) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/branches/catchup";
 my($kernelgen_tests) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/tests";
-my($openmpi) = "http://svn.open-mpi.org/svn/ompi/trunk";
+my($mvapich2_snapshot) = "mvapich2-1.9";
+my($mvapich2) = "http://mvapich.cse.ohio-state.edu/download/mvapich2/$mvapich2_snapshot.tgz";
 my($glibc_snapshot) = "glibc-2.17";
 my($glibc) = "http://ftp.gnu.org/gnu/glibc/$glibc_snapshot.tar.gz";
 my($db_snapshot) = "db-5.3.21";
@@ -82,7 +83,7 @@ my($cobol) = "ftp://ftp.uwsg.indiana.edu/pub/FreeBSD/ports/distfiles/$cobol_snap
 
 my($old_llvm_rev) = 182420;
 my($new_llvm_rev) = 182420;
-my($openmpi_rev) = 27216;
+my($mvapich2_rev) = 
 my($kernelgen_rev) = -1; # 1769;
 
 #
@@ -119,13 +120,13 @@ sub build_and_test_kernelgen
 	my($gcc_enable) = 0;
 	my($gcc_enable_bootstrap) = 0;
 	my($netcdf_enable) = 0;
-	my($openmpi_enable) = 0;
 	my($dragonegg_enable) = 0;
 	my($libffi_enable) = 0;
 	my($mhash_enable) = 0;
 	my($glibc_enable) = 0;
 	my($glibc32_enable) = 1;
 	my($cobol_enable) = 0;
+	my($mvapich2_enable) = 0;
 	my($kernelgen_enable) = 0;
 	my($COMPILERS) = "";
 	switch ($bootstrap_mode)
@@ -152,6 +153,7 @@ sub build_and_test_kernelgen
 			$glibc_enable = 0;
 			$db_enable = 0;
 			$cobol_enable = 0;
+			$mvapich2_enable = 0;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -178,6 +180,7 @@ sub build_and_test_kernelgen
 			$glibc_enable = 0;
 			$db_enable = 0;
 			$cobol_enable = 0;
+			$mvapich2_enable = 0;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -203,6 +206,7 @@ sub build_and_test_kernelgen
 			$glibc_enable = 0;
 			$db_enable = 0;
 			$cobol_enable = 0;
+			$mvapich2_enable = 0;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -228,6 +232,7 @@ sub build_and_test_kernelgen
 			$glibc_enable = 0;
 			$db_enable = 0;
 			$cobol_enable = 0;
+			$mvapich2_enable = 0;
 			$kernelgen_enable = 0;
 
 			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=gcc CXX=g++ FC=gfortran F77=gfortran";
@@ -247,13 +252,13 @@ sub build_and_test_kernelgen
                         $gcc_enable = 1;
                         $gcc_enable_bootstrap = 0;
                         $netcdf_enable = 0;
-                        $openmpi_enable = 0;
                         $dragonegg_enable = 0;
                         $libffi_enable = 1;
                         $mhash_enable = 1;
                         $glibc_enable = 1;
 			$db_enable = 1;
 			$cobol_enable = 0;
+			$mvapich2_enable = 0;
                         $kernelgen_enable = 0;
 
                         $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
@@ -273,13 +278,13 @@ sub build_and_test_kernelgen
 			$gcc_enable = 1;
 			$gcc_enable_bootstrap = 0;
 			$netcdf_enable = 1;
-			$openmpi_enable = 0;
 			$dragonegg_enable = 1;
 			$libffi_enable = 1;
 			$mhash_enable = 1;
 			$glibc_enable = 1;
 			$db_enable = 1;
 			$cobol_enable = 1;
+			$mvapich2_enable = 1;
 			$kernelgen_enable = 1;
 
 			my($LDFLAGS64) = "";
@@ -714,9 +719,14 @@ sub build_and_test_kernelgen
 	}
 
 	#
-	# Get the source code of OpenMPI (used by models KernelGen is designed for).
+	# Get the source code of MVAPICH2 (used by models KernelGen is designed for).
 	#
-	checkout_and_archive("openmpi", $openmpi, $openmpi_rev, $SOURCES);
+	if (! -e "$SOURCES/$mvapich_snapshot.tgz")
+	{
+		my($cmd) = "cd $SOURCES && wget $mvapich2";
+		print "$cmd\n";
+		`$cmd`;
+	}
 
 	#
 	# Get the source code of GLIBC.
@@ -772,8 +782,7 @@ sub build_and_test_kernelgen
 	# Get the trunk of KernelGen.
 	#
 	$kernelgen_rev = checkout_and_archive("kernelgen", $kernelgen, $kernelgen_rev, "$SOURCES");
-	#
-	# From KernelGen extract patches to $SOURCES.
+	MVAPICH2om KernelGen extract patches to $SOURCES.
 	#
 	my($cmd) = "cd $SOURCES && tar -xf $SOURCES/kernelgen-r$kernelgen_rev.tar.gz";
 	print "$cmd\n";
@@ -795,7 +804,6 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_ENABLE_DEBUG         - Enable compilation of unoptimized debuggable binaries
 	#   KERNELGEN_REV                  - KernelGen revision number
 	#   KERNELGEN_LLVM_REV             - KernelGen LLVM components revision number
-	#   KERNELGEN_OPENMPI_REV          - Kernelgen OpenMPI revision number
 	#   KERNELGEN_TARGET               - KernelGen target system type - fedora or debian
 	#   KERNELGEN_FULLREPACK           - A flag indicating whether to rebuild everything
 	#                                    or just the KernelGen source
@@ -813,6 +821,7 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_LIBFFI_SNAP          - The base name of archive with LibFFI source code
 	#   KERNELGEN_MHASH_SNAP           - The base name of archive with MHASH source code
 	#   KERNELGEN_GLIBC_SNAP           - The base name of archive with GLIBC source code
+	#   KERNELGEN_MVAPICH2_SNAP        - The base name of archive with MVAPICH2 source code
 	#   KERNELGEN_DB_SNAP              - The base name of archive with Berkeley DB source code
 	#   KERNELGEN_COBOL_SNAP           - The base name of archive with COBOL source code
 	#
@@ -831,6 +840,7 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_ENABLE_MHASH         - Enable build of MHASH
 	#   KERNELGEN_ENABLE_GLIBC         - Enable build of GLIBC
 	#   KERNELGEN_ENABLE_GLIBC32       - Enable 32-bit build of GLIBC
+	#   KERNELGEN_ENABLE_MVAPICH2      - Enable build of MVAPICH2
 	#   KERNELGEN_ENABLE_DB            - Enable build of Berkeley DB
 	#   KERNELGEN_ENABLE_COBOL         - Enable build of COBOL
 	#   KERNELGEN_ENABLE_KERNELGEN     - Enable build of KernelGen
@@ -846,7 +856,6 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_DEBUG/$debug/g;
 		$line =~ s/KERNELGEN_REV/$kernelgen_rev/g;
 		$line =~ s/KERNELGEN_LLVM_REV/$llvm_rev/g;
-		$line =~ s/KERNELGEN_OPENMPI_REV/$openmpi_rev/g;
 		$line =~ s/KERNELGEN_TARGET/$target/g;
 		$line =~ s/KERNELGEN_FULLREPACK/$fullrepack/g;
 		$line =~ s/KERNELGEN_NJOBS/24/g;
@@ -864,6 +873,7 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_LIBFFI_SNAP/$libffi_snapshot/g;
 		$line =~ s/KERNELGEN_MHASH_SNAP/$mhash_snapshot/g;
 		$line =~ s/KERNELGEN_GLIBC_SNAP/$glibc_snapshot/g;
+		$line =~ s/KERNELGEN_MVAPICH2_SNAP/$mvapich2_snapshot/g;
 		$line =~ s/KERNELGEN_DB_SNAP/$db_snapshot/g;
 		$line =~ s/KERNELGEN_COBOL_SNAP/$cobol_snapshot/g;
 
@@ -883,6 +893,7 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_MHASH/$mhash_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_GLIBC32/$glibc32_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_GLIBC/$glibc_enable/g;
+		$line = ~s/KERNELGEN_ENABLE_MVAPICH2/$mvapich2_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_DB/$db_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_COBOL/$cobol_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_KERNELGEN/$kernelgen_enable/g;
@@ -1025,6 +1036,17 @@ my($start) = POSIX::strftime("Build started: %m/%d/%Y %H:%M:%S<br/>\n", localtim
 
 switch ($target)
 {
+	#
+	# Check we have nvcc in path
+	# (which returns 0 if file is found and is executable).
+	#
+	if (system("nvcc") != 0)
+	{
+		print "CUDA C++ compiler (nvcc) must be in \$PATH (required for MVAPICH2 and test suite)\n";
+		print "Build failed, aborting.\n";
+		exit(1);
+	}
+
 	case ["fedora", "debian"]
 	{
 		print "target: $target\n\n";
