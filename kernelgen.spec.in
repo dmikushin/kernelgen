@@ -351,7 +351,6 @@ KERNELGEN_FALLBACK=1 %flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --di
 # Configure MVAPICH2
 #
 cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP
-./autogen.pl
 mkdir build
 cd build
 %if %debug
