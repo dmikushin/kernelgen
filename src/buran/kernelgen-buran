@@ -782,7 +782,8 @@ sub build_and_test_kernelgen
 	# Get the trunk of KernelGen.
 	#
 	$kernelgen_rev = checkout_and_archive("kernelgen", $kernelgen, $kernelgen_rev, "$SOURCES");
-	MVAPICH2om KernelGen extract patches to $SOURCES.
+	#
+	# From KernelGen extract patches to $SOURCES.
 	#
 	my($cmd) = "cd $SOURCES && tar -xf $SOURCES/kernelgen-r$kernelgen_rev.tar.gz";
 	print "$cmd\n";
