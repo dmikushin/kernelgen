@@ -1,23 +1,23 @@
---- a/dragonegg/src/Backend.cpp	2012-03-08 19:03:33.178648662 +0300
-+++ b/dragonegg/src/Backend.cpp	2012-03-08 19:17:32.124873204 +0300
-@@ -84,6 +84,8 @@
- #error Unsupported GCC major version
- #endif
+--- a/dragonegg/src/Backend.cpp	(revision 181135)
++++ b/dragonegg/src/Backend.cpp	(working copy)
+@@ -102,6 +102,8 @@
+ 
+ using namespace llvm;
  
 +extern std::string dragonegg_result;
 +
  // Non-zero if libcalls should not be simplified.
  int flag_no_simplify_libcalls;
  
-@@ -116,6 +118,7 @@
- static bool EnableGCCOptimizations;
+@@ -138,6 +140,7 @@
  static bool EmitIR;
+ static bool EmitObj;
  static bool SaveGCCOutput;
 +static bool InternalOutput;
  static int LLVMCodeGenOptimizeArg = -1;
  static int LLVMIROptimizeArg = -1;
  
-@@ -586,8 +589,14 @@
+@@ -623,8 +626,14 @@
    assert(!OutStream && "Output stream already initialized!");
    std::string Error;
  
@@ -34,17 +34,24 @@
  
    if (!Error.empty())
      report_fatal_error(Error);
-@@ -2018,6 +2027,7 @@
-     { "enable-gcc-optzns", &EnableGCCOptimizations },
-     { "emit-ir", &EmitIR },
-     { "save-gcc-output", &SaveGCCOutput },
-+    { "internal-output", &InternalOutput },
-     { NULL, NULL } // Terminator.
+@@ -2036,9 +2045,12 @@
+ static FlagDescriptor PluginFlags[] = {
+   { "debug-pass-structure", &DebugPassStructure },
+   { "debug-pass-arguments", &DebugPassArguments },
+-  { "enable-gcc-optzns", &EnableGCCOptimizations }, { "emit-ir", &EmitIR },
++  { "enable-gcc-optzns", &EnableGCCOptimizations },
++  { "emit-ir", &EmitIR },
+   { "emit-obj", &EmitObj },
+-  { "save-gcc-output", &SaveGCCOutput }, { NULL, NULL } // Terminator.
++  { "save-gcc-output", &SaveGCCOutput },
++  { "internal-output", &InternalOutput },
++  { NULL, NULL } // Terminator.
  };
-
---- a/dragonegg/src/Convert.cpp	2012-09-06 19:33:07.362601226 +0200
-+++ b/dragonegg/src/Convert.cpp	2012-09-06 19:33:48.630599469 +0200
-@@ -4362,11 +4359,13 @@
+ 
+ /// llvm_plugin_info - Information about this plugin.  Users can access this
+--- a/dragonegg/src/Convert.cpp	(revision 181135)
++++ b/dragonegg/src/Convert.cpp	(working copy)
+@@ -4437,11 +4437,13 @@
    case BUILT_IN_POWI:
    case BUILT_IN_POWIF:
    case BUILT_IN_POWIL:
@@ -58,7 +65,7 @@
      // If errno math has been disabled, expand these to llvm.pow calls.
      if (!flag_errno_math) {
        Result = EmitBuiltinPOW(stmt);
-@@ -4376,6 +4375,7 @@
+@@ -4451,6 +4453,7 @@
    case BUILT_IN_LOG:
    case BUILT_IN_LOGF:
    case BUILT_IN_LOGL:
@@ -66,7 +73,7 @@
      // If errno math has been disabled, expand these to llvm.log calls.
      if (!flag_errno_math) {
        Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-@@ -4387,6 +4387,7 @@
+@@ -4462,6 +4465,7 @@
    case BUILT_IN_LOG2:
    case BUILT_IN_LOG2F:
    case BUILT_IN_LOG2L:
@@ -74,7 +81,7 @@
      // If errno math has been disabled, expand these to llvm.log2 calls.
      if (!flag_errno_math) {
        Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-@@ -4398,6 +4399,7 @@
+@@ -4473,6 +4477,7 @@
    case BUILT_IN_LOG10:
    case BUILT_IN_LOG10F:
    case BUILT_IN_LOG10L:
@@ -82,7 +89,7 @@
      // If errno math has been disabled, expand these to llvm.log10 calls.
      if (!flag_errno_math) {
        Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-@@ -4409,6 +4411,7 @@
+@@ -4484,6 +4489,7 @@
    case BUILT_IN_EXP:
    case BUILT_IN_EXPF:
    case BUILT_IN_EXPL:
@@ -90,7 +97,7 @@
      // If errno math has been disabled, expand these to llvm.exp calls.
      if (!flag_errno_math) {
        Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-@@ -4420,6 +4423,7 @@
+@@ -4495,6 +4501,7 @@
    case BUILT_IN_EXP2:
    case BUILT_IN_EXP2F:
    case BUILT_IN_EXP2L:
@@ -98,15 +105,15 @@
      // If errno math has been disabled, expand these to llvm.exp2 calls.
      if (!flag_errno_math) {
        Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-@@ -4456,6 +4460,7 @@
+@@ -4532,6 +4539,7 @@
    case BUILT_IN_LLCEIL:
    case BUILT_IN_LLCEILF:
    case BUILT_IN_LLCEILL:
 +    break;
      Result = EmitBuiltinLCEIL(stmt);
      return true;
-   case BUILT_IN_LFLOOR:
-@@ -4464,11 +4469,13 @@
+ #if (GCC_MINOR > 6)
+@@ -4545,11 +4553,13 @@
    case BUILT_IN_LLFLOOR:
    case BUILT_IN_LLFLOORF:
    case BUILT_IN_LLFLOORL:
@@ -119,4 +126,4 @@
 +    break;
      Result = EmitBuiltinCEXPI(stmt);
      return true;
- //TODO  case BUILT_IN_FLT_ROUNDS: {
+     //TODO  case BUILT_IN_FLT_ROUNDS: {

@@ -28,18 +28,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Constants.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Linker.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PluginLoader.h"
@@ -50,8 +50,9 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/IR/TypeBuilder.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO.h"
@@ -72,13 +73,10 @@
 
 #include "kernelgen-version.h"
  
-extern "C"
-{
-	#include "gcc-plugin.h"
-	#include "cp/cp-tree.h"
-	#include "langhooks.h"
-	#include "tree-flow.h"
-}
+#include "gcc-plugin.h"
+#include "cp/cp-tree.h"
+#include "langhooks.h"
+#include "tree-flow.h"
 
 using namespace kernelgen;
 using namespace kernelgen::utils;
@@ -133,7 +131,7 @@ extern "C" void callback (void*, void*)
 		TimeRegion TCompile(TI.getTimer("Loops extraction"));
 		{
 			PassManager manager;
-			manager.add(new TargetData(m));
+			manager.add(new DataLayout(m));
 			manager.add(createFixPointersPass());
 			manager.add(createInstructionCombiningPass());
 			manager.add(createMoveUpCastsPass());
@@ -147,7 +145,7 @@ extern "C" void callback (void*, void*)
 			DisableLoadsDeletion.setValue(true);
 			DisablePromotion.setValue(true);
 			PassManager manager;
-			manager.add(new TargetData(m));
+			manager.add(new DataLayout(m));
 			manager.add(createBasicAliasAnalysisPass());
 			manager.add(createLICMPass());
 			manager.add(createGVNPass());
@@ -155,7 +153,7 @@ extern "C" void callback (void*, void*)
 		}
 		/*{
 			PassManager manager;
-			manager.add(new TargetData(m));
+			manager.add(new DataLayout(m));
 			manager.add(createBasicAliasAnalysisPass());
 			manager.add(createInstructionCombiningPass());
 			manager.add(createCFGSimplificationPass());

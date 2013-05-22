@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "polly/Cloog.h"
+#include "polly/CodeGen/Cloog.h"
 #include "polly/Dependences.h"
 #include "polly/ScopInfo.h"
 #include "polly/ScopPass.h"

@@ -16,22 +16,22 @@
 #include "polly/RegisterPasses.h"
 
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Constants.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Linker.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Support/TypeBuilder.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -43,7 +43,9 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/system_error.h"
 #include "polly/ScopInfo.h"
 
 #include "Runtime.h"
@@ -119,7 +121,7 @@ static void registerPollyPreoptPasses(llvm::PassManagerBase &PM)
 	PM.add(polly::createIndVarSimplifyPass());        // Canonicalize indvars
 
 	PM.add(polly::createCodePreparationPass());
-	PM.add(polly::createRegionSimplifyPass());
+	//PM.add(polly::createRegionSimplifyPass());
 
 	// FIXME: The next two passes should not be necessary here. They are currently
 	//        because of two problems:
@@ -133,7 +135,7 @@ static void registerPollyPreoptPasses(llvm::PassManagerBase &PM)
 	//           As a result we need to run the RegionSimplify pass again to
 	//           recover them
 	PM.add(polly::createIndVarSimplifyPass());
-	PM.add(polly::createRegionSimplifyPass());
+	//PM.add(polly::createRegionSimplifyPass());
 }
 
 static bool preopt = false;
@@ -143,7 +145,7 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 	if (preopt)
 	{
 		PassManager polly;
-		polly.add(new TargetData(kernel->module));
+		polly.add(new DataLayout(kernel->module));
 		registerPollyPreoptPasses(polly);
 		//polly.add(polly::createIslScheduleOptimizerPass());
 		polly.run(*kernel->module);
@@ -162,7 +164,7 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops,bool mode, bool *isThere
 	vector<Size3> sizes;
 	{
 		PassManager polly;
-		polly.add(new TargetData(kernel->module));
+		polly.add(new DataLayout(kernel->module));
 		//registerPollyPreoptPasses(polly);
 		//polly.add(polly::createIslScheduleOptimizerPass());
 		if (kernel->name != "__kernelgen_main") {

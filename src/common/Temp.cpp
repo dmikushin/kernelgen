@@ -18,6 +18,7 @@
 #include "llvm/Support/FileSystem.h"
 
 #include <iostream>
+#include <unistd.h>
 
 #include "KernelGen.h"
 

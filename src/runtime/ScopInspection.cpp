@@ -12,14 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "polly/Cloog.h"
+#include "polly/CodeGen/Cloog.h"
 #include "polly/ScopInfo.h"
 #include "polly/ScopPass.h"
 #include "polly/Support/GICHelper.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Assembly/Writer.h"
-#include "llvm/Constants.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
 

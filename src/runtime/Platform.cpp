@@ -28,14 +28,14 @@ TargetPlatforms platforms;
 TargetPlatform::TargetPlatform(const Target* target, TargetMachine* machine,
 		StringRef triple) : target(target), machine(machine), triple(triple)
 {
-	const MCAsmInfo *MAI = target->createMCAsmInfo(triple);
-	if (!MAI)
-		THROW("Unable to create target asm info");
 	const MCRegisterInfo *MRI = target->createMCRegInfo(triple);
 	if (!MRI)
-		THROW("Unable to create target register info!");
+		THROW("Unable to create target register info");
+	const MCAsmInfo *MAI = target->createMCAsmInfo(*MRI, triple);
+	if (!MAI)
+		THROW("Unable to create target asm info");
 	mccontext.reset(new MCContext(*MAI, *MRI, 0));
-	mangler.reset(new Mangler(*mccontext.get(), *machine->getTargetData()));
+	mangler.reset(new Mangler(*mccontext.get(), *machine->getDataLayout()));
 }
 
 // Get target platform for the specified runmode.
@@ -87,7 +87,8 @@ TargetPlatform* TargetPlatforms::operator[](int runmode) {
 		stringstream sarch;
 		sarch << cuda_context->getSubarch();
 		TargetMachine* machine = target->createTargetMachine(
-				triple.getTriple(), sarch.str(), "", TargetOptions(), Reloc::PIC_,
+				triple.getTriple(), sarch.str(), "+drv_cuda",
+				TargetOptions(), Reloc::PIC_,
 				CodeModel::Default, CodeGenOpt::Aggressive);
 		if (!machine)
 			THROW("Could not allocate target machine");

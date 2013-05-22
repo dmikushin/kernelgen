@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Function.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 using namespace llvm;

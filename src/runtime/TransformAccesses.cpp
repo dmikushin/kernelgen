@@ -12,14 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "polly/Cloog.h"
+#include "polly/CodeGen/Cloog.h"
 #include "polly/ScopInfo.h"
 #include "polly/ScopPass.h"
 #include "polly/Support/GICHelper.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Assembly/Writer.h"
-#include "llvm/Constants.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
 
@@ -49,7 +50,7 @@ using namespace std;
 class TransformAccesses : public polly::ScopPass
 {
 	Scop *S;
-	TargetData * TD;
+	DataLayout * DL;
 public:
 	static char ID;
 	TransformAccesses()
@@ -63,7 +64,7 @@ public:
 	bool runOnScop(Scop &scop);
 	void getAnalysisUsage(AnalysisUsage &AU) const {
 		ScopPass::getAnalysisUsage(AU);
-		AU.addRequired<TargetData>();
+		AU.addRequired<DataLayout>();
 		AU.setPreservesAll();
 	}
 	static int getAccessFunction(__isl_take isl_set *Set, __isl_take isl_aff *Aff, void *User) {
@@ -99,7 +100,7 @@ void copyIslAffToConstraint(isl_aff *affToCopy, isl_constraint *constraint)
 bool TransformAccesses::runOnScop(Scop &scop)
 {
 	S = &getCurScop();//&scop;
-	TD = &getAnalysis<TargetData>();
+	DL = &getAnalysis<DataLayout>();
 
 	/*assert(scop.getNumParams() == 0 &&
 	       "FIXME: "
@@ -316,7 +317,7 @@ INITIALIZE_PASS_BEGIN(TransformAccesses, "transform-accesses",
                       "kernelgen's runtime trnasform accesses to general form", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(ScopInfo)
-INITIALIZE_PASS_DEPENDENCY(TargetData)
+INITIALIZE_PASS_DEPENDENCY(DataLayout)
 INITIALIZE_PASS_END(TransformAccesses, "transform-accesses",
                     "kernelgen's runtime trnasform accesses to general form", false,
                     false)

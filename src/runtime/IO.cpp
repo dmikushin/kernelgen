@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 
 using namespace std;
 using namespace util::io;

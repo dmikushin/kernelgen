@@ -16,6 +16,7 @@
 #include <gelf.h>
 #include <memory>
 #include <string.h>
+#include <unistd.h>
 
 using namespace kernelgen;
 using namespace std;

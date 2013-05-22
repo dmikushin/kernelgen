@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <gelf.h>
 #include <string.h>
+#include <unistd.h>
 #include <vector>
 
 using namespace std;

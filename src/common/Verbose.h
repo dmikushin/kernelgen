@@ -15,6 +15,7 @@
 #ifndef VERBOSE_H
 #define VERBOSE_H
 
+#include <cstdio>
 #include <iostream>
 #include <vector>
 
@@ -34,7 +35,7 @@ namespace kernelgen {
 
 	public :
 
-		Verbose(int mode = 0) : mode(mode), filter(1), always(0), llvm::raw_fd_ostream(STDOUT_FILENO, false, true) { }
+		Verbose(int mode = 0) : mode(mode), filter(1), always(0), llvm::raw_fd_ostream(fileno(stdout), false, true) { }
 
 		struct Color
 		{

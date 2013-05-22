@@ -14,12 +14,12 @@
 
 #include <map>
 #include <list>
-#include <llvm/Function.h>
-#include <llvm/GlobalVariable.h>
-#include <llvm/GlobalAlias.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/GlobalAlias.h>
 #include <llvm/ADT/SmallVector.h>
-#include <llvm/Instructions.h>
-#include <llvm/Module.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
 #include "GlobalDependences.h"
@@ -298,12 +298,12 @@ void linkFunctionWithAllDependendes(Function *srcFunction, Function * dstFunctio
 
 		if(!GV)
 			GV = new GlobalVariable(*dstModule,
-			                        I->getType()->getElementType(),
-			                        I->isConstant(), I->getLinkage(),
-			                        (Constant*) 0, I->getName(),
-			                        (GlobalVariable*) 0,
-			                        I->isThreadLocal(),
-			                        I->getType()->getAddressSpace());
+                                            I->getType()->getElementType(),
+                                            I->isConstant(), I->getLinkage(),
+                                            (Constant*) 0, I->getName(),
+                                            (GlobalVariable*) 0,
+                                            I->getThreadLocalMode(),
+                                            I->getType()->getAddressSpace());
 
 		GV->copyAttributesFrom(I);
 		VMap[I] = GV;

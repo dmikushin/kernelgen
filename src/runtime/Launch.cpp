@@ -18,13 +18,12 @@
 #include <iomanip>
 #include <mhash.h>
 
-#include "llvm/Constants.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/raw_os_ostream.h"
 
 using namespace kernelgen;
@@ -117,7 +116,7 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 		load_kernel(kernel);
 #endif
 	if (!kernel->target[RUNMODE].supported)
-		return -1;
+		return KERNELGEN_STATE_FALLBACK;
 
 	VERBOSE("Kernel function call " << kernel->name << "\n");
 
@@ -212,7 +211,7 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 	}
 
 	if (!kernel_func)
-		return -1;
+		return KERNELGEN_STATE_FALLBACK;
 
 	// Execute kernel, depending on target.
 	switch (RUNMODE) {
@@ -354,7 +353,7 @@ int kernelgen_launch(Kernel* kernel, unsigned long long szdata,
 			case KERNELGEN_STATE_LOOPCALL: {
 				// Launch the loop kernel.
 				if (kernelgen_launch(callback->kernel, callback->szdata,
-						callback->szdatai, callback->data) != -1)
+					callback->szdatai, callback->data) != KERNELGEN_STATE_FALLBACK)
 					break;
 
 				// If kernel is not supported on device, launch it as

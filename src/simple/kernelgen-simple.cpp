@@ -31,11 +31,11 @@
 #include <unistd.h>
 #include <vector>
 
-#include "llvm/Constants.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Linker.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -43,7 +43,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -53,8 +53,9 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Support/TypeBuilder.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/IR/TypeBuilder.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO.h"
@@ -63,7 +64,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Support/MDBuilder.h"
+#include "llvm/IR/MDBuilder.h"
 
 #include "KernelGen.h"
 #include "GlobalDependences.h"
@@ -282,7 +283,7 @@ static int compile(int argc, char** argv, const char* input,
 		TimeRegion TCompile(TI.getTimer("Loops extraction"));
 		{
 			PassManager manager;
-			manager.add(new TargetData(m.get()));
+			manager.add(new DataLayout(m.get()));
 			manager.add(createFixPointersPass());
 			manager.add(createInstructionCombiningPass());
 			manager.add(createMoveUpCastsPass());
@@ -296,7 +297,7 @@ static int compile(int argc, char** argv, const char* input,
 			DisableLoadsDeletion.setValue(true);
 			DisablePromotion.setValue(true);
 			PassManager manager;
-			manager.add(new TargetData(m.get()));
+			manager.add(new DataLayout(m.get()));
 			manager.add(createBasicAliasAnalysisPass());
  			manager.add(createLICMPass());
 			manager.add(createGVNPass());
@@ -304,7 +305,7 @@ static int compile(int argc, char** argv, const char* input,
 		}
 		/*{
 			PassManager manager;
-			manager.add(new TargetData(m.get()));
+			manager.add(new DataLayout(m.get()));
 			manager.add(createBasicAliasAnalysisPass());
 			manager.add(createInstructionCombiningPass());
 			manager.add(createCFGSimplificationPass());
@@ -361,8 +362,7 @@ static int compile(int argc, char** argv, const char* input,
 				ArrayRef<uint8_t>((uint8_t*)moduleBitcode.data(), moduleBitcode.size()));
 		GlobalVariable* GV1 = new GlobalVariable(obj_m,
 				container->getType(), true,
-				GlobalValue::LinkerPrivateLinkage, container,
-				input, 0, false);
+				GlobalValue::LinkerPrivateLinkage, container, input);
 
 		InitializeAllTargets();
 		InitializeAllTargetMCs();
@@ -389,9 +389,9 @@ static int compile(int argc, char** argv, const char* input,
 			return 1;
 		}
 
-		const TargetData* tdata = machine.get()->getTargetData();
+		const DataLayout* DL = machine.get()->getDataLayout();
 		PassManager manager;
-		manager.add(new TargetData(*tdata));
+		manager.add(new DataLayout(*DL));
 
 		tool_output_file object(llvm_output.c_str(), err,
 				raw_fd_ostream::F_Binary);
@@ -471,7 +471,7 @@ int getArchiveObjData(string& filename, vector<char>& container,
 		Archive::child_iterator* found_child = NULL;
 		for (Archive::child_iterator AI = archive.begin_children(), AE =
 				archive.end_children(); AI != AE; ++AI) {
-			long current_offset = (ptrdiff_t) AI->getBuffer()->getBufferStart()
+			long current_offset = (ptrdiff_t) AI->getBuffer().data()
 					- (ptrdiff_t) buffer->getBufferStart();
 			if (current_offset == offset) {
 				found_child = &AI;
@@ -486,7 +486,7 @@ int getArchiveObjData(string& filename, vector<char>& container,
 		size_t size = (size_t)((*found_child)->getSize());
 		container.resize(size + 1);
 		memcpy((char*) &container[0],
-				(*found_child)->getBuffer()->getBufferStart(), size);
+				(*found_child)->getBuffer().data(), size);
 		container[size] = '\0';
 
 		buffer.take();
@@ -759,7 +759,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		TimeRegion TCompile(TI.getTimer("Instcombine on composite module"));
 
 		PassManager manager;
-		manager.add(new TargetData(&composite));
+		manager.add(new DataLayout(&composite));
 		manager.add(createInstructionCombiningPass());
 		manager.run(composite);
 	}
@@ -827,7 +827,10 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		// Add no capture attribute on argument.
 		Function::arg_iterator arg = main->arg_begin();
 		arg->setName("args");
-		arg->addAttr(Attribute::NoCapture);
+		AttrBuilder B;
+		B.addAttribute(Attribute::NoCapture);
+		arg->addAttr(AttributeSet::get(main->getContext(),
+			AttributeSet::FunctionIndex, B));
 
 		// Replace all allocas by one big global variable
 		Function* f = composite.getFunction("kernelgen_launch");
@@ -980,7 +983,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				Type::getInt32PtrTy(context), false,
 				GlobalValue::ExternalLinkage,
 				Constant::getNullValue(Type::getInt32PtrTy(context)),
-				"__kernelgen_callback", 0, false, 1);
+				"__kernelgen_callback");
 
 		// Assign callback structure pointer with value received
 		// from the arguments structure.
@@ -1012,7 +1015,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				Type::getInt32PtrTy(context), false,
 				GlobalValue::ExternalLinkage,
 				Constant::getNullValue(Type::getInt32PtrTy(context)),
-				"__kernelgen_memory", 0, false, 1);
+				"__kernelgen_memory");
 
 		// Assign memory structure pointer with value received
 		// from the arguments structure.
@@ -1160,7 +1163,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 		return 1;
 	}
 
-	const TargetData* tdata = machine.get()->getTargetData();
+	const DataLayout* DL = machine.get()->getDataLayout();
 
 	Path kernelgenSimplePath(Program::FindProgramByName("kernelgen-simple"));
 	if (kernelgenSimplePath.empty())
@@ -1298,11 +1301,6 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 				// Map values from composite to new module
 				ValueToValueMapTy VMap;
 
-				// Copy all of the dependent libraries over.
-				for (Module::lib_iterator I = composite.lib_begin(), E =
-						composite.lib_end(); I != E; ++I)
-					loop.addLibrary(*I);
-
 				// Loop over all of the global variables, making corresponding
 				// globals in the new module.  Here we add them to the VMap and
 				// to the new Module.  We don't worry about attributes or initializers,
@@ -1313,11 +1311,10 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 					GlobalVariable *I = *iter;
 
 					GlobalVariable *GV = new GlobalVariable(loop,
-							I->getType()->getElementType(), I->isConstant(),
-							GlobalValue::ExternalLinkage, //I->getLinkage(),
+							 I->getType()->getElementType(), I->isConstant(),
+							GlobalValue::ExternalLinkage,
 							(Constant*) 0, I->getName(), (GlobalVariable*) 0,
-							I->isThreadLocal(),
-							I->getType()->getAddressSpace());
+							I->getThreadLocalMode(), I->getType()->getAddressSpace());
 
 					GV->copyAttributesFrom(I);
 					VMap[I] = GV;
@@ -1439,7 +1436,11 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 						continue;
 					}
 
-					f->removeFnAttr(Attribute::NoInline);
+					AttrBuilder B;
+					B.addAttribute(Attribute::NoInline);
+					f->removeAttributes(AttributeSet::FunctionIndex,
+						AttributeSet::get(f->getContext(),
+						AttributeSet::FunctionIndex, B));
 					f->addFnAttr(Attribute::AlwaysInline);
 				}
 
@@ -1486,10 +1487,10 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 					GlobalVariable* GV1 = new GlobalVariable(obj_m,
 							container->getType(), true,
 							GlobalValue::LinkerPrivateLinkage, container,
-							func->getName(), 0, false);
+							func->getName());
 
 					PassManager manager;
-					manager.add(new TargetData(*tdata));
+					manager.add(new DataLayout(*DL));
 
 					tmp_main_vector.clear();
 					if (unique_file(tmp_mask, fd, tmp_main_vector)) {
@@ -1560,7 +1561,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 
 		//TrackedPassManager manager(tracker);
 		PassManager manager;
-		manager.add(new TargetData(&composite));
+		manager.add(new DataLayout(&composite));
 
 		// Delete unreachable globals		
 		manager.add(createGlobalDCEPass());
@@ -1583,7 +1584,7 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 
 		//TrackedPassManager manager(tracker);
 		PassManager manager;
-		manager.add(new TargetData(&composite));
+		manager.add(new DataLayout(&composite));
 
 		// Rename "main" to "__kernelgen_main".
 		Function* kernelgen_main_ = composite.getFunction("main");
@@ -1628,10 +1629,10 @@ static int link(int argc, char** argv, const char* input, const char* output) {
 					ArrayRef<uint8_t>((uint8_t*)compositeBitcode.data(), compositeBitcode.size()));
 			GlobalVariable* GV1 = new GlobalVariable(obj_m, container->getType(),
 					true, GlobalValue::LinkerPrivateLinkage, container,
-					"__kernelgen_main", 0, false);
+					"__kernelgen_main");
 
 			PassManager manager;
-			manager.add(new TargetData(*tdata));
+			manager.add(new DataLayout(*DL));
 
 			tmp_main_vector.clear();
 			if (unique_file(tmp_mask, fd, tmp_main_vector)) {

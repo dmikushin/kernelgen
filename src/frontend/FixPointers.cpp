@@ -12,13 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Target/TargetData.h"
-#include "llvm/Instructions.h"
-#include "llvm/Type.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include <set>
@@ -49,7 +49,7 @@ Pass* createFixPointersPass()
 void FixPointers::FixPointersInModule(Module *m)
 {
 	vector<GetElementPtrInst *> GEPs;
-	TargetData targetData(m);
+	DataLayout DL(m);
 	for(Module::iterator function = m->begin(), function_end = m->end();
 	    function != function_end; function++)
 		for(Function::iterator block = function->begin(),block_end = function->end();
@@ -66,7 +66,7 @@ void FixPointers::FixPointersInModule(Module *m)
 		GetElementPtrInst* GEPInst = GEPs[i];
 		if(GEPInst->getNumIndices() == 1 &&
 		   isa<Instruction>(GEPInst->getOperand(0)) &&
-		   targetData.getTypeAllocSize(GEPInst -> getType() ->getElementType())==1 ) {
+		   DL.getTypeAllocSize(GEPInst -> getType() ->getElementType())==1 ) {
 
 			Value * GEPIndex = *GEPInst->idx_begin();
 
@@ -112,7 +112,7 @@ void FixPointers::FixPointersInModule(Module *m)
 					BitCastInst * castInst = cast<BitCastInst>(*userOfGep);
 					if(castInst -> getDestTy() -> isPointerTy()) {
 						PointerType * newPointerType = cast<PointerType>(castInst -> getDestTy());
-						int typeAllocSize = targetData.getTypeAllocSize(newPointerType -> getElementType());
+						int typeAllocSize = DL.getTypeAllocSize(newPointerType -> getElementType());
 
 						/*{
 							outs() << "<------------------------------- One more GEP Inst ------------------------------->" << "\n";
@@ -140,7 +140,7 @@ void FixPointers::FixPointersInModule(Module *m)
 							{
 								while(elementType->isArrayTy())
 									elementType = cast<ArrayType>(elementType)->getElementType();
-								typeAllocSize=targetData.getTypeAllocSize(elementType);
+								typeAllocSize=DL.getTypeAllocSize(elementType);
 								newPointerType = PointerType::getUnqual(elementType);
 							}
 							else
