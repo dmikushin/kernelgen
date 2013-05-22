@@ -721,7 +721,7 @@ sub build_and_test_kernelgen
 	#
 	# Get the source code of MVAPICH2 (used by models KernelGen is designed for).
 	#
-	if (! -e "$SOURCES/$mvapich_snapshot.tgz")
+	if (! -e "$SOURCES/$mvapich2_snapshot.tgz")
 	{
 		my($cmd) = "cd $SOURCES && wget $mvapich2";
 		print "$cmd\n";
