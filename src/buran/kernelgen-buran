@@ -1041,7 +1041,7 @@ switch ($target)
 	# Check we have nvcc in path
 	# (which returns 0 if file is found and is executable).
 	#
-	if (system("nvcc") != 0)
+	if (system("which nvcc") != 0)
 	{
 		print "CUDA C++ compiler (nvcc) must be in \$PATH (required for MVAPICH2 and test suite)\n";
 		print "Build failed, aborting.\n";
