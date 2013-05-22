@@ -894,7 +894,7 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_MHASH/$mhash_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_GLIBC32/$glibc32_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_GLIBC/$glibc_enable/g;
-		$line = ~s/KERNELGEN_ENABLE_MVAPICH2/$mvapich2_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_MVAPICH2/$mvapich2_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_DB/$db_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_COBOL/$cobol_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_KERNELGEN/$kernelgen_enable/g;
