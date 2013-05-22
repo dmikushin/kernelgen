@@ -167,7 +167,7 @@ ln -s $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP $RPM_BUILD_DIR/netcdf-snapshot
 %if %mvapich2
 rm -rf $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP
 rm -rf $RPM_BUILD_DIR/mvapich2-snapshot
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_MVAPICH2_SNAP.tar.gz
+tar -xf $RPM_SOURCE_DIR/KERNELGEN_MVAPICH2_SNAP.tgz
 ln -s $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP $RPM_BUILD_DIR/mvapich2-snapshot
 %endif
 %if %dragonegg
