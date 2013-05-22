@@ -96,14 +96,30 @@ sub build_and_test_kernelgen
 	# Determine the bootstrapping mode.
 	my($bootstrap_mode) = $_[0];
 
-	$ENV{'PATH'} .= ":$CHROOT/$prefix/bin";
+	# Determine CUDA toolkit root.
+	my($CUDAROOT) = `which nvcc`;
+	$CUDAROOT =~ s/\n//g;
+	$CUDAROOT = `dirname $CUDAROOT`;
+	$CUDAROOT =~ s/\n//g;
+	$CUDAROOT .= "/..";
+
+	if ((not $ENV{'PATH'}) or ($ENV{'PATH'} eq ""))
+	{
+		$ENV{'PATH'} .= "$CHROOT/$prefix/bin";
+	}
+	else
+	{
+		$ENV{'PATH'} .= ":$CHROOT/$prefix/bin";
+	}
 	if ((not $ENV{'LD_LIBRARY_PATH'}) or ($ENV{'LD_LIBRARY_PATH'} eq ""))
 	{
 		$ENV{'LD_LIBRARY_PATH'} .= "$CHROOT/$prefix/lib64:$CHROOT/$prefix/lib32:$CHROOT/$prefix/lib";
+		$ENV{'LD_LIBRARY_PATH'} .= ":$CUDAROOT/lib:$CUDAROOT/lib64";
 	}
 	else
 	{
 		$ENV{'LD_LIBRARY_PATH'} .= ":$CHROOT/$prefix/lib64:$CHROOT/$prefix/lib32:$CHROOT/$prefix/lib";
+		$ENV{'LD_LIBRARY_PATH'} .= ":$CUDAROOT/lib:$CUDAROOT/lib64";
 	}
 
 	my($LOGFILE) = "$RPMBUILD/SPECS/kernelgen.log";
