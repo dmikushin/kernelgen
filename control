@@ -1,0 +1,28 @@
+##===- control - KernelGen Debian package header --------------------------===//
+##
+##     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+##        compiler for NVIDIA GPUs, targeting numerical modeling code.
+##
+## This file is distributed under the University of Illinois Open Source
+## License. See LICENSE.TXT for details.
+##
+##===----------------------------------------------------------------------===//
+
+Package: kernelgen
+Version: 0.2
+Section: development 
+Priority: optional
+Architecture: amd64
+Essential: no
+Depends:
+Pre-Depends:
+Recommends:
+Suggests:
+Installed-Size:
+Maintainer: Dmitry Mikushin <maemarcus@gmail.com>
+Conflicts:
+Replaces:
+Provides: kernelgen
+Description: A prototype of LLVM-based auto-parallelizing Fortran/C
+             compiler for NVIDIA GPUs, targeting numerical modeling code.
+

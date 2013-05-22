@@ -1,0 +1,16 @@
+##===- postinst - KernelGen Debian post-install script --------------------===//
+##
+##     KernelGen -- A prototype of LLVM-based auto-parallelizing Fortran/C
+##        compiler for NVIDIA GPUs, targeting numerical modeling code.
+##
+## This file is distributed under the University of Illinois Open Source
+## License. See LICENSE.TXT for details.
+##
+##===----------------------------------------------------------------------===//
+
+#!/bin/sh
+echo "export PATH=\$PATH:/opt/kernelgen/bin" >/etc/profile.d/kernelgen.sh
+echo "/opt/kernelgen/lib" >/etc/ld.so.conf.d/kernelgen.conf
+echo "/opt/kernelgen/lib32" >>/etc/ld.so.conf.d/kernelgen.conf
+echo "/opt/kernelgen/lib64" >>/etc/ld.so.conf.d/kernelgen.conf
+ldconfig
