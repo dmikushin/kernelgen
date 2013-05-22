@@ -354,9 +354,9 @@ cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP
 mkdir build
 cd build
 %if %debug
-KERNELGEN_FALLBACK=1 %flags CFLAGS="-O0 -DPROGRAM_PREFIX=\\\"kernelgen-\\\""  ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --enable-debuginfo
+KERNELGEN_FALLBACK=1 %flags CFLAGS="-O0 -DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\""  ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --enable-debuginfo
 %else
-KERNELGEN_FALLBACK=1 %flags CFLAGS="-DPROGRAM_PREFIX=\\\"kernelgen-\\\"" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared
+KERNELGEN_FALLBACK=1 %flags CFLAGS="-DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\"" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared
 %endif
 %endif
 %if %libffi
