@@ -1,5 +1,5 @@
---- a/mvapich-snapshot/src/pm/mpirun/mpirun_rsh.c	2013-05-22 01:38:42.352023240 -0400
-+++ b/mvapich-snapshot/src/pm/mpirun/mpirun_rsh.c	2013-05-22 01:44:16.812037106 -0400
+--- a/mvapich2-snapshot/src/pm/mpirun/mpirun_rsh.c	2013-05-22 01:38:42.352023240 -0400
++++ b/mvapich2-snapshot/src/pm/mpirun/mpirun_rsh.c	2013-05-22 01:44:16.812037106 -0400
 @@ -1715,11 +1715,14 @@
                  }
              }
