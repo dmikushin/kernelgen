@@ -35,6 +35,8 @@ my($fullrepack) = 1;
 # Set 1 to create a Debian/Ubuntu .deb installation package.
 my($package_deb) = 0;
 
+my($version) = "0.23";
+
 my($target) = "unknown";
 
 my($prefix) = "/opt/kernelgen/usr";
@@ -848,6 +850,7 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_TARGET/$target/g;
 		$line =~ s/KERNELGEN_FULLREPACK/$fullrepack/g;
 		$line =~ s/KERNELGEN_NJOBS/24/g;
+		$line =~ s/KERNELGEN_VERSION/$version/g;
 
 		$line =~ s/KERNELGEN_PREFIX/$prefix/g;
 
@@ -914,7 +917,7 @@ sub build_and_test_kernelgen
 		`$cmd`;
 		system("$RPM -e kernelgen 1>>$LOGFILE 2>>$LOGFILE");
 		$cmd = "PATH=" . $ENV{'PATH'} . " LD_LIBRARY_PATH=" . $ENV{'LD_LIBRARY_PATH'} . " RPM_BUILD_ROOT=$BUILDROOT" .
-			" RPM_INSTALL_PREFIX=$CHROOT $RPM --nodeps -ivh $RPMS/x86_64/kernelgen-0.2-accurate.x86_64.rpm 1>>$LOGFILE 2>>$LOGFILE";
+			" RPM_INSTALL_PREFIX=$CHROOT $RPM --nodeps -ivh $RPMS/x86_64/kernelgen-$version-accurate.x86_64.rpm 1>>$LOGFILE 2>>$LOGFILE";
 		print "$cmd\n";
 		$result = system("$cmd");
 
