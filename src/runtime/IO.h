@@ -13,27 +13,28 @@
 
 #include <string>
 
-namespace util { namespace io {
+namespace util {
+namespace io {
 
-class cfiledesc
-{
-	int fd;
-	std::string filename;
+class cfiledesc {
+  int fd;
+  std::string filename;
 
-	cfiledesc();
-public :
-	const std::string& getFilename() const;
-	
-	int getFileDesc() const;
+  cfiledesc();
 
-	cfiledesc(std::string& filename, int flags);
+public:
+  const std::string &getFilename() const;
 
-	~cfiledesc();
-	
-	static cfiledesc mktemp(std::string prefix);
+  int getFileDesc() const;
+
+  cfiledesc(std::string &filename, int flags);
+
+  ~cfiledesc();
+
+  static cfiledesc mktemp(std::string prefix);
 };
 
-} } // namespace
+}
+} // namespace
 
 #endif // KERNELGEN_IO_H
-

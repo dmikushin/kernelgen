@@ -26,10 +26,8 @@
 struct InstructionRuleIADD;
 extern InstructionRuleIADD IRIADD;
 
-
 struct INstructionRuleIADD32I;
 extern INstructionRuleIADD32I IRIADD32I;
-
 
 struct InstructionRuleIMUL;
 extern InstructionRuleIMUL IRIMUL;

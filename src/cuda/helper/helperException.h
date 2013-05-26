@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef helperExceptionDefined 
+#ifndef helperExceptionDefined
 #define helperExceptionDefined
 
 void hpExceptionHandler(int e);

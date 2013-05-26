@@ -22,9 +22,9 @@
 // input stream content and returning results from output and
 // error streams.
 int execute(std::string command, std::list<std::string> args,
-	std::string in = "", std::string* out = NULL, std::string* err = NULL);
+            std::string in = "", std::string *out = NULL,
+            std::string *err = NULL);
 
 #endif
 
 #endif // KERNELGEN_UTIL_H
-

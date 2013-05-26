@@ -23,7 +23,6 @@
 #ifndef RulesInstructionExecutionDefined
 #define RulesInstructionExecutionDefined
 
-
 struct InstructionRuleEXIT;
 extern InstructionRuleEXIT IREXIT;
 

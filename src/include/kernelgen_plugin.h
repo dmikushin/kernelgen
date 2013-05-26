@@ -14,7 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-typedef void (*kernelgen_after_ptx_t)(std::string& ptx, const std::string& kernel_name);
+typedef void (*kernelgen_after_ptx_t)(std::string &ptx,
+                                      const std::string &kernel_name);
 
-typedef void (*kernelgen_after_cubin_t)(std::string& cubin, const std::string& kernel_name);
-
+typedef void (*kernelgen_after_cubin_t)(std::string &cubin,
+                                        const std::string &kernel_name);

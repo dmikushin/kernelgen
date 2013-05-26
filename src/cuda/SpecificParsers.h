@@ -27,7 +27,8 @@
 #include "DataTypes.h"
 
 //	1
-//-----Declaration of default parsers: DefaultMasterParser, DefaultLineParser, DefaultInstructionParser, DefaultDirectiveParser
+//-----Declaration of default parsers: DefaultMasterParser, DefaultLineParser,
+//DefaultInstructionParser, DefaultDirectiveParser
 struct MasterParserDefault;
 extern MasterParserDefault MPDefault;
 
@@ -40,7 +41,6 @@ extern InstructionParserDefault IPDefault;
 struct DirectiveParserDefault;
 extern DirectiveParserDefault DPDefault;
 //-----End of default parser declarations
-
 
 struct LineParserConstant2;
 extern LineParserConstant2 LPConstant2;

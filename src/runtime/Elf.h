@@ -18,115 +18,115 @@
 #include <string>
 #include <vector>
 
-namespace util { namespace elf {
+namespace util {
+namespace elf {
 
 // Defines regular expression processor.
-class cregex
-{
-	regex_t regex;
-public :
-	bool matches(std::string value);
+class cregex {
+  regex_t regex;
 
-	cregex(std::string pattern, int flags);
-	~cregex();
+public:
+  bool matches(std::string value);
+
+  cregex(std::string pattern, int flags);
+  ~cregex();
 };
 
 class celf;
 
 // Defines ELF section.
-class csection
-{
-protected :
-	celf* e;
-	Elf_Scn* scn;
-	std::string name;
+class csection {
+protected:
+  celf *e;
+  Elf_Scn *scn;
+  std::string name;
 
-	csection();
-	csection(celf* e, Elf_Scn* scn, std::string name);
-public :
-	void addSymbol(std::string name, const char* data, size_t length);
+  csection();
+  csection(celf *e, Elf_Scn *scn, std::string name);
 
-	friend class celf;
+public:
+  void addSymbol(std::string name, const char *data, size_t length);
+
+  friend class celf;
 };
 
 class csymtab;
 
 // Defines ELF symbol.
-class csymbol
-{
-	const celf* e;
-	std::string name;
-	char* data;
-	size_t size;
-	int shndx;
-	bool data_loaded, data_allocated;
-	
-	csymbol();
-public :
-	const std::string& getName() const;
-	const char* getData();
-	size_t getSize() const;
+class csymbol {
+  const celf *e;
+  std::string name;
+  char *data;
+  size_t size;
+  int shndx;
+  bool data_loaded, data_allocated;
 
-	csymbol(const celf* e, std::string name,
-		char* data, size_t size, int shndx);
-	
-	~csymbol();
-	
-	friend class csymtab;
+  csymbol();
+
+public:
+  const std::string &getName() const;
+  const char *getData();
+  size_t getSize() const;
+
+  csymbol(const celf *e, std::string name, char *data, size_t size, int shndx);
+
+  ~csymbol();
+
+  friend class csymtab;
 };
 
 // Defines ELF symbol table section.
-class csymtab : public csection
-{
-	int nsymbols;
-	csymbol* symbols;
-public :
+class csymtab : public csection {
+  int nsymbols;
+  csymbol *symbols;
 
-	// Find symbols names by the specified pattern.
-	std::vector<csymbol*> find(cregex& regex) const;
+public:
 
-	csymtab(const csection* section);
-	~csymtab();
+  // Find symbols names by the specified pattern.
+  std::vector<csymbol *> find(cregex &regex) const;
+
+  csymtab(const csection *section);
+  ~csymtab();
 };
 
 // Defines ELF image section.
-class celf
-{
-	// Fields for the underlying input and output
-	// file descriptors.
-	util::io::cfiledesc *ifd;
-	bool managed_fd;
-	std::string ofilename;
+class celf {
+  // Fields for the underlying input and output
+  // file descriptors.
+  util::io::cfiledesc *ifd;
+  bool managed_fd;
+  std::string ofilename;
 
-	Elf* e;
-	csection* sections_array;
-	std::vector<csection*> sections;
-	csymtab* symtab;
-	GElf_Ehdr header;
-	bool opened;
-	
-	void open();
-public :
-	const csymtab* getSymtab();
-	const GElf_Ehdr* getHeader();
-	csection* getSection(std::string name);
+  Elf *e;
+  csection *sections_array;
+  std::vector<csection *> sections;
+  csymtab *symtab;
+  GElf_Ehdr header;
+  bool opened;
 
-	void setSymtab32(Elf32_Sym* sym, int count);
-	void setSymtab64(Elf64_Sym* sym, int count);
+  void open();
 
-	void setStrtab(GElf_Ehdr* ehdr, const char* content, size_t length);
-	void setData(const char* content, size_t length);
+public:
+  const csymtab *getSymtab();
+  const GElf_Ehdr *getHeader();
+  csection *getSection(std::string name);
 
-	celf(std::string ifilename, std::string ofilename);
-	celf(util::io::cfiledesc* ifd, std::string ofilename);
-	~celf();
-	
-	friend class csection;
-	friend class csymtab;
-	friend class csymbol;
+  void setSymtab32(Elf32_Sym *sym, int count);
+  void setSymtab64(Elf64_Sym *sym, int count);
+
+  void setStrtab(GElf_Ehdr *ehdr, const char *content, size_t length);
+  void setData(const char *content, size_t length);
+
+  celf(std::string ifilename, std::string ofilename);
+  celf(util::io::cfiledesc *ifd, std::string ofilename);
+  ~celf();
+
+  friend class csection;
+  friend class csymtab;
+  friend class csymbol;
 };
 
-} } // namespace
+}
+} // namespace
 
 #endif // KERNELGEN_ELF_H
-

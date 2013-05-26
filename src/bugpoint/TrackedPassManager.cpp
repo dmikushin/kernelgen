@@ -15,5 +15,4 @@
 
 #include "TrackedPassManager.h"
 
-PassTracker* tracker = NULL;
-
+PassTracker *tracker = NULL;

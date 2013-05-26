@@ -22,7 +22,6 @@
 
 #ifndef RulesInstructionLogicDefined
 
-
 struct InstructionRuleLOP;
 extern InstructionRuleLOP IRLOP;
 
@@ -40,7 +39,6 @@ extern InstructionRuleBFI IRBFI;
 
 struct InstructionRuleSEL;
 extern InstructionRuleSEL IRSEL;
-
 
 #else
 #define RulesInstructionLogicDefined

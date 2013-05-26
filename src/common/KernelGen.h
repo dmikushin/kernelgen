@@ -26,7 +26,7 @@
 
 namespace kernelgen {
 
-	extern Settings settings;
+extern Settings settings;
 
 } // kernelgen
 

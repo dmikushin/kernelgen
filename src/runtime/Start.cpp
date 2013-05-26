@@ -15,4 +15,4 @@
 #include "Runtime.h"
 
 // Startup call stub for NATIVE target.
-void kernelgen_start() { }
+void kernelgen_start() {}

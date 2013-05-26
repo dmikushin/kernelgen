@@ -23,8 +23,6 @@
 #ifndef RulesInstructionConversionDefined
 #define RulesInstructionConversionDefined
 
-
-
 struct InstructionRuleF2I;
 extern InstructionRuleF2I IRF2I;
 

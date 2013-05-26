@@ -14,8 +14,7 @@
 
 #include "Runtime.h"
 
-void kernelgen_get_stream(void** stream)
-{
-	if (stream)
-		*stream = kernelgen::runtime::cuda_context->getSecondaryStream();
+void kernelgen_get_stream(void **stream) {
+  if (stream)
+    *stream = kernelgen::runtime::cuda_context->getSecondaryStream();
 }

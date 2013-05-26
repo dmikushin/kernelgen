@@ -23,8 +23,6 @@
 #ifndef RulesDirectiveDefined
 #define RulesDirectiveDefined
 
-
-
 //Kernel
 struct DirectiveRuleKernel;
 extern DirectiveRuleKernel DRKernel;
@@ -52,10 +50,8 @@ extern DirectiveRuleLocal DRLocal;
 struct DirectiveRuleConstant2;
 extern DirectiveRuleConstant2 DRConstant2;
 
-
 struct DirectiveRuleConstant;
 extern DirectiveRuleConstant DRConstant;
-
 
 struct DirectiveRuleEndConstant;
 extern DirectiveRuleEndConstant DREndConstant;
@@ -80,6 +76,5 @@ extern DirectiveRuleAlign DRAlign;
 
 struct DirectiveRuleSelfDebug;
 extern DirectiveRuleSelfDebug DRSelfDebug;
-
 
 #endif

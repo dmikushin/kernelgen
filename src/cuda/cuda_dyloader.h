@@ -27,43 +27,42 @@
 #include <string>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-typedef struct CUDYloader_t* CUDYloader;
-typedef struct CUDYfunction_t* CUDYfunction;
+typedef struct CUDYloader_t *CUDYloader;
+typedef struct CUDYfunction_t *CUDYfunction;
 
 // Initialize a new instance of CUDA dynamic loader with the
 // specified capacity (in 8-byte instructions) in GPU memory.
-CUresult cudyInit(CUDYloader* loader, int capacity, std::string host_cubin = "");
+CUresult cudyInit(CUDYloader *loader, int capacity,
+                  std::string host_cubin = "");
 
 // Load kernel function with the specified name from cubin file
 // into dynamic loader context.
-CUresult cudyLoadCubin(CUDYfunction* function,
-	CUDYloader loader, const char* name, char* cubin,
-	CUstream stream);
+CUresult cudyLoadCubin(CUDYfunction *function, CUDYloader loader,
+                       const char *name, char *cubin, CUstream stream);
 
 // Load kernel function with the specified name from memory buffer
 // into dynamic loader context.
-CUresult cudyLoadCubinData(CUDYfunction* function,
-	CUDYloader loader, const char* name, char* cubin, size_t size,
-	CUstream stream);
+CUresult cudyLoadCubinData(CUDYfunction *function, CUDYloader loader,
+                           const char *name, char *cubin, size_t size,
+                           CUstream stream);
 
 // Load kernel function from the specified assembly opcodes
 // into dynamic loader context.
-CUresult cudyLoadOpcodes(CUDYfunction* function,
-	CUDYloader loader, char* opcodes, size_t nopcodes,
-	int regcount, CUstream stream);
+CUresult cudyLoadOpcodes(CUDYfunction *function, CUDYloader loader,
+                         char *opcodes, size_t nopcodes, int regcount,
+                         CUstream stream);
 
 // Launch kernel function through the dynamic loader.
 // Additionally, measure the time of the kernel execution if
 // the time pointer is not NULL. Note measurement will cause
 // synchronization!
-CUresult cudyLaunch(CUDYfunction function,
-	unsigned int gx, unsigned int gy, unsigned int gz,
-	unsigned int bx, unsigned int by, unsigned int bz,
-	size_t szshmem, void* args, CUstream stream, float* time);
+CUresult cudyLaunch(CUDYfunction function, unsigned int gx, unsigned int gy,
+                    unsigned int gz, unsigned int bx, unsigned int by,
+                    unsigned int bz, size_t szshmem, void *args,
+                    CUstream stream, float *time);
 
 // Dispose the specified CUDA dynamic loader instance.
 CUresult cudyDispose(CUDYloader loader);
@@ -73,4 +72,3 @@ CUresult cudyDispose(CUDYloader loader);
 #endif
 
 #endif // CUDA_DYLOADER_H
-

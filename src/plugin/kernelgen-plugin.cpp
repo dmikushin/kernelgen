@@ -19,7 +19,8 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+// USA.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -72,7 +73,7 @@
 #include "TrackedPassManager.h"
 
 #include "kernelgen-version.h"
- 
+
 #include "gcc-plugin.h"
 #include "cp/cp-tree.h"
 #include "langhooks.h"
@@ -89,15 +90,12 @@ int plugin_is_GPL_compatible;
 
 // Information about this plugin.
 // Users can access this using "gcc --help -v".
-static struct plugin_info info = {
-	KERNELGEN_VERSION,
-	NULL
-};
+static struct plugin_info info = { KERNELGEN_VERSION, NULL };
 
 static int verbose = 0;
 
-Pass* createFixPointersPass();
-Pass* createMoveUpCastsPass();
+Pass *createFixPointersPass();
+Pass *createMoveUpCastsPass();
 
 extern string dragonegg_result;
 
@@ -109,128 +107,126 @@ extern cl::opt<bool> DisablePromotion;
 // A fallback function to be called in case kernelgen-enabled
 // compilation process fails by some reason. This function
 // must be defined by the the gcc fronend.
-extern "C" void fallback(void*);
+extern "C" void fallback(void *);
 
 // The parent gcc instance already compiled the source code.
 // Here we need to compile the same source code to LLVM IR and
 // attach it to the assembly as extra string global variables.
-extern "C" void callback (void*, void*)
-{
-	PassTracker* tracker = new PassTracker(main_input_filename, &fallback, NULL);
+extern "C" void callback(void *, void *) {
+  PassTracker *tracker = new PassTracker(main_input_filename, &fallback, NULL);
 
-	LLVMContext &context = getGlobalContext();
-	SMDiagnostic diag;
-	MemoryBuffer* buffer1 = MemoryBuffer::getMemBuffer(dragonegg_result);
-	Module* m = ParseIR(buffer1, diag, context);
+  LLVMContext &context = getGlobalContext();
+  SMDiagnostic diag;
+  MemoryBuffer *buffer1 = MemoryBuffer::getMemBuffer(dragonegg_result);
+  Module *m = ParseIR(buffer1, diag, context);
 
-	//
-	// 1) Extract loops into new functions. Apply some optimization
-	// passes to the resulting module.
-	//
-	{
-		TimeRegion TCompile(TI.getTimer("Loops extraction"));
-		{
-			PassManager manager;
-			manager.add(new DataLayout(m));
-			manager.add(createFixPointersPass());
-			manager.add(createInstructionCombiningPass());
-			manager.add(createMoveUpCastsPass());
-			manager.add(createInstructionCombiningPass());
-			manager.add(createEarlyCSEPass());
-			manager.add(createCFGSimplificationPass());
-			manager.run(*m);
-		}
-		{
-			EnableLoadPRE.setValue(false);
-			DisableLoadsDeletion.setValue(true);
-			DisablePromotion.setValue(true);
-			PassManager manager;
-			manager.add(new DataLayout(m));
-			manager.add(createBasicAliasAnalysisPass());
-			manager.add(createLICMPass());
-			manager.add(createGVNPass());
-			manager.run(*m);
-		}
-		/*{
-			PassManager manager;
-			manager.add(new DataLayout(m));
-			manager.add(createBasicAliasAnalysisPass());
-			manager.add(createInstructionCombiningPass());
-			manager.add(createCFGSimplificationPass());
-			manager.add(createScalarReplAggregatesPass());
-			manager.add(createSimplifyLibCallsPass());
-			manager.add(createInstructionCombiningPass());
-			manager.add(createCFGSimplificationPass());
-			manager.add(createLoopRotatePass());
-			manager.add(createLICMPass());
-			manager.run(*m);
-		}*/
-		{
-			PassManager manager;
-			manager.add(createBranchedLoopExtractorPass());
-			manager.add(createCFGSimplificationPass());
-			manager.run(*m);
-		}
-	}
-		
-	verifyModule(*m);
-	VERBOSE(Verbose::Sources << *m << Verbose::Default);
+  //
+  // 1) Extract loops into new functions. Apply some optimization
+  // passes to the resulting module.
+  //
+  {
+    TimeRegion TCompile(TI.getTimer("Loops extraction"));
+    {
+      PassManager manager;
+      manager.add(new DataLayout(m));
+      manager.add(createFixPointersPass());
+      manager.add(createInstructionCombiningPass());
+      manager.add(createMoveUpCastsPass());
+      manager.add(createInstructionCombiningPass());
+      manager.add(createEarlyCSEPass());
+      manager.add(createCFGSimplificationPass());
+      manager.run(*m);
+    }
+    {
+      EnableLoadPRE.setValue(false);
+      DisableLoadsDeletion.setValue(true);
+      DisablePromotion.setValue(true);
+      PassManager manager;
+      manager.add(new DataLayout(m));
+      manager.add(createBasicAliasAnalysisPass());
+      manager.add(createLICMPass());
+      manager.add(createGVNPass());
+      manager.run(*m);
+    }
+    /*{
+  			PassManager manager;
+  			manager.add(new DataLayout(m));
+  			manager.add(createBasicAliasAnalysisPass());
+  			manager.add(createInstructionCombiningPass());
+  			manager.add(createCFGSimplificationPass());
+  			manager.add(createScalarReplAggregatesPass());
+  			manager.add(createSimplifyLibCallsPass());
+  			manager.add(createInstructionCombiningPass());
+  			manager.add(createCFGSimplificationPass());
+  			manager.add(createLoopRotatePass());
+  			manager.add(createLICMPass());
+  			manager.run(*m);
+  		}*/
+    {
+      PassManager manager;
+      manager.add(createBranchedLoopExtractorPass());
+      manager.add(createCFGSimplificationPass());
+      manager.run(*m);
+    }
+  }
 
-	//
-	// 2) Embed the resulting module into object file.
-	//
-	{
-		TimeRegion TCompile(TI.getTimer("Embedding LLVM IR into object"));
+  verifyModule(*m);
+  VERBOSE(Verbose::Sources << *m << Verbose::Default);
 
-		// The name of the symbol to hold LLVM IR source.
-		string string_name = "__kernelgen_";
-		string_name += main_input_filename;
-		
-		// The LLVM IR source data.
-		SmallVector<char, 128> moduleBitcode;
-		raw_svector_ostream moduleBitcodeStream(moduleBitcode);
-		WriteBitcodeToFile(m, moduleBitcodeStream);
-		moduleBitcodeStream.flush();
+  //
+  // 2) Embed the resulting module into object file.
+  //
+  {
+    TimeRegion TCompile(TI.getTimer("Embedding LLVM IR into object"));
 
-		// Create the constant string with the specified content.
-		tree index_type = build_index_type(size_int(moduleBitcode.size()));
-		tree const_char_type = build_qualified_type(
-			unsigned_char_type_node, TYPE_QUAL_CONST);
-		tree string_type = build_array_type(const_char_type, index_type);
-		string_type = build_variant_type_copy(string_type);
-		TYPE_STRING_FLAG(string_type) = 1;
-		tree string_val = build_string(moduleBitcode.size(), moduleBitcode.data());
-		TREE_TYPE(string_val) = string_type;
+    // The name of the symbol to hold LLVM IR source.
+    string string_name = "__kernelgen_";
+    string_name += main_input_filename;
 
-		// Create a global string variable and assign it with a
-		// previously created constant value.
-		tree var = create_tmp_var_raw(string_type, NULL);
-		char* tmpname = tmpnam(NULL) + strlen(P_tmpdir);
-		if (*tmpname == '/') tmpname++;
-		DECL_NAME (var) = get_identifier (tmpname);
-		DECL_SECTION_NAME (var) = build_string (11, ".kernelgen");
-		TREE_PUBLIC (var) = 1;
-		TREE_STATIC (var) = 1;
-		TREE_READONLY (var) = 1;
-		DECL_INITIAL (var) = string_val;
-		varpool_finalize_decl (var);
-	}
+    // The LLVM IR source data.
+    SmallVector<char, 128> moduleBitcode;
+    raw_svector_ostream moduleBitcodeStream(moduleBitcode);
+    WriteBitcodeToFile(m, moduleBitcodeStream);
+    moduleBitcodeStream.flush();
 
-	delete tracker;
+    // Create the constant string with the specified content.
+    tree index_type = build_index_type(size_int(moduleBitcode.size()));
+    tree const_char_type =
+        build_qualified_type(unsigned_char_type_node, TYPE_QUAL_CONST);
+    tree string_type = build_array_type(const_char_type, index_type);
+    string_type = build_variant_type_copy(string_type);
+    TYPE_STRING_FLAG(string_type) = 1;
+    tree string_val = build_string(moduleBitcode.size(), moduleBitcode.data());
+    TREE_TYPE(string_val) = string_type;
 
-	llvm_shutdown();
+    // Create a global string variable and assign it with a
+    // previously created constant value.
+    tree var = create_tmp_var_raw(string_type, NULL);
+    char *tmpname = tmpnam(NULL) + strlen(P_tmpdir);
+    if (*tmpname == '/')
+      tmpname++;
+    DECL_NAME(var) = get_identifier(tmpname);
+    DECL_SECTION_NAME(var) = build_string(11, ".kernelgen");
+    TREE_PUBLIC(var) = 1;
+    TREE_STATIC(var) = 1;
+    TREE_READONLY(var) = 1;
+    DECL_INITIAL(var) = string_val;
+    varpool_finalize_decl(var);
+  }
+
+  delete tracker;
+
+  llvm_shutdown();
 }
- 
-extern "C" int plugin_init (
-	plugin_name_args* info, plugin_gcc_version* ver)
-{
-	// Turn on time stats, if requested on gcc side.
-	if (time_report || !quiet_flag || flag_detailed_statistics)
-		llvm::TimePassesIsEnabled = true;
 
-	// Register callbacks.
-	register_callback(info->base_name, PLUGIN_INFO, NULL, &info);
-	register_callback(info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
-	
-	return 0;
+extern "C" int plugin_init(plugin_name_args *info, plugin_gcc_version *ver) {
+  // Turn on time stats, if requested on gcc side.
+  if (time_report || !quiet_flag || flag_detailed_statistics)
+    llvm::TimePassesIsEnabled = true;
+
+  // Register callbacks.
+  register_callback(info->base_name, PLUGIN_INFO, NULL, &info);
+  register_callback(info->base_name, PLUGIN_FINISH_UNIT, &callback, 0);
+
+  return 0;
 }

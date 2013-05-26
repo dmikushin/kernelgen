@@ -17,11 +17,11 @@
 
 #include <stddef.h>
 
-namespace kernelgen { namespace utils {
+namespace kernelgen {
+namespace utils {
 
-class ELF
-{
-public :
+class ELF {
+public:
 
 };
 

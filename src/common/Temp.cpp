@@ -29,24 +29,24 @@ using namespace llvm::sys;
 using namespace llvm::sys::fs;
 using namespace std;
 
-TempFile Temp::getFile(string mask, bool closefd)
-{
-	// Open unique file for the given mask.
-	int fd;
-	SmallString<128> filename_vector;
-	if (error_code err = unique_file(mask, fd, filename_vector))
-		THROW("Cannot open unique temp file " << err, err.value());
+TempFile Temp::getFile(string mask, bool closefd) {
+  // Open unique file for the given mask.
+  int fd;
+  SmallString<128> filename_vector;
+  if (error_code err = unique_file(mask, fd, filename_vector))
+    THROW("Cannot open unique temp file " << err, err.value());
 
-	// Store filename.
-	string filename = (StringRef)filename_vector;
+  // Store filename.
+  string filename = (StringRef) filename_vector;
 
-	if (closefd) close(fd);
+  if (closefd)
+    close(fd);
 
-	// Create output file tracker.
-	string err;
-	tool_output_file file(filename.c_str(), err, raw_fd_ostream::F_Binary);
-	if (!err.empty())
-		THROW("Cannot create output file tracker " << err, filename);
+  // Create output file tracker.
+  string err;
+  tool_output_file file(filename.c_str(), err, raw_fd_ostream::F_Binary);
+  if (!err.empty())
+    THROW("Cannot create output file tracker " << err, filename);
 
-	return TempFile(filename, fd, file);
+  return TempFile(filename, fd, file);
 }

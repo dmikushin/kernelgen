@@ -15,5 +15,4 @@
 #include "Runtime.h"
 
 // Finalization call stub for NATIVE target.
-void kernelgen_finish() { }
-
+void kernelgen_finish() {}

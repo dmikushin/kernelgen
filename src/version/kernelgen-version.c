@@ -16,4 +16,7 @@
 
 #include "kernelgen-version.h"
 
-int main(void) { printf("0.2nvptx/" KERNELGEN_VERSION); return 0; }
+int main(void) {
+  printf("0.23/" KERNELGEN_VERSION);
+  return 0;
+}

@@ -23,7 +23,6 @@
 #ifndef RulesInstructionFloatDefined
 #define RulesInstructionFloatDefined
 
-
 struct InstructionRuleFADD;
 extern InstructionRuleFADD IRFADD;
 

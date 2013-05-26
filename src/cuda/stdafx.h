@@ -37,7 +37,6 @@ using namespace std;
 #include <stack>
 #include <exception>
 
-
 #include "SubString.h"
 #include "Cubin.h"
 #include "DataTypes.h"

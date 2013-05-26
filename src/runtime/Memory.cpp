@@ -33,31 +33,33 @@ using namespace llvm::sys::fs;
 using namespace std;
 
 // Setup the device global memory pool initial configuration.
-kernelgen_memory_t* kernelgen::runtime::InitMemoryPool(size_t szpool)
-{
-	szpool += 4096;
+kernelgen_memory_t *kernelgen::runtime::InitMemoryPool(size_t szpool) {
+  szpool += 4096;
 
-	// First, fill config on host.
-	kernelgen_memory_t config_host;
+  // First, fill config on host.
+  kernelgen_memory_t config_host;
 
-	// Allocate pool and flush it to zero.
-	int err = cuMemAlloc((void**)&config_host.pool, szpool);
-	if (err) THROW("Error in cuMemAlloc: " << err);
-	err = cuMemsetD8(config_host.pool, 0, szpool);
-	if (err) THROW("Error in cuMemsetD8: " << err);
+  // Allocate pool and flush it to zero.
+  int err = cuMemAlloc((void **)&config_host.pool, szpool);
+  if (err)
+    THROW("Error in cuMemAlloc: " << err);
+  err = cuMemsetD8(config_host.pool, 0, szpool);
+  if (err)
+    THROW("Error in cuMemsetD8: " << err);
 
-	config_host.szused = 0;
-	config_host.szpool = szpool;
-	config_host.count = 0;
-	config_host.pool += 4096 - (size_t)config_host.pool % 4096;
+  config_host.szused = 0;
+  config_host.szpool = szpool;
+  config_host.count = 0;
+  config_host.pool += 4096 - (size_t) config_host.pool % 4096;
 
-	// Copy the resulting config to the special
-	// device variable.
-	kernelgen_memory_t* config_device = NULL;
-	err = cuMemAlloc((void**)&config_device, szpool);
-	if (err) THROW("Error in cuMemAlloc: " << err);
-	err = cuMemcpyHtoD(config_device, &config_host, sizeof(kernelgen_memory_t));
-	if (err) THROW("Error in cuMemcpyH2D: " << err);
-	return config_device;
+  // Copy the resulting config to the special
+  // device variable.
+  kernelgen_memory_t *config_device = NULL;
+  err = cuMemAlloc((void **)&config_device, szpool);
+  if (err)
+    THROW("Error in cuMemAlloc: " << err);
+  err = cuMemcpyHtoD(config_device, &config_host, sizeof(kernelgen_memory_t));
+  if (err)
+    THROW("Error in cuMemcpyH2D: " << err);
+  return config_device;
 }
-

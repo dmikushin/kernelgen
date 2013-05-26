@@ -20,20 +20,16 @@
  * THE SOFTWARE.
  */
 
-void inline ApplyModifierRuleUnconditional(ModifierRule* rule)
-{
-	if(rule->Apply0)
-	{
-		csCurrentInstruction.OpcodeWord0 &= rule->Mask0;
-		csCurrentInstruction.OpcodeWord0 |= rule->Bits0;
-	}
-	if(csCurrentInstruction.Is8 && rule->Apply1)
-	{
-		csCurrentInstruction.OpcodeWord1 &= rule->Mask1;
-		csCurrentInstruction.OpcodeWord1 |= rule->Bits1;
-	}
+void inline ApplyModifierRuleUnconditional(ModifierRule *rule) {
+  if (rule->Apply0) {
+    csCurrentInstruction.OpcodeWord0 &= rule->Mask0;
+    csCurrentInstruction.OpcodeWord0 |= rule->Bits0;
+  }
+  if (csCurrentInstruction.Is8 && rule->Apply1) {
+    csCurrentInstruction.OpcodeWord1 &= rule->Mask1;
+    csCurrentInstruction.OpcodeWord1 |= rule->Bits1;
+  }
 }
-
 
 #include "RulesModifier/RulesModifierDataMovement.h"
 #include "RulesModifier/RulesModifierInteger.h"

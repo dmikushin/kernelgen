@@ -19,41 +19,46 @@
 
 #include <string>
 
-#define RUNMODE              kernelgen::settings.getRunmode()
-#define VERBOSE(val)    do { kernelgen::settings.getVerbose() << val; } while (0)
-#define KDEBUG               kernelgen::settings.getDebug()
-#define SUBARCH              kernelgen::settings.getSubarch()
-#define THROW(msg, ...) do { std::cerr << __FILE__ << ":" << __LINE__ << " " << msg << std::endl; \
-                             throw __VA_ARGS__; } while (0)
+#define RUNMODE kernelgen::settings.getRunmode()
+#define VERBOSE(val)                                                           \
+  do {                                                                         \
+    kernelgen::settings.getVerbose() << val;                                   \
+  } while (0)
+#define KDEBUG kernelgen::settings.getDebug()
+#define SUBARCH kernelgen::settings.getSubarch()
+#define THROW(msg, ...)                                                        \
+  do {                                                                         \
+    std::cerr << __FILE__ << ":" << __LINE__ << " " << msg << std::endl;       \
+    throw __VA_ARGS__;                                                         \
+  } while (0)
 
-#define KERNELGEN_RUNMODE_UNDEF   (-1)
-#define KERNELGEN_RUNMODE_NATIVE	0
-#define KERNELGEN_RUNMODE_CUDA		1
-#define KERNELGEN_RUNMODE_OPENCL	2
-#define KERNELGEN_RUNMODE_COUNT		3
+#define KERNELGEN_RUNMODE_UNDEF (-1)
+#define KERNELGEN_RUNMODE_NATIVE 0
+#define KERNELGEN_RUNMODE_CUDA 1
+#define KERNELGEN_RUNMODE_OPENCL 2
+#define KERNELGEN_RUNMODE_COUNT 3
 
 namespace kernelgen {
 
-	class Settings
-	{
-		// Kernels runmode (target).
-		int runmode;
+class Settings {
+  // Kernels runmode (target).
+  int runmode;
 
-		// Verbose output.
-		Verbose verbose;
+  // Verbose output.
+  Verbose verbose;
 
-		// Debug mode.
-		int debug;
+  // Debug mode.
+  int debug;
 
-	public :
+public:
 
-		inline int getRunmode() const { return runmode; }
-		inline Verbose& getVerbose() { return verbose; }
-		inline Verbose::Mode getVerboseMode() const { return verbose.getMode(); }
-		inline int getDebug() const { return debug; }
+  inline int getRunmode() const { return runmode; }
+  inline Verbose &getVerbose() { return verbose; }
+  inline Verbose::Mode getVerboseMode() const { return verbose.getMode(); }
+  inline int getDebug() const { return debug; }
 
-		Settings();
-	};
+  Settings();
+};
 
 } // kernelgen
 

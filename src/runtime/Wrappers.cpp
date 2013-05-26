@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "KernelGen.h"
 #include "Platform.h"
 #include "Runtime.h"
@@ -33,168 +32,160 @@ using namespace llvm;
 using namespace std;
 
 // Wrap call instruction into host function call wrapper.
-CallInst* kernelgen::runtime::WrapCallIntoHostcall(CallInst* call, Kernel* kernel)
-{
-	LLVMContext &context = getGlobalContext();
+CallInst *kernelgen::runtime::WrapCallIntoHostcall(CallInst *call,
+                                                   Kernel *kernel) {
+  LLVMContext &context = getGlobalContext();
 
-	Function* callee = dyn_cast<Function>(
-		call->getCalledValue()->stripPointerCasts());
+  Function *callee =
+      dyn_cast<Function>(call->getCalledValue()->stripPointerCasts());
 
-	VERBOSE("Host call: " << callee->getName().data() << "\n");
+  VERBOSE("Host call: " << callee->getName().data() << "\n");
 
-	StringRef mangledName =
-			platforms[KERNELGEN_RUNMODE_NATIVE]->mangler.get()->getSymbol(
-					callee)->getName();
-	string name(mangledName.data(), mangledName.size());
+  StringRef mangledName = platforms[KERNELGEN_RUNMODE_NATIVE]->mangler.get()
+      ->getSymbol(callee)->getName();
+  string name(mangledName.data(), mangledName.size());
 
-	// Locate entire hostcall in the native code.
-	void* host_func = (void*)dlsym(NULL, name.c_str());
-	if (!host_func) THROW("Cannot dlsym " << dlerror());
-	
-	kernel->target[KERNELGEN_RUNMODE_NATIVE].binary = (KernelFunc)host_func;
+  // Locate entire hostcall in the native code.
+  void *host_func = (void *)dlsym(NULL, name.c_str());
+  if (!host_func)
+    THROW("Cannot dlsym " << dlerror());
 
-	// The host call launcher prototype to be added
-	// to entire module.
-	Module* m = call->getParent()->getParent()->getParent(); 
-	Function* hostcall = m->getFunction("kernelgen_hostcall");
-	if (!hostcall)
-		hostcall = Function::Create(
-			TypeBuilder<void(types::i<8>*, types::i<64>,
-				types::i<64>, types::i<32>*), true>::get(context),
-			GlobalValue::ExternalLinkage, "kernelgen_hostcall", m);
+  kernel->target[KERNELGEN_RUNMODE_NATIVE].binary = (KernelFunc) host_func;
 
-	// Fill the arguments types structure.
-	// First, place pointer to the function type.
-	// Second, place pointer to the structure itself.
-	std::vector<Type*> ArgTypes;
-	ArgTypes.push_back(Type::getInt8PtrTy(context));
-	ArgTypes.push_back(Type::getInt8PtrTy(context));
-	for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
-		ArgTypes.push_back(call->getArgOperand(i)->getType());
+  // The host call launcher prototype to be added
+  // to entire module.
+  Module *m = call->getParent()->getParent()->getParent();
+  Function *hostcall = m->getFunction("kernelgen_hostcall");
+  if (!hostcall)
+    hostcall = Function::Create(
+        TypeBuilder<
+            void(types::i<8> *, types::i<64>, types::i<64>, types::i<32> *),
+            true>::get(context),
+        GlobalValue::ExternalLinkage, "kernelgen_hostcall", m);
 
-	// Lastly, add the type of return value, if not void.
-	// First, store pointer to return value, and then store
-	// the actual value placeholder itself:
-	// struct {
-	//     ...
-	//     retTy* pret;
-	//     retTy ret;
-	// };
-	// This way transparency between host & device memory
-	// buffer for return value could be organized and handled
-	// in the same way as for pointer arguments.
-	Type* retTy = callee->getReturnType();
-	if (!retTy->isVoidTy())
-	{
-		ArgTypes.push_back(retTy->getPointerTo());
-		ArgTypes.push_back(retTy);
-	}
+  // Fill the arguments types structure.
+  // First, place pointer to the function type.
+  // Second, place pointer to the structure itself.
+  std::vector<Type *> ArgTypes;
+  ArgTypes.push_back(Type::getInt8PtrTy(context));
+  ArgTypes.push_back(Type::getInt8PtrTy(context));
+  for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
+    ArgTypes.push_back(call->getArgOperand(i)->getType());
 
-	// Load/store of i1 is not supported by NVPTX.
-	assert(retTy != Type::getInt1Ty(context));
+  // Lastly, add the type of return value, if not void.
+  // First, store pointer to return value, and then store
+  // the actual value placeholder itself:
+  // struct {
+  //     ...
+  //     retTy* pret;
+  //     retTy ret;
+  // };
+  // This way transparency between host & device memory
+  // buffer for return value could be organized and handled
+  // in the same way as for pointer arguments.
+  Type *retTy = callee->getReturnType();
+  if (!retTy->isVoidTy()) {
+    ArgTypes.push_back(retTy->getPointerTo());
+    ArgTypes.push_back(retTy);
+  }
 
-	// Allocate memory for the struct.
-	StructType *StructArgTy = StructType::get(
-		context, ArgTypes, false /* isPacked */);
-	AllocaInst* Struct = new AllocaInst(StructArgTy, 0, "", call);
+  // Load/store of i1 is not supported by NVPTX.
+  assert(retTy != Type::getInt1Ty(context));
 
-	// Initially, fill struct with zeros.
-	IRBuilder<> Builder(call);
-	CallInst* MI = Builder.CreateMemSet(Struct,
-		Constant::getNullValue(Type::getInt8Ty(context)),
-		ConstantExpr::getSizeOf(StructArgTy), 1);
+  // Allocate memory for the struct.
+  StructType *StructArgTy =
+      StructType::get(context, ArgTypes, false /* isPacked */);
+  AllocaInst *Struct = new AllocaInst(StructArgTy, 0, "", call);
 
-	Value* Idx[2];
-	Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
+  // Initially, fill struct with zeros.
+  IRBuilder<> Builder(call);
+  CallInst *MI = Builder.CreateMemSet(
+      Struct, Constant::getNullValue(Type::getInt8Ty(context)),
+      ConstantExpr::getSizeOf(StructArgTy), 1);
 
-	// Store the function type.
-	{
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-		Type* type = callee->getFunctionType();
-		StoreInst* SI = new StoreInst(ConstantExpr::getIntToPtr(
-			ConstantInt::get(Type::getInt64Ty(context),
-			(uint64_t)type), Type::getInt8PtrTy(context)),
-			GEP, false, call);
-	}
+  Value *Idx[2];
+  Idx[0] = Constant::getNullValue(Type::getInt32Ty(context));
 
-	// Store the struct type itself.
-	{
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 1);
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-		StructType* StructArgTy = StructType::get(
-			context, ArgTypes, false /* isPacked */);
-		StoreInst* SI = new StoreInst(ConstantExpr::getIntToPtr(
-			ConstantInt::get(Type::getInt64Ty(context),
-			(uint64_t)StructArgTy), Type::getInt8PtrTy(context)),
-			GEP, false, call);
-	}
+  // Store the function type.
+  {
+    Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 0);
+    GetElementPtrInst *GEP = GetElementPtrInst::Create(Struct, Idx, "", call);
+    Type *type = callee->getFunctionType();
+    StoreInst *SI = new StoreInst(
+        ConstantExpr::getIntToPtr(
+            ConstantInt::get(Type::getInt64Ty(context), (uint64_t) type),
+            Type::getInt8PtrTy(context)),
+        GEP, false, call);
+  }
 
-    	// Store actual arguments to arguments struct.
-	for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i)
-	{
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 2);
-		GetElementPtrInst *GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-		StoreInst* SI = new StoreInst(call->getArgOperand(i), GEP, false, call);
-	}
+  // Store the struct type itself.
+  {
+    Idx[1] = ConstantInt::get(Type::getInt32Ty(context), 1);
+    GetElementPtrInst *GEP = GetElementPtrInst::Create(Struct, Idx, "", call);
+    StructType *StructArgTy =
+        StructType::get(context, ArgTypes, false /* isPacked */);
+    StoreInst *SI = new StoreInst(
+        ConstantExpr::getIntToPtr(
+            ConstantInt::get(Type::getInt64Ty(context), (uint64_t) StructArgTy),
+            Type::getInt8PtrTy(context)),
+        GEP, false, call);
+  }
 
-	// Store pointer to return value buffer: pret = &ret.
-	if (!retTy->isVoidTy())
-	{
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
-			call->getNumArgOperands() + 2);
-		GetElementPtrInst* GEP1 = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
-			call->getNumArgOperands() + 3);
-		GetElementPtrInst* GEP2 = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-		StoreInst* SI = new StoreInst(GEP2, GEP1, false, call);
-	}
+  // Store actual arguments to arguments struct.
+  for (unsigned i = 0, e = call->getNumArgOperands(); i != e; ++i) {
+    Idx[1] = ConstantInt::get(Type::getInt32Ty(context), i + 2);
+    GetElementPtrInst *GEP = GetElementPtrInst::Create(Struct, Idx, "", call);
+    StoreInst *SI = new StoreInst(call->getArgOperand(i), GEP, false, call);
+  }
 
-	// Store pointer to the host call function entry point.
-	SmallVector<Value*, 16> call_args;
-	call_args.push_back(ConstantExpr::getIntToPtr(
-		ConstantInt::get(Type::getInt64Ty(context),
-		(uint64_t)kernel), Type::getInt8PtrTy(context)));
+  // Store pointer to return value buffer: pret = &ret.
+  if (!retTy->isVoidTy()) {
+    Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
+                              call->getNumArgOperands() + 2);
+    GetElementPtrInst *GEP1 = GetElementPtrInst::Create(Struct, Idx, "", call);
+    Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
+                              call->getNumArgOperands() + 3);
+    GetElementPtrInst *GEP2 = GetElementPtrInst::Create(Struct, Idx, "", call);
+    StoreInst *SI = new StoreInst(GEP2, GEP1, false, call);
+  }
 
-	// Store the sizeof structure.
-	call_args.push_back(ConstantExpr::getSizeOf(StructArgTy));
+  // Store pointer to the host call function entry point.
+  SmallVector<Value *, 16> call_args;
+  call_args.push_back(ConstantExpr::getIntToPtr(
+      ConstantInt::get(Type::getInt64Ty(context), (uint64_t) kernel),
+      Type::getInt8PtrTy(context)));
 
-	// TODO: store szdatai.
-	call_args.push_back(Constant::getNullValue(Type::getInt64Ty(context)));
+  // Store the sizeof structure.
+  call_args.push_back(ConstantExpr::getSizeOf(StructArgTy));
 
-	// Store pointer to aggregated arguments struct
-	// to the new call args list.
-	Instruction* IntPtrToStruct = CastInst::CreatePointerCast(
-		Struct, PointerType::getInt32PtrTy(context), "", call);
-	call_args.push_back(IntPtrToStruct);
+  // TODO: store szdatai.
+  call_args.push_back(Constant::getNullValue(Type::getInt64Ty(context)));
 
-	// Emit call to kernelgen_hostcall.
-	CallInst *newcall = CallInst::Create(hostcall, call_args, "", call);
-	newcall->setCallingConv(call->getCallingConv());
-	//newcall->setAttributes(call->getAttributes());
-	newcall->setDebugLoc(call->getDebugLoc());
+  // Store pointer to aggregated arguments struct
+  // to the new call args list.
+  Instruction *IntPtrToStruct = CastInst::CreatePointerCast(
+      Struct, PointerType::getInt32PtrTy(context), "", call);
+  call_args.push_back(IntPtrToStruct);
 
-	// Replace function from device module.
-	if (retTy->isVoidTy())
-		call->replaceAllUsesWith(newcall);
-	else
-	{
-		// Generate index.
-		Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
-			call->getNumArgOperands() + 3);
-		GetElementPtrInst* GEP = GetElementPtrInst::Create(
-			Struct, Idx, "", call);
-		LoadInst* LI = new LoadInst(GEP, "", call);
-		call->replaceAllUsesWith(LI);
-	}
-	callee->setVisibility(GlobalValue::DefaultVisibility);
-	callee->setLinkage(GlobalValue::ExternalLinkage);
-	newcall->setCallingConv(CallingConv::PTX_Device);
-	return newcall;
+  // Emit call to kernelgen_hostcall.
+  CallInst *newcall = CallInst::Create(hostcall, call_args, "", call);
+  newcall->setCallingConv(call->getCallingConv());
+  //newcall->setAttributes(call->getAttributes());
+  newcall->setDebugLoc(call->getDebugLoc());
+
+  // Replace function from device module.
+  if (retTy->isVoidTy())
+    call->replaceAllUsesWith(newcall);
+  else {
+    // Generate index.
+    Idx[1] = ConstantInt::get(Type::getInt32Ty(context),
+                              call->getNumArgOperands() + 3);
+    GetElementPtrInst *GEP = GetElementPtrInst::Create(Struct, Idx, "", call);
+    LoadInst *LI = new LoadInst(GEP, "", call);
+    call->replaceAllUsesWith(LI);
+  }
+  callee->setVisibility(GlobalValue::DefaultVisibility);
+  callee->setLinkage(GlobalValue::ExternalLinkage);
+  newcall->setCallingConv(CallingConv::PTX_Device);
+  return newcall;
 }
-

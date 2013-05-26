@@ -29,15 +29,11 @@ extern InstructionRuleMOV IRMOV;
 struct InstructionRuleMOV32I;
 extern InstructionRuleMOV32I IRMOV32I;
 
-
-
 struct InstructionRuleLD;
 extern InstructionRuleLD IRLD;
 
-
 struct InstructionRuleLDU;
 extern InstructionRuleLDU IRLDU;
-
 
 struct InstructionRuleLDL;
 extern InstructionRuleLDL IRLDL;
@@ -50,7 +46,6 @@ extern InstructionRuleLDC IRLDC;
 
 struct InstructionRuleST;
 extern InstructionRuleST IRST;
-
 
 struct InstructionRuleSTL;
 extern InstructionRuleSTL IRSTL;

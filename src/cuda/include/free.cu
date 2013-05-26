@@ -14,17 +14,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define kernelgen_free_device(...) kernelgen_free_device(__VA_ARGS__, unsigned int* __kernelgen_memory)
+#define kernelgen_free_device(...)                                             \
+  kernelgen_free_device(__VA_ARGS__, unsigned int *__kernelgen_memory)
 #include "free.h"
 #undef kernelgen_free_device
 
-struct free_callback_t
-{
-	void* ptr;
+struct free_callback_t {
+  void *ptr;
 };
 
-extern "C" __attribute__((global)) void kernelgen_free(int* callback, unsigned int* __kernelgen_memory)
-{
-	free_callback_t* cb = (free_callback_t*)callback;
-	kernelgen_free_device(cb->ptr, __kernelgen_memory);
+extern "C" __attribute__((global)) void
+kernelgen_free(int *callback, unsigned int *__kernelgen_memory) {
+  free_callback_t *cb = (free_callback_t *)callback;
+  kernelgen_free_device(cb->ptr, __kernelgen_memory);
 }
