@@ -67,16 +67,15 @@ int b_lineLength; //length of the instruction string
 //When no non-blank character, it causes hpBreakInstructionIntoComponents to
 //directly return
 #define mSkipBlank \
-{																											\
-	for (; b_currentPos < b_lineLength; b_currentPos++) {																										\
-		if ((int) csCurrentInstruction.InstructionString[b_currentPos] > 32) {																									\
-			b_startPos = b_currentPos;																		\
-			break;																							\
-		}																									\
-	}																										\
-	if (b_currentPos == b_lineLength)
-   return;
- \
+{ \
+	for (; b_currentPos < b_lineLength; b_currentPos++) { \
+		if ((int) csCurrentInstruction.InstructionString[b_currentPos] > 32) { \
+			b_startPos = b_currentPos; \
+			break; \
+		} \
+	} \
+	if (b_currentPos == b_lineLength) \
+   return; \
 }
 
 #define mExtract(startPos, cutPos)                                             \
