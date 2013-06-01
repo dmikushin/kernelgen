@@ -1,1 +1,0 @@
-#define KERNELGEN_VERSION "1925M"
