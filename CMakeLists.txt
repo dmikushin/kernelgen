@@ -202,12 +202,18 @@ target_link_libraries(kernelgen-asfermi)
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/monitor.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
 	${PROJECT_SOURCE_DIR}/src/cuda/include/monitor.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/monitor.bc)
 add_custom_target(cuda_monitor ALL DEPENDS ${PROJECT_BINARY_DIR}/monitor.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/math.sm_20.bc COMMAND cp
+	${PROJECT_SOURCE_DIR}/src/cuda/include/math.sm_20.bc ${PROJECT_BINARY_DIR}/math.sm_20.bc)
+add_custom_target(cuda_module_sm20 ALL DEPENDS ${PROJECT_BINARY_DIR}/math.sm_20.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/math.sm_30.bc COMMAND cp
+	${PROJECT_SOURCE_DIR}/src/cuda/include/math.sm_30.bc ${PROJECT_BINARY_DIR}/math.sm_30.bc)
+add_custom_target(cuda_module_sm30 ALL DEPENDS ${PROJECT_BINARY_DIR}/math.sm_30.bc)
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/math.sm_35.bc COMMAND cp
+	${PROJECT_SOURCE_DIR}/src/cuda/include/math.sm_35.bc ${PROJECT_BINARY_DIR}/math.sm_35.bc)
+add_custom_target(cuda_module_sm35 ALL DEPENDS ${PROJECT_BINARY_DIR}/math.sm_35.bc)
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/runtime.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
 	${PROJECT_SOURCE_DIR}/src/cuda/include/runtime.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/runtime.bc)
 add_custom_target(cuda_runtime ALL DEPENDS ${PROJECT_BINARY_DIR}/runtime.bc)
-add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/math.bc COMMAND opt
-	${PROJECT_SOURCE_DIR}/src/cuda/include/math.bc -o ${PROJECT_BINARY_DIR}/math.bc)
-add_custom_target(cuda_math ALL DEPENDS ${PROJECT_BINARY_DIR}/math.bc)
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/malloc.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
 	${PROJECT_SOURCE_DIR}/src/cuda/include/malloc.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/malloc.bc)
 add_custom_target(cuda_malloc ALL DEPENDS ${PROJECT_BINARY_DIR}/malloc.bc)
@@ -281,7 +287,9 @@ INSTALL(TARGETS
 INSTALL(FILES
 	${PROJECT_BINARY_DIR}/free.bc
 	${PROJECT_BINARY_DIR}/malloc.bc
-	${PROJECT_BINARY_DIR}/math.bc
+	${PROJECT_BINARY_DIR}/math.sm_20.bc
+	${PROJECT_BINARY_DIR}/math.sm_30.bc
+	${PROJECT_BINARY_DIR}/math.sm_35.bc
 	${PROJECT_BINARY_DIR}/monitor.bc
 	${PROJECT_BINARY_DIR}/runtime.bc
 	DESTINATION include/cuda)

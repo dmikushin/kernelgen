@@ -200,7 +200,7 @@ extern KernelFunc monitor_kernel;
 // Runtime module (applicable for some targets).
 extern llvm::Module *runtime_module;
 
-// CUDA module (applicable for some targets).
+// CUDA device functions module.
 extern llvm::Module *cuda_module;
 
 // KernelGen plugins.

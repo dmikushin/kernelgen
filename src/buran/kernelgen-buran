@@ -875,7 +875,7 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_LLVM_REV/$llvm_rev/g;
 		$line =~ s/KERNELGEN_TARGET/$target/g;
 		$line =~ s/KERNELGEN_FULLREPACK/$fullrepack/g;
-		$line =~ s/KERNELGEN_NJOBS/24/g;
+		$line =~ s/KERNELGEN_NJOBS/12/g;
 		$line =~ s/KERNELGEN_VERSION/$version/g;
 
 		$line =~ s/KERNELGEN_PREFIX/$prefix/g;

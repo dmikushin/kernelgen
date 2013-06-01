@@ -13,9 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -77,7 +79,7 @@ KernelFunc kernelgen::runtime::monitor_kernel;
 // Runtime module (applicable for some targets).
 Module *kernelgen::runtime::runtime_module = NULL;
 
-// CUDA module (applicable for some targets).
+// CUDA device functions module.
 Module *kernelgen::runtime::cuda_module = NULL;
 
 // KernelGen plugins.
@@ -85,6 +87,31 @@ std::vector<kernelgen_after_ptx_t> kernelgen::runtime::pluginsAfterPTX;
 std::vector<kernelgen_after_cubin_t> kernelgen::runtime::pluginsAfterCUBIN;
 
 void load_kernel(Kernel *kernel);
+
+namespace llvm {
+  ModulePass *createNVVMReflectPass();
+}
+
+static Module* load_module(string Path)
+{
+  std::ifstream tmp_stream(Path.c_str());
+  tmp_stream.seekg(0, std::ios::end);
+  string source = "";
+  source.reserve(tmp_stream.tellg());
+  tmp_stream.seekg(0, std::ios::beg);
+
+  source.assign(std::istreambuf_iterator<char>(tmp_stream),
+                std::istreambuf_iterator<char>());
+  tmp_stream.close();
+
+  string err;
+  MemoryBuffer *buffer = MemoryBuffer::getMemBuffer(source);
+  LLVMContext &context = getGlobalContext();
+  Module* module = ParseBitcodeFile(buffer, context, &err);
+  if (!module)
+   THROW("Cannot load KernelGen module " << Path << ": " << err);
+  return module;
+}
 
 int main(int argc, char *argv[], char *envp[]) {
   //tracker = new PassTracker("codegen", NULL, NULL);
@@ -231,65 +258,33 @@ int main(int argc, char *argv[], char *envp[]) {
       string kernelgenPath = kernelgenSimplePath.getDirname().str();
 
       // Load LLVM IR for kernel monitor, if not yet loaded.
-      if (!monitor_module) {
-        string monitorModulePath =
-            kernelgenPath + "/../include/cuda/monitor.bc";
-        std::ifstream tmp_stream(monitorModulePath.c_str());
-        tmp_stream.seekg(0, std::ios::end);
-        string monitor_source = "";
-        monitor_source.reserve(tmp_stream.tellg());
-        tmp_stream.seekg(0, std::ios::beg);
-
-        monitor_source.assign(std::istreambuf_iterator<char>(tmp_stream),
-                              std::istreambuf_iterator<char>());
-        tmp_stream.close();
-
-        string err;
-        MemoryBuffer *buffer = MemoryBuffer::getMemBuffer(monitor_source);
-        monitor_module = ParseBitcodeFile(buffer, context, &err);
-        if (!monitor_module)
-          THROW("Cannot load KernelGen monitor kernel module: " << err);
-      }
+      if (!monitor_module)
+        monitor_module = load_module(kernelgenPath + "/../include/cuda/monitor.bc");
 
       // Load LLVM IR for KernelGen runtime functions, if not yet loaded.
-      if (!runtime_module) {
-        string runtimeModulePath =
-            kernelgenPath + "/../include/cuda/runtime.bc";
-        std::ifstream tmp_stream(runtimeModulePath.c_str());
-        tmp_stream.seekg(0, std::ios::end);
-        string runtime_source = "";
-        runtime_source.reserve(tmp_stream.tellg());
-        tmp_stream.seekg(0, std::ios::beg);
+      if (!runtime_module)
+        runtime_module = load_module(kernelgenPath + "/../include/cuda/runtime.bc");
 
-        runtime_source.assign(std::istreambuf_iterator<char>(tmp_stream),
-                              std::istreambuf_iterator<char>());
-        tmp_stream.close();
-
-        string err;
-        MemoryBuffer *buffer = MemoryBuffer::getMemBuffer(runtime_source);
-        runtime_module = ParseBitcodeFile(buffer, context, &err);
-        if (!runtime_module)
-          THROW("Cannot load KernelGen runtime functions module: " << err);
-      }
-
-      // Load LLVM IR for CUDA runtime functions, if not yet loaded.
+      // Load LLVM IR for CUDA math functions, if not yet loaded.
       if (!cuda_module) {
-        string cudaModulePath = kernelgenPath + "/../include/cuda/math.bc";
-        std::ifstream tmp_stream(cudaModulePath.c_str());
-        tmp_stream.seekg(0, std::ios::end);
-        string cuda_source = "";
-        cuda_source.reserve(tmp_stream.tellg());
-        tmp_stream.seekg(0, std::ios::beg);
+      	if (cuda_context->getSubarchMajor() == 2)
+          cuda_module = load_module(kernelgenPath + "/../include/cuda/math.sm_20.bc");
+        else if (cuda_context->getSubarchMajor() == 3) {
+          if (cuda_context->getSubarchMinor() == 0)
+            cuda_module = load_module(kernelgenPath + "/../include/cuda/math.sm_30.bc");
+          else if (cuda_context->getSubarchMinor() == 5)
+            cuda_module = load_module(kernelgenPath + "/../include/cuda/math.sm_35.bc");
+        }
 
-        cuda_source.assign(std::istreambuf_iterator<char>(tmp_stream),
-                           std::istreambuf_iterator<char>());
-        tmp_stream.close();
-
-        string err;
-        MemoryBuffer *buffer = MemoryBuffer::getMemBuffer(cuda_source);
-        cuda_module = ParseBitcodeFile(buffer, context, &err);
         if (!cuda_module)
-          THROW("Cannot load CUDA math functions module: " << err);
+          THROW("Device compute capability \"" << cuda_context->getSubarch() <<
+            "\" is not supported by available CUDA device functions modules");
+
+	// Replace __nvvm_reflect calls in CUDA functions.
+        PassManager manager;
+        manager.add(new DataLayout(cuda_module));
+        manager.add(createNVVMReflectPass());
+        manager.run(*cuda_module);
 
         // Mark all module functions as device functions.
         for (Module::iterator F = cuda_module->begin(), FE = cuda_module->end();
