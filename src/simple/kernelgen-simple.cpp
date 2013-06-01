@@ -526,6 +526,29 @@ int getArchiveObjData(string &filename, vector<char> &container,
   return 0;
 }
 
+static Module* load_module(string Path)
+{
+  string err;
+  std::ifstream tmp_stream(Path.c_str());
+  if (!tmp_stream.is_open())
+    THROW("Cannot load KernelGen module " << Path << ": " << err);
+  tmp_stream.seekg(0, std::ios::end);
+  string source = "";
+  source.reserve(tmp_stream.tellg());
+  tmp_stream.seekg(0, std::ios::beg);
+
+  source.assign(std::istreambuf_iterator<char>(tmp_stream),
+                std::istreambuf_iterator<char>());
+  tmp_stream.close();
+
+  MemoryBuffer *buffer = MemoryBuffer::getMemBuffer(source);
+  LLVMContext &context = getGlobalContext();
+  Module* module = ParseBitcodeFile(buffer, context, &err);
+  if (!module)
+    THROW("Cannot load KernelGen module " << Path << ": " << err);
+  return module;
+}
+
 static int link(int argc, char **argv, const char *input, const char *output) {
 
   //
@@ -1179,30 +1202,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
   }
 
   // Load LLVM IR for CUDA runtime functions, if not yet loaded.
-  Module *cuda_module = NULL;
-  {
-    string cudaModulePath = kernelgenPath + "/../include/cuda/math.bc";
-    std::ifstream tmp_stream(cudaModulePath.c_str());
-    tmp_stream.seekg(0, std::ios::end);
-    string cuda_source = "";
-    cuda_source.reserve(tmp_stream.tellg());
-    tmp_stream.seekg(0, std::ios::beg);
-
-    cuda_source.assign(std::istreambuf_iterator<char>(tmp_stream),
-                       std::istreambuf_iterator<char>());
-    tmp_stream.close();
-
-    string err;
-    MemoryBuffer *buffer = MemoryBuffer::getMemBuffer(cuda_source);
-    cuda_module = ParseBitcodeFile(buffer, context, &err);
-    if (!cuda_module)
-      THROW("Cannot load CUDA math functions module: " << err);
-
-    // Mark all module functions as device functions.
-    for (Module::iterator F = cuda_module->begin(), FE = cuda_module->end();
-         F != FE; F++)
-      F->setCallingConv(CallingConv::PTX_Device);
-  }
+  Module *cuda_module = load_module(kernelgenPath + "/../include/cuda/math.sm_20.bc");
 
   //
   // 5) Transform the composite module into "main" kernel,
@@ -1413,8 +1413,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
             if (!hostcalls) {
               // Ensure we don't have external calls for entire function.
               // If we do, the loop is not eligible for GPU execution, and could
-              // be
-              // only launched over the host call, without any further
+              // be only launched over the host call, without any further
               // processing.
               Function *MathFunc = cuda_module->getFunction(func->getName());
               Function *RuntimeFunc =

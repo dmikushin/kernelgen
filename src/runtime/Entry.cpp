@@ -94,7 +94,10 @@ namespace llvm {
 
 static Module* load_module(string Path)
 {
+  string err;
   std::ifstream tmp_stream(Path.c_str());
+  if (!tmp_stream.is_open())
+    THROW("Cannot load KernelGen module " << Path << ": " << err);
   tmp_stream.seekg(0, std::ios::end);
   string source = "";
   source.reserve(tmp_stream.tellg());
@@ -104,12 +107,11 @@ static Module* load_module(string Path)
                 std::istreambuf_iterator<char>());
   tmp_stream.close();
 
-  string err;
   MemoryBuffer *buffer = MemoryBuffer::getMemBuffer(source);
   LLVMContext &context = getGlobalContext();
   Module* module = ParseBitcodeFile(buffer, context, &err);
   if (!module)
-   THROW("Cannot load KernelGen module " << Path << ": " << err);
+    THROW("Cannot load KernelGen module " << Path << ": " << err);
   return module;
 }
 
