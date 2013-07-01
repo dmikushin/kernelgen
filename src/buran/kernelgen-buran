@@ -389,7 +389,7 @@ sub build_and_test_kernelgen
 			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url $base_name";
 			print "$cmd\n";
 			`$cmd`;
-			$rev = `svnversion -n $base_name`;
+			$rev = `cd $WORKSPACE && svnversion -n $base_name`;
 			if ($rev !~ m/\d+/)
 			{
 				print "Cannot determine checked out revision:\n";
