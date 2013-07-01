@@ -388,17 +388,9 @@ sub build_and_test_kernelgen
 			#
 			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url $base_name";
 			print "$cmd\n";
-			my(@lines) = split("\n", `$cmd`);
-			foreach $line (@lines)
-			{
-				if ($line =~ m/Checked\sout\srevision\s(\d+)\./)
-				{
-					$rev = $1;
-					print "Checked all components @ revision $rev\n";
-					last;
-				}
-			}
-			if ($rev == -1)
+			`$cmd`;
+			$rev = `svnversion -n $base_name`;
+			if ($rev !~ m/\d+/)
 			{
 				print "Cannot determine checked out revision:\n";
 				foreach $line(@line)
@@ -406,6 +398,10 @@ sub build_and_test_kernelgen
 					print "$line\n";
 				}
 				exit(-1);
+			}
+			else
+			{
+				print "Checked all components @ revision $rev\n";
 			}
 		}
 
