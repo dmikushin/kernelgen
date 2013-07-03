@@ -97,7 +97,7 @@
 +    fprintf(stderr, "\n");
 +  }
 +
-   int exit = tlink_execute ("ld", ld_argv, ldout, lderrout);
+   int ret = tlink_execute ("ld", ld_argv, ldout, lderrout);
  
    tlink_init ();
 --- a/gcc-snapshot/gcc/toplev.c	2012-03-25 16:59:48.910888752 +0400
@@ -356,7 +356,7 @@
 +   In out approach we perform two compilation passes, thus
 +   GCC state must be reset before the second pass.
 +   To archive that, we will backup .data and .bss symbols
-+   initla state and rewrite them after finishing the first pass.  */
++   initial state and rewrite them after finishing the first pass.  */
 +vector<char> obj_data_vector;
 +static char* obj_data;
 +int load_self_elf(Elf** e, Elf_Data** symbols,
