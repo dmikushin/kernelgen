@@ -48,7 +48,7 @@ my($RPMS) = "$RPMBUILD/RPMS";
 my($BUILD) = "$RPMBUILD/BUILD";
 my($BUILDROOT) = "$RPMBUILD/BUILDROOT";
 
-my($binutils_snapshot) = "binutils-2.22";
+my($binutils_snapshot) = "binutils-2.23.2";
 my($binutils) = "http://ftp.gnu.org/gnu/binutils/$binutils_snapshot.tar.bz2";
 my($gmp_snapshot) = "gmp-5.0.5";
 my($gmp) = "ftp://ftp.gmplib.org/pub/gmp-5.0.5/$gmp_snapshot.tar.bz2";
@@ -871,7 +871,7 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_LLVM_REV/$llvm_rev/g;
 		$line =~ s/KERNELGEN_TARGET/$target/g;
 		$line =~ s/KERNELGEN_FULLREPACK/$fullrepack/g;
-		$line =~ s/KERNELGEN_NJOBS/12/g;
+		$line =~ s/KERNELGEN_NJOBS/24/g;
 		$line =~ s/KERNELGEN_VERSION/$version/g;
 
 		$line =~ s/KERNELGEN_PREFIX/$prefix/g;
@@ -900,7 +900,6 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_GCC_BOOTSTRAP/$gcc_enable_bootstrap/g;
 		$line =~ s/KERNELGEN_ENABLE_GCC/$gcc_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_NETCDF/$netcdf_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_OPENMPI/$openmpi_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_DRAGONEGG/$dragonegg_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_LIBFFI/$libffi_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_MHASH/$mhash_enable/g;
