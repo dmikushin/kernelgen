@@ -59,24 +59,38 @@
 +         "kernelgen-simple failed");
  
    pex_free (pex);
- 
-@@ -591,7 +591,7 @@
+
+@@ -603,8 +603,16 @@
+ static enum ld_plugin_status
  all_symbols_read_handler (void)
  {
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  int fallback = 0;
++  if (cfallback) {
++    fallback = atoi(cfallback);
++  }
++
    unsigned i;
--  unsigned num_lto_args = num_claimed_files + lto_wrapper_num_args + 1;
-+  unsigned num_lto_args = num_claimed_files + 2;
+   unsigned num_lto_args = num_claimed_files + lto_wrapper_num_args + 1;
++  if (!fallback)
++    num_lto_args = num_claimed_files + 2;
    char **lto_argv;
    const char **lto_arg_ptr;
    if (num_claimed_files == 0)
-@@ -611,8 +611,7 @@
- 
+@@ -624,8 +632,13 @@
+
    free_1 ();
- 
+
 -  for (i = 0; i < lto_wrapper_num_args; i++)
 -    *lto_arg_ptr++ = lto_wrapper_argv[i];
-+  *lto_arg_ptr++ = lto_wrapper_argv[0];
- 
++  if (fallback) {
++    for (i = 0; i < lto_wrapper_num_args; i++)
++      *lto_arg_ptr++ = lto_wrapper_argv[i];
++  } else {
++    if (lto_wrapper_num_args > 0)
++      *lto_arg_ptr++ = lto_wrapper_argv[0];
++  }
+
    for (i = 0; i < num_claimed_files; i++)
      {
 --- a/gcc-snapshot/gcc/tlink.c	2010-11-29 17:09:41.000000000 +0300
