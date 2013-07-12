@@ -97,6 +97,62 @@ static size_t GetKernelSize(string kernel_name, vector<char> &mcubin) {
   return 0;
 }
 
+// Get kernel size as it is recorded in ELF.
+static int GetKernelRegcount(string kernel_name, vector<char> &mcubin) {
+  kernel_name = ".text." + kernel_name;
+
+  Elf *e = NULL;
+  try {
+    // Setup ELF version.
+    if (elf_version(EV_CURRENT) == EV_NONE)
+      THROW("Cannot initialize ELF library: " << elf_errmsg(-1));
+
+    // First, load input ELF.
+    if ((e = elf_memory(&mcubin[0], mcubin.size())) == 0)
+      THROW("elf_memory() failed for \"" << kernel_name
+                                         << "\": " << elf_errmsg(-1));
+
+    // Get sections names section index.
+    size_t shstrndx;
+    if (elf_getshdrstrndx(e, &shstrndx))
+      THROW("elf_getshdrstrndx() failed for " << kernel_name << ": "
+                                              << elf_errmsg(-1));
+
+    // Find the target kernel section and get its size.
+    Elf_Scn *scn = elf_nextscn(e, NULL);
+    for (int i = 1; scn != NULL; scn = elf_nextscn(e, scn), i++) {
+      // Get section header.
+      GElf_Shdr shdr;
+      if (!gelf_getshdr(scn, &shdr))
+        THROW("gelf_getshdr() failed for " << kernel_name << ": "
+                                           << elf_errmsg(-1));
+
+      // Get name.
+      char *cname = NULL;
+      if ((cname = elf_strptr(e, shstrndx, shdr.sh_name)) == NULL)
+        THROW("Cannot get the name of section " << i << " of " << kernel_name);
+      string name = cname;
+
+      if (name != kernel_name)
+        continue;
+      
+      int regcount = shdr.sh_info >> 24;
+
+      elf_end(e);
+      return regcount;
+    }
+
+    THROW("Kernel " << kernel_name << " not found in CUBIN");
+  }
+  catch (...) {
+    if (e)
+      elf_end(e);
+    throw;
+  }
+
+  return 0;
+}
+
 // Get kernel code as it is loaded on GPU with substituted relocations.
 static void GetKernelLoadEffectiveCode(string kernel_name, size_t kernel_size,
                                        unsigned int kernel_lepc,
@@ -277,12 +333,20 @@ static unsigned int GetKernelJcalTarget(uint64_t jcal_cmd) {
 static void GetKernelsLoadEffectiveLayout(map<string, unsigned int> &layout,
                                           string kernel_name,
                                           unsigned int kernel_lepc,
-                                          vector<char> &mcubin) {
+                                          vector<char> &mcubin,
+                                          int* regcount) {
   VERBOSE(Verbose::Loader << "kernel " << kernel_name << "\n"
                           << Verbose::Default);
 
   // Get the size of current kernel.
   size_t kernel_size = GetKernelSize(kernel_name, mcubin);
+
+  if (regcount) {
+    // Get the regcount of current kernel.
+    int maxregcount = GetKernelRegcount(kernel_name, mcubin);
+    if (maxregcount > *regcount)
+      *regcount = maxregcount;
+  }
 
   VERBOSE(Verbose::Loader << "kernel_size = " << kernel_size << "\n"
                           << Verbose::Default);
@@ -340,7 +404,8 @@ static void GetKernelsLoadEffectiveLayout(map<string, unsigned int> &layout,
     layout[kernel_name] = kernel_lepc;
 
     // Discover kernels that might be called from entire kernel.
-    GetKernelsLoadEffectiveLayout(layout, kernel_name, kernel_lepc, mcubin);
+    GetKernelsLoadEffectiveLayout(layout, kernel_name, kernel_lepc, mcubin,
+                                  regcount);
   }
 }
 
@@ -348,7 +413,7 @@ static void GetKernelsLoadEffectiveLayout(map<string, unsigned int> &layout,
 // as they are loaded into GPU memory.
 void kernelgen::bind::cuda::CUBIN::GetLoadEffectiveLayout(
     const char *cubin, const char *ckernel_name, unsigned int kernel_lepc_diff,
-    map<string, unsigned int> &layout) {
+    map<string, unsigned int> &layout, int* regcount) {
   // Read LEPC.
   unsigned int kernel_lepc = cuda_context->getLEPC();
   kernel_lepc -= kernel_lepc_diff;
@@ -370,7 +435,9 @@ void kernelgen::bind::cuda::CUBIN::GetLoadEffectiveLayout(
   }
 
   layout[ckernel_name] = kernel_lepc;
-  GetKernelsLoadEffectiveLayout(layout, ckernel_name, kernel_lepc, mcubin);
+  if (regcount)
+    *regcount = -1;
+  GetKernelsLoadEffectiveLayout(layout, ckernel_name, kernel_lepc, mcubin, regcount);
 
   for (map<string, unsigned int>::iterator i = layout.begin(),
                                            ie = layout.end();

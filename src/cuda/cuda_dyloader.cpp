@@ -79,7 +79,7 @@ struct buffer_t {
 };
 
 struct CUDYloader_t;
-
+ 
 struct CUDYfunction_t {
   unsigned int szbinary;
   vector<char> binary;
@@ -91,8 +91,8 @@ struct CUDYfunction_t {
   unsigned int offset;
 
   // Read CUBIN function from file.
-  CUDYfunction_t(CUDYloader_t *loader, const char *name, char *cubin)
-      : loader(loader), regcount(-1) {
+  CUDYfunction_t(CUDYloader_t *loader, const char *name, char *cubin, int regcount)
+      : loader(loader), regcount(regcount) {
     // Read cubin from file
     stringstream stream(stringstream::in | stringstream::out |
                         stringstream::binary);
@@ -156,7 +156,8 @@ struct CUDYfunction_t {
           continue;
 
         // Extract regcount out of 24 bits of section info.
-        regcount = shdr.sh_info >> 24;
+        if (regcount == -1)
+          regcount = shdr.sh_info >> 24;
 
         // Extract binary opcodes and size.
         szbinary = shdr.sh_size;
@@ -646,9 +647,10 @@ CUresult cudyInit(CUDYloader *loader, int capacity, string host_cubin) {
 // Load kernel function with the specified name from cubin file
 // into dynamic loader context.
 CUresult cudyLoadCubin(CUDYfunction *function, CUDYloader loader,
-                       const char *name, char *cubin, CUstream stream) {
+                       const char *name, char *cubin, CUstream stream,
+                       int regcount) {
   // Create function.
-  *function = new CUDYfunction_t(loader, name, cubin);
+  *function = new CUDYfunction_t(loader, name, cubin, regcount);
   return loader->Load(*function, stream);
 }
 
@@ -665,8 +667,8 @@ CUresult cudyLoadCubinData(CUDYfunction *function, CUDYloader loader,
 // Load kernel function from the specified assembly opcodes
 // into dynamic loader context.
 CUresult cudyLoadOpcodes(CUDYfunction *function, CUDYloader loader,
-                         char *opcodes, size_t nopcodes, int regcount,
-                         CUstream stream) {
+                         char *opcodes, size_t nopcodes, CUstream stream,
+                         int regcount) {
   // Create function.
   *function = new CUDYfunction_t(loader, opcodes, nopcodes, regcount);
   return loader->Load(*function, stream);

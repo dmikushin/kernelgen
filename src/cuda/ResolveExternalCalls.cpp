@@ -315,7 +315,8 @@ GetKernelRelocations(string kernel_name, vector<char> &mcubin,
 // using the load-effective layout obtained from the main kernel.
 void kernelgen::bind::cuda::CUBIN::ResolveExternalCalls(
     const char *cubin_dst, const char *ckernel_name_dst, const char *cubin_src,
-    const char *ckernel_name_src, unsigned int kernel_lepc_diff) {
+    const char *ckernel_name_src, unsigned int kernel_lepc_diff,
+    int* regcount) {
   // Load CUBIN into memory.
   vector<char> mcubin;
   {
@@ -343,7 +344,7 @@ void kernelgen::bind::cuda::CUBIN::ResolveExternalCalls(
   // load-effective layout, if not previously loaded.
   if (!loadEffectiveLayout.size())
     CUBIN::GetLoadEffectiveLayout(cubin_src, ckernel_name_src, kernel_lepc_diff,
-                                  loadEffectiveLayout);
+                                  loadEffectiveLayout, regcount);
 
   // Load destination kernel binary.
   vector<char> kernel_code;

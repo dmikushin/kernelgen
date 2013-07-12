@@ -26,10 +26,6 @@
 #include <stddef.h>
 #include <string>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct CUDYloader_t *CUDYloader;
 typedef struct CUDYfunction_t *CUDYfunction;
 
@@ -41,7 +37,8 @@ CUresult cudyInit(CUDYloader *loader, int capacity,
 // Load kernel function with the specified name from cubin file
 // into dynamic loader context.
 CUresult cudyLoadCubin(CUDYfunction *function, CUDYloader loader,
-                       const char *name, char *cubin, CUstream stream);
+                       const char *name, char *cubin, CUstream stream,
+                       int regcount = -1);
 
 // Load kernel function with the specified name from memory buffer
 // into dynamic loader context.
@@ -52,8 +49,8 @@ CUresult cudyLoadCubinData(CUDYfunction *function, CUDYloader loader,
 // Load kernel function from the specified assembly opcodes
 // into dynamic loader context.
 CUresult cudyLoadOpcodes(CUDYfunction *function, CUDYloader loader,
-                         char *opcodes, size_t nopcodes, int regcount,
-                         CUstream stream);
+                         char *opcodes, size_t nopcodes, CUstream stream,
+                         int regcount);
 
 // Launch kernel function through the dynamic loader.
 // Additionally, measure the time of the kernel execution if
@@ -66,9 +63,5 @@ CUresult cudyLaunch(CUDYfunction function, unsigned int gx, unsigned int gy,
 
 // Dispose the specified CUDA dynamic loader instance.
 CUresult cudyDispose(CUDYloader loader);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // CUDA_DYLOADER_H

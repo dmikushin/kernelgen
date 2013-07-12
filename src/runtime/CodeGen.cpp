@@ -56,6 +56,8 @@ static unsigned int kernelgen_main_lepc_offset;
 
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.
+// NOTE for loop kernels we record the maximum regcount across kernel
+// and all its external calls.
 KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
 
   // Get target-specific mangling for kernel name.
@@ -215,8 +217,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
         // some time to work on it.
         dim3 blockDim = kernel->target[runmode].blockDim;
         int maxregcount = cuda_context->getRegsPerBlock() /
-                              (blockDim.x * blockDim.y * blockDim.z) -
-                          4;
+                          (blockDim.x * blockDim.y * blockDim.z) - 4;
         if (maxregcount > maxrregcount)
           maxregcount = maxrregcount;
 
@@ -247,6 +248,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
       }
     }
 
+    int regcount = -1;
     if (name == "__kernelgen_main") {
       // Initialize the dynamic kernels loader.
       CU_SAFE_CALL(cudyInit(&cuda_context->loader, cuda_context->capacity,
@@ -264,10 +266,12 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
     } else {
       // Check if loop kernel contains unresolved calls and resolve them
       // using the load-effective layout obtained from the main kernel.
+      // NOTE we record the maximum regcount across kernel and all its
+      // external calls.
       CUBIN::ResolveExternalCalls(tmp3.getName().c_str(), kernel->name.c_str(),
                                   kernelgen_main_filename.c_str(),
                                   "__kernelgen_main",
-                                  kernelgen_main_lepc_offset);
+                                  kernelgen_main_lepc_offset, &regcount);
     }
 
     // Dump Fermi assembly from CUBIN.
@@ -328,7 +332,8 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
       // Load kernel function from the binary opcodes.
       CU_SAFE_CALL(cudyLoadCubin(
           (CUDYfunction *)&kernel_func, cuda_context->loader, name.c_str(),
-          (char *)tmp3.getName().c_str(), cuda_context->getSecondaryStream()));
+          (char *)tmp3.getName().c_str(), cuda_context->getSecondaryStream(),
+          regcount));
     }
 
     VERBOSE("Loaded '" << name << "' at: " << kernel_func << "\n");

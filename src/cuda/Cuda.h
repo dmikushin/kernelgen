@@ -240,15 +240,19 @@ public:
   static void
       GetLoadEffectiveLayout(const char *cubin, const char *ckernel_name,
                              unsigned int kernel_lepc_diff,
-                             std::map<std::string, unsigned int> &layout);
+                             std::map<std::string, unsigned int> &layout,
+                             int* regcount = NULL);
 
   // Check if loop kernel contains unresolved calls and resolve them
   // using the load-effective layout obtained from the main kernel.
+  // Returns the maximum register count across kernel and its external
+  // calls.
   static void ResolveExternalCalls(const char *cubin_dst,
-                                   const char *ckernel_name_dst,
-                                   const char *cubin_src,
-                                   const char *ckernel_name_src,
-                                   unsigned int kernel_lepc_diff);
+                                  const char *ckernel_name_dst,
+                                  const char *cubin_src,
+                                  const char *ckernel_name_src,
+                                  unsigned int kernel_lepc_diff,
+                                  int* regcount = NULL);
 };
 
 } // namespace cuda
