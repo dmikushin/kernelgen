@@ -202,8 +202,8 @@
    }
    AScope = new LexicalScope(Parent, DIDescriptor(N), NULL, true);
    AbstractScopeMap[N] = AScope;
---- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(revision 182420)
-+++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(working copy)
+--- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2013-07-14 01:33:25.000000000 +0200
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2013-07-14 17:01:59.699241275 +0200
 @@ -12,12 +12,13 @@
  //
  //===----------------------------------------------------------------------===//
@@ -235,7 +235,7 @@
    
    // Set up
    MRI = &MF->getRegInfo();
-@@ -446,6 +456,12 @@
+@@ -444,6 +454,12 @@
    raw_svector_ostream O(Str);
    emitDemotedVars(MF->getFunction(), O);
    OutStreamer.EmitRawText(O.str());
@@ -248,7 +248,7 @@
  }
  
  void NVPTXAsmPrinter::EmitFunctionBodyEnd() {
-@@ -1054,6 +1070,8 @@
+@@ -1051,6 +1067,8 @@
  void NVPTXAsmPrinter::emitLinkageDirective(const GlobalValue *V,
                                             raw_ostream &O) {
    if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA) {
@@ -257,23 +257,23 @@
      if (V->hasExternalLinkage()) {
        if (isa<GlobalVariable>(V)) {
          const GlobalVariable *GVar = cast<GlobalVariable>(V);
-@@ -1227,6 +1245,7 @@
+@@ -1224,6 +1242,7 @@
      // Ptx allows variable initilization only for constant and global state
      // spaces.
      if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
 +         (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
-          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
           (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST)) &&
          GVar->hasInitializer()) {
-@@ -1251,6 +1270,7 @@
+       const Constant *Initializer = GVar->getInitializer();
+@@ -1247,6 +1266,7 @@
        // Ptx allows variable initilization only for constant and
        // global state spaces.
        if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
 +           (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
-            (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
             (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST)) &&
            GVar->hasInitializer()) {
-@@ -1319,6 +1339,7 @@
+         const Constant *Initializer = GVar->getInitializer();
+@@ -1314,6 +1334,7 @@
      O << "local";
      break;
    case llvm::ADDRESS_SPACE_GLOBAL:
@@ -281,7 +281,7 @@
      O << "global";
      break;
    case llvm::ADDRESS_SPACE_CONST:
-@@ -1690,8 +1711,6 @@
+@@ -1676,8 +1697,6 @@
    const MachineFrameInfo *MFI = MF.getFrameInfo();
    int NumBytes = (int) MFI->getStackSize();
    if (NumBytes) {
@@ -290,7 +290,7 @@
      if (nvptxSubtarget.is64Bit()) {
        O << "\t.reg .b64 \t%SP;\n";
        O << "\t.reg .b64 \t%SPL;\n";
-@@ -1917,16 +1936,14 @@
+@@ -1891,16 +1910,14 @@
    case Type::ArrayTyID:
    case Type::VectorTyID:
    case Type::StructTyID: {
