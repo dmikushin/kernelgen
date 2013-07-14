@@ -36,7 +36,7 @@ TargetPlatform::TargetPlatform(const Target *target, TargetMachine *machine,
   if (!MAI)
     THROW("Unable to create target asm info");
   mccontext.reset(new MCContext(*MAI, *MRI, 0));
-  mangler.reset(new Mangler(*mccontext.get(), *machine->getDataLayout()));
+  mangler.reset(new Mangler(*mccontext.get(), machine));
 }
 
 // Get target platform for the specified runmode.
