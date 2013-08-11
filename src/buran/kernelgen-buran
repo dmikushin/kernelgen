@@ -1005,6 +1005,9 @@ sub build_and_test_kernelgen
 		my($ftplog) = ""; # "See log for details: " . copy_log_to_ftp($LOGFILE, $llvm_rev, $kernelgen_rev);
 		mail("r$kernelgen_rev +llvm r$llvm_rev : build failure", "$start<br/>\n<br/>\n$end<br/>\n<br/>\nSee log file for deatils: $LOGFILE");
 		print "Build failed, aborting.\n";
+		print "Please check the $LOGFILE for errors, as well as per-package config.log-s in $BUILD.\n";
+		print "Please make sure everything was done according to the instructions: http://hpcforge.org/plugins/mediawiki/wiki/kernelgen/index.php/Compiling\n";
+		print "If no clue, feel free to email us at kernelgen-devel@lists.hpcforge.org, with your $LOGFILE attached\n"; 
 	}
 
 	#
