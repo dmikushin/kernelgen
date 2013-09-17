@@ -77,7 +77,9 @@
 #include "gcc-plugin.h"
 #include "cp/cp-tree.h"
 #include "langhooks.h"
-#include "tree-flow.h"
+
+extern tree create_tmp_var_raw (tree, const char *);
+void varpool_finalize_decl (tree);
 
 using namespace kernelgen;
 using namespace kernelgen::utils;
