@@ -4,7 +4,7 @@
        add_infile ("help-dummy", "c");
      }
  
-+  /* For KernelGen without fallback always add -fuse-linker-plugin,  
++  /* For KernelGen without fallback always add -flto,  
 +     except if KERNELGEN_OLD_LINKER is given.  */
 +  const char* cfallback = getenv("KERNELGEN_FALLBACK");
 +  int fallback = 0;
@@ -17,7 +17,7 @@
 +  }
 +  if (!fallback) {
 +    alloc_switch ();
-+    switches[n_switches].part1 = "fuse-linker-plugin";
++    switches[n_switches].part1 = "flto";
 +    switches[n_switches].args = 0;
 +    switches[n_switches].live_cond = 0;
 +    switches[n_switches].validated = 0;
