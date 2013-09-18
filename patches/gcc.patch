@@ -20,7 +20,7 @@
 +    switches[n_switches].part1 = "flto";
 +    switches[n_switches].args = 0;
 +    switches[n_switches].live_cond = 0;
-+    switches[n_switches].validated = 0;
++    switches[n_switches].validated = true;
 +    switches[n_switches].ordering = 0;
 +    n_switches++;
 +  }
