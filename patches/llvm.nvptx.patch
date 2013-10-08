@@ -20,58 +20,6 @@
 +  AlignDirective = "\t// .align\t";
 +  WeakDefDirective = "\t// .weak\t";
  }
---- a/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(revision 181135)
-+++ b/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(working copy)
-@@ -39,15 +39,26 @@
-     if (tm.getSubtargetImpl()->hasGenericLdSt()) {
-       // mov %SPL, %depot;
-       // cvta.local %SP, %SPL;
-+      // or
-+      // cvta.global %SP, %SPL;
-+      // TODO: allow loop kernels to use local memory
-       if (is64bit) {
-         MachineInstr *MI = BuildMI(
-+#if 0
-             MBB, MBBI, dl, tm.getInstrInfo()->get(NVPTX::cvta_local_yes_64),
-+#else
-+            MBB, MBBI, dl, tm.getInstrInfo()->get(NVPTX::cvta_global_yes_64),
-+#endif
-             NVPTX::VRFrame).addReg(NVPTX::VRFrameLocal);
-         BuildMI(MBB, MI, dl, tm.getInstrInfo()->get(NVPTX::IMOV64rr),
-                 NVPTX::VRFrameLocal).addReg(NVPTX::VRDepot);
-       } else {
-         MachineInstr *MI = BuildMI(
-+#if 0
-             MBB, MBBI, dl, tm.getInstrInfo()->get(NVPTX::cvta_local_yes),
-+#else
-+            MBB, MBBI, dl, tm.getInstrInfo()->get(NVPTX::cvta_global_yes),
-+#endif
-             NVPTX::VRFrame).addReg(NVPTX::VRFrameLocal);
-         BuildMI(MBB, MI, dl, tm.getInstrInfo()->get(NVPTX::IMOV32rr),
-                 NVPTX::VRFrameLocal).addReg(NVPTX::VRDepot);
---- a/llvm/lib/Target/NVPTX/NVPTXISelLowering.cpp	(revision 181135)
-+++ b/llvm/lib/Target/NVPTX/NVPTXISelLowering.cpp	(working copy)
-@@ -181,6 +181,10 @@
-     }
-   }
- 
-+  // Dummy custom expansion of stack save/restore
-+  setOperationAction(ISD::STACKSAVE, MVT::Other, Custom);
-+  setOperationAction(ISD::STACKRESTORE, MVT::Other, Custom);
-+
-   // Now deduce the information based on the above mentioned
-   // actions
-   computeRegisterProperties();
-@@ -847,6 +851,9 @@
-     return LowerSTORE(Op, DAG);
-   case ISD::LOAD:
-     return LowerLOAD(Op, DAG);
-+  case ISD::STACKSAVE:
-+  case ISD::STACKRESTORE:
-+    return SDValue();
-   default:
-     llvm_unreachable("Custom lowering not defined for operation");
-   }
 --- a/llvm/lib/CodeGen/LexicalScopes.cpp	(revision 181135)
 +++ b/llvm/lib/CodeGen/LexicalScopes.cpp	(working copy)
 @@ -201,7 +201,8 @@
