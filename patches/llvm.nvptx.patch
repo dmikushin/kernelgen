@@ -72,124 +72,6 @@
    default:
      llvm_unreachable("Custom lowering not defined for operation");
    }
---- a/llvm/lib/Target/NVPTX/NVPTX.td	(revision 181135)
-+++ b/llvm/lib/Target/NVPTX/NVPTX.td	(working copy)
-@@ -42,6 +42,18 @@
-                              "Use PTX version 3.1">;
- 
- //===----------------------------------------------------------------------===//
-+// Driver Interfaces.
-+// - NVPTX backend can generate PTX code for CUDA or OpenCL programs.
-+// - Generated PTX for CUDA and OpenCL programs could be different.
-+//===----------------------------------------------------------------------===//
-+def NVCL : SubtargetFeature<"drv_nvcl", "DrvInterface", "NVPTX::NVCL",
-+                            "Use NVIDIA/OpenCL driver interface">;
-+def CUDA : SubtargetFeature<"drv_cuda", "DrvInterface", "NVPTX::CUDA",
-+                            "Use CUDA driver interface">;
-+def TEST : SubtargetFeature<"drv_test", "DrvInterface", "NVPTX::TEST",
-+                            "Use test driver interface">;
-+
-+//===----------------------------------------------------------------------===//
- // NVPTX supported processors.
- //===----------------------------------------------------------------------===//
- 
---- a/llvm/lib/Target/NVPTX/NVPTXSubtarget.h	(revision 181135)
-+++ b/llvm/lib/Target/NVPTX/NVPTXSubtarget.h	(working copy)
-@@ -27,7 +27,6 @@
- class NVPTXSubtarget : public NVPTXGenSubtargetInfo {
- 
-   std::string TargetName;
--  NVPTX::DrvInterface drvInterface;
-   bool Is64Bit;
- 
-   // PTX version x.y is represented as 10*x+y, e.g. 3.1 == 31
-@@ -36,6 +35,9 @@
-   // SM version x.y is represented as 10*x+y, e.g. 3.1 == 31
-   unsigned int SmVersion;
- 
-+  // PTX driver interface
-+  unsigned int DrvInterface;
-+
- public:
-   /// This constructor initializes the data members to match that
-   /// of the specified module.
-@@ -68,7 +70,7 @@
-   bool is64Bit() const { return Is64Bit; }
- 
-   unsigned int getSmVersion() const { return SmVersion; }
--  NVPTX::DrvInterface getDrvInterface() const { return drvInterface; }
-+  unsigned int getDrvInterface() const { return DrvInterface; }
-   std::string getTargetName() const { return TargetName; }
- 
-   unsigned getPTXVersion() const { return PTXVersion; }
---- a/llvm/lib/Target/NVPTX/NVPTX.h	(revision 181135)
-+++ b/llvm/lib/Target/NVPTX/NVPTX.h	(working copy)
-@@ -69,11 +69,6 @@
- extern Target TheNVPTXTarget64;
- 
- namespace NVPTX {
--enum DrvInterface {
--  NVCL,
--  CUDA,
--  TEST
--};
- 
- // A field inside TSFlags needs a shift and a mask. The usage is
- // always as follows :
---- a/llvm/test/CodeGen/NVPTX/drv-opencl.ll	(revision 0)
-+++ b/llvm/test/CodeGen/NVPTX/drv-opencl.ll	(revision 0)
-@@ -0,0 +1,5 @@
-+; RUN: llc < %s -march=nvptx -mcpu=sm_20 -mattr=drv_nvcl | FileCheck %s
-+; RUN: llc < %s -march=nvptx64 -mcpu=sm_20 -mattr=drv_nvcl | FileCheck %s
-+
-+
-+; CHECK: .target sm_20, texmode_independent
---- a/llvm/test/CodeGen/NVPTX/drv-cuda.ll	(revision 0)
-+++ b/llvm/test/CodeGen/NVPTX/drv-cuda.ll	(revision 0)
-@@ -0,0 +1,5 @@
-+; RUN: llc < %s -march=nvptx -mcpu=sm_20 -mattr=drv_cuda | FileCheck %s
-+; RUN: llc < %s -march=nvptx64 -mcpu=sm_20 -mattr=drv_cuda | FileCheck %s
-+
-+
-+; CHECK: .target sm_20
---- a/llvm/lib/Target/NVPTX/NVPTXSubtarget.cpp  (revision 181135)
-+++ b/llvm/lib/Target/NVPTX/NVPTXSubtarget.cpp  (working copy)
-@@ -19,24 +19,11 @@
- 
- using namespace llvm;
- 
--// Select Driver Interface
--#include "llvm/Support/CommandLine.h"
--namespace {
--cl::opt<NVPTX::DrvInterface> DriverInterface(
--    cl::desc("Choose driver interface:"),
--    cl::values(clEnumValN(NVPTX::NVCL, "drvnvcl", "Nvidia OpenCL driver"),
--               clEnumValN(NVPTX::CUDA, "drvcuda", "Nvidia CUDA driver"),
--               clEnumValN(NVPTX::TEST, "drvtest", "Plain Test"), clEnumValEnd),
--    cl::init(NVPTX::NVCL));
--}
--
- NVPTXSubtarget::NVPTXSubtarget(const std::string &TT, const std::string &CPU,
-                                const std::string &FS, bool is64Bit)
-     : NVPTXGenSubtargetInfo(TT, CPU, FS), Is64Bit(is64Bit), PTXVersion(0),
--      SmVersion(20) {
-+      SmVersion(20), DrvInterface(0) {
- 
--  drvInterface = DriverInterface;
--
-   // Provide the default CPU if none
-   std::string defCPU = "sm_20";
- 
-@@ -58,4 +45,9 @@
-   if (PTXVersion == 0) {
-     PTXVersion = 31;
-   }
-+
-+  // Default to NVIDIA/OpenCL driver interface.
-+  if (DrvInterface == 0) {
-+    DrvInterface = NVPTX::NVCL;
-+  }
- }
 --- a/llvm/lib/CodeGen/LexicalScopes.cpp	(revision 181135)
 +++ b/llvm/lib/CodeGen/LexicalScopes.cpp	(working copy)
 @@ -201,7 +201,8 @@
@@ -204,21 +86,6 @@
    AbstractScopeMap[N] = AScope;
 --- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2013-07-14 01:33:25.000000000 +0200
 +++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2013-07-14 17:01:59.699241275 +0200
-@@ -12,12 +12,13 @@
- //
- //===----------------------------------------------------------------------===//
- 
-+#define GET_SUBTARGETINFO_ENUM
- #include "NVPTXAsmPrinter.h"
- #include "MCTargetDesc/NVPTXMCAsmInfo.h"
- #include "NVPTX.h"
- #include "NVPTXInstrInfo.h"
- #include "NVPTXNumRegisters.h"
--#include "NVPTXRegisterInfo.h"
-+#include "NVPTXGenSubtargetInfo.inc"
- #include "NVPTXTargetMachine.h"
- #include "NVPTXUtilities.h"
- #include "cl_common_defines.h"
 @@ -411,6 +412,15 @@
      emitGlobals(*MF->getFunction()->getParent());
      GlobalsEmitted = true;
@@ -290,24 +157,57 @@
      if (nvptxSubtarget.is64Bit()) {
        O << "\t.reg .b64 \t%SP;\n";
        O << "\t.reg .b64 \t%SPL;\n";
-@@ -1891,16 +1910,14 @@
-   case Type::ArrayTyID:
-   case Type::VectorTyID:
-   case Type::StructTyID: {
--    if (isa<ConstantArray>(CPV) || isa<ConstantVector>(CPV) ||
--        isa<ConstantStruct>(CPV)) {
-+    if (isa<ConstantAggregateZero>(CPV))
-+      aggBuffer->addZeros(Bytes);
-+    else {
-       int ElementSize = TD->getTypeAllocSize(CPV->getType());
-       bufferAggregateConstant(CPV, aggBuffer);
-       if (Bytes > ElementSize)
-         aggBuffer->addZeros(Bytes - ElementSize);
--    } else if (isa<ConstantAggregateZero>(CPV))
--      aggBuffer->addZeros(Bytes);
--    else
--      llvm_unreachable("Unexpected Constant type");
-+    }
-     break;
-   }
+--- a/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(revision 192159)
++++ b/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(working copy)
+@@ -41,17 +41,28 @@
  
+     // mov %SPL, %depot;
+     // cvta.local %SP, %SPL;
++    // or
++    // cvta.global %SP, %SPL;
++    // TODO: allow loop kernels to use local memory
+     if (is64bit) {
+       unsigned LocalReg = MRI.createVirtualRegister(&NVPTX::Int64RegsRegClass);
+       MachineInstr *MI = BuildMI(
++#if 0 
+           MBB, MBBI, dl, tm.getInstrInfo()->get(NVPTX::cvta_local_yes_64),
++#else
++          MBB, MBBI, dl, tm.getInstrInfo()->get(NVPTX::cvta_global_yes_64),
++#endif
+           NVPTX::VRFrame).addReg(LocalReg);
+       BuildMI(MBB, MI, dl, tm.getInstrInfo()->get(NVPTX::MOV_DEPOT_ADDR_64),
+               LocalReg).addImm(MF.getFunctionNumber());
+     } else {
+       unsigned LocalReg = MRI.createVirtualRegister(&NVPTX::Int32RegsRegClass);
+       MachineInstr *MI = BuildMI(
++#if 0
+           MBB, MBBI, dl, tm.getInstrInfo()->get(NVPTX::cvta_local_yes),
++#else
++          MBB, MBBI, dl, tm.getInstrInfo()->get(NVPTX::cvta_global_yes),
++#endif
+           NVPTX::VRFrame).addReg(LocalReg);
+       BuildMI(MBB, MI, dl, tm.getInstrInfo()->get(NVPTX::MOV_DEPOT_ADDR),
+               LocalReg).addImm(MF.getFunctionNumber());
+--- a/llvm/lib/Target/NVPTX/NVPTXISelLowering.cpp	(revision 192159)
++++ b/llvm/lib/Target/NVPTX/NVPTXISelLowering.cpp	(working copy)
+@@ -237,6 +237,10 @@
+   setOperationAction(ISD::CTPOP, MVT::i32, Legal);
+   setOperationAction(ISD::CTPOP, MVT::i64, Legal);
+ 
++  // Dummy custom expansion of stack save/restore
++  setOperationAction(ISD::STACKSAVE, MVT::Other, Custom);
++  setOperationAction(ISD::STACKRESTORE, MVT::Other, Custom);
++
+   // Now deduce the information based on the above mentioned
+   // actions
+   computeRegisterProperties();
+@@ -1153,6 +1157,9 @@
+     return LowerSTORE(Op, DAG);
+   case ISD::LOAD:
+     return LowerLOAD(Op, DAG);
++  case ISD::STACKSAVE:
++  case ISD::STACKRESTORE:
++    return SDValue();
+   default:
+     llvm_unreachable("Custom lowering not defined for operation");
+   }
