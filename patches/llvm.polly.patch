@@ -29,10 +29,21 @@
    /// @brief Get the dependences in this Scop.
    ///
    /// @param Kinds This integer defines the different kinds of dependences
---- a/llvm/tools/polly/include/polly/ScopInfo.h	(revision 181135)
+--- a/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	(revision 182420)
++++ b/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	(working copy)
+@@ -73,7 +73,7 @@
+              cl::value_desc("function-name"), cl::ValueRequired, cl::init(""),
+              cl::cat(PollyCategory));
+ 
+-static cl::opt<bool>
++cl::opt<bool>
+ IgnoreAliasing("polly-ignore-aliasing",
+                cl::desc("Ignore possible aliasing of the array bases"),
+                cl::Hidden, cl::init(false), cl::cat(PollyCategory));
+--- a/llvm/tools/polly/include/polly/ScopInfo.h	(revision 192159)
 +++ b/llvm/tools/polly/include/polly/ScopInfo.h	(working copy)
-@@ -92,9 +92,14 @@
-     MayWrite
+@@ -87,12 +87,17 @@
+     MAY_WRITE
    };
  
 +  enum RelationType {
@@ -41,13 +52,16 @@
 +  };
 +
  private:
+   MemoryAccess(const MemoryAccess &) LLVM_DELETED_FUNCTION;
+   const MemoryAccess &operator=(const MemoryAccess &) LLVM_DELETED_FUNCTION;
+ 
 -  isl_map *AccessRelation;
    enum AccessType Type;
 +  unsigned ElemTypeSize;
  
    const Value *BaseAddr;
    std::string BaseName;
-@@ -107,6 +112,10 @@
+@@ -105,6 +110,10 @@
    /// Updated access relation read from JSCOP file.
    isl_map *newAccessRelation;
  
@@ -58,7 +72,7 @@
  public:
    // @brief Create a memory access from an access in LLVM-IR.
    //
-@@ -132,6 +141,14 @@
+@@ -141,6 +150,14 @@
  
    isl_map *getAccessRelation() const;
  
@@ -73,7 +87,7 @@
    /// @brief Get an isl string representing this access function.
    std::string getAccessRelationStr() const;
  
-@@ -139,6 +156,8 @@
+@@ -148,6 +165,8 @@
  
    const std::string &getBaseName() const { return BaseName; }
  
@@ -82,9 +96,9 @@
    const Instruction *getAccessInstruction() const { return Inst; }
  
    /// @brief Get the new access function imported from JSCOP file
---- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(revision 181135)
+--- a/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(revision 192159)
 +++ b/llvm/tools/polly/lib/Analysis/ScopInfo.cpp	(working copy)
-@@ -225,7 +225,10 @@
+@@ -267,7 +267,10 @@
  //===----------------------------------------------------------------------===//
  
  MemoryAccess::~MemoryAccess() {
@@ -96,7 +110,7 @@
    isl_map_free(newAccessRelation);
  }
  
-@@ -254,11 +257,43 @@
+@@ -296,11 +299,43 @@
  }
  
  isl_map *MemoryAccess::getAccessRelation() const {
@@ -142,32 +156,35 @@
  }
  
  isl_map *MemoryAccess::getNewAccessRelation() const {
-@@ -277,7 +312,8 @@
+@@ -319,7 +354,9 @@
  
  MemoryAccess::MemoryAccess(const IRAccess &Access, const Instruction *AccInst,
                             ScopStmt *Statement)
 -    : Inst(AccInst) {
 +    : Inst(AccInst), GeneralAccessRelation(NULL),
 +      CurrentRelationType(RelationType_polly) {
++
    newAccessRelation = NULL;
-   Type = Access.isRead() ? Read : Write;
    statement = Statement;
-@@ -287,7 +323,7 @@
  
-   if (!Access.isAffine()) {
-     Type = (Type == Read) ? Read : MayWrite;
+@@ -331,12 +368,13 @@
+     // whole array. For read accesses it does not make a difference, if an
+     // access must or may happen. However, for write accesses it is important to
+     // differentiate between writes that must happen and writes that may happen.
 -    AccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
 +    PollyAccessRelation = isl_map_from_basic_map(createBasicAccessMap(Statement));
+     Type = Access.isRead() ? READ : MAY_WRITE;
      return;
    }
  
-@@ -303,33 +339,40 @@
-   isl_int v;
-   isl_int_init(v);
-   isl_int_set_si(v, Access.getElemSizeInBytes());
+   Type = Access.isRead() ? READ : MUST_WRITE;
 +  ElemTypeSize = Access.getElemSizeInBytes();
-   Affine = isl_pw_aff_scale_down(Affine, v);
-   isl_int_clear(v);
+ 
+   isl_pw_aff *Affine = SCEVAffinator::getPwAff(Statement, Access.getOffset());
+ 
+@@ -352,30 +390,36 @@
+                           Access.getElemSizeInBytes());
+   Affine = isl_pw_aff_scale_down_val(Affine, v);
  
 -  AccessRelation = isl_map_from_pw_aff(Affine);
 +  PollyAccessRelation = isl_map_from_pw_aff(Affine);
@@ -179,8 +196,8 @@
    isl_space_free(Space);
 -  AccessRelation = isl_map_set_tuple_name(AccessRelation, isl_dim_out,
 -                                          getBaseName().c_str());
-+  PollyAccessRelation = isl_map_set_tuple_name(
-+      PollyAccessRelation, isl_dim_out, getBaseName().c_str());
++  PollyAccessRelation = isl_map_set_tuple_name(POllyAccessRelation, isl_dim_out,
++                                               getBaseName().c_str());
  }
  
  void MemoryAccess::realignParams() {
@@ -199,7 +216,7 @@
 +    : GeneralAccessRelation(NULL), CurrentRelationType(RelationType_polly) {
    newAccessRelation = NULL;
    BaseAddr = BaseAddress;
-   Type = Read;
+   Type = READ;
    statement = Statement;
  
    isl_basic_map *BasicAccessMap = createBasicAccessMap(Statement);
@@ -211,7 +228,7 @@
  }
  
  void MemoryAccess::print(raw_ostream &OS) const {
-@@ -352,6 +395,7 @@
+@@ -408,6 +452,7 @@
  //     : i0 = o0, i1 = o1, ..., i(X-1) = o(X-1), iX < oX
  //
  static isl_map *getEqualAndLarger(isl_space *setDomain) {
@@ -219,7 +236,7 @@
    isl_space *Space = isl_space_map_from_set(setDomain);
    isl_map *Map = isl_map_universe(isl_space_copy(Space));
    isl_local_space *MapLocalSpace = isl_local_space_from_space(Space);
-@@ -421,10 +465,14 @@
+@@ -476,10 +521,14 @@
  }
  
  bool MemoryAccess::isStrideZero(const isl_map *Schedule) const {
@@ -234,7 +251,7 @@
    return isStrideX(Schedule, 1);
  }
  
---- a/llvm/tools/polly/lib/Analysis/Dependences.cpp	(revision 182229)
+--- a/llvm/tools/polly/lib/Analysis/Dependences.cpp	(revision 192159)
 +++ b/llvm/tools/polly/lib/Analysis/Dependences.cpp	(working copy)
 @@ -25,6 +25,11 @@
  #include "polly/Options.h"
@@ -248,7 +265,7 @@
  #include <isl/aff.h>
  #include <isl/flow.h>
  #include <isl/map.h>
-@@ -238,6 +243,13 @@
+@@ -264,6 +269,13 @@
    return IsParallel;
  }
  
@@ -260,9 +277,9 @@
 +}
 +
  void Dependences::printScop(raw_ostream &OS) const {
-   std::string RAWString, WARString, WAWString;
- 
---- a/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(revision 182229)
+   OS << "\tRAW dependences:\n\t\t" << RAW << "\n";
+   OS << "\tWAR dependences:\n\t\t" << WAR << "\n";
+--- a/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(revision 192159)
 +++ b/llvm/tools/polly/lib/CodeGen/CodeGeneration.cpp	(working copy)
 @@ -42,6 +42,7 @@
  #include "llvm/ADT/PostOrderIterator.h"
@@ -364,8 +381,8 @@
 +
  Value *ClastExpCodeGen::codegen(const clast_reduction *r, Type *Ty) {
    assert((r->type == clast_red_min || r->type == clast_red_max ||
-           r->type == clast_red_sum) && "Clast reduction type not supported");
-@@ -217,6 +287,24 @@
+           r->type == clast_red_sum) &&
+@@ -218,6 +288,24 @@
  public:
    const std::vector<std::string> &getParallelLoops();
  
@@ -390,7 +407,7 @@
  private:
    // The Scop we code generate.
    Scop *S;
-@@ -319,6 +407,228 @@
+@@ -321,6 +409,228 @@
                                      unsigned &NonPLoopDepth);
  #endif /* GPU_CODEGEN */
  
@@ -619,7 +636,7 @@
    /// @brief Check if a loop is parallel
    ///
    /// Detect if a clast_for loop can be executed in parallel.
-@@ -875,6 +1185,14 @@
+@@ -879,6 +1189,14 @@
    }
  #endif
  
@@ -634,7 +651,7 @@
    codegenForSequential(f);
  }
  
-@@ -979,6 +1297,11 @@
+@@ -981,6 +1299,11 @@
    parallelCodeGeneration = false;
  
    const clast_stmt *stmt = (const clast_stmt *)r;
@@ -646,7 +663,7 @@
    if (stmt->next)
      codegen(stmt->next);
  }
-@@ -995,6 +1318,52 @@
+@@ -997,6 +1320,52 @@
  
    CodeGeneration() : ScopPass(ID) {}
  
@@ -699,7 +716,7 @@
    bool runOnScop(Scop &S) {
      ParallelLoops.clear();
  
-@@ -1003,6 +1372,9 @@
+@@ -1005,6 +1374,9 @@
  
      simplifyRegion(&S, this);
  
@@ -709,7 +726,7 @@
      BasicBlock *StartBlock = executeScopConditionally(S, this);
  
      IRBuilder<> Builder(StartBlock->begin());
-@@ -1014,6 +1386,10 @@
+@@ -1016,6 +1388,10 @@
      ParallelLoops.insert(ParallelLoops.begin(),
                           CodeGen.getParallelLoops().begin(),
                           CodeGen.getParallelLoops().end());
@@ -720,14 +737,3 @@
      return true;
    }
  
---- a/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	(revision 182420)
-+++ b/llvm/tools/polly/lib/Analysis/ScopDetection.cpp	(working copy)
-@@ -73,7 +73,7 @@
-              cl::value_desc("function-name"), cl::ValueRequired, cl::init(""),
-              cl::cat(PollyCategory));
- 
--static cl::opt<bool>
-+cl::opt<bool>
- IgnoreAliasing("polly-ignore-aliasing",
-                cl::desc("Ignore possible aliasing of the array bases"),
-                cl::Hidden, cl::init(false), cl::cat(PollyCategory));
