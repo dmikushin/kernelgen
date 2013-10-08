@@ -196,7 +196,7 @@
    isl_space_free(Space);
 -  AccessRelation = isl_map_set_tuple_name(AccessRelation, isl_dim_out,
 -                                          getBaseName().c_str());
-+  PollyAccessRelation = isl_map_set_tuple_name(POllyAccessRelation, isl_dim_out,
++  PollyAccessRelation = isl_map_set_tuple_name(PollyAccessRelation, isl_dim_out,
 +                                               getBaseName().c_str());
  }
  
