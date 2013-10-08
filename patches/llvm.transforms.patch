@@ -19,25 +19,6 @@
    return isGuaranteedToExecute(Inst);
  }
  
---- a/llvm/lib/Transforms/IPO/GlobalOpt.cpp	2012-09-06 22:01:57.910225630 +0200
-+++ b/llvm/lib/Transforms/IPO/GlobalOpt.cpp	2012-09-06 22:02:30.790224246 +0200
-@@ -1854,13 +1854,14 @@
-                                  TD, TLI))
-       return true;
- 
--    // Otherwise, if the global was not a boolean, we can shrink it to be a
-+    // FIXME: disable this, since NVPTX cannot handle i1.
-+    /*// Otherwise, if the global was not a boolean, we can shrink it to be a
-     // boolean.
-     if (Constant *SOVConstant = dyn_cast<Constant>(GS.StoredOnceValue))
-       if (TryToShrinkGlobalToBoolean(GV, SOVConstant)) {
-         ++NumShrunkToBool;
-         return true;
--      }
-+      }*/
-   }
- 
-   return false;
 --- a/llvm/lib/Transforms/Scalar/GVN.cpp	(revision 181135)
 +++ b/llvm/lib/Transforms/Scalar/GVN.cpp	(working copy)
 @@ -56,10 +56,12 @@
