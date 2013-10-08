@@ -1,54 +1,3 @@
---- a/dragonegg/src/Backend.cpp	(revision 181135)
-+++ b/dragonegg/src/Backend.cpp	(working copy)
-@@ -102,6 +102,8 @@
- 
- using namespace llvm;
- 
-+extern std::string dragonegg_result;
-+
- // Non-zero if libcalls should not be simplified.
- int flag_no_simplify_libcalls;
- 
-@@ -138,6 +140,7 @@
- static bool EmitIR;
- static bool EmitObj;
- static bool SaveGCCOutput;
-+static bool InternalOutput;
- static int LLVMCodeGenOptimizeArg = -1;
- static int LLVMIROptimizeArg = -1;
- 
-@@ -623,8 +626,14 @@
-   assert(!OutStream && "Output stream already initialized!");
-   std::string Error;
- 
--  OutStream = new raw_fd_ostream(llvm_asm_file_name, Error,
--                                 Binary ? raw_fd_ostream::F_Binary : 0);
-+  if (InternalOutput) {
-+    // Write to internal array (to interface with other plugins).
-+    OutStream = new raw_string_ostream(dragonegg_result);
-+  } else {
-+    // Write to file.
-+    OutStream = new raw_fd_ostream(llvm_asm_file_name, Error,
-+                                   Binary ? raw_fd_ostream::F_Binary : 0);
-+  }
- 
-   if (!Error.empty())
-     report_fatal_error(Error);
-@@ -2036,9 +2045,12 @@
- static FlagDescriptor PluginFlags[] = {
-   { "debug-pass-structure", &DebugPassStructure },
-   { "debug-pass-arguments", &DebugPassArguments },
--  { "enable-gcc-optzns", &EnableGCCOptimizations }, { "emit-ir", &EmitIR },
-+  { "enable-gcc-optzns", &EnableGCCOptimizations },
-+  { "emit-ir", &EmitIR },
-   { "emit-obj", &EmitObj },
--  { "save-gcc-output", &SaveGCCOutput }, { NULL, NULL } // Terminator.
-+  { "save-gcc-output", &SaveGCCOutput },
-+  { "internal-output", &InternalOutput },
-+  { NULL, NULL } // Terminator.
- };
- 
- /// llvm_plugin_info - Information about this plugin.  Users can access this
 --- a/dragonegg/src/Convert.cpp	2013-07-14 01:34:15.000000000 +0200
 +++ b/dragonegg/src/Convert.cpp	2013-07-14 17:56:06.451375879 +0200
 @@ -4475,11 +4475,13 @@
@@ -129,3 +78,54 @@
      Result = EmitBuiltinCEXPI(stmt);
      return true;
      //TODO  case BUILT_IN_FLT_ROUNDS: {
+--- a/dragonegg/src/Backend.cpp	(revision 192159)
++++ b/dragonegg/src/Backend.cpp	(working copy)
+@@ -102,6 +102,8 @@
+ 
+ using namespace llvm;
+ 
++extern std::string dragonegg_result;
++
+ // Non-zero if libcalls should not be simplified.
+ int flag_no_simplify_libcalls;
+ 
+@@ -138,6 +140,7 @@
+ static bool EmitIR;
+ static bool EmitObj;
+ static bool SaveGCCOutput;
++static bool InternalOutput;
+ static int LLVMCodeGenOptimizeArg = -1;
+ static int LLVMIROptimizeArg = -1;
+ 
+@@ -676,8 +679,14 @@
+   assert(!OutStream && "Output stream already initialized!");
+   std::string Error;
+ 
+-  OutStream = new raw_fd_ostream(llvm_asm_file_name, Error,
+-                                 Binary ? sys::fs::F_Binary : sys::fs::F_None);
++  if (InternalOutput) {
++    // Write to internal array (to interface with other plugins).
++    OutStream = new raw_string_ostream(dragonegg_result);
++  } else {
++    // Write to file.
++    OutStream = new raw_fd_ostream(llvm_asm_file_name, Error,
++                                   Binary ? sys::fs::F_Binary : sys::fs::F_None);
++  }
+ 
+   if (!Error.empty())
+     report_fatal_error(Error);
+@@ -2133,9 +2142,12 @@
+ static FlagDescriptor PluginFlags[] = {
+   { "debug-pass-structure", &DebugPassStructure },
+   { "debug-pass-arguments", &DebugPassArguments },
+-  { "enable-gcc-optzns", &EnableGCCOptimizations }, { "emit-ir", &EmitIR },
++  { "enable-gcc-optzns", &EnableGCCOptimizations },
++  { "emit-ir", &EmitIR },
+   { "emit-obj", &EmitObj },
+-  { "save-gcc-output", &SaveGCCOutput }, { NULL, NULL } // Terminator.
++  { "save-gcc-output", &SaveGCCOutput },
++  { "internal-output", &InternalOutput },
++  { NULL, NULL } // Terminator.
+ };
+ 
+ /// llvm_plugin_info - Information about this plugin.  Users can access this
