@@ -7,7 +7,7 @@
 -  case MCSA_WeakDefinition:
 -    OS << "\t.weak_definition\t";
 +  case MCSA_WeakDefinition: // .weak_definition
-+    OS << MAI.getWeakDefDirective();
++    OS << MAI->getWeakDefDirective();
      FlagMap[Symbol] |= EHWeakDefinition;
      break;
        // .weak_reference
