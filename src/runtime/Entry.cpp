@@ -115,6 +115,18 @@ static Module* load_module(string Path)
   return module;
 }
 
+struct MatchPathSeparator {
+  bool operator()(char ch) const {
+    return ch == '\\' || ch == '/';
+  }
+};
+
+static string dirname(const string& path) {
+  return string(path.begin(),
+                find_if(path.begin(), path.end(),
+                        MatchPathSeparator()));
+}
+
 int main(int argc, char *argv[], char *envp[]) {
   //tracker = new PassTracker("codegen", NULL, NULL);
 
@@ -253,11 +265,11 @@ int main(int argc, char *argv[], char *envp[]) {
       kernelgen::runtime::cuda_context =
           kernelgen::bind::cuda::context::init(8192);
 
-      Path kernelgenSimplePath(Program::FindProgramByName("kernelgen-simple"));
+      const string& kernelgenSimplePath = FindProgramByName("kernelgen-simple");
       if (kernelgenSimplePath.empty())
         THROW("Cannot locate kernelgen binaries folder, is it included into "
               "$PATH ?");
-      string kernelgenPath = kernelgenSimplePath.getDirname().str();
+      string kernelgenPath = dirname(kernelgenSimplePath);
 
       // Load LLVM IR for kernel monitor, if not yet loaded.
       if (!monitor_module)

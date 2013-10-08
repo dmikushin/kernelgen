@@ -41,6 +41,7 @@
 #include <algorithm>
 #include <set>
 #include <fstream>
+#include <list>
 #include <vector>
 
 #include "kernelgen_interop.h"

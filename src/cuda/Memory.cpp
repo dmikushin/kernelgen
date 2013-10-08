@@ -25,6 +25,8 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Program.h"
 
+#include <algorithm>
+
 using namespace kernelgen;
 using namespace kernelgen::bind::cuda;
 using namespace kernelgen::runtime;
@@ -32,6 +34,18 @@ using namespace llvm;
 using namespace llvm::sys;
 using namespace llvm::sys::fs;
 using namespace std;
+
+struct MatchPathSeparator {
+  bool operator()(char ch) const {
+    return ch == '\\' || ch == '/';
+  }
+};
+
+static string dirname(const string& path) {
+  return string(path.begin(),
+                find_if(path.begin(), path.end(),
+                        MatchPathSeparator()));
+}
 
 extern "C" int cudaMalloc(void **ptr, size_t size) {
   struct cudaMalloc_t {
@@ -47,11 +61,11 @@ extern "C" int cudaMalloc(void **ptr, size_t size) {
 
   if (!malloc_module) {
     // Load LLVM IR for kernelgen_malloc function.
-    Path kernelgenSimplePath(Program::FindProgramByName("kernelgen-simple"));
+    const string& kernelgenSimplePath = FindProgramByName("kernelgen-simple");
     if (kernelgenSimplePath.empty())
       THROW("Cannot locate kernelgen binaries folder, is it included into "
             "$PATH ?");
-    string kernelgenPath = kernelgenSimplePath.getDirname().str();
+    string kernelgenPath = dirname(kernelgenSimplePath);
     string monitorModulePath = kernelgenPath + "/../include/cuda/malloc.bc";
     std::ifstream tmp_stream(monitorModulePath.c_str());
     tmp_stream.seekg(0, std::ios::end);

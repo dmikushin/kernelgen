@@ -788,7 +788,6 @@ KernelFunc kernelgen::runtime::Compile(int runmode, Kernel *kernel,
         PassManagerBuilder builder;
         builder.Inliner = createFunctionInliningPass();
         builder.OptLevel = 3;
-        builder.DisableSimplifyLibCalls = true;
         builder.populateModulePassManager(manager);
         manager.run(*m);
       }
@@ -1101,7 +1100,6 @@ KernelFunc kernelgen::runtime::Compile(int runmode, Kernel *kernel,
 
       builder.OptLevel = 3;
       builder.SizeLevel = 3;
-      builder.DisableSimplifyLibCalls = true;
       builder.DisableUnrollLoops = true;
 
       // XXX Experimental workaround for matvec and matmul tests:

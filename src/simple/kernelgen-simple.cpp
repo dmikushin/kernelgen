@@ -132,7 +132,7 @@ static void fallback(void *arg) {
   env.push_back("KERNELGEN_FALLBACK=1");
   env.push_back(NULL);
   string err;
-  int status = Program::ExecuteAndWait(Program::FindProgramByName(compiler),
+  int status = ExecuteAndWait(FindProgramByName(compiler),
                                        &argv[0], &env[0], NULL, 0, 0, &err);
   if (status) {
     cerr << "Error executing " << argv[0] << ": " << err << endl;
@@ -153,14 +153,14 @@ static int compile(int argc, char **argv, const char *input,
   int fd;
   string tmp_mask = "%%%%%%%%";
   SmallString<128> gcc_output_vector;
-  if (unique_file(tmp_mask, fd, gcc_output_vector)) {
+  if (createUniqueFile(tmp_mask, fd, gcc_output_vector)) {
     cout << "Cannot generate gcc output file name" << endl;
     return 1;
   }
   string gcc_output = (StringRef) gcc_output_vector;
   close(fd);
   string err;
-  tool_output_file object(gcc_output.c_str(), err, raw_fd_ostream::F_Binary);
+  tool_output_file object(gcc_output.c_str(), err, sys::fs::F_Binary);
   if (!err.empty()) {
     cerr << "Cannot open output file" << gcc_output << endl;
     return 1;
@@ -193,7 +193,7 @@ static int compile(int argc, char **argv, const char *input,
     }
     env.push_back("KERNELGEN_FALLBACK=1");
     env.push_back(NULL);
-    int status = Program::ExecuteAndWait(Program::FindProgramByName(compiler),
+    int status = ExecuteAndWait(FindProgramByName(compiler),
                                          &args[0], &env[0], NULL, 0, 0, &err);
     if (status) {
       cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -210,14 +210,14 @@ static int compile(int argc, char **argv, const char *input,
     TimeRegion TCompile(TI.getTimer("DragonEgg compilation"));
 
     SmallString<128> llvm_output_vector;
-    if (unique_file(tmp_mask, fd, llvm_output_vector)) {
+    if (createUniqueFile(tmp_mask, fd, llvm_output_vector)) {
       cout << "Cannot generate gcc output file name" << endl;
       return 1;
     }
     string llvm_output = (StringRef) llvm_output_vector;
     close(fd);
     tool_output_file llvm_object(llvm_output.c_str(), err,
-                                 raw_fd_ostream::F_Binary);
+                                 sys::fs::F_Binary);
     if (!err.empty()) {
       cerr << "Cannot open output file" << llvm_output.c_str() << endl;
       return 1;
@@ -261,7 +261,7 @@ static int compile(int argc, char **argv, const char *input,
     }
     env.push_back("KERNELGEN_FALLBACK=1");
     env.push_back(NULL);
-    int status = Program::ExecuteAndWait(Program::FindProgramByName(compiler),
+    int status = ExecuteAndWait(FindProgramByName(compiler),
                                          &args[0], &env[0], NULL, 0, 0, &err);
     if (status) {
       cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -333,14 +333,14 @@ static int compile(int argc, char **argv, const char *input,
     TimeRegion TCompile(TI.getTimer("Embedding LLVM IR into object"));
 
     SmallString<128> llvm_output_vector;
-    if (unique_file(tmp_mask, fd, llvm_output_vector)) {
+    if (createUniqueFile(tmp_mask, fd, llvm_output_vector)) {
       cout << "Cannot generate gcc output file name" << endl;
       return 1;
     }
     string llvm_output = (StringRef) llvm_output_vector;
     close(fd);
     tool_output_file llvm_object(llvm_output.c_str(), err,
-                                 raw_fd_ostream::F_Binary);
+                                 sys::fs::F_Binary);
     if (!err.empty()) {
       cerr << "Cannot open output file" << llvm_output.c_str() << endl;
       return 1;
@@ -390,7 +390,7 @@ static int compile(int argc, char **argv, const char *input,
     PassManager manager;
     manager.add(new DataLayout(*DL));
 
-    tool_output_file object(llvm_output.c_str(), err, raw_fd_ostream::F_Binary);
+    tool_output_file object(llvm_output.c_str(), err, sys::fs::F_Binary);
     if (!err.empty()) {
       cerr << "Cannot open output file" << llvm_output.c_str() << endl;
       return 1;
@@ -416,7 +416,7 @@ static int compile(int argc, char **argv, const char *input,
       args.push_back(llvm_output.c_str());
       args.push_back(NULL);
       VERBOSE(Verbose::Summary << args << Verbose::Default);
-      int status = Program::ExecuteAndWait(Program::FindProgramByName(objcopy),
+      int status = ExecuteAndWait(FindProgramByName(objcopy),
                                            &args[0], NULL, NULL, 0, 0, &err);
       if (status) {
         cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -437,7 +437,7 @@ static int compile(int argc, char **argv, const char *input,
       args.push_back(llvm_output.c_str());
       args.push_back(NULL);
       VERBOSE(Verbose::Summary << args << Verbose::Default);
-      int status = Program::ExecuteAndWait(Program::FindProgramByName(linker),
+      int status = ExecuteAndWait(FindProgramByName(linker),
                                            &args[0], NULL, NULL, 0, 0, &err);
       if (status) {
         cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -549,6 +549,18 @@ static Module* load_module(string Path)
   return module;
 }
 
+struct MatchPathSeparator {
+  bool operator()(char ch) const {
+    return ch == '\\' || ch == '/';
+  }
+};
+
+static string dirname(const string& path) {
+  return string(path.begin(),
+                find_if(path.begin(), path.end(),
+                        MatchPathSeparator()));
+}
+
 static int link(int argc, char **argv, const char *input, const char *output) {
 
   //
@@ -578,7 +590,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
   int fd;
   string tmp_mask = "%%%%%%%%";
   SmallString<128> tmp_main_vector;
-  if (unique_file(tmp_mask, fd, tmp_main_vector)) {
+  if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
     cout << "Cannot generate temporary main object file name" << endl;
     return 1;
   }
@@ -586,19 +598,19 @@ static int link(int argc, char **argv, const char *input, const char *output) {
   close(fd);
   string err;
   tool_output_file tmp_main_object1(tmp_main_output1.c_str(), err,
-                                    raw_fd_ostream::F_Binary);
+                                    sys::fs::F_Binary);
   if (!err.empty()) {
     cerr << "Cannot open output file" << tmp_main_output1.c_str() << endl;
     return 1;
   }
-  if (unique_file(tmp_mask, fd, tmp_main_vector)) {
+  if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
     cout << "Cannot generate main output file name" << endl;
     return 1;
   }
   string tmp_main_output2 = (StringRef) tmp_main_vector;
   close(fd);
   tool_output_file tmp_main_object2(tmp_main_output2.c_str(), err,
-                                    raw_fd_ostream::F_Binary);
+                                    sys::fs::F_Binary);
   if (!err.empty()) {
     cerr << "Cannot open output file" << tmp_main_output2.c_str() << endl;
     return 1;
@@ -1174,11 +1186,11 @@ static int link(int argc, char **argv, const char *input, const char *output) {
 
   const DataLayout *DL = machine.get()->getDataLayout();
 
-  Path kernelgenSimplePath(Program::FindProgramByName("kernelgen-simple"));
+  const string& kernelgenSimplePath = FindProgramByName("kernelgen-simple");
   if (kernelgenSimplePath.empty())
     THROW(
         "Cannot locate kernelgen binaries folder, is it included into $PATH ?");
-  string kernelgenPath = kernelgenSimplePath.getDirname().str();
+  string kernelgenPath = dirname(kernelgenSimplePath);
 
   // Load LLVM IR for KernelGen runtime functions, if not yet loaded.
   Module *runtime_module = NULL;
@@ -1217,7 +1229,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
     Function *f = composite.getFunction("kernelgen_launch");
     if (f) {
       tmp_main_vector.clear();
-      if (unique_file(tmp_mask, fd, tmp_main_vector)) {
+      if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
         cout << "Cannot generate temporary main object file name" << endl;
         return 1;
       }
@@ -1483,14 +1495,14 @@ static int link(int argc, char **argv, const char *input, const char *output) {
           manager.add(new DataLayout(*DL));
 
           tmp_main_vector.clear();
-          if (unique_file(tmp_mask, fd, tmp_main_vector)) {
+          if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
             cout << "Cannot generate temporary main object file name" << endl;
             return 1;
           }
           string tmp_loop_output = (StringRef) tmp_main_vector;
           close(fd);
           tool_output_file tmp_loop_object(tmp_loop_output.c_str(), err,
-                                           raw_fd_ostream::F_Binary);
+                                           sys::fs::F_Binary);
           if (!err.empty()) {
             cerr << "Cannot open output file" << tmp_loop_output.c_str()
                  << endl;
@@ -1527,7 +1539,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
           args.push_back(NULL);
           VERBOSE(Verbose::Summary << args << Verbose::Default);
           int status =
-              Program::ExecuteAndWait(Program::FindProgramByName(linker),
+              ExecuteAndWait(FindProgramByName(linker),
                                       &args[0], NULL, NULL, 0, 0, &err);
           if (status) {
             cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -1626,14 +1638,14 @@ static int link(int argc, char **argv, const char *input, const char *output) {
       manager.add(new DataLayout(*DL));
 
       tmp_main_vector.clear();
-      if (unique_file(tmp_mask, fd, tmp_main_vector)) {
+      if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
         cout << "Cannot generate temporary main object file name" << endl;
         return 1;
       }
       string tmp_main_output = (StringRef) tmp_main_vector;
       close(fd);
       tool_output_file tmp_main_object(tmp_main_output.c_str(), err,
-                                       raw_fd_ostream::F_Binary);
+                                       sys::fs::F_Binary);
       if (!err.empty()) {
         cerr << "Cannot open output file" << tmp_main_output.c_str() << endl;
         return 1;
@@ -1666,7 +1678,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
       args.push_back(tmp_main_output.c_str());
       args.push_back(NULL);
       VERBOSE(Verbose::Summary << args << Verbose::Default);
-      int status = Program::ExecuteAndWait(Program::FindProgramByName(linker),
+      int status = ExecuteAndWait(FindProgramByName(linker),
                                            &args[0], NULL, NULL, 0, 0, &err);
       if (status) {
         cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -1694,7 +1706,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
     args.push_back(tmp_main_output1.c_str());
     args.push_back(NULL);
     VERBOSE(Verbose::Summary << args << Verbose::Default);
-    int status = Program::ExecuteAndWait(Program::FindProgramByName(objcopy),
+    int status = ExecuteAndWait(FindProgramByName(objcopy),
                                          &args[0], NULL, NULL, 0, 0, &err);
     if (status) {
       cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -1736,7 +1748,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
     }
     env.push_back("KERNELGEN_FALLBACK=1");
     env.push_back(NULL);
-    int status = Program::ExecuteAndWait(Program::FindProgramByName(compiler),
+    int status = ExecuteAndWait(FindProgramByName(compiler),
                                          &args[0], &env[0], NULL, 0, 0, &err);
     if (status) {
       cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -1760,13 +1772,13 @@ static int link(int argc, char **argv, const char *input, const char *output) {
           return -1;
 
         tmp_main_vector.clear();
-        if (unique_file(tmp_mask, fd, tmp_main_vector)) {
+        if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
           cout << "Cannot generate temporary main object file name" << endl;
           return 1;
         }
         filename = (StringRef) tmp_main_vector;
         tool_output_file tmp_object(filename.c_str(), err,
-                                    raw_fd_ostream::F_Binary);
+                                    sys::fs::F_Binary);
         if (!err.empty()) {
           cerr << "Cannot open output file" << filename.c_str() << endl;
           return 1;
@@ -1787,7 +1799,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
         args.push_back(NULL);
         VERBOSE(Verbose::Summary << args << Verbose::Default);
         int status =
-            Program::ExecuteAndWait(Program::FindProgramByName(objcopy),
+            ExecuteAndWait(FindProgramByName(objcopy),
                                     &args[0], NULL, NULL, 0, 0, &err);
         if (status) {
           cerr << "Error executing " << args[0] << ": " << err << endl;

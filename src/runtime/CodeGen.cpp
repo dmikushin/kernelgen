@@ -111,7 +111,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
       args[i++] = NULL;
       string err;
       VERBOSE(args);
-      int status = Program::ExecuteAndWait(Program::FindProgramByName(args[0]),
+      int status = ExecuteAndWait(FindProgramByName(args[0]),
                                            &args[0], NULL, NULL, 0, 0, &err);
       if (status) {
         cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -240,7 +240,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
 
       string err;
       VERBOSE(args);
-      int status = Program::ExecuteAndWait(Program::FindProgramByName(args[0]),
+      int status = ExecuteAndWait(FindProgramByName(args[0]),
                                            &args[0], NULL, NULL, 0, 0, &err);
       if (status) {
         cerr << "Error executing " << args[0] << ": " << err << endl;
@@ -286,7 +286,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
 
       string err;
       VERBOSE(args);
-      int status = Program::ExecuteAndWait(Program::FindProgramByName(args[0]),
+      int status = ExecuteAndWait(FindProgramByName(args[0]),
                                            &args[0], NULL, NULL, 0, 0, &err);
       if (status) {
         cerr << "Error executing " << args[0] << ": " << err << endl;
