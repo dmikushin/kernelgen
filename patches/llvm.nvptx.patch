@@ -227,9 +227,9 @@
  
    DebugLoc prevDebugLoc;
    void emitLineNumberAsDotLoc(const MachineInstr &);
---- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp
-+++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp
-@@ -452,6 +452,19 @@
+--- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(revision 192159)
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	(working copy)
+@@ -551,6 +551,19 @@
    VRegMapping.clear();
  }
  
@@ -249,7 +249,7 @@
  void NVPTXAsmPrinter::emitKernelFunctionDirectives(const Function &F,
                                                     raw_ostream &O) const {
    // If the NVVM IR has some of reqntid* specified, then output
-@@ -503,23 +516,30 @@
+@@ -602,23 +615,30 @@
      O << ".minnctapersm " << mincta << "\n";
  }
  
@@ -259,21 +259,21 @@
 +std::string
 +NVPTXAsmPrinter::getVirtualRegisterName(unsigned Reg) const {
 +  const TargetRegisterClass *RC = MRI->getRegClass(Reg);
-+
-+  std::string Name;
-+  raw_string_ostream NameStr(Name);
  
 -  DenseMap<unsigned, unsigned> &regmap = VRegMapping[RC];
 -  unsigned mapped_vr = regmap[vr];
-+  VRegRCMap::const_iterator I = VRegMapping.find(RC);
-+  assert(I != VRegMapping.end() && "Bad register class");
-+  const DenseMap<unsigned, unsigned> &RegMap = I->second;
++  std::string Name;
++  raw_string_ostream NameStr(Name);
  
 -  if (!isVec) {
 -    O << getNVPTXRegClassStr(RC) << mapped_vr;
 -    return;
 -  }
 -  report_fatal_error("Bad register!");
++  VRegRCMap::const_iterator I = VRegMapping.find(RC);
++  assert(I != VRegMapping.end() && "Bad register class");
++  const DenseMap<unsigned, unsigned> &RegMap = I->second;
++
 +  VRegMap::const_iterator VI = RegMap.find(Reg);
 +  assert(VI != RegMap.end() && "Bad virtual register");
 +  unsigned MappedVR = VI->second;
@@ -292,16 +292,12 @@
  }
  
  void NVPTXAsmPrinter::printVecModifiedImmediate(
-@@ -564,10 +584,10 @@
-         O << getRegisterName(MO.getReg());
+@@ -2041,7 +2061,7 @@
+       else
+         O << NVPTXInstPrinter::getRegisterName(MO.getReg());
      } else {
-       if (!Modifier)
--        emitVirtualRegister(MO.getReg(), false, O);
-+        emitVirtualRegister(MO.getReg(), O);
-       else {
-         if (strcmp(Modifier, "vecfull") == 0)
--          emitVirtualRegister(MO.getReg(), true, O);
-+          emitVirtualRegister(MO.getReg(), O);
-         else
-           llvm_unreachable(
-               "Don't know how to handle the modifier on virtual register.");
+-      emitVirtualRegister(MO.getReg(), false, O);
++      emitVirtualRegister(MO.getReg(), O);
+     }
+     return;
+ 
