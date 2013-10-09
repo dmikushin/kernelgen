@@ -90,7 +90,7 @@ TargetPlatform *TargetPlatforms::operator[](int runmode) {
     stringstream sarch;
     sarch << cuda_context->getSubarch();
     TargetMachine *machine = target->createTargetMachine(
-        triple.getTriple(), sarch.str(), "+drv_cuda", TargetOptions(),
+        triple.getTriple(), sarch.str(), "", TargetOptions(),
         Reloc::PIC_, CodeModel::Default, CodeGenOpt::Aggressive);
     if (!machine)
       THROW("Could not allocate target machine");

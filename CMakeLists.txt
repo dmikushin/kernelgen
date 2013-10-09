@@ -37,7 +37,7 @@ set(CLOOG_INCLUDE "${RPM_ROOT}/cloog/include" CACHE STRING "The CLooG include ro
 set(ISL_INCLUDE "${RPM_ROOT}/cloog/isl/include" CACHE STRING "The ISL include root")
 set(BUGPOINT_ROOT "${LLVM_ROOT}/tools/bugpoint" CACHE STRING "The LLVM/bugpoint source root")
 set(GCC_ROOT "${RPM_ROOT}/gcc-snapshot" CACHE STRING "The GCC source root")
-set(CULANG kernelgen-clang -cc1 -emit-llvm -fcuda-is-device -triple nvptx64-unknown-unknown CACHE STRING
+set(CULANG kernelgen-clang -cc1 -emit-llvm -fcuda-is-device -triple nvptx64-nvidia-cuda CACHE STRING
 	"Clang command to compile CUDA-specific LLVM IR modules")
 
 include_directories("${PROJECT_SOURCE_DIR}/src")
