@@ -115,18 +115,6 @@ static Module* load_module(string Path)
   return module;
 }
 
-struct MatchPathSeparator {
-  bool operator()(char ch) const {
-    return ch == '\\' || ch == '/';
-  }
-};
-
-static string dirname(const string& path) {
-  return string(path.begin(),
-                find_if(path.begin(), path.end(),
-                        MatchPathSeparator()));
-}
-
 int main(int argc, char *argv[], char *envp[]) {
   //tracker = new PassTracker("codegen", NULL, NULL);
 
@@ -269,7 +257,8 @@ int main(int argc, char *argv[], char *envp[]) {
       if (kernelgenSimplePath.empty())
         THROW("Cannot locate kernelgen binaries folder, is it included into "
               "$PATH ?");
-      string kernelgenPath = dirname(kernelgenSimplePath);
+      const string& kernelgenPath = kernelgenSimplePath.substr(0,
+        kernelgenSimplePath.find_last_of("/\\"));
 
       // Load LLVM IR for kernel monitor, if not yet loaded.
       if (!monitor_module)

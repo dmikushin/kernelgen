@@ -549,18 +549,6 @@ static Module* load_module(string Path)
   return module;
 }
 
-struct MatchPathSeparator {
-  bool operator()(char ch) const {
-    return ch == '\\' || ch == '/';
-  }
-};
-
-static string dirname(const string& path) {
-  return string(path.begin(),
-                find_if(path.begin(), path.end(),
-                        MatchPathSeparator()));
-}
-
 static int link(int argc, char **argv, const char *input, const char *output) {
 
   //
@@ -1190,7 +1178,8 @@ static int link(int argc, char **argv, const char *input, const char *output) {
   if (kernelgenSimplePath.empty())
     THROW(
         "Cannot locate kernelgen binaries folder, is it included into $PATH ?");
-  string kernelgenPath = dirname(kernelgenSimplePath);
+  const string& kernelgenPath = kernelgenSimplePath.substr(0,
+    kernelgenSimplePath.find_last_of("/\\"));
 
   // Load LLVM IR for KernelGen runtime functions, if not yet loaded.
   Module *runtime_module = NULL;
