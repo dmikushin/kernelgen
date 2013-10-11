@@ -245,6 +245,7 @@ static int compile(int argc, char **argv, const char *input,
       args.push_back(gccopt);
     }
     args.push_back("-fkeep-inline-functions");
+    args.push_back("-fno-ident");
     args.push_back("-D_KERNELGEN");
     args.push_back("-S");
     args.push_back("-o");
