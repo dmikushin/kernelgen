@@ -307,9 +307,20 @@
                {
                  add_lto_object (&lto_objects, prog_name);
  
---- a/gcc-snapshot/gcc/main.c	2011-01-03 23:52:22.000000000 +0300
-+++ b/gcc-snapshot/gcc/main.c	2013-05-19 06:37:06.360688970 +0400
-@@ -24,14 +24,284 @@
+--- a/gcc-snapshot/gcc/Makefile.in	2013-09-16 04:33:23.487766825 +0400
++++ b/gcc-snapshot/gcc/Makefile.in	2013-09-16 04:33:35.783765522 +0400
+@@ -1021,7 +1021,7 @@
+ LIBS = @LIBS@ libcommon.a $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBBACKTRACE) \
+ 	$(LIBIBERTY) $(LIBDECNUMBER) $(HOST_LIBS)
+ BACKENDLIBS = $(CLOOGLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
+-	$(ZLIB)
++	$(ZLIB) -lelf
+ # Any system libraries needed just for GNAT.
+ SYSLIBS = @GNAT_LIBEXC@
+ 
+--- a/gcc-snapshot/gcc/main.c	2013-01-10 21:38:27.000000000 +0100
++++ b/gcc-snapshot/gcc/main.c	2013-10-11 18:47:32.672915125 +0200
+@@ -24,14 +24,288 @@
  #include "diagnostic-core.h"
  #include "toplev.h"
  
@@ -539,6 +550,10 @@
 +      compiler_argv[i++] = gccopt;
 +    }
 +    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
++
++    // Issue no .ident inline asm record, as it is incompatible with ptx.
++    compiler_argv[i++] = "-fno-ident";
++
 +    compiler_argv[i++] = "-D_KERNELGEN";
 +    compiler_argv[i++] = NULL;
 +
@@ -596,14 +611,3 @@
 +
 +  return rcompiler;
  }
---- a/gcc-snapshot/gcc/Makefile.in	2013-09-16 04:33:23.487766825 +0400
-+++ b/gcc-snapshot/gcc/Makefile.in	2013-09-16 04:33:35.783765522 +0400
-@@ -1021,7 +1021,7 @@
- LIBS = @LIBS@ libcommon.a $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBBACKTRACE) \
- 	$(LIBIBERTY) $(LIBDECNUMBER) $(HOST_LIBS)
- BACKENDLIBS = $(CLOOGLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
--	$(ZLIB)
-+	$(ZLIB) -lelf
- # Any system libraries needed just for GNAT.
- SYSLIBS = @GNAT_LIBEXC@
- 
