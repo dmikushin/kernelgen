@@ -999,7 +999,7 @@ switch ($target)
 	# Check we have nvcc in path
 	# (which returns 0 if file is found and is executable).
 	#
-	if (system("which nvcc") != 0)
+	if (system("which nvcc 2>&1 1>/dev/null") != 0)
 	{
 		print "CUDA C++ compiler (nvcc) must be in \$PATH (required for MVAPICH2 and test suite)\n";
 		print "Build failed, aborting.\n";
@@ -1058,6 +1058,18 @@ switch ($target)
 	}
 	case ["test"]
 	{
+		#
+		# Check we have kernelgen-version in path
+		# (which returns 0 if file is found and is executable).
+		#
+		if (system("which kernelgen-version 2>&1 1>/dev/null") != 0)
+		{
+			print "Version reporter (kernelgen-version) must be in \$PATH (required for report signature)\n";
+			print "You can add it to \$PATH by sourcing kernelgen-vars.sh of your KernelGen toolchain\n";
+			print "Build failed, aborting.\n";
+			exit(1);
+		}
+
 		#
 		# Execute the test suite and report the result.
 		#
