@@ -160,7 +160,7 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
     // Flush the resulting object binary to the
     // underlying string.
     ptx_raw_stream.flush();
-
+    
     VERBOSE(Verbose::Sources << ptx_string << "\n" << Verbose::Default);
 
     // Dump generated kernel object to first temporary file.
@@ -250,7 +250,8 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel *kernel, Module *m) {
 
     int regcount = -1;
     if (name == "__kernelgen_main") {
-      // Initialize the dynamic kernels loader.
+      // Initialize the dynamic kernels loader and merge it
+      // together with the main entry module.
       CU_SAFE_CALL(cudyInit(&cuda_context->loader, cuda_context->capacity,
                             tmp3.getName()));
 

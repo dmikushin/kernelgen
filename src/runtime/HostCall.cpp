@@ -73,7 +73,7 @@ static StructType *activeStructTy;
 static unsigned NumArgs;
 static std::vector<ffi_type *> args;
 static SmallVector<void *, 16> values;
-struct sigaction sa_new, sa_old;
+static struct sigaction sa_new, sa_old;
 static void *params;
 
 static long szpage = -1;
@@ -114,6 +114,9 @@ typedef void (*func_t)();
 
 void kernelgen_hostcall(Kernel *kernel, FunctionType *FTy, StructType *StructTy,
                         void *params_) {
+  if (activeKernel)
+    THROW("There is already an unfinished hostcall in progress");
+
   params = params_;
 
   // Compile native kernel, if there is source code and not already compiled.
@@ -181,7 +184,12 @@ void kernelgen_hostcall(Kernel *kernel, FunctionType *FTy, StructType *StructTy,
       void *base;
       size_t size;
       int err = cuMemGetAddressRange(&base, &size, *address);
-      if (!err) {
+      if (err == CUDA_ERROR_NOT_FOUND) {
+          VERBOSE(Verbose::DataIO
+                  << "Directly accessible address, no mapping: " << "("
+                  << *address << ") + " << size << "\n" << Verbose::Default);
+      }
+      else if (!err) {
         size_t align = (size_t) base % szpage;
 
         list<struct mmap_t>::iterator mmapping = mmappings.begin();
@@ -239,6 +247,8 @@ void kernelgen_hostcall(Kernel *kernel, FunctionType *FTy, StructType *StructTy,
                     << Verbose::Default);
           }
         }
+      } else {
+        THROW("Error in cuMemGetAddressRange: " << err);
       }
     }
   }
@@ -264,9 +274,10 @@ void kernelgen_hostcall(Kernel *kernel, FunctionType *FTy, StructType *StructTy,
 
   // Register SIGSEGV signal handler to catch
   // accesses to GPU memory and remember the original handler.
-  sa_new.sa_flags = SA_SIGINFO;
-  sigemptyset(&sa_new.sa_mask);
+  sa_new.sa_handler = SIG_DFL;
   sa_new.sa_sigaction = sighandler;
+  sigemptyset(&sa_new.sa_mask);
+  sa_new.sa_flags = SA_SIGINFO;
   if (sigaction(SIGSEGV, &sa_new, &sa_old) == -1)
     THROW("Error in sigaction " << errno);
 
