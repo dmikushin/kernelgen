@@ -33,7 +33,7 @@ TempFile Temp::getFile(string mask, bool closefd) {
   // Open unique file for the given mask.
   int fd;
   SmallString<128> filename_vector;
-  if (error_code err = createUniqueFile(mask, fd, filename_vector))
+  if (error_code err = createTemporaryFile(mask, "", fd, filename_vector))
     THROW("Cannot open unique temp file " << err, err.value());
 
   // Store filename.

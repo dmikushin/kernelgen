@@ -153,7 +153,7 @@ static int compile(int argc, char **argv, const char *input,
   int fd;
   string tmp_mask = "%%%%%%%%";
   SmallString<128> gcc_output_vector;
-  if (createUniqueFile(tmp_mask, fd, gcc_output_vector)) {
+  if (createTemporaryFile(tmp_mask, "", fd, gcc_output_vector)) {
     cout << "Cannot generate gcc output file name" << endl;
     return 1;
   }
@@ -210,7 +210,7 @@ static int compile(int argc, char **argv, const char *input,
     TimeRegion TCompile(TI.getTimer("DragonEgg compilation"));
 
     SmallString<128> llvm_output_vector;
-    if (createUniqueFile(tmp_mask, fd, llvm_output_vector)) {
+    if (createTemporaryFile(tmp_mask, "", fd, llvm_output_vector)) {
       cout << "Cannot generate gcc output file name" << endl;
       return 1;
     }
@@ -334,7 +334,7 @@ static int compile(int argc, char **argv, const char *input,
     TimeRegion TCompile(TI.getTimer("Embedding LLVM IR into object"));
 
     SmallString<128> llvm_output_vector;
-    if (createUniqueFile(tmp_mask, fd, llvm_output_vector)) {
+    if (createTemporaryFile(tmp_mask, "", fd, llvm_output_vector)) {
       cout << "Cannot generate gcc output file name" << endl;
       return 1;
     }
@@ -579,7 +579,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
   int fd;
   string tmp_mask = "%%%%%%%%";
   SmallString<128> tmp_main_vector;
-  if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
+  if (createTemporaryFile(tmp_mask, "", fd, tmp_main_vector)) {
     cout << "Cannot generate temporary main object file name" << endl;
     return 1;
   }
@@ -592,7 +592,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
     cerr << "Cannot open output file" << tmp_main_output1.c_str() << endl;
     return 1;
   }
-  if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
+  if (createTemporaryFile(tmp_mask, "", fd, tmp_main_vector)) {
     cout << "Cannot generate main output file name" << endl;
     return 1;
   }
@@ -1219,7 +1219,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
     Function *f = composite.getFunction("kernelgen_launch");
     if (f) {
       tmp_main_vector.clear();
-      if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
+      if (createTemporaryFile(tmp_mask, "", fd, tmp_main_vector)) {
         cout << "Cannot generate temporary main object file name" << endl;
         return 1;
       }
@@ -1485,7 +1485,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
           manager.add(new DataLayout(*DL));
 
           tmp_main_vector.clear();
-          if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
+          if (createTemporaryFile(tmp_mask, "", fd, tmp_main_vector)) {
             cout << "Cannot generate temporary main object file name" << endl;
             return 1;
           }
@@ -1628,7 +1628,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
       manager.add(new DataLayout(*DL));
 
       tmp_main_vector.clear();
-      if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
+      if (createTemporaryFile(tmp_mask, "", fd, tmp_main_vector)) {
         cout << "Cannot generate temporary main object file name" << endl;
         return 1;
       }
@@ -1762,7 +1762,7 @@ static int link(int argc, char **argv, const char *input, const char *output) {
           return -1;
 
         tmp_main_vector.clear();
-        if (createUniqueFile(tmp_mask, fd, tmp_main_vector)) {
+        if (createTemporaryFile(tmp_mask, "", fd, tmp_main_vector)) {
           cout << "Cannot generate temporary main object file name" << endl;
           return 1;
         }
