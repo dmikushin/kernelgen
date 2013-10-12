@@ -81,8 +81,8 @@ my($db) = "http://download.oracle.com/berkeley-db/$db_snapshot.tar.gz";
 my($cobol_snapshot) = "open-cobol-1.1";
 my($cobol) = "ftp://ftp.uwsg.indiana.edu/pub/FreeBSD/ports/distfiles/$cobol_snapshot.tar.gz";
 
-my($old_llvm_rev) = 183652;
-my($new_llvm_rev) = 183652;
+my($old_llvm_rev) = 192445;
+my($new_llvm_rev) = 192445;
 my($mvapich2_rev) = 
 my($kernelgen_rev) = -1; # 1769;
 
@@ -144,6 +144,7 @@ sub build_and_test_kernelgen
 	my($cobol_enable) = 0;
 	my($mvapich2_enable) = 0;
 	my($kernelgen_enable) = 0;
+        my($db_enable) = 0;
 	my($COMPILERS) = "";
 	switch ($bootstrap_mode)
 	{
@@ -153,24 +154,7 @@ sub build_and_test_kernelgen
 			print "Bootstrapping stage 1: gmp\n";
 			print "==========================\n";
 
-			$cloog_enable = 0;
-			$llvm_enable = 0;
-			$binutils_enable = 0;
 			$gmp_enable = 1;
-			$mpfr_enable = 0;
-			$mpc_enable = 0;
-			$libelf_enable = 0;
-			$gcc_enable = 0;
-			$gcc_enable_bootstrap = 0;
-			$netcdf_enable = 0;
-			$dragonegg_enable = 0;
-			$libffi_enable = 0;
-			$mhash_enable = 0;
-			$glibc_enable = 0;
-			$db_enable = 0;
-			$cobol_enable = 0;
-			$mvapich2_enable = 0;
-			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
 		}
@@ -180,24 +164,8 @@ sub build_and_test_kernelgen
 			print "Bootstrapping stage 2: mpfr\n";
 			print "===========================\n";
 
-			$cloog_enable = 0;
-			$llvm_enable = 0;
-			$binutils_enable = 0;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
-			$mpc_enable = 0;
-			$libelf_enable = 0;
-			$gcc_enable = 0;
-			$gcc_enable_bootstrap = 0;
-			$netcdf_enable = 0;
-			$dragonegg_enable = 0;
-			$libffi_enable = 0;
-			$mhash_enable = 0;
-			$glibc_enable = 0;
-			$db_enable = 0;
-			$cobol_enable = 0;
-			$mvapich2_enable = 0;
-			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
 		}
@@ -206,24 +174,13 @@ sub build_and_test_kernelgen
 			print "=====================================\n";
 			print "Bootstrapping stage 3: binutils + mpc\n";
 			print "=====================================\n";
+
 			$cloog_enable = 1;
-			$llvm_enable = 0;
 			$binutils_enable = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
 			$mpc_enable = 1;
 			$libelf_enable = 1;
-			$gcc_enable = 0;
-			$gcc_enable_bootstrap = 0;
-			$netcdf_enable = 0;
-			$dragonegg_enable = 0;
-			$libffi_enable = 0;
-			$mhash_enable = 0;
-			$glibc_enable = 0;
-			$db_enable = 0;
-			$cobol_enable = 0;
-			$mvapich2_enable = 0;
-			$kernelgen_enable = 0;
 
 			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
 		}
@@ -232,8 +189,8 @@ sub build_and_test_kernelgen
 			print "==========================\n";
 			print "Bootstrapping stage 4: gcc\n";
 			print "==========================\n";
+
 			$cloog_enable = 1;
-			$llvm_enable = 0;
 			$binutils_enable = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
@@ -241,15 +198,7 @@ sub build_and_test_kernelgen
 			$libelf_enable = 1;
 			$gcc_enable = 1;
 			$gcc_enable_bootstrap = 1;
-			$netcdf_enable = 0;
-			$dragonegg_enable = 0;
-			$libffi_enable = 1;
 			$mhash_enable = 1;
-			$glibc_enable = 0;
-			$db_enable = 0;
-			$cobol_enable = 0;
-			$mvapich2_enable = 0;
-			$kernelgen_enable = 0;
 
 			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=gcc CXX=g++ FC=gfortran F77=gfortran";
 		}
@@ -258,32 +207,7 @@ sub build_and_test_kernelgen
                         print "===================================\n";
                         print "Bootstrapping stage 5: llvm + glibc\n";
                         print "===================================\n";
-                        $cloog_enable = 1;
-                        $llvm_enable = 1;
-                        $binutils_enable = 1;
-                        $gmp_enable = 1;
-                        $mpfr_enable = 1;
-                        $mpc_enable = 1;
-                        $libelf_enable = 1;
-                        $gcc_enable = 1;
-                        $gcc_enable_bootstrap = 0;
-                        $netcdf_enable = 0;
-                        $dragonegg_enable = 0;
-                        $libffi_enable = 1;
-                        $mhash_enable = 1;
-                        $glibc_enable = 1;
-			$db_enable = 1;
-			$cobol_enable = 0;
-			$mvapich2_enable = 0;
-                        $kernelgen_enable = 0;
 
-                        $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
-                }
-		case "all"
-		{
-			print "=========================================\n";
-			print "Compiling KernelGen without bootstrapping\n";
-			print "=========================================\n";
 			$cloog_enable = 1;
 			$llvm_enable = 1;
 			$binutils_enable = 1;
@@ -292,7 +216,27 @@ sub build_and_test_kernelgen
 			$mpc_enable = 1;
 			$libelf_enable = 1;
 			$gcc_enable = 1;
-			$gcc_enable_bootstrap = 0;
+			$libffi_enable = 1;
+			$mhash_enable = 1;
+			$glibc_enable = 1;
+			$db_enable = 1;
+
+                        $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
+                }
+		case "all"
+		{
+			print "=========================================\n";
+			print "Compiling KernelGen without bootstrapping\n";
+			print "=========================================\n";
+
+			$cloog_enable = 1;
+			$llvm_enable = 1;
+			$binutils_enable = 1;
+			$gmp_enable = 1;
+			$mpfr_enable = 1;
+			$mpc_enable = 1;
+			$libelf_enable = 1;
+			$gcc_enable = 1;
 			$netcdf_enable = 1;
 			$dragonegg_enable = 1;
 			$libffi_enable = 1;
