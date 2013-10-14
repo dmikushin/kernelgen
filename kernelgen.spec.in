@@ -25,7 +25,7 @@
 %define llvm_rev KERNELGEN_LLVM_REV
 
 # Release name
-%define release castagnola
+%define codename KERNELGEN_CODENAME
 
 # Target operating system
 %define target KERNELGEN_TARGET
@@ -76,7 +76,7 @@ AutoReq: 0
 
 Name:           kernelgen
 Version:        KERNELGEN_VERSION
-Release:        %{release}
+Release:        %{codename}
 Summary:        Compiler with automatic generation of GPU kernels from the regular source code
 Patch0:         dragonegg.patch
 Patch1:         llvm.polly.patch
