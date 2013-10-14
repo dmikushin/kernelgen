@@ -58,7 +58,7 @@ if ($kernelgen_rev == -1)
 }
 
 # Where to install the resulting build.
-my($INSTALLROOT) = "$TOPDIR";
+my($INSTALLROOT) = "$TOPDIR/INSTALL";
 
 # NOTE: Do not forget to adjust the debug/release mode setting!
 my($debug) = 1;
@@ -75,7 +75,7 @@ my($version) = "0.23";
 # Extra prefix inside install root, if any.
 my($prefix) = "";
 
-my($RPMBUILD) = "$TOPDIR/rpmbuild";
+my($RPMBUILD) = "$TOPDIR";
 my($SOURCES) = $ENV{'HOME'} . "/rpmbuild/SOURCES";
 my($SPECS) = "$RPMBUILD/SPECS";
 my($RPMS) = "$RPMBUILD/RPMS";
