@@ -415,9 +415,6 @@ sub build_and_test_kernelgen
 		my($cmd) = "mkdir -p $SOURCES";
 		print "$cmd\n";
 		`$cmd`;
-		$cmd = "ln -sf $SOURCES $RPMBUILD/SOURCES";
-		print "$cmd\n";
-		`$cmd`;
 		if ($kernelgen_rev != -1)
 		{
 			$cmd = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests -r$kernelgen_rev";
@@ -849,6 +846,9 @@ sub build_and_test_kernelgen
 	print "$cmd\n";
 	`$cmd`;
 	$cmd = "mkdir -p $LOGS";
+	print "$cmd\n";
+	`$cmd`;
+	$cmd = "ln -sf $SOURCES $RPMBUILD/SOURCES";
 	print "$cmd\n";
 	`$cmd`;
 	open(SPEC, ">$SPECS/kernelgen.spec") or die("Cannot open $SPECS/kernelgen.spec");
