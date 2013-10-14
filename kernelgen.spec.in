@@ -241,7 +241,7 @@ cd $RPM_BUILD_DIR/cloog
 ./autogen.sh
 mkdir build
 cd build
-%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-prefix=$RPM_INSTALL_PREFIX/%{prefix}/ --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-prefix=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %llvm
 #
@@ -252,9 +252,9 @@ mkdir build
 cp -rf include/ build/include/
 cd build
 %if %debug
-%flags ../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}/lib --program-prefix=kernelgen-
+%flags ../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib --program-prefix=kernelgen-
 %else
-%flags ../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}/lib --program-prefix=kernelgen-
+%flags ../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib --program-prefix=kernelgen-
 %endif
 %endif
 %if %binutils
@@ -273,7 +273,7 @@ cd build
 cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
 mkdir build
 cd build/
-%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %mpfr
 #
@@ -282,7 +282,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
 mkdir build
 cd build/
-%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %mpc
 #
@@ -291,7 +291,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
 mkdir build
 cd build/
-%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %libelf
 #
@@ -300,7 +300,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
 mkdir build
 cd build
-%flags CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --enable-elf64=yes --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --enable-elf64=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %gcc
 #
@@ -311,15 +311,15 @@ mkdir build
 cd build/
 %if %gcc_bootstrap
 %if %glibc32
-%flags ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-ld --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-ld --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %else
-%flags ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-ld --disable-multilib --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-ld --disable-multilib --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %else
 %if %glibc32
-%flags ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-ld --disable-bootstrap --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-ld --disable-bootstrap --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %else
-%flags ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}/include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}/lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-ld --disable-bootstrap --disable-multilib --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-ld --disable-bootstrap --disable-multilib --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %endif
 %endif
@@ -330,7 +330,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
 mkdir build
 cd build/
-KERNELGEN_FALLBACK=1 %flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-netcdf-4 --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+KERNELGEN_FALLBACK=1 %flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-netcdf-4 --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %mvapich2
 #
@@ -352,14 +352,14 @@ KERNELGEN_FALLBACK=1 %flags CFLAGS="-DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRA
 cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
 mkdir build
 cd build
-%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %mhash
 #
 # Configure MHASH
 #
 cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
-%flags ./configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}/lib
+%flags ./configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %glibc
 #
@@ -368,14 +368,14 @@ cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 mkdir build
 cd build
-%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ --host=x86_64-linux-gnu --build=x86_64-linux-gnu --enable-obsolete-rpc
-echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/" >>config.make
+%flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ --host=x86_64-linux-gnu --build=x86_64-linux-gnu --enable-obsolete-rpc
+echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/" >>config.make
 cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
 %if %glibc32
 mkdir build-32
 cd build-32
-CC="$CC -m32 $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32 --host=i686-linux-gnu --build=i686-linux-gnu CFLAGS="$CFLAGS -march=i686" --enable-obsolete-rpc
-echo "slibdir=$RPM_BUILD_ROOT/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32" >>config.make
+CC="$CC -m32 $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32 --host=i686-linux-gnu --build=i686-linux-gnu CFLAGS="$CFLAGS -march=i686" --enable-obsolete-rpc
+echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32" >>config.make
 %endif
 %endif
 %if %db_enable
@@ -399,9 +399,9 @@ cd $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP
 mkdir build
 cd build/
 %if %debug
-KERNELGEN_FALLBACK=1 %flags CPPFLAGS="-I$RPM_BUILD_ROOT/%{prefix}/include" LDFLAGS="-L$RPM_BUILD_ROOT/%{prefix}/lib" ../configure --program-prefix=kernelgen- --with-cc=kernelgen-gcc --with-gnu-ld --with-db --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-debug
+KERNELGEN_FALLBACK=1 %flags CPPFLAGS="-I$RPM_BUILD_ROOT/%{prefix}include" LDFLAGS="-L$RPM_BUILD_ROOT/%{prefix}lib" ../configure --program-prefix=kernelgen- --with-cc=kernelgen-gcc --with-gnu-ld --with-db --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-debug
 %else
-KERNELGEN_FALLBACK=1 %flags CPPFLAGS="-I$RPM_BUILD_ROOT/%{prefix}/include" LDFLAGS="-L$RPM_BUILD_ROOT/%{prefix}/lib" ../configure --program-prefix=kernelgen- --with-cc=kernelgen-gcc --with-gnu-ld --with-db --prefix=$RPM_BUILD_ROOT/%{prefix}
+KERNELGEN_FALLBACK=1 %flags CPPFLAGS="-I$RPM_BUILD_ROOT/%{prefix}include" LDFLAGS="-L$RPM_BUILD_ROOT/%{prefix}lib" ../configure --program-prefix=kernelgen- --with-cc=kernelgen-gcc --with-gnu-ld --with-db --prefix=$RPM_BUILD_ROOT/%{prefix}
 %endif
 %endif
 %endif
@@ -511,9 +511,9 @@ cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
 %if %debug
-%flags CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/%{prefix}/include:$RPM_INSTALL_PREFIX/%{prefix}/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+%flags CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/%{prefix}include:$RPM_INSTALL_PREFIX/%{prefix}include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
 %else
-%flags CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/%{prefix}/include:$RPM_INSTALL_PREFIX/%{prefix}/include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs}
+%flags CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/%{prefix}include:$RPM_INSTALL_PREFIX/%{prefix}include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
 %endif
 %if %netcdf
@@ -638,7 +638,7 @@ cd $RPM_BUILD_DIR/llvm/build
 #
 # Install DragonEgg
 #
-cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/%{prefix}/lib/
+cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/%{prefix}lib/
 %endif
 %if %libffi
 #
@@ -701,7 +701,7 @@ cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build
 # Install GCC
 #
 cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
-%flags CPLUS_INCLUDE_PATH=$RPM_BUILD_ROOT/%{prefix}/include:$RPM_BUILD_ROOT/%{prefix}/include/libelf KERNELGEN_FALLBACK=1 make install
+%flags CPLUS_INCLUDE_PATH=$RPM_BUILD_ROOT/%{prefix}include:$RPM_BUILD_ROOT/%{prefix}include/libelf KERNELGEN_FALLBACK=1 make install
 %endif
 %if %mvapich2
 #
@@ -709,7 +709,7 @@ cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
 #
 cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP/build
 %flags KERNELGEN_FALLBACK=1 make install -j%{njobs}
-cd $RPM_BUILD_ROOT/%{prefix}/bin
+cd $RPM_BUILD_ROOT/%{prefix}bin
 ln -s kernelgen-mpirun_rsh kernelgen-mpirun
 %endif
 %if %netcdf
@@ -768,86 +768,86 @@ find $RPM_BUILD_ROOT/%{prefix} -name lto-wrapper -exec ln -sf ../../../../bin/ke
 #
 # LLVM
 #
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangAnalysis.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libpollyanalysis.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMNVPTXInfo.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libgfortran.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMAsmPrinter.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMNVPTXAsmPrinter.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangFrontendTool.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangRewrite.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMAsmParser.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libopcodes.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libpollycodegen.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangARCMigrate.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libpollysupport.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangDriver.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libisl.so.9.0.0-gdb.py
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangEdit.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangParse.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMTransformUtils.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangSerialization.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMCore.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMRuntimeDyld.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangSema.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangStaticAnalyzerFrontend.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangLex.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMTableGen.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMMC.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangStaticAnalyzerCore.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMMCDisassembler.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMInstrumentation.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMX86Disassembler.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMX86CodeGen.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMNVPTXDesc.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangTooling.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangStaticAnalyzerCheckers.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMX86Info.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMBitWriter.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangFrontend.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclang.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangAST.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libgfortran.spec
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMNVPTXCodeGen.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMArchive.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLTO.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMBitReader.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libpollyjson.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMInterpreter.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMTarget.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMScalarOpts.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMObject.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMX86AsmPrinter.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMMCJIT.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMLinker.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMDebugInfo.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMExecutionEngine.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMX86AsmParser.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMX86Desc.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMipa.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libgomp.spec
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMX86Utils.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangBasic.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMVectorize.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/LLVMHello.so
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangCodeGen.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMSupport.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMCodeGen.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMInstCombine.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMMCParser.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libpollyexchange.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMAnalysis.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMipo.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMSelectionDAG.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMJIT.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangASTMatchers.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangDynamicASTMatchers.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangFormat.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangRewriteCore.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libclangRewriteFrontend.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMIRReader.a
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMObjCARCOpts.a 
-rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMOption.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangAnalysis.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libpollyanalysis.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMNVPTXInfo.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libgfortran.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMAsmPrinter.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMNVPTXAsmPrinter.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangFrontendTool.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangRewrite.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMAsmParser.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libopcodes.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libpollycodegen.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangARCMigrate.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libpollysupport.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangDriver.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libisl.so.9.0.0-gdb.py
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangEdit.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangParse.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMTransformUtils.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangSerialization.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMCore.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMRuntimeDyld.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangSema.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangStaticAnalyzerFrontend.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangLex.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMTableGen.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMMC.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangStaticAnalyzerCore.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMMCDisassembler.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMInstrumentation.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMX86Disassembler.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMX86CodeGen.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMNVPTXDesc.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangTooling.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangStaticAnalyzerCheckers.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMX86Info.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMBitWriter.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangFrontend.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclang.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangAST.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libgfortran.spec
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMNVPTXCodeGen.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMArchive.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLTO.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMBitReader.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libpollyjson.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMInterpreter.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMTarget.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMScalarOpts.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMObject.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMX86AsmPrinter.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMMCJIT.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMLinker.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMDebugInfo.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMExecutionEngine.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMX86AsmParser.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMX86Desc.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMipa.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libgomp.spec
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMX86Utils.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangBasic.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMVectorize.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/LLVMHello.so
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangCodeGen.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMSupport.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMCodeGen.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMInstCombine.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMMCParser.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libpollyexchange.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMAnalysis.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMipo.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMSelectionDAG.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMJIT.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangASTMatchers.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangDynamicASTMatchers.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangFormat.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangRewriteCore.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libclangRewriteFrontend.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMIRReader.a
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMObjCARCOpts.a 
+rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMOption.a
 
 
 
@@ -862,7 +862,7 @@ rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMOption.a
 # Files included into binary distribution.
 #
 %files
-/%{prefix}/*
+/%{prefix}*
 
 
 
@@ -872,38 +872,38 @@ rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMOption.a
 #
 mkdir -p $RPM_INSTALL_PREFIX/etc/profile.d
 mkdir -p $RPM_INSTALL_PREFIX/etc/ld.so.conf.d
-echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/%{prefix}/bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
+echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/%{prefix}bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
 %if %glibc
 #
 # Update GROUP info of GLIBC shared libraries with respect to the
 # actuall install prefix.
 #
-sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/libc.so
-sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/libpthread.so
-if [ -f $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libc.so ]; then
-  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libc.so
+sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/libc.so
+sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/libpthread.so
+if [ -f $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libc.so ]; then
+  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libc.so
 fi
-if [ -f $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libpthread.so ]; then
-  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libpthread.so
+if [ -f $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libpthread.so ]; then
+  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libpthread.so
 fi
 %if %gcc
 #
 # Remove all rpaths for dynamic loaders (not permitted by GLIBC).
 # TODO: does not work for 32-bit ld-linux.so.2
 #
-chrpath -d $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2
-#chrpath -d $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/ld-linux.so.2
+chrpath -d $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2
+#chrpath -d $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/ld-linux.so.2
 #
 # Create GCC spec with alternative locations for used 32-bit and 64-bit
 # dynamic linkers.
 #
-$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-gcc -dumpspecs >$RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
-sed -i s!/lib64/ld-linux-x86-64.so.2!$RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
-sed -i s!/lib/ld-linux.so.2!$RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/ld-linux.so.2!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
+$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-gcc -dumpspecs >$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
+sed -i s!/lib64/ld-linux-x86-64.so.2!$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2!g $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
+sed -i s!/lib/ld-linux.so.2!$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/ld-linux.so.2!g $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
 %endif
 %endif
 %if %kernelgen
-sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-vars.sh
+sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-vars.sh
 %endif
 
 %changelog
