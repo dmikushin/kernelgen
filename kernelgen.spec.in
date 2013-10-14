@@ -15,14 +15,17 @@
 %define _unpackaged_files_terminate_build 0
 %define _missing_doc_files_terminate_build 0
 
-#define kernelgen revision
+# Define top directory
+%define _topdir KERNELGEN_TOPDIR
+
+# Define kernelgen revision
 %define kgen_rev KERNELGEN_REV
 
-#define llvm revision
+# Define llvm revision
 %define llvm_rev KERNELGEN_LLVM_REV
 
 # Release name
-%define release accurate
+%define release castagnola
 
 # Target operating system
 %define target KERNELGEN_TARGET
@@ -51,16 +54,6 @@
 %define db_enable KERNELGEN_ENABLE_DB
 %define cobol KERNELGEN_ENABLE_COBOL
 %define kernelgen KERNELGEN_ENABLE_KERNELGEN
-
-%if (%target == "fedora")
-%define lib32 lib
-%define lib64 lib64
-%endif
-
-%if (%target == "debian")
-%define lib32 lib32
-%define lib64 lib
-%endif
 
 # Build unoptimized version with debug info
 %define debug KERNELGEN_ENABLE_DEBUG
@@ -104,14 +97,6 @@ Patch14:        mvapich2.patch
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
 URL:            http://kernelgen.org/
-
-%if (%target == fedora)
-#BuildRequires:  gcc gcc-c++ gcc-gfortran perl elfutils-libelf-devel libffi-devel gmp-devel mpfr-devel libmpc-devel flex glibc-devel git autoconf automake libtool bison texinfo
-#Requires:       elfutils-libelf libffi gmp mpfr libmpc
-%else
-#BuildRequires:	gcc g++ gfortran perl libelf-dev libffi-dev libgmp3-dev libmpfr-dev libmpc-dev flex libc6-dev libc6-dev-i386 gcc-multilib git autoconf automake libtool bison texinfo
-#Requires:	libelf ffi libgmp3 libmpfr libmpc g++-4.6-multilib
-%endif
 
 Packager:       Dmitry Mikushin <maemarcus@gmail.com>
 
