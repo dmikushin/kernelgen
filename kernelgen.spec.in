@@ -872,38 +872,38 @@ rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMOption.a
 #
 mkdir -p $RPM_INSTALL_PREFIX/etc/profile.d
 mkdir -p $RPM_INSTALL_PREFIX/etc/ld.so.conf.d
-echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
+echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/%{prefix}/bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
 %if %glibc
 #
 # Update GROUP info of GLIBC shared libraries with respect to the
 # actuall install prefix.
 #
-sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/libc.so
-sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/libpthread.so
-if [ -f $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libc.so ]; then
-  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libc.so
+sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/libc.so
+sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/libpthread.so
+if [ -f $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libc.so ]; then
+  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libc.so
 fi
-if [ -f $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libpthread.so ]; then
-  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libpthread.so
+if [ -f $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libpthread.so ]; then
+  sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/libpthread.so
 fi
 %if %gcc
 #
 # Remove all rpaths for dynamic loaders (not permitted by GLIBC).
 # TODO: does not work for 32-bit ld-linux.so.2
 #
-chrpath -d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2
-#chrpath -d $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/ld-linux.so.2
+chrpath -d $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2
+#chrpath -d $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/ld-linux.so.2
 #
 # Create GCC spec with alternative locations for used 32-bit and 64-bit
 # dynamic linkers.
 #
-$RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin/kernelgen-gcc -dumpspecs >$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
-sed -i s!/lib64/ld-linux-x86-64.so.2!$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
-sed -i s!/lib/ld-linux.so.2!$RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/ld-linux.so.2!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
+$RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-gcc -dumpspecs >$RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
+sed -i s!/lib64/ld-linux-x86-64.so.2!$RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
+sed -i s!/lib/ld-linux.so.2!$RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/32/ld-linux.so.2!g $RPM_INSTALL_PREFIX/%{prefix}/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/specs
 %endif
 %endif
 %if %kernelgen
-sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/opt/kernelgen/usr/bin/kernelgen-vars.sh
+sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}/bin/kernelgen-vars.sh
 %endif
 
 %changelog
