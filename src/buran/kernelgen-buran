@@ -27,6 +27,9 @@ use Switch;
 my($llvm_rev) = 192445;
 my($kernelgen_rev) = -1;
 
+# NOTE: Do not forget to adjust the debug/release mode setting!
+my($debug) = 1;
+
 sub usage
 {
 	printf("Usage: kernelgen-buran <target> [<kernelgen_revision>]\n");
@@ -56,12 +59,17 @@ if ($kernelgen_rev == -1)
 {
 	$TOPDIR = $ENV{'HOME'} . "/rpmbuild/kernelgen/head_llvm$llvm_rev";
 }
+if ($debug == 1)
+{
+	$TOPDIR .= "_debug";
+}
+else
+{
+	$TOPDIR .= "_release";
+}
 
 # Where to install the resulting build.
 my($INSTALLROOT) = "$TOPDIR/INSTALL";
-
-# NOTE: Do not forget to adjust the debug/release mode setting!
-my($debug) = 1;
 
 # NOTE: Do not forget to adjust the fullrepack on/off mode setting!
 # No fullrepack means recompile only kernelgen for the last stage and package.
