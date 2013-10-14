@@ -862,7 +862,7 @@ rm -rf $RPM_BUILD_ROOT/%{prefix}/lib/libLLVMOption.a
 # Files included into binary distribution.
 #
 %files
-/opt/kernelgen/*
+%{prefix}/*
 
 
 
