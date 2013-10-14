@@ -415,6 +415,9 @@ sub build_and_test_kernelgen
 		my($cmd) = "mkdir -p $SOURCES";
 		print "$cmd\n";
 		`$cmd`;
+		$cmd = "ln -sf $SOURCES $RPMBUILD/SOURCES";
+		print "$cmd\n";
+		`$cmd`;
 		if ($kernelgen_rev != -1)
 		{
 			$cmd = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests -r$kernelgen_rev";
