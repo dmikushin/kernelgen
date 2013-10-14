@@ -42,7 +42,7 @@ if ((scalar(@ARGV) != 1) && (scalar(@ARGV) != 2))
 	exit(0);
 }
 
-$target = $ARGV[0];
+my($target) = $ARGV[0];
 
 if (scalar(@ARGV) == 2)
 {
@@ -71,8 +71,6 @@ my($fullrepack) = 1;
 my($package_deb) = 0;
 
 my($version) = "0.23";
-
-my($target) = "unknown";
 
 # Extra prefix inside install root, if any.
 my($prefix) = "";
@@ -116,9 +114,6 @@ my($db_snapshot) = "db-5.3.21";
 my($db) = "http://download.oracle.com/berkeley-db/$db_snapshot.tar.gz";
 my($cobol_snapshot) = "open-cobol-1.1";
 my($cobol) = "ftp://ftp.uwsg.indiana.edu/pub/FreeBSD/ports/distfiles/$cobol_snapshot.tar.gz";
-
-my($llvm_rev) = 192445;
-my($kernelgen_rev) = -1;
 
 #
 # Build the KernelGen binary package and test it against the
@@ -1114,7 +1109,7 @@ switch ($target)
 	}
 	else
 	{
-		print "Unknown target $target\n";
+		print "Unknown target \"$target\"\n";
 	}
 }
 
