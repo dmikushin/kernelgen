@@ -23,6 +23,10 @@
 
 use Switch;
 
+# Used revisions of LLVM and KernelGen sources. -1 means head.
+my($llvm_rev) = 192445;
+my($kernelgen_rev) = -1;
+
 sub usage
 {
 	printf("Usage: kernelgen-buran <target> [<kernelgen_revision>]\n");
@@ -48,6 +52,10 @@ if (scalar(@ARGV) == 2)
 # The root path for the build folders layout.
 # Should be unique, to be able to build multiple versions in separate roots.
 my($TOPDIR) = $ENV{'HOME'} . "/rpmbuild/kernelgen/r$kernelgen_rev\_llvm$llvm_rev";
+if ($kernelgen_rev == -1)
+{
+	$TOPDIR = $ENV{'HOME'} . "/rpmbuild/kernelgen/head_llvm$llvm_rev";
+}
 
 # Where to install the resulting build.
 my($INSTALLROOT) = "$TOPDIR";
@@ -110,7 +118,6 @@ my($cobol_snapshot) = "open-cobol-1.1";
 my($cobol) = "ftp://ftp.uwsg.indiana.edu/pub/FreeBSD/ports/distfiles/$cobol_snapshot.tar.gz";
 
 my($llvm_rev) = 192445;
-my($mvapich2_rev) = 
 my($kernelgen_rev) = -1;
 
 #
