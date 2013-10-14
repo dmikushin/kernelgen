@@ -81,6 +81,7 @@ my($SPECS) = "$RPMBUILD/SPECS";
 my($RPMS) = "$RPMBUILD/RPMS";
 my($BUILD) = "$RPMBUILD/BUILD";
 my($BUILDROOT) = "$RPMBUILD/BUILDROOT";
+my($LOGS) = "$RPMBUILD/LOGS";
 
 my($binutils_snapshot) = "binutils-2.23.2";
 my($binutils) = "http://ftp.gnu.org/gnu/binutils/$binutils_snapshot.tar.bz2";
@@ -151,7 +152,7 @@ sub build_and_test_kernelgen
 		$ENV{'LD_LIBRARY_PATH'} .= ":$CUDAROOT/lib:$CUDAROOT/lib64";
 	}
 
-	my($LOGFILE) = "$RPMBUILD/SPECS/kernelgen.log";
+	my($LOGFILE) = "$RPMBUILD/LOGS/build.log";
 
 	# Setup switches, depending on the bootstrapping mode.
 	# Also, set compilers, depending on stage.
@@ -856,7 +857,7 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_NJOBS/24/g;
 		$line =~ s/KERNELGEN_VERSION/$version/g;
 
-		$line =~ s/KERNELGEN_PREFIX/$prefix/g;
+		$line =~ s/KERNELGEN_PREFIX/\"$prefix\"/g;
 
 		$line =~ s/KERNELGEN_BINUTILS_SNAP/$binutils_snapshot/g;
 		$line =~ s/KERNELGEN_GMP_SNAP/$gmp_snapshot/g;
