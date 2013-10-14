@@ -76,7 +76,7 @@ my($version) = "0.23";
 my($prefix) = "";
 
 my($RPMBUILD) = "$TOPDIR/rpmbuild";
-my($SOURCES) = "$RPMBUILD/SOURCES";
+my($SOURCES) = $ENV{'HOME'} . "/rpmbuild/SOURCES";
 my($SPECS) = "$RPMBUILD/SPECS";
 my($RPMS) = "$RPMBUILD/RPMS";
 my($BUILD) = "$RPMBUILD/BUILD";
