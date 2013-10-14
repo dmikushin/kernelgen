@@ -843,6 +843,7 @@ sub build_and_test_kernelgen
 	# Write down the final spec file.
 	#
 	$cmd = "mkdir -p $SPECS";
+	$cmd = "mkdir -p $LOGS";
 	print "$cmd\n";
 	`$cmd`;
 	open(SPEC, ">$SPECS/kernelgen.spec") or die("Cannot open $SPECS/kernelgen.spec");
