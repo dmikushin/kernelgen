@@ -843,6 +843,8 @@ sub build_and_test_kernelgen
 	# Write down the final spec file.
 	#
 	$cmd = "mkdir -p $SPECS";
+	print "$cmd\n";
+	`$cmd`;
 	$cmd = "mkdir -p $LOGS";
 	print "$cmd\n";
 	`$cmd`;
