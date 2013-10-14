@@ -25,7 +25,7 @@ message("Compiling KernelGen version ${KERNELGEN_VERSION}")
 
 set(OPT 0 CACHE STRING "Optimization level (0-3)")
 set(RPM_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE STRING "The RPM install prefix")
-set(RPM_ROOT "$ENV{HOME}/rpmbuild/BUILD" CACHE STRING "The RPM build root")
+set(RPM_ROOT "${RPM_INSTALL_PREFIX}/../BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
 set(LLVM_MODE "Debug+Asserts" CACHE STRING "The LLVM build mode")
 set(LLVM_VERSION 3.4 CACHE STRING "The LLVM version")
