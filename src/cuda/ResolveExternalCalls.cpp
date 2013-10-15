@@ -38,7 +38,7 @@
 
 using namespace std;
 
-static map<string, unsigned int> loadEffectiveLayout;
+static map<string, pair<unsigned int, unsigned short> > loadEffectiveLayout;
 
 // Get the specified kernel code from its ELF image.
 static void GetKernelCode(string kernel_name, vector<char> &mcubin,
@@ -316,7 +316,7 @@ GetKernelRelocations(string kernel_name, vector<char> &mcubin,
 void kernelgen::bind::cuda::CUBIN::ResolveExternalCalls(
     const char *cubin_dst, const char *ckernel_name_dst, const char *cubin_src,
     const char *ckernel_name_src, unsigned int kernel_lepc_diff,
-    int* regcount) {
+    int* maxregcount) {
   // Load CUBIN into memory.
   vector<char> mcubin;
   {
@@ -344,7 +344,7 @@ void kernelgen::bind::cuda::CUBIN::ResolveExternalCalls(
   // load-effective layout, if not previously loaded.
   if (!loadEffectiveLayout.size())
     CUBIN::GetLoadEffectiveLayout(cubin_src, ckernel_name_src, kernel_lepc_diff,
-                                  loadEffectiveLayout, regcount);
+                                  loadEffectiveLayout);
 
   // Load destination kernel binary.
   vector<char> kernel_code;
@@ -359,11 +359,14 @@ void kernelgen::bind::cuda::CUBIN::ResolveExternalCalls(
     unsigned int offset = i->second;
 
     // Get address of function corresponding to the relocation.
-    map<string, unsigned int>::iterator entry =
+    map<string, pair<unsigned int, unsigned short> >::iterator entry =
         loadEffectiveLayout.find(external_call);
     if (entry == loadEffectiveLayout.end())
       THROW("Cannot find load-effective layout for call to " << external_call);
-    unsigned int address = entry->second;
+    unsigned int address = entry->second.first;
+    unsigned short regcount = entry->second.second;
+    if (regcount > *maxregcount)
+    	*maxregcount = regcount;
 
     // Codegen JCAL address instruction.
     stringstream sourcestr;

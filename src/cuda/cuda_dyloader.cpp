@@ -149,6 +149,8 @@ struct CUDYfunction_t {
         // Extract regcount out of 24 bits of section info.
         if (regcount == -1)
           regcount = shdr.sh_info >> 24;
+        else
+          regcount = max(regcount, (short)(shdr.sh_info >> 24));
 
         // Extract binary opcodes and size.
         szbinary = shdr.sh_size;
@@ -389,9 +391,9 @@ struct CUDYloader_t {
       stream << "\t\t!RegCount " << regcount << endl;
       stream << "\t\t!Param 256 1" << endl;
       //stream << "\t\t!Shared 256" << endl;
-      stream << "/* 0x0000 */\tMOV R0, c[0x0][0x" << hex << (offset +
-                offsetof(UberkernArgs, command)) << dec << "];" << endl;
-      stream << "/* 0x0008 */\tJMP c[0x0][0x" << hex << (offset +
+      //stream << "/* 0x0000 */\tMOV R0, c[0x0][0x" << hex << (offset +
+      //          offsetof(UberkernArgs, command)) << dec << "];" << endl;
+      stream << "/* 0x0000 */\tJMP c[0x0][0x" << hex << (offset +
                 offsetof(UberkernArgs, command)) << dec << "];" << endl;
       stream << "\t\t!EndKernel" << endl;
     }

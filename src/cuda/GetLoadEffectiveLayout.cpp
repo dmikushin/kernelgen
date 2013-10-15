@@ -98,7 +98,7 @@ static size_t GetKernelSize(string kernel_name, vector<char> &mcubin) {
 }
 
 // Get kernel size as it is recorded in ELF.
-static int GetKernelRegcount(string kernel_name, vector<char> &mcubin) {
+static unsigned short GetKernelRegcount(string kernel_name, vector<char> &mcubin) {
   kernel_name = ".text." + kernel_name;
 
   Elf *e = NULL;
@@ -136,7 +136,7 @@ static int GetKernelRegcount(string kernel_name, vector<char> &mcubin) {
       if (name != kernel_name)
         continue;
       
-      int regcount = shdr.sh_info >> 24;
+      unsigned short regcount = shdr.sh_info >> 24;
 
       elf_end(e);
       return regcount;
@@ -330,23 +330,15 @@ static unsigned int GetKernelJcalTarget(uint64_t jcal_cmd) {
 }
 
 // Discover kernels load-effective layout.
-static void GetKernelsLoadEffectiveLayout(map<string, unsigned int> &layout,
+static void GetKernelsLoadEffectiveLayout(map<string, pair<unsigned int, unsigned short> > &layout,
                                           string kernel_name,
                                           unsigned int kernel_lepc,
-                                          vector<char> &mcubin,
-                                          int* regcount) {
+                                          vector<char> &mcubin) {
   VERBOSE(Verbose::Loader << "kernel " << kernel_name << "\n"
                           << Verbose::Default);
 
   // Get the size of current kernel.
   size_t kernel_size = GetKernelSize(kernel_name, mcubin);
-
-  if (regcount) {
-    // Get the regcount of current kernel.
-    int maxregcount = GetKernelRegcount(kernel_name, mcubin);
-    if (maxregcount > *regcount)
-      *regcount = maxregcount;
-  }
 
   VERBOSE(Verbose::Loader << "kernel_size = " << kernel_size << "\n"
                           << Verbose::Default);
@@ -400,12 +392,14 @@ static void GetKernelsLoadEffectiveLayout(map<string, unsigned int> &layout,
     uint64_t jcal_cmd = *(uint64_t *)(&kernel_code[0] + offset);
     kernel_lepc = GetKernelJcalTarget(jcal_cmd);
 
-    // Add entire kernel to index.
-    layout[kernel_name] = kernel_lepc;
+    // Get the regcount of the current kernel.
+    unsigned short regcount = GetKernelRegcount(kernel_name, mcubin);
+
+    // Add the current kernel to index.
+    layout[kernel_name] = pair<unsigned int, unsigned short>(kernel_lepc, regcount);
 
     // Discover kernels that might be called from entire kernel.
-    GetKernelsLoadEffectiveLayout(layout, kernel_name, kernel_lepc, mcubin,
-                                  regcount);
+    GetKernelsLoadEffectiveLayout(layout, kernel_name, kernel_lepc, mcubin);
   }
 }
 
@@ -413,7 +407,10 @@ static void GetKernelsLoadEffectiveLayout(map<string, unsigned int> &layout,
 // as they are loaded into GPU memory.
 void kernelgen::bind::cuda::CUBIN::GetLoadEffectiveLayout(
     const char *cubin, const char *ckernel_name, unsigned int kernel_lepc_diff,
-    map<string, unsigned int> &layout, int* regcount) {
+    map<string, pair<unsigned int, unsigned short> > &layout) {
+
+  string kernel_name = ckernel_name;
+
   // Read LEPC.
   unsigned int kernel_lepc = cuda_context->getLEPC();
   kernel_lepc -= kernel_lepc_diff;
@@ -434,16 +431,19 @@ void kernelgen::bind::cuda::CUBIN::GetLoadEffectiveLayout(
     tmp_stream.close();
   }
 
-  layout[ckernel_name] = kernel_lepc;
-  if (regcount)
-    *regcount = -1;
-  GetKernelsLoadEffectiveLayout(layout, ckernel_name, kernel_lepc, mcubin, regcount);
+  // Get the regcount of the current kernel.
+  unsigned short regcount = GetKernelRegcount(kernel_name, mcubin);
 
-  for (map<string, unsigned int>::iterator i = layout.begin(),
+  // Add the current kernel to index.
+  layout[kernel_name] = pair<unsigned int, unsigned short>(kernel_lepc, regcount);
+
+  GetKernelsLoadEffectiveLayout(layout, kernel_name, kernel_lepc, mcubin);
+
+  for (map<string, pair<unsigned int, unsigned short> >::iterator i = layout.begin(),
                                            ie = layout.end();
        i != ie; i++) {
     stringstream hexaddress;
-    hexaddress << hex << i->second;
+    hexaddress << hex << i->second.first;
     VERBOSE(Verbose::Loader << i->first << " -> 0x" << hexaddress.str() << "\n"
                             << Verbose::Default);
   }

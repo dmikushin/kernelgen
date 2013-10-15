@@ -241,8 +241,7 @@ public:
   static void
       GetLoadEffectiveLayout(const char *cubin, const char *ckernel_name,
                              unsigned int kernel_lepc_diff,
-                             std::map<std::string, unsigned int> &layout,
-                             int* regcount = NULL);
+                             std::map<std::string, std::pair<unsigned int, unsigned short> > &layout);
 
   // Check if loop kernel contains unresolved calls and resolve them
   // using the load-effective layout obtained from the main kernel.
