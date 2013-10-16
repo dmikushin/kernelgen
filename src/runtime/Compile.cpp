@@ -275,9 +275,10 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops, bool mode,
   if (settings.getVerboseMode() & Verbose::Polly)
     llvm::EnableStatistics();
 
-  //bool debug = ::llvm::DebugFlag;
-  //if (verbose)
-  //	::llvm::DebugFlag = true;
+  bool debug = ::llvm::DebugFlag;
+  if (settings.getVerboseMode() & Verbose::Polly)
+    ::llvm::DebugFlag = true;
+
   vector<Size3> sizes;
   {
     PassManager polly;
@@ -336,7 +337,9 @@ static void runPolly(Kernel *kernel, Size3 *sizeOfLoops, bool mode,
     printSpecifiedStatistics(statisticsNames);
     llvm::RemoveStatistics();
   }
-  //::llvm::DebugFlag = debug;
+
+  ::llvm::DebugFlag = debug;
+
   VERBOSE(Verbose::Blue << "<------------------ " << kernel->name
                         << ": compile completed ------------------->\n\n"
                         << Verbose::Reset);
