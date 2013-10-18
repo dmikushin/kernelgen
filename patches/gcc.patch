@@ -93,27 +93,6 @@
 
    for (i = 0; i < num_claimed_files; i++)
      {
---- a/gcc-snapshot/gcc/tlink.c	2010-11-29 17:09:41.000000000 +0300
-+++ b/gcc-snapshot/gcc/tlink.c	2015-10-01 18:47:58.000000000 +0400
-@@ -765,6 +765,18 @@
- void
- do_tlink (char **ld_argv, char **object_lst ATTRIBUTE_UNUSED)
- {
-+  if (tlink_verbose && ld_argv)
-+  {
-+    fprintf(stderr, _("ld command: "));
-+    int i = 0;
-+    while (ld_argv[i])
-+    {
-+      fprintf(stderr, "%s ", ld_argv[i]);
-+      i++;
-+    }
-+    fprintf(stderr, "\n");
-+  }
-+
-   int ret = tlink_execute ("ld", ld_argv, ldout, lderrout);
- 
-   tlink_init ();
 --- /dev/null	2012-03-08 13:55:00.716834004 +0300
 +++ b/gcc-snapshot/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
 @@ -0,0 +1,310 @@
