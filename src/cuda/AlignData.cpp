@@ -150,8 +150,8 @@ void kernelgen::bind::cuda::CUBIN::AlignData(const char *cubin, size_t align) {
     //
     // 4) Add new data for aligned constants section.
     //
+    vector<char> vconst_new;
     if (iconst != -1) {
-      vector<char> vconst_new;
       vconst_new.resize(szconst_new);
 
       Elf_Data *data = elf_getdata(sconst, NULL);
@@ -199,8 +199,8 @@ void kernelgen::bind::cuda::CUBIN::AlignData(const char *cubin, size_t align) {
     //
     // 5) Add new data for aligned globals section.
     //
+    vector<char> vglobal_new;
     if (iglobal != -1) {
-      vector<char> vglobal_new;
       vglobal_new.resize(szglobal_new);
 
       Elf_Data *data = elf_getdata(sglobal, NULL);
@@ -221,8 +221,8 @@ void kernelgen::bind::cuda::CUBIN::AlignData(const char *cubin, size_t align) {
     //
     // 6) Add new data for aligned initialized globals section.
     //
+    vector<char> vglobal_init_new;
     if (iglobal_init != -1) {
-      vector<char> vglobal_init_new;
       vglobal_init_new.resize(szglobal_init_new);
 
       Elf_Data *data = elf_getdata(sglobal_init, NULL);
