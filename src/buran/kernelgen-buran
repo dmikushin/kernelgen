@@ -24,11 +24,16 @@
 use Switch;
 
 # Used revisions of LLVM and KernelGen sources. -1 means head.
-my($llvm_rev) = 192445;
-my($kernelgen_rev) = -1;
+my($llvm_rev) = 157485;
+my($kernelgen_rev) = 1865;
 
 # NOTE: Do not forget to adjust the debug/release mode setting!
 my($debug) = 1;
+
+# Use compression in RPM:
+# Uncompressed RPMs speedup the testing, while for customers
+# we should ship compressed RPMs.
+my($rpm_compress) = 0;
 
 sub usage
 {
@@ -104,8 +109,9 @@ my($mpc_snapshot) = "mpc-1.0.1";
 my($mpc) = "http://www.multiprecision.org/mpc/download/$mpc_snapshot.tar.gz";
 my($libelf_snapshot) = "libelf-0.8.13";
 my($libelf) = "http://www.mr511.de/software/$libelf_snapshot.tar.gz";
-my($gcc_snapshot) = "gcc-4.8-20130912";
-my($gcc) = "ftp://ftp.gwdg.de/pub/misc/gcc/snapshots/4.8-20130912/$gcc_snapshot.tar.bz2";
+my($gcc_version) = "4.6.4";
+my($gcc_snapshot) = "gcc-4.6-20120720";
+my($gcc) = "ftp://ftp.gwdg.de/pub/misc/gcc/snapshots/4.6-20120720/$gcc_snapshot.tar.bz2";
 my($netcdf_snapshot) = "netcdf-4.1.3";
 my($netcdf) = "http://www.unidata.ucar.edu/downloads/netcdf/ftp/$netcdf_snapshot.tar.gz";
 my($llvm) = "http://llvm.org/svn/llvm-project/llvm/trunk";
@@ -116,7 +122,7 @@ my($libffi_snapshot) = "libffi-3.0.11";
 my($libffi) = "http://ltsp.mirrors.tds.net/pub/sourceware.org/libffi/$libffi_snapshot.tar.gz";
 my($mhash_snapshot) = "mhash-0.9.9.9";
 my($mhash) = "http://acelnmp.googlecode.com/files/$mhash_snapshot.tar.gz";
-my($kernelgen) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/trunk";
+my($kernelgen) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/branches/r1865";
 my($kernelgen_tests) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/tests";
 my($mvapich2_snapshot) = "mvapich2-1.9";
 my($mvapich2) = "http://mvapich.cse.ohio-state.edu/download/mvapich2/$mvapich2_snapshot.tgz";
@@ -361,7 +367,7 @@ sub build_and_test_kernelgen
 			{
 				return $rev;
 			}
-			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url -r $repos_rev $base_name";
+			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url\@$repos_rev -r $repos_rev $base_name";
 			print "$cmd\n";
 			`$cmd`;
 			print "Checked all components @ revision $repos_rev\n";
@@ -428,7 +434,7 @@ sub build_and_test_kernelgen
 		`$cmd`;
 		if ($kernelgen_rev != -1)
 		{
-			$cmd = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests -r$kernelgen_rev";
+			$cmd = "cd $SOURCES && svn co $kernelgen_tests\@$kernelgen_rev kernelgen_tests -r$kernelgen_rev";
 		}
 		else
 		{
@@ -810,6 +816,7 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_ENABLE_DEBUG         - Enable compilation of unoptimized debuggable binaries
 	#   KERNELGEN_REV                  - KernelGen revision number
 	#   KERNELGEN_LLVM_REV             - KernelGen LLVM components revision number
+	#   KERNELGEN_GCC_VER              - KernelGen GCC version number
 	#   KERNELGEN_TARGET               - KernelGen target system type - fedora or debian
 	#   KERNELGEN_FULLREPACK           - A flag indicating whether to rebuild everything
 	#                                    or just the KernelGen source
@@ -823,6 +830,7 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_MPC_SNAP             - The base name of archive with MPC source code
 	#   KERNELGEN_LIBELF_SNAP          - The base name of archive with LIBELF source code
 	#   KERNELGEN_GCC_SNAP             - The base name of archive with GCC source code
+	#   KERNELGEN_RPM_COMPRESS         - Whether to use compression on the RPM package
 	#   KERNELGEN_NETCDF_SNAP          - The base name of archive with NetCDF source code
 	#   KERNELGEN_LIBFFI_SNAP          - The base name of archive with LibFFI source code
 	#   KERNELGEN_MHASH_SNAP           - The base name of archive with MHASH source code
@@ -869,6 +877,8 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_DEBUG/$debug/g;
 		$line =~ s/KERNELGEN_REV/$kernelgen_rev/g;
 		$line =~ s/KERNELGEN_LLVM_REV/$llvm_rev/g;
+		$line =~ s/KERNELGEN_GCC_VER/$gcc_version/g;
+		$line =~ s/KERNELGEN_RPM_COMPRESS/$rpm_compress/g;
 		$line =~ s/KERNELGEN_TARGET/$target/g;
 		$line =~ s/KERNELGEN_FULLREPACK/$fullrepack/g;
 		$line =~ s/KERNELGEN_NJOBS/24/g;
@@ -1085,7 +1095,7 @@ switch ($target)
 				exit($result);
 			}
 		}
-		if (! -e "$INSTALLROOT/$prefix/lib/gcc/x86_64-unknown-linux-gnu/4.7.4/ld-linux-x86-64.so.2")
+		if (! -e "$INSTALLROOT/$prefix/lib/gcc/x86_64-unknown-linux-gnu/$gcc_version/ld-linux-x86-64.so.2")
 		{
 			$result = build_and_test_kernelgen("llvm+glibc", $start);
 			if ($result)
