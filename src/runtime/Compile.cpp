@@ -833,6 +833,9 @@ KernelFunc kernelgen::runtime::Compile(int runmode, Kernel *kernel,
       // Substitute integer and pointer arguments.
       //if (szdatai != 0) ConstantSubstitution(f, data);
 
+      // XXX: DragonEgg forward readnone for math from GCC,
+      // so we probably no longer need this hack.
+#if 0
       // Add ReadNone attribute to calls (Polly workaround).
       for (Module::iterator func = m->begin(), funce = m->end(); func != funce;
            func++) {
@@ -853,12 +856,16 @@ KernelFunc kernelgen::runtime::Compile(int runmode, Kernel *kernel,
           }
         }
       }
+#endif
 
       // Apply the Polly codegen for CUDA target.
       Size3 sizeOfLoops;
       bool isThereAtLeastOneParallelLoop = false;
       runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
 
+      // XXX: DragonEgg forward readnone for math from GCC,
+      // so we probably no longer need this hack.
+#if 0
       // Remove ReadNone attribute from calls (Polly workaround).
       for (Module::iterator func = m->begin(), funce = m->end(); func != funce;
            func++) {
@@ -875,6 +882,7 @@ KernelFunc kernelgen::runtime::Compile(int runmode, Kernel *kernel,
           }
         }
       }
+#endif
 
       // Do not compile the loop kernel if no grid detected.
       // Important to place this condition *after* hostcalls check
