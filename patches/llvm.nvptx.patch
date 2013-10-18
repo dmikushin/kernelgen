@@ -1,0 +1,297 @@
+--- a/llvm/lib/MC/MCAsmStreamer.cpp	2012-10-19 01:21:57.160626454 +0200
++++ b/llvm/lib/MC/MCAsmStreamer.cpp	2012-10-19 01:23:11.088629695 +0200
+@@ -451,8 +451,8 @@
+   case MCSA_Protected:      OS << "\t.protected\t";       break;
+   case MCSA_Reference:      OS << "\t.reference\t";       break;
+   case MCSA_Weak:           OS << "\t.weak\t";            break;
+-  case MCSA_WeakDefinition:
+-    OS << "\t.weak_definition\t";
++  case MCSA_WeakDefinition: // .weak_definition
++    OS << MAI.getWeakDefDirective();
+     FlagMap[Symbol] |= EHWeakDefinition;
+     break;
+       // .weak_reference
+--- a/llvm/lib/Target/NVPTX/MCTargetDesc/NVPTXMCAsmInfo.cpp	2012-10-19 01:30:56.160650096 +0200
++++ b/llvm/lib/Target/NVPTX/MCTargetDesc/NVPTXMCAsmInfo.cpp	2012-10-19 01:18:55.828618499 +0200
+@@ -60,4 +60,6 @@
+ 
+   // @TODO: Can we just disable this?
+   GlobalDirective = "\t// .globl\t";
++  AlignDirective = "\t// .align\t";
++  WeakDefDirective = "\t// .weak\t";
+ }
+--- a/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(revision 157736)
++++ b/llvm/lib/Target/NVPTX/NVPTXFrameLowering.cpp	(working copy)
+@@ -40,17 +40,17 @@
+ 
+     if (tm.getSubtargetImpl()->hasGenericLdSt()) {
+       // mov %SPL, %depot;
+-      // cvta.local %SP, %SPL;
++      // cvta.global %SP, %SPL;
+       if (is64bit) {
+         MachineInstr *MI = BuildMI(MBB, MBBI, dl,
+-                               tm.getInstrInfo()->get(NVPTX::cvta_local_yes_64),
++                               tm.getInstrInfo()->get(NVPTX::cvta_global_yes_64),
+                                    NVPTX::VRFrame).addReg(NVPTX::VRFrameLocal);
+         BuildMI(MBB, MI, dl,
+                 tm.getInstrInfo()->get(NVPTX::IMOV64rr), NVPTX::VRFrameLocal)
+         .addReg(NVPTX::VRDepot);
+       } else {
+         MachineInstr *MI = BuildMI(MBB, MBBI, dl,
+-                                  tm.getInstrInfo()->get(NVPTX::cvta_local_yes),
++                                  tm.getInstrInfo()->get(NVPTX::cvta_global_yes),
+                                    NVPTX::VRFrame).addReg(NVPTX::VRFrameLocal);
+         BuildMI(MBB, MI, dl,
+                 tm.getInstrInfo()->get(NVPTX::IMOV32rr), NVPTX::VRFrameLocal)
+--- a/llvm/lib/Target/NVPTX/NVPTXISelLowering.cpp	(revision 156703)
++++ b/llvm/lib/Target/NVPTX/NVPTXISelLowering.cpp	(working copy)
+@@ -5,7 +5,7 @@
+ // License. See LICENSE.TXT for details.
+ //
+ //===----------------------------------------------------------------------===//
+-//
++//  
+ // This file defines the interfaces that NVPTX uses to lower LLVM code into a
+ // selection DAG.
+ //
+@@ -131,6 +131,11 @@
+   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8 , Expand);
+   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1 , Expand);
+ 
++
++  setOperationAction(ISD::STACKSAVE, MVT::Other , Custom);
++  setOperationAction(ISD::STACKRESTORE, MVT::Other , Custom);
++  
++
+   if (nvptxSubtarget.hasROT64()) {
+     setOperationAction(ISD::ROTL , MVT::i64, Legal);
+     setOperationAction(ISD::ROTR , MVT::i64, Legal);
+@@ -859,6 +864,9 @@
+   case ISD::EXTRACT_SUBVECTOR:
+     return Op;
+   case ISD::CONCAT_VECTORS: return LowerCONCAT_VECTORS(Op, DAG);
++  case ISD::STACKSAVE:
++  case ISD::STACKRESTORE:
++    return SDValue();
+   default:
+     llvm_unreachable("Custom lowering not defined for operation");
+   }
+--- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-07-19 23:56:25.000000000 +0400
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-07-20 14:52:35.000000000 +0400
+@@ -369,9 +369,19 @@
+   SmallString<128> Str;
+   raw_svector_ostream O(Str);
+ 
++  // Emit the global Fake Stack Object
++  const MachineFrameInfo *MFI = MF->getFrameInfo();
++  int NumBytes = (int) MFI->getStackSize();
++  if (NumBytes) {
++    O << ".visible .global .align " << MFI->getMaxAlignment() << " .b8 \t"
++        << DEPOTNAME
++        << getFunctionNumber() << "[" << NumBytes << "];\n\n";
++  }
++
+   // Set up
+   MRI = &MF->getRegInfo();
+   F = MF->getFunction();
++
+   emitLinkageDirective(F,O);
+   if (llvm::isKernelFunction(*F))
+     O << ".entry ";
+@@ -897,9 +907,10 @@
+   emitDeclarations(M, OS2);
+ 
+   // Print out module-level global variables here.
++  SmallVector<GlobalVariable*, 16> emitted;
+   for (Module::global_iterator I = M.global_begin(), E = M.global_end();
+       I != E; ++I)
+-    printModuleLevelGV(I, OS2);
++    printModuleLevelGV((GlobalVariable*)I, OS2, false, &emitted);
+ 
+   OS2 << '\n';
+ 
+@@ -913,7 +924,7 @@
+   O << "//\n";
+   O << "\n";
+ 
+-  O << ".version 3.0\n";
++  O << ".version 3.1\n";
+ 
+   O << ".target ";
+   O << nvptxSubtarget.getTargetName();
+@@ -991,6 +1002,8 @@
+ void NVPTXAsmPrinter::emitLinkageDirective(const GlobalValue* V, raw_ostream &O)
+ {
+   if (nvptxSubtarget.getDrvInterface() == NVPTX::CUDA) {
++    if (V->hasWeakLinkage() || V->hasLinkOnceLinkage())
++      O << ".weak ";
+     if (V->hasExternalLinkage()) {
+       if (isa<GlobalVariable>(V)) {
+         const GlobalVariable *GVar = cast<GlobalVariable>(V);
+@@ -1018,7 +1031,61 @@
+ 
+ 
+ void NVPTXAsmPrinter::printModuleLevelGV(GlobalVariable* GVar, raw_ostream &O,
+-                                         bool processDemoted) {
++                                         bool processDemoted,
++                                         SmallVector<GlobalVariable*, 16>* emitted) {
++
++  // If has the emitted vars vector, then means we need
++  // to take care about the GVs ordering. First check if the
++  // current GVar is already emitted and if not - emit its used GVs
++  // before emitting itself.
++  	if (emitted) {
++		for (SmallVector<GlobalVariable*, 16>::iterator I = emitted->begin(),
++		IE = emitted->end(); I != IE; I++)
++			if (*I == GVar) return;
++		emitted->push_back(GVar);
++		// XXX:
++		int numOfGVarOperands = GVar->getNumOperands();
++		for(int operandIndex = 0; operandIndex < numOfGVarOperands; operandIndex++) {
++			Value * operand = GVar->getOperand(operandIndex);
++			if(operand == GVar) continue;
++			if(isa<GlobalVariable>(*operand))
++				printModuleLevelGV(cast<GlobalVariable>(operand), O, processDemoted, emitted);
++			else if(isa<User>(*operand)) {
++				//that is some User, that can has operands
++				//walk round it's operands tree and save all globals
++
++				//save globals here
++				set<GlobalVariable*> globals;
++
++				//save not handled operands in tree here
++				stack<User*> notHandled;
++				notHandled.push(cast<User>(operand));
++				while(!notHandled.empty()) {
++					//get next operand and remove it from stack
++					User *current = notHandled.top();
++					notHandled.pop();
++					// walk on it's operands
++					int numOfCurrentOperands = current->getNumOperands();
++					for(int operandIndex = 0; operandIndex < numOfCurrentOperands; operandIndex++) {
++						// if it is a global - save it, else save operand
++						Value * operandVal = current->getOperand(operandIndex);
++						if(isa<GlobalVariable>(*operandVal))
++							globals.insert(cast<GlobalVariable>(operandVal));
++						else if(isa<User>(*operandVal))
++							notHandled.push(cast<User>(operandVal));
++					}
++				}
++				for(set<GlobalVariable*>::iterator iter = globals.begin(), iter_end = globals.end();
++				    iter != iter_end; iter++)
++					if(*iter!=GVar)
++						printModuleLevelGV(*iter, O, processDemoted, emitted);
++
++			}
++
++		}
++	}
++    
++
+ 
+   // Skip meta data
+   if (GVar->hasSection()) {
+@@ -1143,6 +1210,7 @@
+     // Ptx allows variable initilization only for constant and global state
+     // spaces.
+     if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
++        (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
+         (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
+         (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST))
+         && GVar->hasInitializer()) {
+@@ -1167,6 +1235,7 @@
+       // Ptx allows variable initilization only for constant and
+       // global state spaces.
+       if (((PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GLOBAL) ||
++          (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_GENERIC) ||
+           (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST_NOT_GEN) ||
+           (PTy->getAddressSpace() == llvm::ADDRESS_SPACE_CONST))
+           && GVar->hasInitializer()) {
+@@ -1239,6 +1308,7 @@
+   case llvm::ADDRESS_SPACE_LOCAL:
+     O << "local" ;
+     break;
++  case llvm::ADDRESS_SPACE_GENERIC:
+   case llvm::ADDRESS_SPACE_GLOBAL:
+     O << "global" ;
+     break;
+@@ -1588,9 +1658,6 @@
+   const MachineFrameInfo *MFI = MF.getFrameInfo();
+   int NumBytes = (int) MFI->getStackSize();
+   if (NumBytes) {
+-    O << "\t.local .align " << MFI->getMaxAlignment() << " .b8 \t"
+-        << DEPOTNAME
+-        << getFunctionNumber() << "[" << NumBytes << "];\n";
+     if (nvptxSubtarget.is64Bit()) {
+       O << "\t.reg .b64 \t%SP;\n";
+       O << "\t.reg .b64 \t%SPL;\n";
+@@ -1825,17 +1892,15 @@
+   case Type::ArrayTyID:
+   case Type::VectorTyID:
+   case Type::StructTyID: {
+-    if (isa<ConstantArray>(CPV) || isa<ConstantVector>(CPV) ||
+-        isa<ConstantStruct>(CPV)) {
++    if (isa<ConstantAggregateZero>(CPV))
++      aggBuffer->addZeros(Bytes);
++    else
++    {
+       int ElementSize = TD->getTypeAllocSize(CPV->getType());
+       bufferAggregateConstant(CPV, aggBuffer);
+       if ( Bytes > ElementSize )
+         aggBuffer->addZeros(Bytes-ElementSize);
+     }
+-    else if (isa<ConstantAggregateZero>(CPV))
+-      aggBuffer->addZeros(Bytes);
+-    else
+-      llvm_unreachable("Unexpected Constant type");
+     break;
+   }
+ 
+--- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.h	2012-07-12 19:47:58.000000000 +0400
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.h	2012-07-19 21:08:30.000000000 +0400
+@@ -30,6 +30,10 @@
+ #include "llvm/ADT/SmallString.h"
+ #include "llvm/ADT/StringExtras.h"
+ #include <fstream>
++#include <list>
++#include <stack>
++
++using namespace std;
+ 
+ // The ptx syntax and format is very different from that usually seem in a .s
+ // file,
+@@ -221,7 +225,7 @@
+   // definition autogenerated.
+   void printInstruction(const MachineInstr *MI, raw_ostream &O);
+   void printModuleLevelGV(GlobalVariable* GVar, raw_ostream &O,
+-                          bool=false);
++                          bool=false, SmallVector<GlobalVariable*, 16>* emitted = NULL);
+   void printParamName(int paramIndex, raw_ostream &O);
+   void printParamName(Function::const_arg_iterator I, int paramIndex,
+                       raw_ostream &O);
+--- a/llvm/lib/Target/NVPTX/NVPTXSubtarget.cpp	2012-09-21 18:22:36.985134812 +0200
++++ b/llvm/lib/Target/NVPTX/NVPTXSubtarget.cpp	2012-09-21 18:22:49.761135342 +0200
+@@ -29,7 +29,7 @@
+                     clEnumValN(NVPTX::CUDA, "drvcuda", "Nvidia CUDA driver"),
+                     clEnumValN(NVPTX::TEST, "drvtest", "Plain Test"),
+                     clEnumValEnd),
+-                    cl::init(NVPTX::NVCL));
++                    cl::init(NVPTX::CUDA));
+ }
+ 
+ NVPTXSubtarget::NVPTXSubtarget(const std::string &TT, const std::string &CPU,
+--- a/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-12-06 09:02:34.348722278 +0100
++++ b/llvm/lib/Target/NVPTX/NVPTXAsmPrinter.cpp	2012-12-06 17:35:15.509997563 +0100
+@@ -413,6 +413,12 @@
+   raw_svector_ostream O(Str);
+   emitDemotedVars(MF->getFunction(), O);
+   OutStreamer.EmitRawText(O.str());
++
++  // For KernelGen main kernel - emit membar instructions,
++  // to be replaced by control code injection at CUBIN level.
++  if (CurrentFnSym->getName() == "__kernelgen_main")
++    for (int i = 0; i < 6; i++)
++      OutStreamer.EmitRawText(StringRef("\tmembar.sys;\n"));
+ }
+ 
+ void NVPTXAsmPrinter::EmitFunctionBodyEnd() {

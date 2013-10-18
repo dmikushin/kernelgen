@@ -1,0 +1,41 @@
+--- a/llvm/tools/polly/utils/checkout_cloog.sh	2012-11-16 18:58:59.000000000 +0100
++++ b/llvm/tools/polly/utils/checkout_cloog.sh	2012-11-16 18:54:04.000000000 +0100
+@@ -6,11 +6,12 @@
+ PWD=`pwd`
+ 
+ check_command_line() {
+-  if [ $# -eq 1 ]
++  if [ $# -eq 2 ]
+   then
+     CLOOG_DIR="${1}"
++    CLEAN="${2}"
+   else
+-      echo "Usage: " ${0} '<Directory to checkout CLooG>'
++      echo "Usage: " ${0} '<Directory to checkout CLooG>' '<Mode:1 - to cleanup folders, 0 - otherwise>'
+       exit 1
+   fi
+ }
+@@ -42,6 +43,12 @@
+     echo ":: Existing git repo found"
+     IS_GIT=1
+   fi
++
++  if [ ${CLEAN} -eq 1 ]
++  then
++    cd ${CLOOG_DIR}/..
++    rm -rf ${CLOOG_DIR}
++  fi
+ }
+ 
+ complain() {
+@@ -66,6 +73,10 @@
+ then
+   echo :: Performing initial checkout
+   run git clone http://repo.or.cz/r/cloog.git ${CLOOG_DIR}
++  if [ ${CLEAN} -eq 1 ]
++  then
++    rm -rf ${CLOOG_DIR}/isl
++  fi
+   run git clone http://repo.or.cz/r/isl.git ${ISL_DIR}
+ fi
+ 

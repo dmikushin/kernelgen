@@ -1,0 +1,22 @@
+--- a/llvm/lib/Transforms/IPO/PassManagerBuilder.cpp	2012-04-07 01:01:44.500598279 +0400
++++ b/llvm/lib/Transforms/IPO/PassManagerBuilder.cpp	2012-04-07 00:57:55.638537895 +0400
+@@ -147,7 +147,8 @@
+   if (!DisableSimplifyLibCalls)
+     MPM.add(createSimplifyLibCallsPass());    // Library Call Optimizations
+   MPM.add(createJumpThreadingPass());         // Thread jumps.
+-  MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
++  if (OptLevel > 3)
++    MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
+   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
+   MPM.add(createInstructionCombiningPass());  // Combine silly seq's
+ 
+@@ -174,7 +175,8 @@
+   // opened up by them.
+   MPM.add(createInstructionCombiningPass());
+   MPM.add(createJumpThreadingPass());         // Thread jumps
+-  MPM.add(createCorrelatedValuePropagationPass());
++  if (OptLevel > 3)
++    MPM.add(createCorrelatedValuePropagationPass());
+   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
+ 
+   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);

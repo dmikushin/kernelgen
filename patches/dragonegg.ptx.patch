@@ -1,0 +1,22 @@
+--- a/dragonegg/src/Backend.cpp	2011-12-03 22:18:52.608602111 +0300
++++ b/dragonegg/src/Backend.cpp	2011-12-03 22:15:36.923775409 +0300
+@@ -444,7 +445,7 @@
+   // Insert a special .ident directive to identify the version of the plugin
+   // which compiled this code.  The format of the .ident string is patterned
+   // after the ones produced by GCC.
+-#ifdef IDENT_ASM_OP
++#if defined(IDENT_ASM_OP) && !defined(NO_IDENT_ASM_OP)
+   if (!flag_no_ident) {
+     const char *pkg_version = "(GNU) ";
+ 
+--- a/dragonegg/Makefile	2011-12-03 22:18:14.424415511 +0300
++++ b/dragonegg/Makefile	2011-12-03 22:17:11.337764114 +0300
+@@ -63,7 +63,7 @@
+ 	     -MD -MP \
+ 	     -DIN_GCC -DLLVM_VERSION=\"$(LLVM_VERSION)\" \
+ 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
+-	     -DGCC_MICRO=$(GCC_MICRO) \
++	     -DGCC_MICRO=$(GCC_MICRO) -DNO_IDENT_ASM_OP \
+ 	     -I$(INCLUDE_DIR) -isystem$(GCC_PLUGIN_DIR)/include
+ ifdef DISABLE_VERSION_CHECK
+ CPP_OPTIONS+=-DDISABLE_VERSION_CHECK
