@@ -61,6 +61,10 @@ my($target) = $ARGV[0];
 # The root path for the build folders layout.
 # Should be unique, to be able to build multiple versions in separate roots.
 my($TOPDIR) = $ENV{'HOME'} . "/rpmbuild/kernelgen/r$kernelgen_rev\_llvm$llvm_rev";
+
+# Add backport suffix.
+$TOPDIR .= "_backport";
+
 if ($kernelgen_rev == -1)
 {
 	$TOPDIR = $ENV{'HOME'} . "/rpmbuild/kernelgen/head_llvm$llvm_rev";
@@ -100,7 +104,7 @@ my($BUILD) = "$RPMBUILD/BUILD";
 my($BUILDROOT) = "$RPMBUILD/BUILDROOT";
 my($LOGS) = "$RPMBUILD/LOGS";
 
-my($binutils_snapshot) = "binutils-2.23";
+my($binutils_snapshot) = "binutils-2.22";
 my($binutils) = "http://ftp.gnu.org/gnu/binutils/$binutils_snapshot.tar.bz2";
 my($gmp_snapshot) = "gmp-5.0.5";
 my($gmp) = "ftp://ftp.gmplib.org/pub/gmp-5.0.5/$gmp_snapshot.tar.bz2";
