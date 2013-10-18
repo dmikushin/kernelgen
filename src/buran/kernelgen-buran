@@ -52,10 +52,11 @@ if ((scalar(@ARGV) != 1) && (scalar(@ARGV) != 2))
 
 my($target) = $ARGV[0];
 
-if (scalar(@ARGV) == 2)
-{
-	$kernelgen_rev = $ARGV[1];
-}
+# Commented out, as we've fixed revision to r1865.
+#if (scalar(@ARGV) == 2)
+#{
+#	$kernelgen_rev = $ARGV[1];
+#}
 
 # The root path for the build folders layout.
 # Should be unique, to be able to build multiple versions in separate roots.
@@ -83,7 +84,7 @@ my($fullrepack) = 1;
 # Set 1 to create a Debian/Ubuntu .deb installation package.
 my($package_deb) = 0;
 
-my($version) = "0.24";
+my($version) = "0.23";
 
 # Release codename;
 my($codename) = "castagnola";
@@ -99,7 +100,7 @@ my($BUILD) = "$RPMBUILD/BUILD";
 my($BUILDROOT) = "$RPMBUILD/BUILDROOT";
 my($LOGS) = "$RPMBUILD/LOGS";
 
-my($binutils_snapshot) = "binutils-2.23.2";
+my($binutils_snapshot) = "binutils-2.23";
 my($binutils) = "http://ftp.gnu.org/gnu/binutils/$binutils_snapshot.tar.bz2";
 my($gmp_snapshot) = "gmp-5.0.5";
 my($gmp) = "ftp://ftp.gmplib.org/pub/gmp-5.0.5/$gmp_snapshot.tar.bz2";
@@ -792,14 +793,14 @@ sub build_and_test_kernelgen
 	#
 	# Get the trunk of KernelGen.
 	#
-	$kernelgen_rev = checkout_and_archive("kernelgen", $kernelgen, $kernelgen_rev, "$SOURCES");
+	$kernelgen_rev = checkout_and_archive("kernelgen-branch", $kernelgen, -1, "$SOURCES");
 	#
 	# From KernelGen extract patches to $SOURCES.
 	#
-	my($cmd) = "cd $SOURCES && tar -xf $SOURCES/kernelgen-r$kernelgen_rev.tar.gz";
+	my($cmd) = "cd $SOURCES && tar -xf $SOURCES/kernelgen-branch-r$kernelgen_rev.tar.gz";
 	print "$cmd\n";
 	`$cmd`;
-	$cmd = "cp $SOURCES/kernelgen/patches/* $SOURCES/";
+	$cmd = "cp $SOURCES/kernelgen-branch/patches/* $SOURCES/";
 	print "$cmd\n";
 	`$cmd`;
 
@@ -807,7 +808,7 @@ sub build_and_test_kernelgen
 	# Extract kernelgen.spec.in and fill it with the
 	# actual revision numbers.
 	#
-	$cmd = "cat $SOURCES/kernelgen/kernelgen.spec.in";
+	$cmd = "cat $SOURCES/kernelgen-branch/kernelgen.spec.in";
 	print "$cmd\n";
 	my(@lines) = split("\n", `$cmd`);
 
@@ -1024,7 +1025,7 @@ sub build_and_test_kernelgen
 	#
 	# Remove the unpacked KernelGen source.
 	#
-	$cmd = "rm -rf $SOURCES/kernelgen";
+	$cmd = "rm -rf $SOURCES/kernelgen-branch";
 	print "$cmd\n";
 	`$cmd`;
 
