@@ -361,7 +361,7 @@ sub build_and_test_kernelgen
 			{
 				return $rev;
 			}
-			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url -r $repos_rev $base_name";
+			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url\@$repos_rev -r $repos_rev $base_name";
 			print "$cmd\n";
 			`$cmd`;
 			print "Checked all components @ revision $repos_rev\n";
@@ -428,7 +428,7 @@ sub build_and_test_kernelgen
 		`$cmd`;
 		if ($kernelgen_rev != -1)
 		{
-			$cmd = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests -r$kernelgen_rev";
+			$cmd = "cd $SOURCES && svn co $kernelgen_tests\@$kernelgen_rev kernelgen_tests -r$kernelgen_rev";
 		}
 		else
 		{
