@@ -27,6 +27,13 @@
 # Define gcc version
 %define gcc_version KERNELGEN_GCC_VER
 
+# Define rpm compression mode
+%define rpm_compress KERNELGEN_RPM_COMPRESS
+%if "%{rpm_compress}" == "0"
+%define _source_payload w0.gzdio
+%define _binary_payload w0.gzdio
+%endif
+
 # Release name
 %define codename KERNELGEN_CODENAME
 

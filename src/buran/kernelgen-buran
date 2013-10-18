@@ -30,6 +30,11 @@ my($kernelgen_rev) = -1;
 # NOTE: Do not forget to adjust the debug/release mode setting!
 my($debug) = 1;
 
+# Use compression in RPM:
+# Uncompressed RPMs speedup the testing, while for customers
+# we should ship compressed RPMs.
+my($rpm_compress) = 0;
+
 sub usage
 {
 	printf("Usage: kernelgen-buran <target> [<kernelgen_revision>]\n");
@@ -78,7 +83,7 @@ my($fullrepack) = 1;
 # Set 1 to create a Debian/Ubuntu .deb installation package.
 my($package_deb) = 0;
 
-my($version) = "0.24";
+my($version) = "0.23";
 
 # Release codename;
 my($codename) = "castagnola";
@@ -872,6 +877,7 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_REV/$kernelgen_rev/g;
 		$line =~ s/KERNELGEN_LLVM_REV/$llvm_rev/g;
 		$line =~ s/KERNELGEN_GCC_VER/$gcc_version/g;
+		$line =~ s/KERNELGEN_RPM_COMPRESS/$rpm_compress/g;
 		$line =~ s/KERNELGEN_TARGET/$target/g;
 		$line =~ s/KERNELGEN_FULLREPACK/$fullrepack/g;
 		$line =~ s/KERNELGEN_NJOBS/24/g;
