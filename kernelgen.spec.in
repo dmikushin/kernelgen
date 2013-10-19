@@ -419,10 +419,10 @@ KERNELGEN_FALLBACK=1 %flags CPPFLAGS="-I$RPM_BUILD_ROOT/%{prefix}include" LDFLAG
 #
 # Configure KernelGen
 #
-rm -rf $RPM_BUILD_DIR/kernelgen
+rm -rf $RPM_BUILD_DIR/kernelgen-branch
 cd $RPM_BUILD_DIR
 tar -xf $RPM_SOURCE_DIR/kernelgen-r%{kgen_rev}.tar.gz
-cd $RPM_BUILD_DIR/kernelgen
+cd $RPM_BUILD_DIR/kernelgen-branch
 mkdir build
 cd build
 %if %debug
