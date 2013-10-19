@@ -24,11 +24,11 @@ execute_process(COMMAND svnversion -n ${PROJECT_SOURCE_DIR}/src OUTPUT_VARIABLE 
 message("Compiling KernelGen version ${KERNELGEN_VERSION}")
 
 set(OPT 0 CACHE STRING "Optimization level (0-3)")
-set(RPM_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}/../../.." CACHE STRING "The RPM install prefix")
-set(RPM_ROOT "$ENV{HOME}/rpmbuild/BUILD" CACHE STRING "The RPM build root")
+set(RPM_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE STRING "The RPM install prefix")
+set(RPM_ROOT "${RPM_INSTALL_PREFIX}/../BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
 set(LLVM_MODE "Debug+Asserts" CACHE STRING "The LLVM build mode")
-set(LLVM_VERSION 3.2 CACHE STRING "The LLVM version")
+set(LLVM_VERSION 3.4 CACHE STRING "The LLVM version")
 set(LLVM_MACROS "_GNU_SOURCE;__STDC_LIMIT_MACROS;__STDC_CONSTANT_MACROS" CACHE STRING "The LLVM macros")
 set(LLVM_INCLUDE "${LLVM_ROOT}/build/include" CACHE STRING "The LLVM include root")
 set(POLLY_ROOT "${LLVM_ROOT}/build/tools/polly" CACHE STRING "The Polly build root")
@@ -37,7 +37,7 @@ set(CLOOG_INCLUDE "${RPM_ROOT}/cloog/include" CACHE STRING "The CLooG include ro
 set(ISL_INCLUDE "${RPM_ROOT}/cloog/isl/include" CACHE STRING "The ISL include root")
 set(BUGPOINT_ROOT "${LLVM_ROOT}/tools/bugpoint" CACHE STRING "The LLVM/bugpoint source root")
 set(GCC_ROOT "${RPM_ROOT}/gcc-snapshot" CACHE STRING "The GCC source root")
-set(CULANG clang -cc1 -emit-llvm -fcuda-is-device -triple nvptx64-unknown-unknown CACHE STRING
+set(CULANG kernelgen-clang -cc1 -emit-llvm -fcuda-is-device -triple nvptx64-nvidia-cuda CACHE STRING
 	"Clang command to compile CUDA-specific LLVM IR modules")
 
 include_directories("${PROJECT_SOURCE_DIR}/src")
@@ -59,9 +59,9 @@ include_directories("${POLLY_ROOT}/include")
 include_directories("${POLLY_INCLUDE}")
 include_directories("${CLOOG_INCLUDE}")
 include_directories("${ISL_INCLUDE}")
-include_directories("${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/include/")
-include_directories("${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/include/libelf")
-include_directories("${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib/libffi-3.0.11/include")
+include_directories("${RPM_INSTALL_PREFIX}/include/")
+include_directories("${RPM_INSTALL_PREFIX}/include/libelf")
+include_directories("${RPM_INSTALL_PREFIX}/lib/libffi-3.0.11/include")
 include_directories("/usr/include/i686-linux-gnu")
 include_directories("/usr/include/x86_64-linux-gnu")
 
@@ -76,24 +76,24 @@ endforeach()
 
 link_directories("${LLVM_ROOT}/build/${LLVM_MODE}/lib")
 link_directories("${POLLY_ROOT}/${LLVM_MODE}/lib")
-link_directories("${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib")
-link_directories("${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib64")
+link_directories("${RPM_INSTALL_PREFIX}/lib")
+link_directories("${RPM_INSTALL_PREFIX}/lib64")
 link_directories("/opt/cuda/lib64")
 
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT}")
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT} -fno-rtti")
 
 #
 # IMPORT STATIC LIBRARIES
 #
 add_library(libelf STATIC IMPORTED)
 set_property(TARGET libelf PROPERTY
-	IMPORTED_LOCATION "${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib/libelf.a")
+	IMPORTED_LOCATION "${RPM_INSTALL_PREFIX}/lib/libelf.a")
 add_library(libffi STATIC IMPORTED)
 set_property(TARGET libffi PROPERTY
-	IMPORTED_LOCATION "${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib/libffi.a")
+	IMPORTED_LOCATION "${RPM_INSTALL_PREFIX}/lib/libffi.a")
 add_library(libmhash STATIC IMPORTED)
 set_property(TARGET libmhash PROPERTY
-	IMPORTED_LOCATION "${RPM_INSTALL_PREFIX}/opt/kernelgen/usr/lib/libmhash.a")
+	IMPORTED_LOCATION "${RPM_INSTALL_PREFIX}/lib/libmhash.a")
 
 #
 # VERSION MACRO HEADER FOR DEPENDENCY CHECKS
@@ -126,7 +126,6 @@ endforeach()
 #
 aux_source_directory(src/common common_sources)
 add_library(common STATIC ${common_sources})
-set_property(SOURCE src/common/GlobalDependences.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET common APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
@@ -136,7 +135,6 @@ endforeach()
 #
 aux_source_directory(src/frontend frontend_sources)
 add_library(frontend STATIC ${frontend_sources})
-set_property(SOURCE src/frontend/BranchedLoopExtractor.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET frontend APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
@@ -202,19 +200,19 @@ target_link_libraries(kernelgen-asfermi)
 # CUDA LLVM IR -LEVEL INCLUDES
 #
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/monitor.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
-	${PROJECT_SOURCE_DIR}/src/cuda/include/monitor.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/monitor.bc)
+	${PROJECT_SOURCE_DIR}/src/cuda/include/monitor.cu -o - | kernelgen-opt -O3 -o ${PROJECT_BINARY_DIR}/monitor.bc)
 add_custom_target(cuda_monitor ALL DEPENDS ${PROJECT_BINARY_DIR}/monitor.bc)
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/runtime.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
-	${PROJECT_SOURCE_DIR}/src/cuda/include/runtime.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/runtime.bc)
+	${PROJECT_SOURCE_DIR}/src/cuda/include/runtime.cu -o - | kernelgen-opt -O3 -o ${PROJECT_BINARY_DIR}/runtime.bc)
 add_custom_target(cuda_runtime ALL DEPENDS ${PROJECT_BINARY_DIR}/runtime.bc)
-add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/math.bc COMMAND opt
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/math.bc COMMAND kernelgen-opt
 	${PROJECT_SOURCE_DIR}/src/cuda/include/math.bc -o ${PROJECT_BINARY_DIR}/math.bc)
 add_custom_target(cuda_math ALL DEPENDS ${PROJECT_BINARY_DIR}/math.bc)
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/malloc.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
-	${PROJECT_SOURCE_DIR}/src/cuda/include/malloc.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/malloc.bc)
+	${PROJECT_SOURCE_DIR}/src/cuda/include/malloc.cu -o - | kernelgen-opt -O3 -o ${PROJECT_BINARY_DIR}/malloc.bc)
 add_custom_target(cuda_malloc ALL DEPENDS ${PROJECT_BINARY_DIR}/malloc.bc)
 add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/free.bc COMMAND ${CULANG} ${CULANG_INCLUDE_ARGS}
-	${PROJECT_SOURCE_DIR}/src/cuda/include/free.cu -o - | opt -O3 -o ${PROJECT_BINARY_DIR}/free.bc)
+	${PROJECT_SOURCE_DIR}/src/cuda/include/free.cu -o - | kernelgen-opt -O3 -o ${PROJECT_BINARY_DIR}/free.bc)
 add_custom_target(cuda_free ALL DEPENDS ${PROJECT_BINARY_DIR}/free.bc)
 
 #
@@ -222,11 +220,6 @@ add_custom_target(cuda_free ALL DEPENDS ${PROJECT_BINARY_DIR}/free.bc)
 #
 aux_source_directory(src/runtime runtime_sources)
 add_library(kernelgen-rt SHARED ${runtime_sources})
-set_property(SOURCE src/runtime/ConstantSubstitution.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
-set_property(SOURCE src/runtime/SizeOfLoops.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
-set_property(SOURCE src/runtime/RuntimeAliasAnalysis.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
-set_property(SOURCE src/runtime/ScopInspection.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
-set_property(SOURCE src/runtime/TransformAccesses.cpp APPEND PROPERTY COMPILE_FLAGS "-fno-rtti")
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
