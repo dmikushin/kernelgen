@@ -817,6 +817,7 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_REV                  - KernelGen revision number
 	#   KERNELGEN_LLVM_REV             - KernelGen LLVM components revision number
         #   KERNELGEN_GCC_VER              - KernelGen GCC version number
+	#   KERNELGEN_RPM_COMPRESS         - Whether to use compression on the RPM package
 	#   KERNELGEN_TARGET               - KernelGen target system type - fedora or debian
 	#   KERNELGEN_FULLREPACK           - A flag indicating whether to rebuild everything
 	#                                    or just the KernelGen source
