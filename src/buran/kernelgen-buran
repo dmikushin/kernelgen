@@ -1,0 +1,1170 @@
+#!/usr/bin/perl -w
+
+##
+## KGen - the LLVM-based compiler with GPU kernels generation over C backend.
+##
+## Copyright (c) 2012 Dmitry Mikushin
+##
+## This software is provided 'as-is', without any express or implied warranty.
+## In no event will the authors be held liable for any damages arising 
+## from the use of this software.
+## Permission is granted to anyone to use this software for any purpose, 
+## including commercial applications, and to alter it and redistribute it freely,
+## subject to the following restrictions:
+##
+## 1. The origin of this software must not be misrepresented;
+## you must not claim that you wrote the original software.
+## If you use this software in a product, an acknowledgment
+## in the product documentation would be appreciated but is not required.
+## 2. Altered source versions must be plainly marked as such,
+## and must not be misrepresented as being the original software.
+## 3. This notice may not be removed or altered from any source distribution.
+##
+
+#
+# 32-bit toolchain experiment
+#
+# stages:
+#
+# 1) 32-bit gmp
+# 2) 32-bit gmp, mpfr
+# 3) 32-bit cloog, gmp, mpfr, mpc, binutils, libelf
+# 4) 32-bit cloog, gmp, mpfr, mpc, binutils, libelf, mhash
+#    32-bit host -> 32/64-bit target gcc
+#    64-bit cloog
+# 5) 32-bit cloog, gmp, mpfr, mpc, binutils, libelf, glibc, libffi, mhash, db
+#    32-bit host -> 32/64-bit target gcc, llvm
+#    64-bit llvm
+# 6) bootstrapped:
+#    32-bit cloog, gmp, mpfr, mpc, binutils, libelf, glibc, libffi, mhash, db, dragonegg, mvapich2, netcdf, kernelgen
+#    64-bit llvm, libelf, glibc, netcdf, kernelgen
+#    32-bit host -> 32/64-bit target gcc, llvm, cobol (do they have multilib for cobol?)
+#
+# Install 32-bit llvm on top of 64-bit (i.e. to have 64-bit runtimes only)
+#
+# try out: 32-64 llvm
+#
+
+use Switch;
+
+# Used revisions of LLVM and KernelGen sources. -1 means head.
+my($llvm_rev) = 192445;
+my($kernelgen_rev) = -1;
+
+# NOTE: Do not forget to adjust the debug/release mode setting!
+my($debug) = 1;
+
+# Use compression in RPM:
+# Uncompressed RPMs speedup the testing, while for customers
+# we should ship compressed RPMs.
+my($rpm_compress) = 0;
+
+sub usage
+{
+	printf("Usage: kernelgen-buran <target> [<kernelgen_revision>]\n");
+	printf("Supported targets:\n");
+	printf("\tdebian -- Debian-like systems: Ubuntu, Debian, etc.\n");
+	printf("\tfedora -- Fedora-like systems: Fedora, SuSE, RedHat, Cray, etc.\n");
+	printf("\ttest -- Use existing KernelGen setup to evaluate the test suite\n");
+}
+
+if ((scalar(@ARGV) != 1) && (scalar(@ARGV) != 2))
+{
+	usage();
+	exit(0);
+}
+
+my($target) = $ARGV[0];
+
+if (scalar(@ARGV) == 2)
+{
+	$kernelgen_rev = $ARGV[1];
+}
+
+# The root path for the build folders layout.
+# Should be unique, to be able to build multiple versions in separate roots.
+my($TOPDIR) = $ENV{'HOME'} . "/rpmbuild/kernelgen/r$kernelgen_rev\_llvm$llvm_rev";
+if ($kernelgen_rev == -1)
+{
+	$TOPDIR = $ENV{'HOME'} . "/rpmbuild/kernelgen/head_llvm$llvm_rev";
+}
+if ($debug == 1)
+{
+	$TOPDIR .= "_debug";
+}
+else
+{
+	$TOPDIR .= "_release";
+}
+
+# Where to install the resulting build.
+my($INSTALLROOT) = "$TOPDIR/INSTALL";
+
+# NOTE: Do not forget to adjust the fullrepack on/off mode setting!
+# No fullrepack means recompile only kernelgen for the last stage and package.
+my($fullrepack) = 1;
+
+# Set 1 to create a Debian/Ubuntu .deb installation package.
+my($package_deb) = 0;
+
+my($version) = "0.23";
+
+# Release codename;
+my($codename) = "castagnola";
+
+# Extra prefix inside install root, if any.
+my($prefix) = "";
+
+my($RPMBUILD) = "$TOPDIR";
+my($SOURCES) = $ENV{'HOME'} . "/rpmbuild/SOURCES";
+my($SPECS) = "$RPMBUILD/SPECS";
+my($RPMS) = "$RPMBUILD/RPMS";
+my($BUILD) = "$RPMBUILD/BUILD";
+my($BUILDROOT) = "$RPMBUILD/BUILDROOT";
+my($LOGS) = "$RPMBUILD/LOGS";
+
+my($binutils_snapshot) = "binutils-2.23.2";
+my($binutils) = "http://ftp.gnu.org/gnu/binutils/$binutils_snapshot.tar.bz2";
+my($gmp_snapshot) = "gmp-5.0.5";
+my($gmp) = "ftp://ftp.gmplib.org/pub/gmp-5.0.5/$gmp_snapshot.tar.bz2";
+my($mpfr_snapshot) = "mpfr-3.1.2";
+my($mpfr) = "http://www.mpfr.org/mpfr-current/$mpfr_snapshot.tar.gz";
+my($mpc_snapshot) = "mpc-1.0.1";
+my($mpc) = "http://www.multiprecision.org/mpc/download/$mpc_snapshot.tar.gz";
+my($libelf_snapshot) = "libelf-0.8.13";
+my($libelf) = "http://www.mr511.de/software/$libelf_snapshot.tar.gz";
+my($gcc_version) = "4.8.2";
+my($gcc_snapshot) = "gcc-4.8-20130912";
+my($gcc) = "ftp://ftp.gwdg.de/pub/misc/gcc/snapshots/4.8-20130912/$gcc_snapshot.tar.bz2";
+my($netcdf_snapshot) = "netcdf-4.1.3";
+my($netcdf) = "http://www.unidata.ucar.edu/downloads/netcdf/ftp/$netcdf_snapshot.tar.gz";
+my($llvm) = "http://llvm.org/svn/llvm-project/llvm/trunk";
+my($clang) = "http://llvm.org/svn/llvm-project/cfe/trunk";
+my($polly) = "http://llvm.org/svn/llvm-project/polly/trunk";
+my($dragonegg) = "http://llvm.org/svn/llvm-project/dragonegg/trunk";
+my($libffi_snapshot) = "libffi-3.0.11";
+my($libffi) = "http://ltsp.mirrors.tds.net/pub/sourceware.org/libffi/$libffi_snapshot.tar.gz";
+my($mhash_snapshot) = "mhash-0.9.9.9";
+my($mhash) = "http://acelnmp.googlecode.com/files/$mhash_snapshot.tar.gz";
+my($kernelgen) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/trunk";
+my($kernelgen_tests) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/tests";
+my($mvapich2_snapshot) = "mvapich2-1.9";
+my($mvapich2) = "http://mvapich.cse.ohio-state.edu/download/mvapich2/$mvapich2_snapshot.tgz";
+my($glibc_snapshot) = "glibc-2.17";
+my($glibc) = "http://ftp.gnu.org/gnu/glibc/$glibc_snapshot.tar.gz";
+my($db_snapshot) = "db-5.3.21";
+my($db) = "http://download.oracle.com/berkeley-db/$db_snapshot.tar.gz";
+my($cobol_snapshot) = "open-cobol-1.1";
+my($cobol) = "ftp://ftp.uwsg.indiana.edu/pub/FreeBSD/ports/distfiles/$cobol_snapshot.tar.gz";
+
+#
+# Build the KernelGen binary package and test it against the
+# behavior suite to ensure correctness.
+# TODO: add simple performance tests to check for perf regressions
+#
+sub build_and_test_kernelgen
+{
+	# Determine the bootstrapping mode.
+	my($bootstrap_mode) = $_[0];
+
+	# Determine CUDA toolkit root.
+	my($CUDAROOT) = `which nvcc`;
+	$CUDAROOT =~ s/\n//g;
+	$CUDAROOT = `dirname $CUDAROOT`;
+	$CUDAROOT =~ s/\n//g;
+	$CUDAROOT .= "/..";
+
+	if ((not $ENV{'PATH'}) or ($ENV{'PATH'} eq ""))
+	{
+		$ENV{'PATH'} .= "$INSTALLROOT/$prefix/bin";
+	}
+	else
+	{
+		$ENV{'PATH'} .= ":$INSTALLROOT/$prefix/bin";
+	}
+	if ((not $ENV{'LD_LIBRARY_PATH'}) or ($ENV{'LD_LIBRARY_PATH'} eq ""))
+	{
+		$ENV{'LD_LIBRARY_PATH'} .= "$INSTALLROOT/$prefix/lib64:$INSTALLROOT/$prefix/lib32:$INSTALLROOT/$prefix/lib";
+		$ENV{'LD_LIBRARY_PATH'} .= ":$CUDAROOT/lib:$CUDAROOT/lib64";
+	}
+	else
+	{
+		$ENV{'LD_LIBRARY_PATH'} .= ":$INSTALLROOT/$prefix/lib64:$INSTALLROOT/$prefix/lib32:$INSTALLROOT/$prefix/lib";
+		$ENV{'LD_LIBRARY_PATH'} .= ":$CUDAROOT/lib:$CUDAROOT/lib64";
+	}
+
+	my($LOGFILE) = "$RPMBUILD/LOGS/build.log";
+
+	# Setup switches, depending on the bootstrapping mode.
+	# Also, set compilers, depending on stage.
+	my($cloog_enable) = 0;
+	my($llvm_enable) = 0;
+	my($binutils_enable) = 0;
+	my($gmp_enable) = 0;
+	my($mpfr_enable) = 0;
+	my($mpc_enable) = 0;
+	my($libelf_enable) = 0;
+	my($gcc_enable) = 0;
+	my($gcc_enable_bootstrap) = 0;
+	my($netcdf_enable) = 0;
+	my($dragonegg_enable) = 0;
+	my($libffi_enable) = 0;
+	my($mhash_enable) = 0;
+	my($glibc_enable) = 0;
+	my($glibc32_enable) = 1;
+	my($cobol_enable) = 0;
+	my($mvapich2_enable) = 0;
+	my($kernelgen_enable) = 0;
+        my($db_enable) = 0;
+	my($COMPILERS) = "";
+	switch ($bootstrap_mode)
+	{
+		case "gmp"
+		{
+			print "==========================\n";
+			print "Bootstrapping stage 1: gmp\n";
+			print "==========================\n";
+
+			$gmp_enable = 1;
+
+			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
+		}
+		case "mpfr"
+		{
+			print "===========================\n";
+			print "Bootstrapping stage 2: mpfr\n";
+			print "===========================\n";
+
+			$gmp_enable = 1;
+			$mpfr_enable = 1;
+
+			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
+		}
+		case "binutils+mpc"
+		{
+			print "=====================================\n";
+			print "Bootstrapping stage 3: binutils + mpc\n";
+			print "=====================================\n";
+
+			$cloog_enable = 1;
+			$binutils_enable = 1;
+			$gmp_enable = 1;
+			$mpfr_enable = 1;
+			$mpc_enable = 1;
+			$libelf_enable = 1;
+
+			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
+		}
+		case "gcc"
+		{
+			print "==========================\n";
+			print "Bootstrapping stage 4: gcc\n";
+			print "==========================\n";
+
+			$cloog_enable = 1;
+			$binutils_enable = 1;
+			$gmp_enable = 1;
+			$mpfr_enable = 1;
+			$mpc_enable = 1;
+			$libelf_enable = 1;
+			$gcc_enable = 1;
+			$gcc_enable_bootstrap = 1;
+			$mhash_enable = 1;
+
+			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=gcc CXX=g++ FC=gfortran F77=gfortran";
+		}
+                case "llvm+glibc"
+                {
+                        print "===================================\n";
+                        print "Bootstrapping stage 5: llvm + glibc\n";
+                        print "===================================\n";
+
+			$cloog_enable = 1;
+			$llvm_enable = 1;
+			$binutils_enable = 1;
+			$gmp_enable = 1;
+			$mpfr_enable = 1;
+			$mpc_enable = 1;
+			$libelf_enable = 1;
+			$gcc_enable = 1;
+			$libffi_enable = 1;
+			$mhash_enable = 1;
+			$glibc_enable = 1;
+			$db_enable = 1;
+
+                        $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
+                }
+		case "all"
+		{
+			print "=========================================\n";
+			print "Compiling KernelGen without bootstrapping\n";
+			print "=========================================\n";
+
+			$cloog_enable = 1;
+			$llvm_enable = 1;
+			$binutils_enable = 1;
+			$gmp_enable = 1;
+			$mpfr_enable = 1;
+			$mpc_enable = 1;
+			$libelf_enable = 1;
+			$gcc_enable = 1;
+			$netcdf_enable = 1;
+			$dragonegg_enable = 1;
+			$libffi_enable = 1;
+			$mhash_enable = 1;
+			$glibc_enable = 1;
+			$db_enable = 1;
+			$cobol_enable = 1;
+			$mvapich2_enable = 1;
+			$kernelgen_enable = 1;
+
+			my($LDFLAGS64) = "";
+			my($LDFLAGS32) = "";
+			
+			#
+			# Since we do not use ldconfig with the KernelGen's builtin GLIBC,
+			# all runtime library paths must be passed through linker.
+			#
+			{
+				my($library_path) = `echo "int main() { return 0; }" | KERNELGEN_FALLBACK=1 $INSTALLROOT/$prefix/bin/kernelgen-gcc -v -x c - -o /dev/null 2>&1 | grep LIBRARY_PATH`;
+				$library_path =~ s/LIBRARY_PATH\=//;
+				$library_path =~ s/\n//;
+				my(@rpaths) = split(":", $library_path);
+				foreach $rpath (@rpaths)
+				{
+					$LDFLAGS64 .= " -Wl,-rpath=$rpath";
+				}
+			}
+			{
+				my($library_path) = `echo "int main() { return 0; }" | KERNELGEN_FALLBACK=1 $INSTALLROOT/$prefix/bin/kernelgen-gcc -m32 -v -x c - -o /dev/null 2>&1 | grep LIBRARY_PATH`;
+				$library_path =~ s/LIBRARY_PATH\=//;
+				$library_path =~ s/\n//;
+				my(@rpaths) = split(":", $library_path);
+				foreach $rpath (@rpaths)
+				{
+					$LDFLAGS32 .= " -Wl,-rpath=$rpath";
+				}
+			}
+
+			$COMPILERS = "KERNELGEN_FALLBACK=1 " .
+				"LDFLAGS64=\\\"$LDFLAGS64\\\" LDFLAGS32=\\\"$LDFLAGS32\\\" " .
+				"CC=\\\"kernelgen-gcc -DKERNELGEN_ENABLE_RPATHS\\\" " .
+				"CXX=\\\"kernelgen-g++ -DKERNELGEN_ENABLE_RPATHS\\\" " .
+				"FC=\\\"kernelgen-gfortran -DKERNELGEN_ENABLE_RPATHS\\\" " .
+				"F77=\\\"kernelgen-gfortran -DKERNELGEN_ENABLE_RPATHS\\\"";
+		}
+		else
+		{
+			print "Unknown bootstrap mode: $bootstrap_mode\n";
+			return -1;
+		}
+
+		if ($glibc_enable && $glibc32_enable)
+		{
+			$glibc32_enable = 1;
+		}
+	}
+
+	#
+	# RPM command usable without administrative permissions
+	#
+	my($RPM) = "rpm --dbpath $INSTALLROOT/rpmdb/ --badreloc --relocate /=$INSTALLROOT";
+
+	#
+	# Checkout the component source code 
+	#
+	sub checkout_and_archive
+	{
+		my($base_name) = $_[0];
+		my($repos_url) = $_[1];
+		my($repos_rev) = $_[2];
+		my($WORKSPACE) = $_[3];
+
+		`mkdir -p $WORKSPACE`;
+		my($rev) = $repos_rev;
+		if ($repos_rev != -1)
+		{
+			#
+			# Early return if archive already exists.
+			#
+			if (-e "$WORKSPACE/$base_name-r$rev.tar.gz")
+			{
+				return $rev;
+			}
+			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url\@$repos_rev -r $repos_rev $base_name";
+			print "$cmd\n";
+			`$cmd`;
+			print "Checked all components @ revision $repos_rev\n";
+		}
+		else
+		{
+			#
+			# Get the revision number out of llvm checkout log.
+			#
+			my($cmd) = "cd $WORKSPACE && rm -rf $base_name && svn co $repos_url $base_name";
+			print "$cmd\n";
+			`$cmd`;
+			$rev = `cd $WORKSPACE && svnversion -n $base_name`;
+			if ($rev !~ m/\d+/)
+			{
+				print "Cannot determine checked out revision:\n";
+				foreach $line(@line)
+				{
+					print "$line\n";
+				}
+				exit(-1);
+			}
+			else
+			{
+				print "Checked all components @ revision $rev\n";
+			}
+		}
+
+		#
+		# Archive the checkout and remove the original source.
+		#
+		{
+			my($cmd) = "rm -rf $WORKSPACE/$base_name-r$rev.tar.gz";
+			print "$cmd\n";
+			`$cmd`;
+			$cmd = "cd $WORKSPACE && tar -cvzf $WORKSPACE/$base_name-r$rev.tar.gz $base_name";
+			print "$cmd\n";
+			`$cmd`;
+		}
+		{
+			my($cmd) = "rm -rf $WORKSPACE/$base_name";
+			print "$cmd\n";
+			`$cmd`;
+		}
+
+		return $rev;
+	}
+
+	#
+	# Run automatic test suite from the given path and
+	# return the textual report.
+	#
+	sub auto_test
+	{
+		my($SOURCES) = $_[0];
+		my($kernelgen_tests) = $_[1];
+		my($kernelgen_rev) = $_[2];
+	
+		#
+		# Checkout tests.
+		#
+		my($cmd) = "mkdir -p $SOURCES";
+		print "$cmd\n";
+		`$cmd`;
+		if ($kernelgen_rev != -1)
+		{
+			$cmd = "cd $SOURCES && svn co $kernelgen_tests\@$kernelgen_rev kernelgen_tests -r$kernelgen_rev";
+		}
+		else
+		{
+			$cmd = "cd $SOURCES && svn co $kernelgen_tests kernelgen_tests";
+		}
+		print "$cmd\n";
+		`$cmd`;
+
+		#
+		# Run performance tests.
+		#
+		$cmd = "cd $SOURCES/kernelgen_tests/perf && make clean && make test.kernelgen 2>&1";
+		print "$cmd\n";
+		my($content) = join("", `bash -c "source $INSTALLROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
+		my($text) = "<h1 style=\"font-size:small;\">Performance tests</h1>\n<table cellpadding=\"10\">";
+		if ($content =~ m/Data\sfor\sreport\s\>\>\n(?<CONTENT>.*)\<\<\sData\sfor\sreport/xs)
+		{
+			$content = $+{CONTENT};
+			my(@lines) = split("\n", $content);
+			my($iline) = 0;
+			for ( ; $iline < scalar(@lines); $iline++)
+			{
+				my($line) = $lines[$iline];
+
+				my($name) = "unknown";
+				$line =~ s/^(?<NAME>\w+)\s\&\s//;
+				if (defined($+{NAME}))
+				{
+					$name = $+{NAME};
+				}
+
+				my($time) = "N/A";
+				$line =~ s/^(?<TIME>[^\&]+)\&\s//;
+				if (defined($+{TIME}))
+				{
+					$time = $+{TIME};
+					$time =~ s/\s//;
+				}
+
+				my($nregs) = "N/A";
+				$line =~ s/^(?<NREGS>[0-9]+)//;
+				if (defined($+{NREGS}))
+				{
+					$nregs = $+{NREGS};
+				}
+
+				$text .= "<tr>";
+				if (($time ne "N/A") and ($nregs ne "N/A"))
+				{
+					$text .= "<td style=\"border: 2px solid; color: green; width: auto;\"><b>$name</b></td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">$time sec</td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">$nregs regs</td>";
+				}
+				else
+				{
+					$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>$name</b></td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">N/A</td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">N/A</td>";
+				}
+				$text .= "<td></td>";
+				$text .= "</tr>";
+			}
+		}
+		else
+		{
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>Failed to run performance test suite</b></td>";
+			$text .= "<td></td>";
+			$text .= "<td></td>";
+			$text .= "</tr>";
+			
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 1px solid; font-size:small;\">$content</td>";
+			$text .= "</tr>";
+		}
+		$text .= "</table><br/><br/>";
+		
+		#
+		# Run behavior tests.
+		#
+		$cmd = "cd $SOURCES/kernelgen_tests/behavior && make clean && make test1 2>&1";
+		print "$cmd\n";
+		my(@lines) = split("\n", `bash -c "source $INSTALLROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
+		$text .= "<h1 style=\"font-size:small;\">Behavior tests</h1>\n<table cellpadding=\"10\">";
+		my($empty) = 1;
+		foreach $line (@lines)
+		{	
+			if ($line =~ m/[\*]+\sTEST\s\(1\)\s'([^']+)'\s[\*]+/)
+			{
+				my($name) = $1;
+				my($failed) = 0;
+				foreach $line (@lines)
+				{
+					if (!$failed)
+					{
+						if ($line =~ m/[\*]+\sTEST\s\(1\)\s'$name'\sFAILED!\s[\*]+/)
+						{
+							$text .= "<tr>";
+							$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>$name</b></td>";
+							$text .= "<td></td>";
+							$text .= "<td></td>";
+							$text .= "</tr>";						
+							$failed = 1;
+
+							$text .= "<tr>";
+							$text .= "<td style=\"border: 1px solid; font-size:small;\">";
+						}
+					}
+					else
+					{
+						if ($line !~ m/[\*]+\sTEST\s\(1\)\s'$name'\sFAILED!\s[\*]+/)
+						{
+							$text .= "$line<br/>\n";
+						}
+						else
+						{
+							last;
+						}
+					}
+				}
+				if (!$failed)
+				{
+					$text .= "<tr>";
+					$text .= "<td style=\"border: 2px solid; color: green; width: auto;\"><b>$name</b></td>";
+					$text .= "<td></td>";
+					$text .= "<td></td>";
+					$text .= "</tr>";
+				}
+				else
+				{
+					$text .= "</td></tr>";
+				}
+				
+				$empty = 0;
+			}
+		}
+		if ($empty)
+		{
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>Failed to run behavior test suite</b></td>";
+			$text .= "<td></td>";
+			$text .= "<td></td>";
+			$text .= "</tr>";
+			
+			my($output) = join("", @lines);
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 1px solid; font-size:small;\">$output</td>";
+			$text .= "</tr>";
+		}
+		$text .= "</table>";
+
+		#
+		# Cleanup.
+		#
+		$cmd = "rm -rf $SOURCES/kernelgen_tests";
+		print "$cmd\n";
+		`$cmd`;
+		return $text;
+	}
+
+	#
+	# Send email report with the given status message and content.
+	#
+	sub mail
+	{
+		my($status) = $_[0];
+		my($hostname) = `hostname`;
+		$hostname =~ s/\n//g;
+		my($mode) = "release";
+		if ($debug)
+		{
+			$mode = "debug";
+		}
+		my($subject) = "[kernelgen-buran $mode \@ $hostname] $status";
+		my($text) = $_[1];
+
+		my($recipients) =
+			"Dmitry Mikushin <maemarcusnospamno\@gmail.com>, " .
+			"Sergey V. Kovylov <serejkanospamno\@gmail.com>";
+
+		$recipients =~ s/nospamno//g;
+
+		use strict;
+		use MIME::Lite;
+		
+		my $msg = MIME::Lite->new(
+			Subject => $subject,
+			From    => 'Buran Shuttle <buran@kernelgen.org>',
+			To      => $recipients,
+			Type    => 'text/html',
+			Data    => $text);
+		$msg->send();
+	}
+
+	#
+	# Copy the specified log file to the dedicated public FTP server folder.
+	#
+	sub copy_log_to_ftp
+	{
+		my($local_log) = $_[0];
+		my($llvm_rev) = $_[1];
+		my($kernelgen_rev) = $_[2];
+		my($remote_log) = "$llvm_rev-$kernelgen_rev.log";
+		my($cmd) = "scp $local_log scm.hpcforge.org:/var/lib/gforge/chroot/ftproot/pub/kernelgen/buran/logs/$remote_log";
+		print "$cmd\n";
+		`$cmd`;
+		return "ftp://upload.hpcforge.org/pub/kernelgen/buran/logs/$remote_log";
+	}
+
+	use POSIX;
+
+	#
+	# Record build start time (supplied by caller).
+	#
+	my($start) = $_[1];
+
+	#
+	# Get the code of the components as of the first component trunk
+	#
+	my($llvm_rev) = checkout_and_archive("llvm", $llvm, $llvm_rev, $SOURCES);
+	checkout_and_archive("clang", $clang, $llvm_rev, $SOURCES);
+	checkout_and_archive("polly", $polly, $llvm_rev, $SOURCES);
+	checkout_and_archive("dragonegg", $dragonegg, $llvm_rev, $SOURCES);
+
+	#
+	# Get the source code of BINUTILS.
+	#
+	if (! -e "$SOURCES/$binutils_snapshot.tar.bz2")
+	{
+		my($cmd) = "cd $SOURCES && wget $binutils";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of GMP.
+	#
+	if (! -e "$SOURCES/$gmp_snapshot.tar.bz2")
+	{
+		my($cmd) = "cd $SOURCES && wget $gmp";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of MPFR.
+	#
+	if (! -e "$SOURCES/$mpfr_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $mpfr";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of MPC.
+	#
+	if (! -e "$SOURCES/$mpc_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $mpc";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of LIBELF.
+	#
+	if (! -e "$SOURCES/$libelf_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $libelf";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of GCC.
+	#
+	if (! -e "$SOURCES/$gcc_snapshot.tar.bz2")
+	{
+		my($cmd) = "cd $SOURCES && wget $gcc";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of NetCDF (used by models KernelGen is designed for).
+	#
+	if (! -e "$SOURCES/$netcdf_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $netcdf";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of MVAPICH2 (used by models KernelGen is designed for).
+	#
+	if (! -e "$SOURCES/$mvapich2_snapshot.tgz")
+	{
+		my($cmd) = "cd $SOURCES && wget $mvapich2";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of GLIBC.
+	#
+	if (! -e "$SOURCES/$glibc_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $glibc";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of Berkeley DB.
+	#
+	if (! -e "$SOURCES/$db_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $db";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of COBOL.
+	#
+	if (! -e "$SOURCES/$cobol_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $cobol";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of LibFFI.
+	#
+	if (! -e "$SOURCES/$libffi_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $libffi";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of MHASH.
+	#
+	if (! -e "$SOURCES/$mhash_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $mhash";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the trunk of KernelGen.
+	#
+	$kernelgen_rev = checkout_and_archive("kernelgen", $kernelgen, $kernelgen_rev, "$SOURCES");
+	#
+	# From KernelGen extract patches to $SOURCES.
+	#
+	my($cmd) = "cd $SOURCES && tar -xf $SOURCES/kernelgen-r$kernelgen_rev.tar.gz";
+	print "$cmd\n";
+	`$cmd`;
+	$cmd = "cp $SOURCES/kernelgen/patches/* $SOURCES/";
+	print "$cmd\n";
+	`$cmd`;
+
+	#
+	# Extract kernelgen.spec.in and fill it with the
+	# actual revision numbers.
+	#
+	$cmd = "cat $SOURCES/kernelgen/kernelgen.spec.in";
+	print "$cmd\n";
+	my(@lines) = split("\n", `$cmd`);
+
+	#
+	# Insert tokens:
+	#   KERNELGEN_ENABLE_DEBUG         - Enable compilation of unoptimized debuggable binaries
+	#   KERNELGEN_REV                  - KernelGen revision number
+	#   KERNELGEN_LLVM_REV             - KernelGen LLVM components revision number
+        #   KERNELGEN_GCC_VER              - KernelGen GCC version number
+	#   KERNELGEN_RPM_COMPRESS         - Whether to use compression on the RPM package
+	#   KERNELGEN_TARGET               - KernelGen target system type - fedora or debian
+	#   KERNELGEN_FULLREPACK           - A flag indicating whether to rebuild everything
+	#                                    or just the KernelGen source
+	#   KERNELGEN_NJOBS                - The number of parallel jobs used in makes
+	#
+	#   KERNELGEN_PREFIX               - The path prefix relative to build or install root
+	#
+	#   KERNELGEN_BINUTILS_SNAP        - The base name of archive with BINUTILS source code
+	#   KERNELGEN_GMP_SNAP             - The base name of archive with GMP source code
+	#   KERNELGEN_MPFR_SNAP            - The base name of archive with MPFR source code
+	#   KERNELGEN_MPC_SNAP             - The base name of archive with MPC source code
+	#   KERNELGEN_LIBELF_SNAP          - The base name of archive with LIBELF source code
+	#   KERNELGEN_GCC_SNAP             - The base name of archive with GCC source code
+	#   KERNELGEN_NETCDF_SNAP          - The base name of archive with NetCDF source code
+	#   KERNELGEN_LIBFFI_SNAP          - The base name of archive with LibFFI source code
+	#   KERNELGEN_MHASH_SNAP           - The base name of archive with MHASH source code
+	#   KERNELGEN_GLIBC_SNAP           - The base name of archive with GLIBC source code
+	#   KERNELGEN_MVAPICH2_SNAP        - The base name of archive with MVAPICH2 source code
+	#   KERNELGEN_DB_SNAP              - The base name of archive with Berkeley DB source code
+	#   KERNELGEN_COBOL_SNAP           - The base name of archive with COBOL source code
+	#
+	#   KERNELGEN_ENABLE_CLOOG         - Enable build of CLooG
+	#   KERNELGEN_ENABLE_LLVM          - Enable build of LLVM
+	#   KERNELGEN_ENABLE_BINUTILS      - Enable build of BinUtls
+	#   KERNELGEN_ENABLE_GMP           - Enable build of GMP
+	#   KERNELGEN_ENABLE_MPFR          - Enable build of MPFR
+	#   KERNELGEN_ENABLE_MPC           - Enbale build of MPC
+	#   KERNELGEN_ENABLE_LIBELF        - Enable build of LibELF
+	#   KERNELGEN_ENABLE_GCC           - Enable build of GCC
+	#   KERNELGEN_ENABLE_GCC_BOOTSTRAP - Enable GCC bootstrapping (takes more time)
+	#   KERNELGEN_ENABLE_NETCDF        - Enable build of NetCDF
+	#   KERNELGEN_ENABLE_DRAGONEGG     - Enable build of DragonEgg
+	#   KERNELGEN_ENABLE_LIBFFI        - Enable build of LibFFI
+	#   KERNELGEN_ENABLE_MHASH         - Enable build of MHASH
+	#   KERNELGEN_ENABLE_GLIBC         - Enable build of GLIBC
+	#   KERNELGEN_ENABLE_GLIBC32       - Enable 32-bit build of GLIBC
+	#   KERNELGEN_ENABLE_MVAPICH2      - Enable build of MVAPICH2
+	#   KERNELGEN_ENABLE_DB            - Enable build of Berkeley DB
+	#   KERNELGEN_ENABLE_COBOL         - Enable build of COBOL
+	#   KERNELGEN_ENABLE_KERNELGEN     - Enable build of KernelGen
+	#
+	# Write down the final spec file.
+	#
+	$cmd = "mkdir -p $SPECS";
+	print "$cmd\n";
+	`$cmd`;
+	$cmd = "mkdir -p $LOGS";
+	print "$cmd\n";
+	`$cmd`;
+	$cmd = "ln -sf $SOURCES $RPMBUILD/";
+	print "$cmd\n";
+	`$cmd`;
+	open(SPEC, ">$SPECS/kernelgen.spec") or die("Cannot open $SPECS/kernelgen.spec");
+	foreach $line (@lines)
+	{
+		$line =~ s/KERNELGEN_TOPDIR/$TOPDIR/g;
+		$line =~ s/KERNELGEN_ENABLE_DEBUG/$debug/g;
+		$line =~ s/KERNELGEN_REV/$kernelgen_rev/g;
+		$line =~ s/KERNELGEN_LLVM_REV/$llvm_rev/g;
+		$line =~ s/KERNELGEN_GCC_VER/$gcc_version/g;
+		$line =~ s/KERNELGEN_RPM_COMPRESS/$rpm_compress/g;
+		$line =~ s/KERNELGEN_TARGET/$target/g;
+		$line =~ s/KERNELGEN_FULLREPACK/$fullrepack/g;
+		$line =~ s/KERNELGEN_NJOBS/24/g;
+		$line =~ s/KERNELGEN_VERSION/$version/g;
+		$line =~ s/KERNELGEN_CODENAME/$codename/g;
+
+		$line =~ s/KERNELGEN_PREFIX/\"$prefix\"/g;
+
+		$line =~ s/KERNELGEN_BINUTILS_SNAP/$binutils_snapshot/g;
+		$line =~ s/KERNELGEN_GMP_SNAP/$gmp_snapshot/g;
+		$line =~ s/KERNELGEN_MPFR_SNAP/$mpfr_snapshot/g;
+		$line =~ s/KERNELGEN_MPC_SNAP/$mpc_snapshot/g;
+		$line =~ s/KERNELGEN_LIBELF_SNAP/$libelf_snapshot/g;
+		$line =~ s/KERNELGEN_GCC_SNAP/$gcc_snapshot/g;
+		$line =~ s/KERNELGEN_NETCDF_SNAP/$netcdf_snapshot/g;
+		$line =~ s/KERNELGEN_LIBFFI_SNAP/$libffi_snapshot/g;
+		$line =~ s/KERNELGEN_MHASH_SNAP/$mhash_snapshot/g;
+		$line =~ s/KERNELGEN_GLIBC_SNAP/$glibc_snapshot/g;
+		$line =~ s/KERNELGEN_MVAPICH2_SNAP/$mvapich2_snapshot/g;
+		$line =~ s/KERNELGEN_DB_SNAP/$db_snapshot/g;
+		$line =~ s/KERNELGEN_COBOL_SNAP/$cobol_snapshot/g;
+
+		$line =~ s/KERNELGEN_ENABLE_CLOOG/$cloog_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_LLVM/$llvm_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_BINUTILS/$binutils_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_GMP/$gmp_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_MPFR/$mpfr_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_MPC/$mpc_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_LIBELF/$libelf_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_GCC_BOOTSTRAP/$gcc_enable_bootstrap/g;
+		$line =~ s/KERNELGEN_ENABLE_GCC/$gcc_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_NETCDF/$netcdf_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_DRAGONEGG/$dragonegg_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_LIBFFI/$libffi_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_MHASH/$mhash_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_GLIBC32/$glibc32_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_GLIBC/$glibc_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_MVAPICH2/$mvapich2_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_DB/$db_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_COBOL/$cobol_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_KERNELGEN/$kernelgen_enable/g;
+
+		print SPEC "$line\n";
+	}
+	close(SPEC);
+
+	#
+	# Execute rpmbuild on the final spec file.
+	#
+	$cmd = "mkdir -p $BUILD";
+	print "$cmd\n";
+	`$cmd`;
+	$cmd = "mkdir -p $RPMS";
+	print "$cmd\n";
+	`$cmd`;
+	$cmd = "cd $SPECS && PATH=" . $ENV{'PATH'} . " LD_LIBRARY_PATH=" . $ENV{'LD_LIBRARY_PATH'} . " RPM_INSTALL_PREFIX=$INSTALLROOT" . 
+		" $COMPILERS rpmbuild -bb --define '_topdir $RPMBUILD' --buildroot=$BUILDROOT kernelgen.spec &>$LOGFILE";
+	print "$cmd\n";
+	`bash -c "$cmd"`;
+	my($result) = $?;
+	if ($result == 0)
+	{
+		$result = 1;
+
+		#
+		# Install the built RPM package.
+		#
+		$cmd = "rm -rf $INSTALLROOT";
+		print "$cmd\n";
+		`$cmd`;
+		system("$RPM -e kernelgen 1>>$LOGFILE 2>>$LOGFILE");
+		$cmd = "PATH=" . $ENV{'PATH'} . " LD_LIBRARY_PATH=" . $ENV{'LD_LIBRARY_PATH'} . " RPM_BUILD_ROOT=$BUILDROOT" .
+			" RPM_INSTALL_PREFIX=$INSTALLROOT $RPM --nodeps -ivh $RPMS/x86_64/kernelgen-$version-$codename.x86_64.rpm 1>>$LOGFILE 2>>$LOGFILE";
+		print "$cmd\n";
+		$result = system("$cmd");
+
+		#
+		# On final bootstrapping stage - build Debian package,
+		# if requested.
+		#
+		if (($package_deb == 1) and ($bootstrap_mode eq "all"))
+		{
+			$cmd = "rm -rf $BUILDROOT/kernelgen"; print "$cmd\n"; `$cmd`;
+			$cmd = "mkdir -p $BUILDROOT/kernelgen/DEBIAN"; print "$cmd\n"; `$cmd`;
+			$cmd = "cp -rf $BUILD/kernelgen/control $BUILDROOT/kernelgen/DEBIAN/"; print "$cmd\n"; `$cmd`;
+			$cmd = "cp -rf $BUILD/kernelgen/postinst $BUILDROOT/kernelgen/DEBIAN"; print "$cmd\n"; `$cmd`;
+			$cmd = "chmod 0775 $BUILDROOT/kernelgen/DEBIAN/postinst"; print "$cmd\n"; `$cmd`;
+			$cmd = "cd $BUILDROOT/kernelgen && cp -rf ../opt . && find . -depth -empty -type d -exec rmdir {} \\; && cd .. && dpkg-deb --build kernelgen";
+			print "$cmd\n"; `$cmd`;
+		}
+
+		my($ftplog) = ""; # "See log for details: " . copy_log_to_ftp($LOGFILE, $llvm_rev, $kernelgen_rev);
+		if ($result == 0)
+		{
+			if ($bootstrap_mode eq "all")
+			{
+				#
+				# Execute the test suite and report the result.
+				#
+				my($report) = auto_test($SOURCES, $kernelgen_tests, $kernelgen_rev);
+
+				#
+				# Record build end time.
+				#
+				my($end) = POSIX::strftime("Build finished: %m/%d/%Y %H:%M:%S<br/>\n", localtime);
+
+				mail("r$kernelgen_rev +llvm r$llvm_rev : build succeeded", "$start<br/>\n<br/>\n$report<br/>\n<br/>\n$end<br/>\n<br/>\n");
+				print "Build completed successfully!\n";
+			}
+		}
+		else
+		{
+			#
+			# Record build end time.
+			#
+			my($end) = POSIX::strftime("Build stopped: %m/%d/%Y %H:%M:%S<br/>\n", localtime);
+
+			#
+			# Send report about the installation failure.
+			#
+			mail("r$kernelgen_rev +llvm r$llvm_rev : installation failure", "$start<br/>\n<br/>\n$end<br/>\n<br/>\nSee log file for deatils: $LOGFILE");
+			print "Installation failed, aborting.\n";
+		}
+	}
+	else
+	{
+		#
+		# Record build end time.
+		#
+		my($end) = POSIX::strftime("Build stopped: %m/%d/%Y %H:%M:%S<br/>\n", localtime);
+
+		#
+		# Send report about the build failure.
+		#
+		my($ftplog) = ""; # "See log for details: " . copy_log_to_ftp($LOGFILE, $llvm_rev, $kernelgen_rev);
+		mail("r$kernelgen_rev +llvm r$llvm_rev : build failure", "$start<br/>\n<br/>\n$end<br/>\n<br/>\nSee log file for deatils: $LOGFILE");
+		print "Build failed, aborting.\n";
+		print "Please check the $LOGFILE for errors, as well as per-package config.log-s in $BUILD.\n";
+		print "Please make sure everything was done according to the instructions: http://hpcforge.org/plugins/mediawiki/wiki/kernelgen/index.php/Compiling\n";
+		print "If no clue, feel free to email us at kernelgen-devel\@lists.hpcforge.org, with your $LOGFILE attached\n"; 
+	}
+
+	#
+	# Remove the unpacked KernelGen source.
+	#
+	$cmd = "rm -rf $SOURCES/kernelgen";
+	print "$cmd\n";
+	`$cmd`;
+
+	return $result;
+}
+
+use Cwd 'abs_path';
+use File::Basename;
+
+print "==========================\n";
+print "Buran -- KernelGen Builder\n";
+print "==========================\n\n";
+
+#
+# Record build start time.
+#
+my($start) = POSIX::strftime("Build started: %m/%d/%Y %H:%M:%S<br/>\n", localtime);
+
+switch ($target)
+{
+	#
+	# Check we have nvcc in path
+	# (which returns 0 if file is found and is executable).
+	#
+	if (system("which nvcc 2>&1 1>/dev/null") != 0)
+	{
+		print "CUDA C++ compiler (nvcc) must be in \$PATH (required for MVAPICH2 and test suite)\n";
+		print "Build failed, aborting.\n";
+		exit(1);
+	}
+
+	case ["fedora", "debian"]
+	{
+		print "target: $target\n\n";
+
+		# Build parts of the system, starting from stage, determined
+		# by existance of certain files.
+		my($result) = 0;
+		if ((! -e "$INSTALLROOT/$prefix/lib/libgmp.a") and (! -e "$INSTALLROOT/$prefix/lib64/libgmp.a"))
+		{
+			$result = build_and_test_kernelgen("gmp", $start);
+			if ($result)
+			{
+				exit($result);
+			}
+		}
+		if ((! -e "$INSTALLROOT/$prefix/lib/libmpfr.a") and (! -e "$INSTALLROOT/$prefix/lib64/libmpfr.a"))
+		{
+			$result = build_and_test_kernelgen("mpfr", $start);
+			if ($result)
+			{
+				exit($result);
+			}
+		}
+		if (! -e "$INSTALLROOT/$prefix/bin/kernelgen-ld")
+		{
+			$result = build_and_test_kernelgen("binutils+mpc", $start);
+			if ($result)
+			{
+				exit($result);
+			}
+		}
+		if (! -e "$INSTALLROOT/$prefix/bin/kernelgen-gcc")
+		{
+			$result = build_and_test_kernelgen("gcc", $start);
+			if ($result)
+			{
+				exit($result);
+			}
+		}
+		if (! -e "$INSTALLROOT/$prefix/lib/gcc/x86_64-unknown-linux-gnu/$gcc_version/ld-linux-x86-64.so.2")
+		{
+			$result = build_and_test_kernelgen("llvm+glibc", $start);
+			if ($result)
+			{
+				exit($result);
+			}
+		}
+
+		exit(build_and_test_kernelgen("all", $start));
+	}
+	case ["test"]
+	{
+		#
+		# Check we have kernelgen-version in path
+		# (which returns 0 if file is found and is executable).
+		#
+		if (system("which kernelgen-version 2>&1 1>/dev/null") != 0)
+		{
+			print "Version reporter (kernelgen-version) must be in \$PATH (required for report signature)\n";
+			print "You can add it to \$PATH by sourcing kernelgen-vars.sh of your KernelGen toolchain\n";
+			print "Build failed, aborting.\n";
+			exit(1);
+		}
+
+		#
+		# Execute the test suite and report the result.
+		#
+		my($report) = auto_test($SOURCES, $kernelgen_tests);
+
+		#
+		# Record build end time.
+		#
+		my($end) = POSIX::strftime("Build finished: %m/%d/%Y %H:%M:%S<br/>\n", localtime);
+
+		my($version) = `kernelgen-version`;
+		mail("r$version : test suite report", "$start<br/>\n<br/>\n$report<br/>\n<br/>\n$end<br/>\n<br/>");
+		print "Testing completed.\n";
+		
+		exit(0);
+	}
+	else
+	{
+		print "Unknown target \"$target\"\n";
+	}
+}
+
+exit(usage());
+
