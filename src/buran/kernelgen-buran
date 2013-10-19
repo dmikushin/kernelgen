@@ -807,6 +807,9 @@ sub build_and_test_kernelgen
 	$cmd = "cp $SOURCES/kernelgen-branch/patches/* $SOURCES/";
 	print "$cmd\n";
 	`$cmd`;
+	$cmd = "ln -sf $SOURCES/kernelgen-branch-r$kernelgen_rev.tar.gz $SOURCES/kernelgen-r$kernelgen_rev-branch.tar.gz";
+	print "$cmd\n";
+	`$cmd`;
 
 	#
 	# Extract kernelgen.spec.in and fill it with the
@@ -880,7 +883,7 @@ sub build_and_test_kernelgen
 	{
 		$line =~ s/KERNELGEN_TOPDIR/$TOPDIR/g;
 		$line =~ s/KERNELGEN_ENABLE_DEBUG/$debug/g;
-		$line =~ s/KERNELGEN_REV/$kernelgen_rev/g;
+		$line =~ s/KERNELGEN_REV/$kernelgen_rev-branch/g;
 		$line =~ s/KERNELGEN_LLVM_REV/$llvm_rev/g;
 		$line =~ s/KERNELGEN_GCC_VER/$gcc_version/g;
 		$line =~ s/KERNELGEN_RPM_COMPRESS/$rpm_compress/g;
@@ -990,7 +993,7 @@ sub build_and_test_kernelgen
 				#
 				my($end) = POSIX::strftime("Build finished: %m/%d/%Y %H:%M:%S<br/>\n", localtime);
 
-				mail("r$kernelgen_rev +llvm r$llvm_rev : build succeeded", "$start<br/>\n<br/>\n$report<br/>\n<br/>\n$end<br/>\n<br/>\n");
+				mail("r1865 +llvm r$llvm_rev : build succeeded", "$start<br/>\n<br/>\n$report<br/>\n<br/>\n$end<br/>\n<br/>\n");
 				print "Build completed successfully!\n";
 			}
 		}
