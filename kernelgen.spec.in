@@ -617,7 +617,7 @@ make -j%{njobs}
 #
 # Build KernelGen
 #
-cd $RPM_BUILD_DIR/kernelgen/build
+cd $RPM_BUILD_DIR/kernelgen-branch/build
 %flags make -j%{njobs}
 %endif
 
@@ -668,7 +668,7 @@ cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
 #
 # Install KernelGen
 #
-cd $RPM_BUILD_DIR/kernelgen/build
+cd $RPM_BUILD_DIR/kernelgen-branch/build
 %flags make install
 %endif
 %if %binutils
