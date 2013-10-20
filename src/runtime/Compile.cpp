@@ -1068,7 +1068,7 @@ KernelFunc kernelgen::runtime::Compile(int runmode, Kernel *kernel,
         // Align all globals to 4096.
         GV->setAlignment(4096);
 
-        // Stip of "external" attribute from globals for now.
+        // Strip off "external" attribute from globals for now.
         // XXX Should be handled by linking against proper
         // device library, when KernelGen-aware runtime will be
         // introduced.
