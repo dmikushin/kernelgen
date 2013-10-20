@@ -1020,9 +1020,19 @@ KernelFunc kernelgen::runtime::Compile(
 				}
 			}
 
-			// Align all globals to 4096.
-			for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end(); GV != GVE; GV++)
+			for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end();
+				GV != GVE; GV++)
+			{
+				// Align all globals to 4096.
 				GV->setAlignment(4096);
+				
+				// Strip off "external" attribute from globals for now.
+				// XXX Should be handled by linking against proper
+				// device library, when KernelGen-aware runtime will be
+				// introduced.
+				if (!GV->hasInitializer())
+					GV->setInitializer(Constant::getNullValue(GV->getType()->getElementType()));
+			}
 		}
 
 		// Internalize functions, in order to make use of locally
