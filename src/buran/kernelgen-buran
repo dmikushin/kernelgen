@@ -986,7 +986,7 @@ sub build_and_test_kernelgen
 				#
 				# Execute the test suite and report the result.
 				#
-				my($report) = auto_test($SOURCES, $kernelgen_tests, $kernelgen_rev);
+				my($report) = auto_test($SOURCES, $kernelgen_tests, 1865);
 
 				#
 				# Record build end time.
