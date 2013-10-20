@@ -28,7 +28,7 @@ set(RPM_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE STRING "The RPM install p
 set(RPM_ROOT "${RPM_INSTALL_PREFIX}/../BUILD" CACHE STRING "The RPM build root")
 set(LLVM_ROOT "${RPM_ROOT}/llvm" CACHE STRING "The LLVM source+build root")
 set(LLVM_MODE "Debug+Asserts" CACHE STRING "The LLVM build mode")
-set(LLVM_VERSION 3.4 CACHE STRING "The LLVM version")
+set(LLVM_VERSION 3.2 CACHE STRING "The LLVM version")
 set(LLVM_MACROS "_GNU_SOURCE;__STDC_LIMIT_MACROS;__STDC_CONSTANT_MACROS" CACHE STRING "The LLVM macros")
 set(LLVM_INCLUDE "${LLVM_ROOT}/build/include" CACHE STRING "The LLVM include root")
 set(POLLY_ROOT "${LLVM_ROOT}/build/tools/polly" CACHE STRING "The Polly build root")
