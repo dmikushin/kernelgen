@@ -32,17 +32,15 @@
 # 4) 32-bit cloog, gmp, mpfr, mpc, binutils, libelf, mhash
 #    32-bit host -> 32/64-bit target gcc
 #    64-bit cloog
-# 5) 32-bit cloog, gmp, mpfr, mpc, binutils, libelf, glibc, libffi, mhash, db
+# 5) 32-bit cloog, gmp, mpfr, mpc, binutils, libelf, glibc, libffi, mhash, ibverbs, db
 #    32-bit host -> 32/64-bit target gcc, llvm
-#    64-bit cloog, llvm, libelf, glibc, libffi, mhash
+#    64-bit cloog, llvm, libelf, glibc, libffi, mhash, ibverbs
 # 6) bootstrapped:
 #    32-bit cloog, gmp, mpfr, mpc, binutils, libelf, glibc, libffi, mhash, db, mvapich2, netcdf, kernelgen, dragonegg
 #    32-bit host -> 32/64-bit target gcc, llvm, cobol (do they have multilib for cobol?)
 #    64-bit cloog, llvm, libelf, glibc, libffi, mhash, mvapich2, netcdf, kernelgen
 #
 # Install 32-bit llvm on top of 64-bit (i.e. to have 64-bit runtimes only)
-#
-# try out: 32-64 llvm
 #
 # build modes:
 # 64-bit for 32/64-bit with 64-bit default
@@ -53,6 +51,21 @@
 # always 32-bit: gmp, mpft, mpc, binutils - these components are built depending on the host arch value
 # always 64-bit: none
 # both 32-bit and 64-bit: cloog, llvm, libelf, glibc, libffi, mhash, mvapich2, netcdf, kernelgen
+#
+# TODO:
+# +0) add ibverbs to spec
+# +1) add 32/64 bit modes for LLVM
+# +2) add 32/64 bit modes for DragonEgg
+# +3) add 32/64 bit modes for libffi
+# +4) add 32/64 bit modes for glibc
+# +5) add 32/64 modes for mhash
+# +6) compile llvm not only for host target, but for 32-bit and 64-bit (is done by default, right?)
+# +7) add 32/64 modes for mvapich2
+# +8) add 32/64 modes for netcdf
+# 9) add 32/64 modes for db
+# 10) add 32/64 modes for cobol
+# 11) add 32/64 modes for kernelgen runtime
+# last) order 32-bit and 64-bit installation, such that host's executables will be written last (on top of everything else)
 
 use Switch;
 
@@ -117,7 +130,7 @@ if ($kernelgen_rev == -1)
 {
 	$TOPDIR = $ENV{'HOME'} . "/rpmbuild/kernelgen/head_llvm$llvm_rev";
 }
-$TOPDIR .= "_$host_arch" . "_$default_target";
+$TOPDIR .= "_$host_arch" . "_$default_target_arch";
 if ($debug == 1)
 {
 	$TOPDIR .= "_debug";
@@ -146,7 +159,7 @@ my($codename) = "castagnola";
 my($prefix) = "";
 
 my($RPMBUILD) = "$TOPDIR";
-my($SOURCES) = $ENV{'HOME'} . "/rpmbuild/SOURCES";
+my($SOURCES) = "$RPMBUILD/SOURCES";
 my($SPECS) = "$RPMBUILD/SPECS";
 my($RPMS) = "$RPMBUILD/RPMS";
 my($BUILD) = "$RPMBUILD/BUILD";
@@ -178,8 +191,10 @@ my($mhash_snapshot) = "mhash-0.9.9.9";
 my($mhash) = "http://acelnmp.googlecode.com/files/$mhash_snapshot.tar.gz";
 my($kernelgen) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/trunk";
 my($kernelgen_tests) = "svn://scm.hpcforge.org/var/lib/gforge/chroot/scmrepos/svn/kernelgen/tests";
-my($mvapich2_snapshot) = "mvapich2-1.9";
-my($mvapich2) = "http://mvapich.cse.ohio-state.edu/download/mvapich2/$mvapich2_snapshot.tgz";
+my($ibverbs_snapshot) = "libibverbs-1.1.7";
+my($ibverbs) = "http://www.openfabrics.org/downloads/verbs/$ibverbs_snapshot.tar.gz";
+my($mvapich_snapshot) = "mvapich2-1.9";
+my($mvapich) = "http://mvapich.cse.ohio-state.edu/download/mvapich2/$mvapich_snapshot.tgz";
 my($glibc_snapshot) = "glibc-2.17";
 my($glibc) = "http://ftp.gnu.org/gnu/glibc/$glibc_snapshot.tar.gz";
 my($db_snapshot) = "db-5.3.21";
@@ -224,12 +239,17 @@ sub build_and_test_kernelgen
 	}
 
 	my($LOGFILE) = "$RPMBUILD/LOGS/build.log";
+	
+	# Set debug option (if set) only for the last stage;
+	# it is not necessary to debug-build intermediate stages.
+	my($debug_stage) = 0;
 
 	# Setup switches, depending on the bootstrapping mode.
 	# Also, set compilers, depending on stage.
 	my($cloog_enable32) = 0;
 	my($cloog_enable64) = 0;
-	my($llvm_enable) = 0;
+	my($llvm_enable32) = 0;
+	my($llvm_enable64) = 0;
 	my($binutils_enable) = 0;
 	my($gmp_enable) = 0;
 	my($mpfr_enable) = 0;
@@ -238,16 +258,24 @@ sub build_and_test_kernelgen
 	my($libelf_enable64) = 0;
 	my($gcc_enable) = 0;
 	my($gcc_enable_bootstrap) = 0;
-	my($netcdf_enable) = 0;
-	my($dragonegg_enable) = 0;
-	my($libffi_enable) = 0;
-	my($mhash_enable) = 0;
-	my($glibc_enable) = 0;
-	my($glibc32_enable) = 1;
+	my($netcdf_enable32) = 0;
+	my($netcdf_enable64) = 0;
+	my($dragonegg_enable32) = 0;
+	my($dragonegg_enable64) = 0;
+	my($libffi_enable32) = 0;
+	my($libffi_enable64) = 0;
+	my($mhash_enable32) = 0;
+	my($mhash_enable64) = 0;
+	my($glibc_enable32) = 0;
+	my($glibc_enable64) = 0;
 	my($cobol_enable) = 0;
-	my($mvapich2_enable) = 0;
+	my($ibverbs_enable32) = 0;
+	my($ibverbs_enable64) = 0;
+	my($mvapich_enable32) = 0;
+	my($mvapich_enable64) = 0;
 	my($kernelgen_enable) = 0;
-        my($db_enable) = 0;
+        my($enable_db32) = 0;
+        my($enable_db64) = 0;
 	my($COMPILERS) = "";
 	switch ($bootstrap_mode)
 	{
@@ -302,9 +330,10 @@ sub build_and_test_kernelgen
 			$libelf_enable32 = 1;
 			$gcc_enable = 1;
 			$gcc_enable_bootstrap = 1;
-			$mhash_enable = 1;
+			$mhash_enable32 = 0;
+			$mhash_enable64 = 0;
 
-			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=gcc CXX=g++ FC=gfortran F77=gfortran AR=$INSTALLDIR/$prefix/bin/kernelgen-ar";
+			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=gcc CXX=g++ FC=gfortran F77=gfortran AR=$INSTALLROOT/$prefix/bin/kernelgen-ar";
 		}
                 case "llvm+glibc"
                 {
@@ -314,7 +343,8 @@ sub build_and_test_kernelgen
 
 			$cloog_enable32 = 1;
 			$cloog_enable64 = 1;
-			$llvm_enable = 1;
+			$llvm_enable32 = 1;
+			$llvm_enable64 = 1;
 			$binutils_enable = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
@@ -322,10 +352,16 @@ sub build_and_test_kernelgen
 			$libelf_enable32 = 1;
 			$libelf_enable64 = 1;
 			$gcc_enable = 1;
-			$libffi_enable = 1;
-			$mhash_enable = 1;
-			$glibc_enable = 1;
-			$db_enable = 1;
+			$libffi_enable32 = 1;
+			$libffi_enable64 = 1;
+			$mhash_enable32 = 1;
+			$mhash_enable64 = 1;
+			$glibc_enable32 = 1;
+			$glibc_enable64 = 1;
+			$ibverbs_enable32 = 1;
+			$ibverbs_enable64 = 1;
+			$enable_db32 = 1;
+			$enable_db64 = 1;
 
                         $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
                 }
@@ -335,9 +371,11 @@ sub build_and_test_kernelgen
 			print "Compiling KernelGen without bootstrapping\n";
 			print "=========================================\n";
 
+			$debug_stage = $debug;
 			$cloog_enable32 = 1;
 			$cloog_enable64 = 1;
-			$llvm_enable = 1;
+			$llvm_enable32 = 1;
+			$llvm_enable64 = 1;
 			$binutils_enable = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
@@ -345,14 +383,23 @@ sub build_and_test_kernelgen
 			$libelf_enable32 = 1;
 			$libelf_enable64 = 1;
 			$gcc_enable = 1;
-			$netcdf_enable = 1;
-			$dragonegg_enable = 1;
-			$libffi_enable = 1;
-			$mhash_enable = 1;
-			$glibc_enable = 1;
-			$db_enable = 1;
+			$netcdf_enable32 = 1;
+			$netcdf_enable64 = 1;
+			$dragonegg_enable32 = 1;
+			$dragonegg_enable64 = 1;
+			$libffi_enable32 = 1;
+			$libffi_enable64 = 1;
+			$mhash_enable32 = 1;
+			$mhash_enable64 = 1;
+			$glibc_enable32 = 1;
+			$glibc_enable64 = 1;
+			$enable_db32 = 1;
+			$enable_db64 = 1;
 			$cobol_enable = 1;
-			$mvapich2_enable = 1;
+			$mvapich_enable32 = 1;
+			$mvapich_enable64 = 1;
+			$ibverbs_enable32 = 1;
+			$ibverbs_enable64 = 1;
 			$kernelgen_enable = 1;
 
 			my($LDFLAGS64) = "";
@@ -394,11 +441,6 @@ sub build_and_test_kernelgen
 		{
 			print "Unknown bootstrap mode: $bootstrap_mode\n";
 			return -1;
-		}
-
-		if ($glibc_enable && $glibc32_enable)
-		{
-			$glibc32_enable = 1;
 		}
 	}
 
@@ -793,9 +835,19 @@ sub build_and_test_kernelgen
 	#
 	# Get the source code of MVAPICH2 (used by models KernelGen is designed for).
 	#
-	if (! -e "$SOURCES/$mvapich2_snapshot.tgz")
+	if (! -e "$SOURCES/$mvapich_snapshot.tgz")
 	{
-		my($cmd) = "cd $SOURCES && wget $mvapich2";
+		my($cmd) = "cd $SOURCES && wget $mvapich";
+		print "$cmd\n";
+		`$cmd`;
+	}
+
+	#
+	# Get the source code of Infiniband verbs (used by MVAPICH2).
+	#
+	if (! -e "$SOURCES/$ibverbs_snapshot.tar.gz")
+	{
+		my($cmd) = "cd $SOURCES && wget $ibverbs";
 		print "$cmd\n";
 		`$cmd`;
 	}
@@ -863,6 +915,9 @@ sub build_and_test_kernelgen
 	$cmd = "cp $SOURCES/kernelgen/patches/* $SOURCES/";
 	print "$cmd\n";
 	`$cmd`;
+	$cmd = "cp ../../patches/gcc.patch $SOURCES/";
+	print "$cmd\n";
+	`$cmd`;
 
 	#
 	# Extract kernelgen.spec.in and fill it with the
@@ -900,13 +955,15 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_LIBFFI_SNAP          - The base name of archive with LibFFI source code
 	#   KERNELGEN_MHASH_SNAP           - The base name of archive with MHASH source code
 	#   KERNELGEN_GLIBC_SNAP           - The base name of archive with GLIBC source code
-	#   KERNELGEN_MVAPICH2_SNAP        - The base name of archive with MVAPICH2 source code
+	#   KERNELGEN_MVAPICH_SNAP        - The base name of archive with MVAPICH2 source code
+	#   KERNELGEN_IBVERBS_SNAP         - The base name of archive with IBVERBS source code
 	#   KERNELGEN_DB_SNAP              - The base name of archive with Berkeley DB source code
 	#   KERNELGEN_COBOL_SNAP           - The base name of archive with COBOL source code
 	#
 	#   KERNELGEN_ENABLE_CLOOG32       - Enable 32-bit build of CLooG
 	#   KERNELGEN_ENABLE_CLOOG64       - Enable 64-bit build of CLooG
-	#   KERNELGEN_ENABLE_LLVM          - Enable build of LLVM
+	#   KERNELGEN_ENABLE_LLVM32        - Enable 32-bit build of LLVM
+	#   KERNELGEN_ENABLE_LLVM64        - Enable 64-bit build of LLVM
 	#   KERNELGEN_ENABLE_BINUTILS      - Enable build of BinUtls
 	#   KERNELGEN_ENABLE_GMP           - Enable build of GMP
 	#   KERNELGEN_ENABLE_MPFR          - Enable build of MPFR
@@ -915,14 +972,22 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_ENABLE_LIBELF64      - Enable 64-bit build of LibELF
 	#   KERNELGEN_ENABLE_GCC           - Enable build of GCC
 	#   KERNELGEN_ENABLE_GCC_BOOTSTRAP - Enable GCC bootstrapping (takes more time)
-	#   KERNELGEN_ENABLE_NETCDF        - Enable build of NetCDF
-	#   KERNELGEN_ENABLE_DRAGONEGG     - Enable build of DragonEgg
-	#   KERNELGEN_ENABLE_LIBFFI        - Enable build of LibFFI
-	#   KERNELGEN_ENABLE_MHASH         - Enable build of MHASH
-	#   KERNELGEN_ENABLE_GLIBC         - Enable build of GLIBC
+	#   KERNELGEN_ENABLE_NETCDF32      - Enable 32-bit build of NetCDF
+	#   KERNELGEN_ENABLE_NETCDF64      - Enable 64-bit build of NetCDF
+	#   KERNELGEN_ENABLE_DRAGONEGG32   - Enable 32-bit build of DragonEgg
+	#   KERNELGEN_ENABLE_DRAGONEGG64   - Enable 64-bit build of DragonEgg
+	#   KERNELGEN_ENABLE_LIBFFI32      - Enable 32-bit build of LibFFI
+	#   KERNELGEN_ENABLE_LIBFFI64      - Enable 64-bit build of LibFFI
+	#   KERNELGEN_ENABLE_MHASH32       - Enable 32-bit build of MHASH
+	#   KERNELGEN_ENABLE_MHASH64       - Enable 64-bit build of MHASH
 	#   KERNELGEN_ENABLE_GLIBC32       - Enable 32-bit build of GLIBC
-	#   KERNELGEN_ENABLE_MVAPICH2      - Enable build of MVAPICH2
-	#   KERNELGEN_ENABLE_DB            - Enable build of Berkeley DB
+	#   KERNELGEN_ENABLE_GLIBC64       - Enable 64-bit build of GLIBC
+	#   KERNELGEN_ENABLE_MVAPICH32     - Enable 32-bit build of MVAPICH2
+	#   KERNELGEN_ENABLE_MVAPICH64     - Enable 64-bit build of MVAPICH2
+	#   KERNELGEN_ENABLE_IBVERBS32     - Enable 32-bit build of IBVERBS
+	#   KERNELGEN_ENABLE_IBVERBS64     - Enable 64-bit build of IBVERBS
+	#   KERNELGEN_ENABLE_DB32          - Enable 32-bit build of Berkeley DB
+	#   KERNELGEN_ENABLE_DB64          - Enable 64-bit build of Berkeley DB
 	#   KERNELGEN_ENABLE_COBOL         - Enable build of COBOL
 	#   KERNELGEN_ENABLE_KERNELGEN     - Enable build of KernelGen
 	#
@@ -934,14 +999,14 @@ sub build_and_test_kernelgen
 	$cmd = "mkdir -p $LOGS";
 	print "$cmd\n";
 	`$cmd`;
-	$cmd = "ln -sf $SOURCES $RPMBUILD/";
-	print "$cmd\n";
-	`$cmd`;
+	#$cmd = "ln -sf $SOURCES $RPMBUILD/";
+	#print "$cmd\n";
+	#`$cmd`;
 	open(SPEC, ">$SPECS/kernelgen.spec") or die("Cannot open $SPECS/kernelgen.spec");
 	foreach $line (@lines)
 	{
 		$line =~ s/KERNELGEN_TOPDIR/$TOPDIR/g;
-		$line =~ s/KERNELGEN_ENABLE_DEBUG/$debug/g;
+		$line =~ s/KERNELGEN_ENABLE_DEBUG/$debug_stage/g;
 		$line =~ s/KERNELGEN_REV/$kernelgen_rev/g;
 		$line =~ s/KERNELGEN_LLVM_REV/$llvm_rev/g;
 		$line =~ s/KERNELGEN_GCC_VER/$gcc_version/g;
@@ -968,13 +1033,15 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_LIBFFI_SNAP/$libffi_snapshot/g;
 		$line =~ s/KERNELGEN_MHASH_SNAP/$mhash_snapshot/g;
 		$line =~ s/KERNELGEN_GLIBC_SNAP/$glibc_snapshot/g;
-		$line =~ s/KERNELGEN_MVAPICH2_SNAP/$mvapich2_snapshot/g;
+		$line =~ s/KERNELGEN_MVAPICH_SNAP/$mvapich_snapshot/g;
+		$line =~ s/KERNELGEN_IBVERBS_SNAP/$ibverbs_snapshot/g;
 		$line =~ s/KERNELGEN_DB_SNAP/$db_snapshot/g;
 		$line =~ s/KERNELGEN_COBOL_SNAP/$cobol_snapshot/g;
 
 		$line =~ s/KERNELGEN_ENABLE_CLOOG32/$cloog_enable32/g;
 		$line =~ s/KERNELGEN_ENABLE_CLOOG64/$cloog_enable64/g;
-		$line =~ s/KERNELGEN_ENABLE_LLVM/$llvm_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_LLVM32/$llvm_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_LLVM64/$llvm_enable64/g;
 		$line =~ s/KERNELGEN_ENABLE_BINUTILS/$binutils_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_GMP/$gmp_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_MPFR/$mpfr_enable/g;
@@ -983,14 +1050,22 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_LIBELF64/$libelf_enable64/g;
 		$line =~ s/KERNELGEN_ENABLE_GCC_BOOTSTRAP/$gcc_enable_bootstrap/g;
 		$line =~ s/KERNELGEN_ENABLE_GCC/$gcc_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_NETCDF/$netcdf_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_DRAGONEGG/$dragonegg_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_LIBFFI/$libffi_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_MHASH/$mhash_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_GLIBC32/$glibc32_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_GLIBC/$glibc_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_MVAPICH2/$mvapich2_enable/g;
-		$line =~ s/KERNELGEN_ENABLE_DB/$db_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_NETCDF32/$netcdf_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_NETCDF64/$netcdf_enable64/g;
+		$line =~ s/KERNELGEN_ENABLE_DRAGONEGG32/$dragonegg_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_DRAGONEGG64/$dragonegg_enable64/g;
+		$line =~ s/KERNELGEN_ENABLE_LIBFFI32/$libffi_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_LIBFFI64/$libffi_enable64/g;
+		$line =~ s/KERNELGEN_ENABLE_MHASH32/$mhash_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_MHASH64/$mhash_enable64/g;
+		$line =~ s/KERNELGEN_ENABLE_GLIBC32/$glibc_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_GLIBC64/$glibc_enable64/g;
+		$line =~ s/KERNELGEN_ENABLE_MVAPICH32/$mvapich_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_MVAPICH64/$mvapich_enable64/g;
+		$line =~ s/KERNELGEN_ENABLE_IBVERBS32/$ibverbs_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_IBVERBS64/$ibverbs_enable64/g;
+		$line =~ s/KERNELGEN_ENABLE_DB32/$enable_db32/g;
+		$line =~ s/KERNELGEN_ENABLE_DB64/$enable_db64/g;
 		$line =~ s/KERNELGEN_ENABLE_COBOL/$cobol_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_KERNELGEN/$kernelgen_enable/g;
 

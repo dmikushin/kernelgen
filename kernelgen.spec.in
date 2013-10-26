@@ -57,25 +57,62 @@
 
 # Switch on or off the compilation of particular parts
 # of the package (for bootstrapping).
+
 %define cloog32 KERNELGEN_ENABLE_CLOOG32
 %define cloog64 KERNELGEN_ENABLE_CLOOG64
-%define llvm KERNELGEN_ENABLE_LLVM
+%define cloog (!(!%cloog32 && !%cloog64))
+
+%define llvm32 KERNELGEN_ENABLE_LLVM32
+%define llvm64 KERNELGEN_ENABLE_LLVM64
+%define llvm (!(!%llvm32 && !%llvm64))
+
 %define binutils KERNELGEN_ENABLE_BINUTILS
+
 %define gmp KERNELGEN_ENABLE_GMP
+
 %define mpfr KERNELGEN_ENABLE_MPFR
+
 %define mpc KERNELGEN_ENABLE_MPC
+
 %define libelf32 KERNELGEN_ENABLE_LIBELF32
 %define libelf64 KERNELGEN_ENABLE_LIBELF64
+%define libelf (!(!%libelf32 && !%libelf64))
+
 %define gcc KERNELGEN_ENABLE_GCC
 %define gcc_bootstrap KERNELGEN_ENABLE_GCC_BOOTSTRAP
-%define netcdf KERNELGEN_ENABLE_NETCDF
-%define mvapich2 KERNELGEN_ENABLE_MVAPICH2
-%define dragonegg KERNELGEN_ENABLE_DRAGONEGG
-%define libffi KERNELGEN_ENABLE_LIBFFI
-%define mhash KERNELGEN_ENABLE_MHASH
-%define glibc KERNELGEN_ENABLE_GLIBC
+
+%define netcdf32 KERNELGEN_ENABLE_NETCDF32
+%define netcdf64 KERNELGEN_ENABLE_NETCDF64
+%define netcdf (!(!%netcdf32 && !%netcdf64))
+
+%define ibverbs32 KERNELGEN_ENABLE_IBVERBS32
+%define ibverbs64 KERNELGEN_ENABLE_IBVERBS64
+%define ibverbs (!(!%ibverbs32 && !%ibverbs64))
+
+%define mvapich32 KERNELGEN_ENABLE_MVAPICH32
+%define mvapich64 KERNELGEN_ENABLE_MVAPICH64
+%define mvapich (!(!%mvapich32 && !%mvapich64))
+
+%define dragonegg32 KERNELGEN_ENABLE_DRAGONEGG32
+%define dragonegg64 KERNELGEN_ENABLE_DRAGONEGG64
+%define dragonegg (!(!%dragonegg32 && !%dragonegg64))
+
+%define libffi32 KERNELGEN_ENABLE_LIBFFI32
+%define libffi64 KERNELGEN_ENABLE_LIBFFI64
+%define libffi (!(!%libffi32 && !%libffi64))
+
+%define mhash32 KERNELGEN_ENABLE_MHASH32
+%define mhash64 KERNELGEN_ENABLE_MHASH64
+%define mhash (!(!%mhash32 && !%mhash64))
+
 %define glibc32 KERNELGEN_ENABLE_GLIBC32
-%define db_enable KERNELGEN_ENABLE_DB
+%define glibc64 KERNELGEN_ENABLE_GLIBC64
+%define glibc (!(!%glibc32 && !%glibc64))
+
+%define enable_db32 KERNELGEN_ENABLE_DB32
+%define enable_db64 KERNELGEN_ENABLE_DB64
+%define enable_db (!(!%enable_db32 && !%enable_db64))
+
 %define cobol KERNELGEN_ENABLE_COBOL
 %define kernelgen KERNELGEN_ENABLE_KERNELGEN
 
@@ -97,10 +134,18 @@
 %if "%{build_arch}" == "i686-linux-gnu" 
   %define flags32 CC=\"$CC $LDFLAGS32\" CXX=\"$CXX $LDFLAGS32\" FC=\"$FC $LDFLAGS32\" F77=\"$F77 $LDFLAGS32\"
   %define flags64 CC=\"$CC -m64 $LDFLAGS64\" CXX=\"$CXX -m64 $LDFLAGS64\" FC=\"$FC -m64 $LDFLAGS64\" F77=\"$F77 -m64 $LDFLAGS64\"
+  %define boot_cflags32 BOOT_CFLAGS=\"\"
+  %define boot_cflags64 BOOT_CFLAGS=\"-m64\"
+  %define xgcc_flags_for_target32 XGCC_FLAGS_FOR_TARGET=\"\"
+  %define xgcc_flags_for_target64 XGCC_FLAGS_FOR_TARGET=\"-m64\"
 %endif
 %if "%{build_arch}" == "x86_64-linux-gnu" 
   %define flags32 CC=\"$CC -m32 $LDFLAGS32\" CXX=\"$CXX -m32 $LDFLAGS32\" FC=\"$FC -m32 $LDFLAGS32\" F77=\"$F77 -m32 $LDFLAGS32\"
   %define flags64 CC=\"$CC $LDFLAGS64\" CXX=\"$CXX $LDFLAGS64\" FC=\"$FC $LDFLAGS64\" F77=\"$F77 $LDFLAGS64\"
+  %define boot_cflags32 BOOT_CFLAGS=\"-m32\"
+  %define boot_cflags64 BOOT_CFLAGS=\"\"
+  %define xgcc_flags_for_target32 XGCC_FLAGS_FOR_TARGET=\"-m32\"
+  %define xgcc_flags_for_target64 XGCC_FLAGS_FOR_TARGET=\"\"
 %endif
 
 AutoReq: 0
@@ -140,84 +185,94 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
 #
 %prep
 %if %fullrepack
-%if %llvm
-rm -rf $RPM_BUILD_DIR/llvm
-tar -xf $RPM_SOURCE_DIR/llvm-r%{llvm_rev}.tar.gz
-cd $RPM_BUILD_DIR/llvm/tools
-tar -xf $RPM_SOURCE_DIR/clang-r%{llvm_rev}.tar.gz
-%endif
-cd $RPM_BUILD_DIR
-%if %binutils
-rm -rf $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
-rm -rf $RPM_BUILD_DIR/binutils-snapshot
-tar -xjf $RPM_SOURCE_DIR/KERNELGEN_BINUTILS_SNAP.tar.bz2
-ln -s $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP $RPM_BUILD_DIR/binutils-snapshot
-%endif
-%if %gmp
-rm -rf $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
-tar -xjf $RPM_SOURCE_DIR/KERNELGEN_GMP_SNAP.tar.bz2
-%endif
-%if %mpfr
-rm -rf $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_MPFR_SNAP.tar.gz
-%endif
-%if %mpc
-rm -rf $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_MPC_SNAP.tar.gz
-%endif
-%if %libelf
-rm -rf $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_LIBELF_SNAP.tar.gz
-%endif
-%if %gcc
-rm -rf $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
-rm -rf $RPM_BUILD_DIR/gcc-snapshot
-tar -xjf $RPM_SOURCE_DIR/KERNELGEN_GCC_SNAP.tar.bz2
-ln -s $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP $RPM_BUILD_DIR/gcc-snapshot
-%endif
-%if %netcdf
-rm -rf $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
-rm -rf $RPM_BUILD_DIR/netcdf-snapshot
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_NETCDF_SNAP.tar.gz
-ln -s $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP $RPM_BUILD_DIR/netcdf-snapshot
-%endif
-%if %mvapich2
-rm -rf $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP
-rm -rf $RPM_BUILD_DIR/mvapich2-snapshot
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_MVAPICH2_SNAP.tgz
-ln -s $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP $RPM_BUILD_DIR/mvapich2-snapshot
-%endif
-%if %dragonegg
-rm -rf $RPM_BUILD_DIR/dragonegg
-tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
-%endif
-%if %cloog
-mkdir -p $RPM_BUILD_DIR/llvm/tools
-cd $RPM_BUILD_DIR/llvm/tools
-tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
-rm -rf $RPM_BUILD_DIR/cloog
-cd $RPM_BUILD_DIR
-%endif
-%if %libffi
-rm -rf $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_LIBFFI_SNAP.tar.gz
-%endif
-%if %mhash
-rm -rf $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_MHASH_SNAP.tar.gz
-%endif
-%if %glibc
-rm -rf $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_GLIBC_SNAP.tar.gz
-%endif
-%if %db_enable
-rm -rf $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_DB_SNAP.tar.gz
-%endif
-%if %cobol
-rm -rf $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP
-tar -xf $RPM_SOURCE_DIR/KERNELGEN_COBOL_SNAP.tar.gz
-%endif
+  %if %llvm
+    rm -rf $RPM_BUILD_DIR/llvm
+    tar -xf $RPM_SOURCE_DIR/llvm-r%{llvm_rev}.tar.gz
+    cd $RPM_BUILD_DIR/llvm/tools
+    tar -xf $RPM_SOURCE_DIR/clang-r%{llvm_rev}.tar.gz
+  %endif
+  cd $RPM_BUILD_DIR
+  %if %binutils
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
+    rm -rf $RPM_BUILD_DIR/binutils-snapshot
+    tar -xjf $RPM_SOURCE_DIR/KERNELGEN_BINUTILS_SNAP.tar.bz2
+    ln -s $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP $RPM_BUILD_DIR/binutils-snapshot
+  %endif
+  %if %gmp
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
+    tar -xjf $RPM_SOURCE_DIR/KERNELGEN_GMP_SNAP.tar.bz2
+  %endif
+  %if %mpfr
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_MPFR_SNAP.tar.gz
+  %endif
+  %if %mpc
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_MPC_SNAP.tar.gz
+  %endif
+  %if %libelf
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_LIBELF_SNAP.tar.gz
+  %endif
+  %if %gcc
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
+    rm -rf $RPM_BUILD_DIR/gcc-snapshot
+    tar -xjf $RPM_SOURCE_DIR/KERNELGEN_GCC_SNAP.tar.bz2
+    ln -s $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP $RPM_BUILD_DIR/gcc-snapshot
+  %endif
+  %if %netcdf
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
+    rm -rf $RPM_BUILD_DIR/netcdf-snapshot
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_NETCDF_SNAP.tar.gz
+    ln -s $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP $RPM_BUILD_DIR/netcdf-snapshot
+  %endif
+  %if %ibverbs
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP
+    rm -rf $RPM_BUILD_DIR/ibverbs-snapshot
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_IBVERBS_SNAP.tar.gz
+    ln -s $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP $RPM_BUILD_DIR/ibverbs-snapshot
+  %endif
+  %if %mvapich
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP
+    rm -rf $RPM_BUILD_DIR/mvapich2-snapshot
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_MVAPICH_SNAP.tgz
+    ln -s $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP $RPM_BUILD_DIR/mvapich2-snapshot
+  %endif
+  %if %dragonegg
+    rm -rf $RPM_BUILD_DIR/dragonegg
+    rm -rf $RPM_BUILD_DIR/dragonegg32
+    rm -rf $RPM_BUILD_DIR/dragonegg64
+    tar -xf $RPM_SOURCE_DIR/dragonegg-r%{llvm_rev}.tar.gz
+  %endif
+  %if %cloog
+    mkdir -p $RPM_BUILD_DIR/llvm/tools
+    cd $RPM_BUILD_DIR/llvm/tools
+    tar -xf $RPM_SOURCE_DIR/polly-r%{llvm_rev}.tar.gz
+    rm -rf $RPM_BUILD_DIR/cloog
+    cd $RPM_BUILD_DIR
+  %endif
+  %if %libffi
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_LIBFFI_SNAP.tar.gz
+  %endif
+  %if %mhash
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP32
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP64
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_MHASH_SNAP.tar.gz
+  %endif
+  %if %glibc
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_GLIBC_SNAP.tar.gz
+  %endif
+  %if %enable_db
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_DB_SNAP.tar.gz
+  %endif
+  %if %cobol
+    rm -rf $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP
+    tar -xf $RPM_SOURCE_DIR/KERNELGEN_COBOL_SNAP.tar.gz
+  %endif
 %endif
 
 
@@ -226,11 +281,11 @@ tar -xf $RPM_SOURCE_DIR/KERNELGEN_COBOL_SNAP.tar.gz
 # Apply all source code patches prior to configuring.
 #
 %if %fullrepack
-cd $RPM_BUILD_DIR
-%if %dragonegg
+  cd $RPM_BUILD_DIR
+  %if %dragonegg
 %patch0 -p1
-%endif
-%if %llvm
+  %endif
+  %if %llvm
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
@@ -239,257 +294,347 @@ cd $RPM_BUILD_DIR
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
-%endif
-%if %binutils
+  %endif
+  %if %binutils
 %patch9 -p1
-%endif
-%if %libelf
+  %endif
+  %if %libelf
 %patch10 -p1
-%endif
-%if %glibc
+  %endif
+  %if %glibc
 %patch11 -p1
-%endif
-%if %gcc
+  %endif
+  %if %gcc
 %patch12 -p1
-%endif
-%if %netcdf
+  %endif
+  %if %netcdf
 %patch13 -p1
-%endif
-%if %mvapich2
+  %endif
+  %if %mvapich
 %patch14 -p1
+  %endif
 %endif
-%endif
+
 
 
 %build
 %if %fullrepack
-%if !(!%cloog32 && !%cloog64)
-  sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
-  cd $RPM_BUILD_DIR/cloog
-  ./autogen.sh
-  %if %cloog32
-    #
-    # Configure 32-bit CLooG
-    #
+  %if %cloog
+    sh $RPM_BUILD_DIR/llvm/tools/polly/utils/checkout_cloog.sh $RPM_BUILD_DIR/cloog
     cd $RPM_BUILD_DIR/cloog
+    ./autogen.sh
+    %if %cloog32
+      #
+      # Configure 32-bit CLooG
+      #
+      cd $RPM_BUILD_DIR/cloog
+      mkdir build32
+      cd build32
+      %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-prefix=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib --build=%{build_arch} --host=i686-linux-gnu
+      %{flags32} %{cmd}
+    %endif
+    %if %cloog64
+      #
+      # Configure 64-bit CLooG
+      #
+      cd $RPM_BUILD_DIR/cloog
+      mkdir build64
+      cd build64
+      %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-prefix=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib64 --build=%{build_arch} --host=x86_64-linux-gnu
+      %{flags64} %{cmd}
+    %endif
+  %endif
+  %if %llvm32
+    #
+    # Configure 32-bit LLVM
+    #
+    cd $RPM_BUILD_DIR/llvm
+    mkdir build32
+    cp -rf include/ build32/include/
+    cd build32
+    %define cmd ../configure --enable-jit --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+    %if %debug
+      %{flags32} %{cmd} --enable-debug-runtime --enable-debug-symbols
+    %else
+      %{flags32} %{cmd} --enable-optimized
+    %endif
+  %endif
+  %if %llvm64
+    #
+    # Configure 64-bit LLVM
+    #
+    cd $RPM_BUILD_DIR/llvm
+    mkdir build64
+    cp -rf include/ build64/include/
+    cd build64
+    %define cmd ../configure --enable-jit --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %if %debug
+      %{flags64} %{cmd} --enable-debug-runtime --enable-debug-symbols
+    %else
+      %{flags64} %{cmd} --enable-optimized
+    %endif
+  %endif
+  %if %binutils
+    #
+    # Configure BinUtils
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
+    mkdir build
+    cd build
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-gold=default --disable-ld --enable-plugins --enable-lto --enable-werror=no --build=%{build_arch} --target=%{host_arch}
+    %if "%{host_arch}" == "x86_64-linux-gnu"
+      %{flags64} %{cmd}
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"
+      %{flags32} %{cmd}
+    %endif
+  %endif
+  %if %gmp
+    #
+    # Configure GMP
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
+    mkdir build
+    cd build/
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --build=%{build_arch} --host=%{host_arch}
+    %if "%{host_arch}" == "x86_64-linux-gnu"
+      %{flags64} %{cmd} ABI=64 --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"
+      %{flags32} %{cmd} ABI=32 --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+    %endif
+  %endif
+  %if %mpfr
+    #
+    # Configure MPFR
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
+    mkdir build
+    cd build/
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --build=%{build_arch} --host=%{host_arch}
+    %if "%{host_arch}" == "x86_64-linux-gnu"
+      %{flags64} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"
+      %{flags32} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+    %endif  
+  %endif
+  %if %mpc
+    #
+    # Configure MPC
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
+    mkdir build
+    cd build/
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --build=%{build_arch} --host=%{host_arch}
+    %if "%{host_arch}" == "x86_64-linux-gnu"
+      %{flags64} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"
+      %{flags32} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+    %endif
+  %endif
+  %if %libelf32
+    #
+    # Configure 32-bit LibELF
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
     mkdir build32
     cd build32
-    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-prefix=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib --build=%{build_arch} --target=i686-linux-gnu
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} %{cmd}
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} %{cmd}
-    %endif  
-  %endif
-  %if %cloog64
+    %define cmd CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --enable-elf64=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib --build=%{build_arch} --host=i686-linux-gnu
+    %{flags32} %{cmd}
+%endif
+  %if %libelf64
     #
-    # Configure 64-bit CLooG
+    # Configure 64-bit LibELF
     #
-    cd $RPM_BUILD_DIR/cloog
+    cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
     mkdir build64
     cd build64
-    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-prefix=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib64 --build=%{build_arch} --target=x86_64-linux-gnu
+    %define cmd CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --enable-elf64=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib64 --build=%{build_arch} --host=x86_64-linux-gnu
+    %{flags64} %{cmd}
+  %endif
+  %if %gcc
+    #
+    # Configure GCC
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
+    mkdir build
+    cd build/
+    %define cmd ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-ld --libdir=$RPM_BUILD_ROOT/%{prefix}lib 
+    %if "%{host_arch}" == "x86_64-linux-gnu"
+      %if %gcc_bootstrap
+        %{flags64} %{cmd}
+      %else
+        %{flags64} %{cmd} --disable-bootstrap
+      %endif
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"
+      %if %gcc_bootstrap
+        %{flags32} %{cmd}
+      %else
+        %{flags32} %{cmd} --disable-bootstrap
+      %endif
+    %endif
+  %endif
+  %if %netcdf32
+    #
+    # Configure 32-bit NetCDF
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
+    mkdir build32
+    cd build32/
+    KERNELGEN_FALLBACK=1 %{flags64} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-netcdf-4 --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+  %endif
+  %if %netcdf64
+    #
+    # Configure 64-bit NetCDF
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
+    mkdir build64
+    cd build64/
+    KERNELGEN_FALLBACK=1 %{flags64} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-netcdf-4 --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+  %endif
+  %if %ibverbs32
+    #
+    # Configure 32-bit IBVERBS
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP
+    mkdir build32
+    cd build32/
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib
     %if "%{host_arch}" == "x86_64-linux-gnu"
       %{flags64} %{cmd}
     %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
+    %if "%{host_arch}" == "i686-linux-gnu"  
       %{flags32} %{cmd}
-    %endif  
+    %endif
   %endif
-%endif
-%if %llvm
-#
-# Configure LLVM
-#
-cd $RPM_BUILD_DIR/llvm
-mkdir build
-cp -rf include/ build/include/
-cd build
-%if %debug
-%flags64 ../configure --enable-jit --enable-debug-runtime --enable-debug-symbols --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib --program-prefix=kernelgen-
-%else
-%flags64 ../configure --enable-jit --enable-optimized --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --libdir=$RPM_BUILD_ROOT/%{prefix}lib --program-prefix=kernelgen-
-%endif
-%endif
-%if %binutils
-  #
-  # Configure BinUtils
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
-  mkdir build
-  cd build
-  %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-gold=default --disable-ld --enable-plugins --enable-lto --enable-werror=no --build=%{build_arch} --target=%{host_arch}
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} %{cmd}
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} %{cmd}
-  %endif
-%endif
-%if %gmp
-  #
-  # Configure GMP
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP
-  mkdir build
-  cd build/
-  %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes ABI=%{host_arch} --build=%{build_arch} --target=%{host_arch}
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib
-  %endif
-%endif
-%if %mpfr
-  #
-  # Configure MPFR
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP
-  mkdir build
-  cd build/
-  %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --build=%{build_arch} --target=%{host_arch}
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib
-  %endif  
-%endif
-%if %mpc
-  #
-  # Configure MPC
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP
-  mkdir build
-  cd build/
-  %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --build=%{build_arch} --target=%{host_arch}
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} %{cmd} --libdir=$RPM_BUILD_ROOT/%{prefix}lib
-  %endif
-%endif
-%if %libelf32
-  #
-  # Configure 32-bit LibELF
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
-  mkdir build32
-  cd build32
-  %define cmd CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --enable-elf64=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib --build=%{build_arch} --target=i686-linux-gnu
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} %{cmd}
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} %{cmd}
-  %endif
-%endif
-%if %libelf64
-  #
-  # Configure 64-bit LibELF
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP
-  mkdir build64
-  cd build64
-  %define cmd CFLAGS="-g -O2 -fPIC" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --enable-elf64=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib64 --build=%{build_arch} --target=x86_64-linux-gnu
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} %{cmd}
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} %{cmd}
-  %endif  
-%endif
-%if %gcc
-  #
-  # Configure GCC
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
-  mkdir build
-  cd build/
-  %define cmd ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-ld --disable-multilib --libdir=$RPM_BUILD_ROOT/%{prefix}lib --build=%{build_arch} --host=%{host_arch} --target=%{target_arch}
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %if %gcc_bootstrap
+  %if %ibverbs64
+    #
+    # Configure 64-bit IBVERBS
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP
+    mkdir build64
+    cd build64/
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %if "%{host_arch}" == "x86_64-linux-gnu"
       %{flags64} %{cmd}
-    %else
-      %{flags64} %{cmd} --disable-bootstrap
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %if %gcc_bootstrap
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"  
       %{flags32} %{cmd}
+    %endif
+  %endif
+  %if %mvapich32
+    #
+    # Configure 32-bit MVAPICH
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP
+    mkdir build32
+    cd build32
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+    %if %debug
+      KERNELGEN_FALLBACK=1 %{flags64} %{cmd} CFLAGS="-O0 -DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\"" --enable-debuginfo
     %else
-      %{flags32} %{cmd} --disable-bootstrap
+      KERNELGEN_FALLBACK=1 %{flags64} %{cmd} CFLAGS="-DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\""
+    %endif
+  %endif
+  %if %mvapich64
+    #
+    # Configure 64-bit MVAPICH
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP
+    mkdir build64
+    cd build64
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %if %debug
+      KERNELGEN_FALLBACK=1 %{flags64} %{cmd} CFLAGS="-O0 -DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\"" --enable-debuginfo
+    %else
+      KERNELGEN_FALLBACK=1 %{flags64} %{cmd} CFLAGS="-DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\""
+    %endif
+  %endif
+  %if %libffi32
+    #
+    # Configure 32-bit LibFFI
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
+    mkdir build32
+    cd build32
+    %{flags32} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+  %endif
+  %if %libffi64
+    #
+    # Configure 64-bit LibFFI
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
+    mkdir build64
+    cd build64
+    %{flags64} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+  %endif
+  %if %mhash32
+    #
+    # Configure 32-bit MHASH
+    #
+    cp -rf $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP32
+    cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP32
+    %{flags32} ./configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+  %endif
+  %if %mhash64
+    #
+    # Configure 64-bit MHASH
+    #
+    cp -rf $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP64
+    cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP64
+    %{flags64} ./configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+  %endif
+  %if %glibc32
+    #
+    # Configure 32-bit GLIBC
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
+    mkdir build32
+    cd build32
+    %{flags32} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32 --host=i686-linux-gnu --build=%{build_arch} CFLAGS="$CFLAGS -march=i686" --enable-obsolete-rpc
+    echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32" >>config.make
+  %endif
+  %if %glibc64
+    #
+    # Configure 64-bit GLIBC
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
+    mkdir build64
+    cd build64
+    %{flags64} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --host=x86_64-linux-gnu --build=%{build_arch} --enable-obsolete-rpc
+    echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/" >>config.make
+    cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
+  %endif
+%if %enable_db32
+  #
+  # Configure 32-bit Berkeley DB
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
+  mkdir build32
+  cd build32/
+  %define cmd ../dist/configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+  %if %debug
+    KERNELGEN_FALLBACK=1 %{flags32} %{cmd} --enable-debug
+  %else
+    KERNELGEN_FALLBACK=1 %{flags32} %{cmd}
   %endif
 %endif
-%if %netcdf
-#
-# Configure NetCDF
-#
-cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
-mkdir build
-cd build/
-KERNELGEN_FALLBACK=1 %flags64 ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-netcdf-4 --libdir=$RPM_BUILD_ROOT/%{prefix}lib
-%endif
-%if %mvapich2
-#
-# Configure MVAPICH2
-#
-cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP
-mkdir build
-cd build
-%if %debug
-KERNELGEN_FALLBACK=1 %flags64 CFLAGS="-O0 -DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\""  ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --enable-debuginfo
-%else
-KERNELGEN_FALLBACK=1 %flags64 CFLAGS="-DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\"" ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared
-%endif
-%endif
-%if %libffi
-#
-# Configure LibFFI
-#
-cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP
-mkdir build
-cd build
-%flags64 ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib
-%endif
-%if %mhash
-#
-# Configure MHASH
-#
-cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
-%flags64 ./configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib
-%endif
-%if %glibc
-#
-# Configure GLIBC (64-bit and 32-bit)
-#
-cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
-mkdir build
-cd build
-%flags64 ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --host=x86_64-linux-gnu --build=x86_64-linux-gnu --enable-obsolete-rpc
-echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/" >>config.make
-cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
-%if %glibc32
-mkdir build-32
-cd build-32
-%flags32 ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32 --host=i686-linux-gnu --build=i686-linux-gnu CFLAGS="$CFLAGS -march=i686" --enable-obsolete-rpc
-echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32" >>config.make
-%endif
-%endif
-%if %db_enable
-#
-# Configure Berkeley DB
-#
-cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
-mkdir build
-cd build/
-%if %debug
-KERNELGEN_FALLBACK=1 %flags64 ../dist/configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-debug
-%else
-KERNELGEN_FALLBACK=1 %flags64 ../dist/configure --prefix=$RPM_BUILD_ROOT/%{prefix}
-%endif
+%if %enable_db64
+  #
+  # Configure 64-bit Berkeley DB
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
+  mkdir build64
+  cd build64/
+  %define cmd ../dist/configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+  %if %debug
+    KERNELGEN_FALLBACK=1 %{flags64} %{cmd} --enable-debug
+  %else
+    KERNELGEN_FALLBACK=1 %{flags64} %{cmd}
+  %endif
 %endif
 %if %cobol
 #
@@ -534,19 +679,9 @@ cd $RPM_BUILD_DIR
   #
   cd $RPM_BUILD_DIR/cloog/build32
   %if %debug
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} make -j%{njobs} CXXFLAGS=-O0
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} make -j%{njobs} CXXFLAGS=-O0
-    %endif 
+    %{flags32} make -j%{njobs} CXXFLAGS=-O0
   %else
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} make -j%{njobs}
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} make -j%{njobs}
-    %endif 
+    %{flags32} make -j%{njobs}
   %endif
 %endif
 %if %cloog64
@@ -555,31 +690,32 @@ cd $RPM_BUILD_DIR
   #
   cd $RPM_BUILD_DIR/cloog/build64
   %if %debug
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} make -j%{njobs} CXXFLAGS=-O0
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} make -j%{njobs} CXXFLAGS=-O0
-    %endif 
+    %{flags64} make -j%{njobs} CXXFLAGS=-O0
   %else
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} make -j%{njobs}
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} make -j%{njobs}
-    %endif 
+    %{flags64} make -j%{njobs}
   %endif
 %endif
-%if %llvm
-#
-# Build LLVM
-#
-cd $RPM_BUILD_DIR/llvm/build
-%if %debug
-%flags64 make -j%{njobs} CXXFLAGS=-O0
-%else
-%flags64 make -j%{njobs}
+%if %llvm32
+  #
+  # Build 32-bit LLVM
+  #
+  cd $RPM_BUILD_DIR/llvm/build32
+  %if %debug
+    %{flags32} make -j%{njobs} CXXFLAGS=-O0
+  %else
+    %{flags32} make -j%{njobs}
+  %endif
 %endif
+%if %llvm64
+  #
+  # Build 64-bit LLVM
+  #
+  cd $RPM_BUILD_DIR/llvm/build64
+  %if %debug
+    %{flags64} make -j%{njobs} CXXFLAGS=-O0
+  %else
+    %{flags64} make -j%{njobs}
+  %endif
 %endif
 %if %binutils
   #
@@ -588,16 +724,16 @@ cd $RPM_BUILD_DIR/llvm/build
   cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
   %if "%{host_arch}" == "x86_64-linux-gnu"
     %if %debug
-      %flags64 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+      %{flags64} make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %else
-      %flags64 make -j%{njobs}
+      %{flags64} make -j%{njobs}
     %endif
   %endif
   %if "%{host_arch}" == "i686-linux-gnu"
     %if %debug
-      %flags32 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+      %{flags32} make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %else
-      %flags32 make -j%{njobs}
+      %{flags32} make -j%{njobs}
     %endif
   %endif
 %endif
@@ -608,16 +744,16 @@ cd $RPM_BUILD_DIR/llvm/build
   cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP/build
   %if "%{host_arch}" == "x86_64-linux-gnu"
     %if %debug
-      %flags64 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %else
-      %flags64 KERNELGEN_FALLBACK=1 make -j%{njobs}
+      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
     %endif
   %endif
   %if "%{host_arch}" == "i686-linux-gnu"
     %if %debug
-      %flags32 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %else
-      %flags32 KERNELGEN_FALLBACK=1 make -j%{njobs}
+      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs}
     %endif
   %endif
 %endif
@@ -628,16 +764,16 @@ cd $RPM_BUILD_DIR/llvm/build
   cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP/build
   %if "%{host_arch}" == "x86_64-linux-gnu"
     %if %debug
-      %flags64 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %else
-      %flags64 KERNELGEN_FALLBACK=1 make -j%{njobs}
+      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
     %endif
   %endif
   %if "%{host_arch}" == "i686-linux-gnu"
     %if %debug
-      %flags32 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %else
-      %flags32 KERNELGEN_FALLBACK=1 make -j%{njobs}
+      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs}
     %endif
   %endif
 %endif
@@ -648,16 +784,16 @@ cd $RPM_BUILD_DIR/llvm/build
   cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP/build
   %if "%{host_arch}" == "x86_64-linux-gnu"
     %if %debug
-      %flags64 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %else
-      %flags64 KERNELGEN_FALLBACK=1 make -j%{njobs}
+      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
     %endif
   %endif
   %if "%{host_arch}" == "i686-linux-gnu"
     %if %debug
-      %flags32 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %else
-      %flags KERNELGEN_FALLBACK=1 make -j%{njobs}
+      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
     %endif
   %endif
 %endif
@@ -667,19 +803,9 @@ cd $RPM_BUILD_DIR/llvm/build
   #
   cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build32
   %if %debug
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0 -fPIC -shared"
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0 -fPIC -shared"
-    %endif 
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0 -fPIC -shared"
   %else
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -fPIC -shared"
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -fPIC -shared"
-    %endif 
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -fPIC -shared"
   %endif
 %endif
 %if %libelf64
@@ -688,19 +814,9 @@ cd $RPM_BUILD_DIR/llvm/build
   #
   cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build64
   %if %debug
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0 -fPIC -shared"
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0 -fPIC -shared"
-    %endif 
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0 -fPIC -shared"
   %else
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -fPIC -shared"
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -fPIC -shared"
-    %endif 
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -fPIC -shared"
   %endif
 %endif
 %if %gcc
@@ -711,99 +827,188 @@ cd $RPM_BUILD_DIR/llvm/build
   %if %debug
     %define cmd CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/%{prefix}include:$RPM_INSTALL_PREFIX/%{prefix}include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
     %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} %{cmd}
+      %{flags64} %{cmd} %{boot_cflags64} %{xgcc_flags_for_target64}
     %endif
     %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} %{cmd}
+      %{flags32} %{cmd} %{boot_cflags32} %{xgcc_flags_for_target32}
     %endif 
   %else
     %define cmd CPLUS_INCLUDE_PATH=$RPM_INSTALL_PREFIX/%{prefix}include:$RPM_INSTALL_PREFIX/%{prefix}include/libelf KERNELGEN_FALLBACK=1 make -j%{njobs}
     %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} %{cmd}
+      %{flags64} %{cmd} %{boot_cflags64} %{xgcc_flags_for_target64}
     %endif
     %if "%{host_arch}" == "i686-linux-gnu"
-      %{flags32} %{cmd}
+      %{flags32} %{cmd} %{boot_cflags32} %{xgcc_flags_for_target32}
     %endif 
   %endif
 %endif
-%if %netcdf
-#
-# Build NetCDF
-#
-cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
-%if %debug
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0" FFLAGS="-g -O0" FCFLAGS="-g -O0"
-%else
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs}
+%if %netcdf32
+  #
+  # Build 32-bit NetCDF
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build32
+  %if %debug
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0" FFLAGS="-g -O0" FCFLAGS="-g -O0"
+  %else
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs}
+  %endif
 %endif
+%if %netcdf64
+  #
+  # Build 64-bit NetCDF
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build64
+  %if %debug
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0" FFLAGS="-g -O0" FCFLAGS="-g -O0"
+  %else
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
+  %endif
 %endif
-%if %mvapich2
-#
-# Build MVAPICH2
-#
-cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP/build
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs}
+%if %ibverbs32
+  #
+  # Build 32-bit IBVERBS
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build32
+  %if %debug
+    %{flags32} make -j%{njobs} CFLAGS=-O0
+  %else
+    %{flags32} make -j%{njobs}
+  %endif
 %endif
-%if %dragonegg
-#
-# Build DragonEgg
-#
-cd $RPM_BUILD_DIR/dragonegg
-%if %debug
-GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Debug+Asserts/bin/llvm-config make clean
-%flags64 CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Debug+Asserts/bin/llvm-config make CXXFLAGS="-g -O0 -fPIC"
-%else
-GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make clean
-%flags64 CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build/Release+Asserts/bin/llvm-config make
+%if %ibverbs64
+  #
+  # Build 64-bit IBVERBS
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build64
+  %if %debug
+    %{flags64} make -j%{njobs} CFLAGS=-O0
+  %else
+    %{flags64} make -j%{njobs}
+  %endif
 %endif
+%if %mvapich32
+  #
+  # Build 32-bit MVAPICH
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build32
+  %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
-%if %libffi
-#
-# Build LibFFI
-#
-cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP/build
-%if %debug
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
-%else
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs}
+%if %mvapich64
+  #
+  # Build 64-bit MVAPICH
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build64
+  %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
 %endif
+%if %dragonegg32
+  #
+  # Build 32-bit DragonEgg
+  #
+  cp -rf $RPM_BUILD_DIR/dragonegg $RPM_BUILD_DIR/dragonegg32
+  cd $RPM_BUILD_DIR/dragonegg32
+  %define cmd CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc make
+  %if %debug
+    %{cmd} clean
+    %{flags32} LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build32/Debug+Asserts/bin/llvm-config %{cmd} CXXFLAGS="-g -O0 -fPIC"
+  %else
+    %{cmd} make clean
+    %{flags32} LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build32/Release+Asserts/bin/llvm-config %{cmd} %{cmd} make
+  %endif
 %endif
-%if %mhash
-#
-# Build MHASH
-#
-cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
-%if %debug
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
-%else
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs}
+%if %dragonegg64
+  #
+  # Build 64-bit DragonEgg
+  #
+  cp -rf $RPM_BUILD_DIR/dragonegg $RPM_BUILD_DIR/dragonegg64
+  cd $RPM_BUILD_DIR/dragonegg64
+  %define cmd CPLUS_INCLUDE_PATH=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/include/:$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/libcpp/include/ GCC=$RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build/gcc/xgcc make
+  %if %debug
+    %{cmd} clean
+    %{flags64} LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build64/Debug+Asserts/bin/llvm-config %{cmd} CXXFLAGS="-g -O0 -fPIC"
+  %else
+    %{cmd} make clean
+    %{flags64} LLVM_CONFIG=$RPM_BUILD_DIR/llvm/build64/Release+Asserts/bin/llvm-config %{cmd} %{cmd} make
+  %endif
 %endif
+%if %libffi32
+  #
+  # Build 32-bit LibFFI
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP/build32
+  %if %debug
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+  %else
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs}
+  %endif
 %endif
-%if %glibc
-#
-# Build GLIBC (64-bit and 32-bit)
-#
-cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build
-%if %debug
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen"
-%else
-%flags64 KERNELGEN_FALLBACK=1 make -j%{njobs}
+%if %libffi64
+  #
+  # Build 64-bit LibFFI
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP/build64
+  %if %debug
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+  %else
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
+  %endif
+%endif
+%if %mhash32
+  #
+  # Build 32-bit MHASH
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP32
+  %if %debug
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+  %else
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs}
+  %endif
+%endif
+%if %mhash64
+  #
+  # Build 64-bit MHASH
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP64
+  %if %debug
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+  %else
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
+  %endif
 %endif
 %if %glibc32
-cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
-%if %debug
-CC="$CC $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen -march=i686"
-%else
-%flags32 KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686"
+  #
+  # Build 32-bit GLIBC
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build32
+  %if %debug
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen -march=i686"
+  %else
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686"
+  %endif
 %endif
+%if %glibc64
+  #
+  # Build 64-bit GLIBC
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build64
+  %if %debug
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen"
+  %else
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
+  %endif
 %endif
+%if %enable_db32
+  #
+  # Build 32-bit Berkeley DB.
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build32
+  make -j%{njobs}
 %endif
-%if %db_enable
-#
-# Build Berkeley DB.
-#
-cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build
-make -j%{njobs}
+%if %enable_db64
+  #
+  # Build 64-bit Berkeley DB.
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build64
+  make -j%{njobs}
 %endif
 %if %cobol
 #
@@ -835,51 +1040,85 @@ rm -rf $RPM_BUILD_ROOT
   # Install 32-bit CLooG
   #
   cd $RPM_BUILD_DIR/cloog/build32
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} make install -j%{njobs}
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} make install -j%{njobs}
-  %endif
+  %{flags32} make install -j%{njobs}
 %endif
 %if %cloog64
   #
   # Install 64-bit CLooG
   #
-  cd $RPM_BUILD_DIR/cloog/build64
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} make install -j%{njobs}
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
+  %{flags64} make install -j%{njobs}
+%endif
+%if "%{host_arch}" == "x86_64-linux-gnu"
+  %if %llvm32
+    #
+    # Install 32-bit LLVM first
+    #
+    cd $RPM_BUILD_DIR/llvm/build32
     %{flags32} make install -j%{njobs}
   %endif
+  %if %llvm64
+    #
+    # Install 64-bit LLVM on top of 32-bit
+    #
+    cd $RPM_BUILD_DIR/llvm/build64
+    %{flags64} make install -j%{njobs}
+  %endif    
 %endif
-%if %llvm
-#
-# Install LLVM
-#
-cd $RPM_BUILD_DIR/llvm/build
-%flags64 make install -j%{njobs}
+%if "%{host_arch}" == "i686-linux-gnu"
+  %if %llvm64
+    #
+    # Install 64-bit LLVM first
+    #
+    cd $RPM_BUILD_DIR/llvm/build64
+    %{flags64} make install -j%{njobs}
+  %endif
+  %if %llvm32
+    #
+    # Install 32-bit LLVM on top of 64-bit
+    #
+    cd $RPM_BUILD_DIR/llvm/build32
+    %{flags32} make install -j%{njobs}
+  %endif    
 %endif
-%if %dragonegg
-#
-# Install DragonEgg
-#
-cp $RPM_BUILD_DIR/dragonegg/dragonegg.so $RPM_BUILD_ROOT/%{prefix}lib/
+%if %dragonegg32
+  #
+  # Install 32-bit DragonEgg
+  #
+  cp $RPM_BUILD_DIR/dragonegg32/dragonegg.so $RPM_BUILD_ROOT/%{prefix}lib/
 %endif
-%if %libffi
-#
-# Install LibFFI
-#
-cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP/build
-%flags64 KERNELGEN_FALLBACK=1 make install
+%if %dragonegg64
+  #
+  # Install 64-bit DragonEgg
+  #
+  cp $RPM_BUILD_DIR/dragonegg64/dragonegg.so $RPM_BUILD_ROOT/%{prefix}lib64/
 %endif
-%if %mhash
-#
-# Install MHASH
-#
-cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP
-%flags64 KERNELGEN_FALLBACK=1 make install
+%if %libffi32
+  #
+  # Install 32-bit LibFFI
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP/build32
+  %{flags32} KERNELGEN_FALLBACK=1 make install
+%endif
+%if %libffi64
+  #
+  # Install 64-bit LibFFI
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_LIBFFI_SNAP/build64
+  %{flags32} KERNELGEN_FALLBACK=1 make install
+%endif
+%if %mhash32
+  #
+  # Install 32-bit MHASH
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP32
+  %{flags32} KERNELGEN_FALLBACK=1 make install
+%endif
+%if %mhash64
+  #
+  # Install 64-bit MHASH
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP64
+  %{flags64} KERNELGEN_FALLBACK=1 make install
 %endif
 %if %kernelgen
 #
@@ -941,65 +1180,179 @@ cd $RPM_BUILD_DIR/kernelgen/build
   # Install 32-bit LibELF
   #
   cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build32
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
-  %endif
+  %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 %if %libelf64
   #
   # Install 64-bit LibELF
   #
   cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build64
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
-  %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
-  %endif
+  %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 %if %gcc
-#
-# Install GCC
-#
-cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
-%flags64 CPLUS_INCLUDE_PATH=$RPM_BUILD_ROOT/%{prefix}include:$RPM_BUILD_ROOT/%{prefix}include/libelf KERNELGEN_FALLBACK=1 make install
+  #
+  # Install GCC
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP/build
+  %if %debug
+    %define cmd CPLUS_INCLUDE_PATH=$RPM_BUILD_ROOT/%{prefix}include:$RPM_BUILD_ROOT/%{prefix}include/libelf KERNELGEN_FALLBACK=1 make install CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+    %if "%{host_arch}" == "x86_64-linux-gnu"
+      %{flags64} %{cmd} %{boot_cflags64} %{xgcc_flags_for_target64}
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"
+      %{flags32} %{cmd} %{boot_cflags32} %{xgcc_flags_for_target32}
+    %endif 
+  %else
+    %define cmd CPLUS_INCLUDE_PATH=$RPM_BUILD_ROOT/%{prefix}include:$RPM_BUILD_ROOT/%{prefix}include/libelf KERNELGEN_FALLBACK=1 make install
+    %if "%{host_arch}" == "x86_64-linux-gnu"
+      %{flags64} %{cmd} %{boot_cflags64} %{xgcc_flags_for_target64}
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"
+      %{flags32} %{cmd} %{boot_cflags32} %{xgcc_flags_for_target32}
+    %endif 
+  %endif
 %endif
-%if %mvapich2
-#
-# Install MVAPICH2
-#
-cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH2_SNAP/build
-%flags64 KERNELGEN_FALLBACK=1 make install -j%{njobs}
-cd $RPM_BUILD_ROOT/%{prefix}bin
-ln -s kernelgen-mpirun_rsh kernelgen-mpirun
+%if "%{host_arch}" == "x86_64-linux-gnu"
+  %if %ibverbs32
+    #
+    # Install 32-bit IBVERBS first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build32
+    %{flags32} make install -j%{njobs}
+  %endif
+  %if %ibverbs64
+    #
+    # Install 64-bit IBVERBS on top of 32-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build64
+    %{flags64} make install -j%{njobs}
+  %endif    
 %endif
-%if %netcdf
-#
-# Install NetCDF
-#
-cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build
-%flags64 KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%if "%{host_arch}" == "i686-linux-gnu"
+  %if %ibverbs64
+    #
+    # Install 64-bit IBVERBS first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build64
+    %{flags64} make install -j%{njobs}
+  %endif
+  %if %ibverbs32
+    #
+    # Install 32-bit IBVERBS on top of 64-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build32
+    %{flags32} make install -j%{njobs}
+  %endif    
 %endif
-%if %glibc
-#
-# Install GLIBC (64-bit and 32-bit)
-#
-cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build
-%flags64 KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%if "%{host_arch}" == "x86_64-linux-gnu"
+  %if %mvapich32
+    #
+    # Install 32-bit MVAPICH first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build32
+    %{flags32} make install -j%{njobs}
+  %endif
+  %if %mvapich64
+    #
+    # Install 64-bit MVAPICH on top of 32-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build64
+    %{flags64} make install -j%{njobs}
+  %endif    
+%endif
+%if "%{host_arch}" == "i686-linux-gnu"
+  %if %mvapich64
+    #
+    # Install 64-bit MVAPICH first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build64
+    %{flags64} make install -j%{njobs}
+  %endif
+  %if %mvapich32
+    #
+    # Install 32-bit MVAPICH on top of 64-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build32
+    %{flags32} make install -j%{njobs}
+  %endif    
+%endif
+%if "%{host_arch}" == "x86_64-linux-gnu"
+  %if %netcdf32
+    #
+    # Install 32-bit NETCDF first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build32
+    %{flags32} make install -j%{njobs}
+  %endif
+  %if %netcdf64
+    #
+    # Install 64-bit NETCDF on top of 32-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build64
+    %{flags64} make install -j%{njobs}
+  %endif    
+%endif
+%if "%{host_arch}" == "i686-linux-gnu"
+  %if %netcdf64
+    #
+    # Install 64-bit NETCDF first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build64
+    %{flags64} make install -j%{njobs}
+  %endif
+  %if %netcdf32
+    #
+    # Install 32-bit NETCDF on top of 64-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build32
+    %{flags32} make install -j%{njobs}
+  %endif    
+%endif
+%if %glibc64
+  #
+  # Install 64-bit GLIBC
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build64
+  %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%endif
 %if %glibc32
-cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build-32
-CC="$CC $LDFLAGS32" CXX="$CXX $LDFLAGS32" FC="$FC $LDFLAGS32" F77="$F77 $LDFLAGS32" KERNELGEN_FALLBACK=1 make install -j%{njobs}
+  #
+  # Install 32-bit GLIBC
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build32
+  %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
+%if "%{host_arch}" == "x86_64-linux-gnu"
+  %if %enable_db32
+    #
+    # Install 32-bit DB first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build32
+    %{flags32} make install -j%{njobs}
+  %endif
+  %if %enable_db64
+    #
+    # Install 64-bit DB on top of 32-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build64
+    %{flags64} make install -j%{njobs}
+  %endif    
 %endif
-%if %db_enable
-#
-# Install DB
-#
-cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build
-%flags64 KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%if "%{host_arch}" == "i686-linux-gnu"
+  %if %enable_db64
+    #
+    # Install 64-bit DB first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build64
+    %{flags64} make install -j%{njobs}
+  %endif
+  %if %enable_db32
+    #
+    # Install 32-bit DB on top of 64-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build32
+    %{flags32} make install -j%{njobs}
+  %endif    
 %endif
 %if %cobol
 #
