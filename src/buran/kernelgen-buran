@@ -1123,7 +1123,7 @@ switch ($target)
 		#
 		# Execute the test suite and report the result.
 		#
-		my($report) = auto_test($SOURCES, $kernelgen_tests);
+		my($report) = auto_test($SOURCES, $kernelgen_tests, $kernelgen_rev);
 
 		#
 		# Record build end time.
