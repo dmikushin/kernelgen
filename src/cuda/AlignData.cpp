@@ -23,6 +23,7 @@
 
 #include "Cuda.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <elf.h>
 #include <fcntl.h>
@@ -32,6 +33,13 @@
 #include <vector>
 
 using namespace std;
+
+static bool sortSymbolsByOffset(
+  const pair<uint64_t, pair<GElf_Sym, int> >& a,
+  const pair<uint64_t, pair<GElf_Sym, int> >& b) {
+  if (a.first < b.first) return true;
+  return false;
+}
 
 // Align cubin global data to the specified boundary.
 void kernelgen::bind::cuda::CUBIN::AlignData(const char *cubin, size_t align) {
@@ -63,7 +71,7 @@ void kernelgen::bind::cuda::CUBIN::AlignData(const char *cubin, size_t align) {
       throw;
     }
     Elf_Data *symbols = NULL;
-    int nsymbols = 0, nsections = 0, link = 0;
+    int nsymbols = 0, nsections = 0, strndx = 0;
     Elf_Scn *scn = elf_nextscn(e, NULL);
     Elf_Scn *sconst, *sglobal, *sglobal_init = NULL;
     GElf_Shdr shconst, shglobal, shglobal_init;
@@ -86,7 +94,7 @@ void kernelgen::bind::cuda::CUBIN::AlignData(const char *cubin, size_t align) {
         }
         if (shdr.sh_entsize)
           nsymbols = shdr.sh_size / shdr.sh_entsize;
-        link = shdr.sh_link;
+        strndx = shdr.sh_link;
       }
 
       char *name = NULL;
@@ -161,29 +169,40 @@ void kernelgen::bind::cuda::CUBIN::AlignData(const char *cubin, size_t align) {
       }
       char *dconst = (char *)data->d_buf;
 
-      char *pconst = (char *)dconst;
-      char *pconst_new = (char *)&vconst_new[0];
-      memset(pconst_new, 0, szconst_new);
-      szconst_new = 0;
+      // Sort symbols to keep up the existing data ordering.
+      map<uint64_t, pair<GElf_Sym, int> > msymbols;
       for (int isymbol = 0; isymbol < nsymbols; isymbol++) {
         GElf_Sym symbol;
         gelf_getsym(symbols, isymbol, &symbol);
 
-        if (symbol.st_shndx == iconst) {
-          memcpy(pconst_new, pconst + symbol.st_value,
-                 symbol.st_size);
+        if (symbol.st_shndx == iconst)
+          msymbols[symbol.st_value] = pair<GElf_Sym, int>(symbol, isymbol);
+      }
+      vector<pair<uint64_t, pair<GElf_Sym, int> > > vsymbols(
+        msymbols.begin(), msymbols.end());
+      sort(vsymbols.begin(), vsymbols.end(), sortSymbolsByOffset);
 
-          symbol.st_value = szconst_new;
-          if (symbol.st_size % align)
-            symbol.st_size += align - symbol.st_size % align;
-          szconst_new += symbol.st_size;
-          pconst_new += symbol.st_size;
+      char *pconst = (char *)dconst;
+      char *pconst_new = (char *)&vconst_new[0];
+      memset(pconst_new, 0, szconst_new);
+      szconst_new = 0;
+      for (int i = 0, e = vsymbols.size(); i != e; i++) {
+        GElf_Sym& symbol = vsymbols[i].second.first;
+        int isymbol = vsymbols[i].second.second;
+      
+        memcpy(pconst_new, pconst + symbol.st_value,
+               symbol.st_size);
 
-          if (!gelf_update_sym(symbols, isymbol, &symbol)) {
-            fprintf(stderr, "gelf_update_sym() failed for %s: %s\n", cubin,
-                    elf_errmsg(-1));
-            throw;
-          }
+        symbol.st_value = szconst_new;
+        if (symbol.st_size % align)
+          symbol.st_size += align - symbol.st_size % align;
+        szconst_new += symbol.st_size;
+        pconst_new += symbol.st_size;
+
+        if (!gelf_update_sym(symbols, isymbol, &symbol)) {
+          fprintf(stderr, "gelf_update_sym() failed for %s: %s\n", cubin,
+                  elf_errmsg(-1));
+          throw;
         }
       }
 
@@ -232,29 +251,40 @@ void kernelgen::bind::cuda::CUBIN::AlignData(const char *cubin, size_t align) {
       }
       char *dglobal_init = (char *)data->d_buf;
 
-      char *pglobal_init = (char *)dglobal_init;
-      char *pglobal_init_new = (char *)&vglobal_init_new[0];
-      memset(pglobal_init_new, 0, szglobal_init_new);
-      szglobal_init_new = 0;
+      // Sort symbols to keep up the existing data ordering.
+      map<uint64_t, pair<GElf_Sym, int> > msymbols;
       for (int isymbol = 0; isymbol < nsymbols; isymbol++) {
         GElf_Sym symbol;
         gelf_getsym(symbols, isymbol, &symbol);
 
-        if (symbol.st_shndx == iglobal_init) {
-          memcpy(pglobal_init_new, pglobal_init + symbol.st_value,
-                 symbol.st_size);
+        if (symbol.st_shndx == iglobal_init)
+          msymbols[symbol.st_value] = pair<GElf_Sym, int>(symbol, isymbol);
+      }
+      vector<pair<uint64_t, pair<GElf_Sym, int> > > vsymbols(
+        msymbols.begin(), msymbols.end());
+      sort(vsymbols.begin(), vsymbols.end(), sortSymbolsByOffset);
 
-          symbol.st_value = szglobal_init_new;
-          if (symbol.st_size % align)
-            symbol.st_size += align - symbol.st_size % align;
-          szglobal_init_new += symbol.st_size;
-          pglobal_init_new += symbol.st_size;
+      char *pglobal_init = (char *)dglobal_init;
+      char *pglobal_init_new = (char *)&vglobal_init_new[0];
+      memset(pglobal_init_new, 0, szglobal_init_new);
+      szglobal_init_new = 0;
+      for (int i = 0, e = vsymbols.size(); i != e; i++) {
+        GElf_Sym& symbol = vsymbols[i].second.first;
+        int isymbol = vsymbols[i].second.second;
 
-          if (!gelf_update_sym(symbols, isymbol, &symbol)) {
-            fprintf(stderr, "gelf_update_sym() failed for %s: %s\n", cubin,
-                    elf_errmsg(-1));
-            throw;
-          }
+        memcpy(pglobal_init_new, pglobal_init + symbol.st_value,
+               symbol.st_size);
+
+        symbol.st_value = szglobal_init_new;
+        if (symbol.st_size % align)
+          symbol.st_size += align - symbol.st_size % align;
+        szglobal_init_new += symbol.st_size;
+        pglobal_init_new += symbol.st_size;
+
+        if (!gelf_update_sym(symbols, isymbol, &symbol)) {
+          fprintf(stderr, "gelf_update_sym() failed for %s: %s\n", cubin,
+                  elf_errmsg(-1));
+          throw;
         }
       }
 
