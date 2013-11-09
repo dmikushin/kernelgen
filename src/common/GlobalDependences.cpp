@@ -318,7 +318,7 @@ void linkFunctionWithAllDependendes(Function *srcFunction,
     if (I != srcFunction) {
 
       Function *existedFunction = dstModule->getFunction(I->getName());
-      if (existedFunction && existedFunction->isIntrinsic())
+      if (existedFunction)
         NF = existedFunction;
       else
         NF =
