@@ -24,7 +24,7 @@
 use Switch;
 
 # Used revisions of LLVM and KernelGen sources. -1 means head.
-my($llvm_rev) = 192445;
+my($llvm_rev) = 192445; #195404;
 my($kernelgen_rev) = -1;
 
 # NOTE: Do not forget to adjust the debug/release mode setting!
@@ -99,8 +99,8 @@ my($BUILD) = "$RPMBUILD/BUILD";
 my($BUILDROOT) = "$RPMBUILD/BUILDROOT";
 my($LOGS) = "$RPMBUILD/LOGS";
 
-my($binutils_snapshot) = "binutils-2.23.2";
-my($binutils) = "http://ftp.gnu.org/gnu/binutils/$binutils_snapshot.tar.bz2";
+my($binutils_snapshot) = "binutils-2.24.51";
+my($binutils) = "ftp://sourceware.org/pub/binutils/snapshots/$binutils_snapshot.tar.bz2";
 my($gmp_snapshot) = "gmp-5.0.5";
 my($gmp) = "ftp://ftp.gmplib.org/pub/gmp-5.0.5/$gmp_snapshot.tar.bz2";
 my($mpfr_snapshot) = "mpfr-3.1.2";

@@ -11,3 +11,41 @@
  
  $as_echo "#define gFortran 1" >>confdefs.h
  
+--- a/netcdf-snapshot/man4/netcdf-f90.texi	2011-07-01 01:22:19.000000000 +0200
++++ b/netcdf-snapshot/man4/netcdf-f90.texi	2013-11-13 15:31:27.202188810 +0100
+@@ -2082,7 +2082,6 @@ The group id for this operation.
+ The name of the
+ group will be copied to this character array. The name will be less
+ than NF90_MAX_NAME in length.
+-@item
+ 
+ @end table
+ 
+@@ -6979,7 +6978,7 @@ Units for a variable rh in an existing n
+ @node FORTRAN 77 to Fortran 90 Transition Guide, Combined Index, Summary of Fortran 90 Interface, Top
+ @appendix Appendix B - FORTRAN 77 to Fortran 90 Transition Guide
+ 
+-@unnumberedsubsec The new Fortran 90 interface 
++@unnumberedsec The new Fortran 90 interface 
+ 
+ The Fortran 90 interface to the netCDF library closely follows the
+ FORTRAN 77 interface. In most cases, function and constant names and
+@@ -7001,7 +7000,7 @@ around the base FORTRAN subroutines in t
+ versions may be implemented entirely in Fortran 90, adding additional
+ error checking possibilities.
+ 
+-@unnumberedsubsec Changes to Inquiry functions 
++@unnumberedsec Changes to Inquiry functions 
+ 
+ In the Fortran 90 interface there are two inquiry functions each for
+ dimensions, variables, and attributes, and a single inquiry function
+@@ -7035,7 +7034,7 @@ with those in the FORTRAN interface
+  INTEGER FUNCTION  NF_INQ_ATTNAME    (NCID, VARID, ATTNUM, name)
+ @end example
+ 
+-@unnumberedsubsec Changes to put and get function 
++@unnumberedsec Changes to put and get function 
+ 
+ The biggest simplification in the Fortran 90 is in the nf90_put_var
+ and nf90_get_var functions. Both functions are overloaded: the values
+
