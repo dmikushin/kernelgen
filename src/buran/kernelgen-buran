@@ -369,7 +369,7 @@ sub build_and_test_kernelgen
 			$enable_db32 = 1;
 			$enable_db64 = 1;
 
-                        $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran";
+                        $COMPILERS = "KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran AR=$INSTALLROOT/$prefix/bin/kernelgen-ar";
                 }
 		case "all"
 		{
@@ -457,7 +457,8 @@ sub build_and_test_kernelgen
 				"CC=\\\"kernelgen-gcc -DKERNELGEN_ENABLE_RPATHS\\\" " .
 				"CXX=\\\"kernelgen-g++ -DKERNELGEN_ENABLE_RPATHS\\\" " .
 				"FC=\\\"kernelgen-gfortran -DKERNELGEN_ENABLE_RPATHS\\\" " .
-				"F77=\\\"kernelgen-gfortran -DKERNELGEN_ENABLE_RPATHS\\\"";
+				"F77=\\\"kernelgen-gfortran -DKERNELGEN_ENABLE_RPATHS\\\" " .
+				"AR=$INSTALLROOT/$prefix/bin/kernelgen-ar";
 		}
 		else
 		{

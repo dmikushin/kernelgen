@@ -603,6 +603,21 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP64
     %{flags64} ./configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
   %endif
+  %if %glibc32
+    #
+    # Configure 32-bit GLIBC
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
+    mkdir build32
+    cd build32
+    %define cmd %{flags64glibc} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32 --host=i686-linux-gnu --build=%{build_arch}  --enable-obsolete-rpc --enable-bind-now --enable-multi-arch --enable-lock-elision --disable-profile --with-headers=$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --with-headers=$RPM_INSTALL_PREFIX/%{prefix}include --with-headers=/usr/include
+     %if %debug
+      %{cmd} CFLAGS="-march=i686 -g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen" CXXFLAGS="-march=i686 -g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen"
+    %else
+      %{cmd} CFLAGS="-march=i686 -g -O2 -U_FORTIFY_SOURCE -fno-stack-protector" CXXFLAGS="-march=i686 -g -O2 -U_FORTIFY_SOURCE -fno-stack-protector"
+    %endif
+    echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32" >>config.make
+  %endif
   %if %glibc64
     #
     # Configure 64-bit GLIBC
@@ -610,7 +625,7 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
     mkdir build64
     cd build64
-    %define cmd %{flags64glibc} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --with-binutils=$RPM_INSTALL_PREFIX/%{prefix}x86_64-linux-gnu/bin --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --sysconfdir=$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc --host=x86_64-linux-gnu --build=%{build_arch} --enable-obsolete-rpc --enable-bind-now --enable-multi-arch --enable-lock-elision --disable-profile --with-headers=$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --with-headers=$RPM_INSTALL_PREFIX/%{prefix}include --with-headers=/usr/include --enable-multilib
+    %define cmd %{flags64glibc} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --with-binutils=$RPM_INSTALL_PREFIX/%{prefix}x86_64-linux-gnu/bin --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --sysconfdir=$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc --host=x86_64-linux-gnu --build=%{build_arch} --enable-obsolete-rpc --enable-bind-now --enable-multi-arch --enable-lock-elision --disable-profile --with-headers=$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --with-headers=$RPM_INSTALL_PREFIX/%{prefix}include --with-headers=/usr/include
     %if %debug
       %{cmd} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen" CXXFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen"
     %else
