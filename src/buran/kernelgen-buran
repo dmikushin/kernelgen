@@ -40,8 +40,6 @@
 #    32-bit host -> 32/64-bit target gcc, llvm, cobol (do they have multilib for cobol?)
 #    64-bit cloog, llvm, libelf, glibc, libffi, mhash, mvapich2, netcdf, kernelgen
 #
-# Install 32-bit llvm on top of 64-bit (i.e. to have 64-bit runtimes only)
-#
 # build modes:
 # 64-bit for 32/64-bit with 64-bit default
 # 32-bit for 32/64-bit with 32-bit default
@@ -62,10 +60,14 @@
 # +6) compile llvm not only for host target, but for 32-bit and 64-bit (is done by default, right?)
 # +7) add 32/64 modes for mvapich2
 # +8) add 32/64 modes for netcdf
-# 9) add 32/64 modes for db
-# 10) add 32/64 modes for cobol
-# 11) add 32/64 modes for kernelgen runtime
-# last) order 32-bit and 64-bit installation, such that host's executables will be written last (on top of everything else)
+# +9) add 32/64 modes for db
+# +10) set host config for LLVM to be %{host_arch} both in 32-bit and 64-bit
+# 11) add 32/64 modes for cobol
+# 12) add 32/64 modes for kernelgen runtime
+# 13) add libz for gcc?
+# +14) why 32-bit build of MVAPICH test fails? So the reason is another (conflicting) GLIBC root is included, e.g.: LD_LIBRARY_PATH=/lib/x86_64-linux-gnu/
+# 15) Attach our GLIBC's ldconfig to system's ldconfig
+# +last) order 32-bit and 64-bit installation, such that host's executables will be written last (on top of everything else)
 
 use Switch;
 
@@ -176,9 +178,9 @@ my($mpc_snapshot) = "mpc-1.0.1";
 my($mpc) = "http://www.multiprecision.org/mpc/download/$mpc_snapshot.tar.gz";
 my($libelf_snapshot) = "libelf-0.8.13";
 my($libelf) = "http://www.mr511.de/software/$libelf_snapshot.tar.gz";
-my($gcc_version) = "4.8.2";
-my($gcc_snapshot) = "gcc-4.8-20130912";
-my($gcc) = "ftp://ftp.gwdg.de/pub/misc/gcc/snapshots/4.8-20130912/$gcc_snapshot.tar.bz2";
+my($gcc_version) = "4.8.3";
+my($gcc_snapshot) = "gcc-4.8-20131031";
+my($gcc) = "ftp://ftp.gwdg.de/pub/misc/gcc/snapshots/4.8-20131031/$gcc_snapshot.tar.bz2";
 my($netcdf_snapshot) = "netcdf-4.1.3";
 my($netcdf) = "http://www.unidata.ucar.edu/downloads/netcdf/ftp/$netcdf_snapshot.tar.gz";
 my($llvm) = "http://llvm.org/svn/llvm-project/llvm/trunk";
@@ -195,7 +197,7 @@ my($ibverbs_snapshot) = "libibverbs-1.1.7";
 my($ibverbs) = "http://www.openfabrics.org/downloads/verbs/$ibverbs_snapshot.tar.gz";
 my($mvapich_snapshot) = "mvapich2-1.9";
 my($mvapich) = "http://mvapich.cse.ohio-state.edu/download/mvapich2/$mvapich_snapshot.tgz";
-my($glibc_snapshot) = "glibc-2.17";
+my($glibc_snapshot) = "glibc-2.18";
 my($glibc) = "http://ftp.gnu.org/gnu/glibc/$glibc_snapshot.tar.gz";
 my($db_snapshot) = "db-5.3.21";
 my($db) = "http://download.oracle.com/berkeley-db/$db_snapshot.tar.gz";
@@ -250,7 +252,8 @@ sub build_and_test_kernelgen
 	my($cloog_enable64) = 0;
 	my($llvm_enable32) = 0;
 	my($llvm_enable64) = 0;
-	my($binutils_enable) = 0;
+	my($binutils_enable32) = 0;
+	my($binutils_enable64) = 0;
 	my($gmp_enable) = 0;
 	my($mpfr_enable) = 0;
 	my($mpc_enable) = 0;
@@ -287,7 +290,7 @@ sub build_and_test_kernelgen
 
 			$gmp_enable = 1;
 
-			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
+			$COMPILERS = "CC=\\\"ccache gcc\\\" CXX=\\\"ccache g++\\\" FC=gfortran F77=gfortran";
 		}
 		case "mpfr"
 		{
@@ -298,7 +301,7 @@ sub build_and_test_kernelgen
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
 
-			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
+			$COMPILERS = "CC=\\\"ccache gcc\\\" CXX=\\\"ccache g++\\\" FC=gfortran F77=gfortran";
 		}
 		case "binutils+mpc"
 		{
@@ -307,13 +310,14 @@ sub build_and_test_kernelgen
 			print "=====================================\n";
 
 			$cloog_enable32 = 1;
-			$binutils_enable = 1;
+			$binutils_enable32 = 1;
+#			$binutils_enable64 = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
 			$mpc_enable = 1;
 			$libelf_enable32 = 1;
 
-			$COMPILERS = "CC=gcc CXX=g++ FC=gfortran F77=gfortran";
+			$COMPILERS = "CC=\\\"ccache gcc\\\" CXX=\\\"ccache g++\\\" FC=gfortran F77=gfortran";
 		}
 		case "gcc"
 		{
@@ -323,7 +327,8 @@ sub build_and_test_kernelgen
 
 			$cloog_enable32 = 1;
 			$cloog_enable64 = 1;
-			$binutils_enable = 1;
+			$binutils_enable32 = 1;
+#			$binutils_enable64 = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
 			$mpc_enable = 1;
@@ -333,7 +338,7 @@ sub build_and_test_kernelgen
 			$mhash_enable32 = 0;
 			$mhash_enable64 = 0;
 
-			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=gcc CXX=g++ FC=gfortran F77=gfortran AR=$INSTALLROOT/$prefix/bin/kernelgen-ar";
+			$COMPILERS = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$BUILDROOT/$prefix/lib CC=\\\"ccache gcc\\\" CXX=\\\"ccache g++\\\" FC=gfortran F77=gfortran AR=$INSTALLROOT/$prefix/bin/kernelgen-ar";
 		}
                 case "llvm+glibc"
                 {
@@ -345,7 +350,8 @@ sub build_and_test_kernelgen
 			$cloog_enable64 = 1;
 			$llvm_enable32 = 1;
 			$llvm_enable64 = 1;
-			$binutils_enable = 1;
+			$binutils_enable32 = 1;
+#			$binutils_enable64 = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
 			$mpc_enable = 1;
@@ -376,7 +382,8 @@ sub build_and_test_kernelgen
 			$cloog_enable64 = 1;
 			$llvm_enable32 = 1;
 			$llvm_enable64 = 1;
-			$binutils_enable = 1;
+			$binutils_enable32 = 1;
+#			$binutils_enable64 = 1;
 			$gmp_enable = 1;
 			$mpfr_enable = 1;
 			$mpc_enable = 1;
@@ -406,9 +413,16 @@ sub build_and_test_kernelgen
 			my($LDFLAGS32) = "";
 			
 			#
-			# Since we do not use ldconfig with the KernelGen's builtin GLIBC,
-			# all runtime library paths must be passed through linker.
+			# Since we do not use ldconfig that comes with the KernelGen's builtin GLIBC,
+			# all toolchain's runtime library paths must be passed through linker.
+			# Allow only those library paths, that are in our install root, i.e. do not
+			# tie to the specific host system.
+			# TODO: our GLIBC has to account system-wide ldconfig
 			#
+			my($valid_root) = $TOPDIR;
+			$valid_root =~ s/\/\///g;
+			$valid_root = `readlink -f $valid_root`;
+			$valid_root =~ s/\n//g;
 			{
 				my($library_path) = `echo "int main() { return 0; }" | KERNELGEN_FALLBACK=1 $INSTALLROOT/$prefix/bin/kernelgen-gcc -v -x c - -o /dev/null 2>&1 | grep LIBRARY_PATH`;
 				$library_path =~ s/LIBRARY_PATH\=//;
@@ -416,7 +430,11 @@ sub build_and_test_kernelgen
 				my(@rpaths) = split(":", $library_path);
 				foreach $rpath (@rpaths)
 				{
-					$LDFLAGS64 .= " -Wl,-rpath=$rpath";
+					$rpath =~ s/\/\///g;
+					if ($rpath =~ m/$valid_root.*/)
+					{
+						$LDFLAGS64 .= " -Wl,-rpath=$rpath";
+					}
 				}
 			}
 			{
@@ -426,7 +444,11 @@ sub build_and_test_kernelgen
 				my(@rpaths) = split(":", $library_path);
 				foreach $rpath (@rpaths)
 				{
-					$LDFLAGS32 .= " -Wl,-rpath=$rpath";
+					$rpath =~ s/\/\///g;
+					if ($rpath =~ m/$valid_root.*/)
+					{
+						$LDFLAGS32 .= " -Wl,-rpath=$rpath";
+					}
 				}
 			}
 
@@ -918,6 +940,9 @@ sub build_and_test_kernelgen
 	$cmd = "cp ../../patches/gcc.patch $SOURCES/";
 	print "$cmd\n";
 	`$cmd`;
+	$cmd = "cp ../../patches/glibc.patch $SOURCES/";
+	print "$cmd\n";
+	`$cmd`;
 
 	#
 	# Extract kernelgen.spec.in and fill it with the
@@ -964,7 +989,8 @@ sub build_and_test_kernelgen
 	#   KERNELGEN_ENABLE_CLOOG64       - Enable 64-bit build of CLooG
 	#   KERNELGEN_ENABLE_LLVM32        - Enable 32-bit build of LLVM
 	#   KERNELGEN_ENABLE_LLVM64        - Enable 64-bit build of LLVM
-	#   KERNELGEN_ENABLE_BINUTILS      - Enable build of BinUtls
+	#   KERNELGEN_ENABLE_BINUTILS32    - Enable 32-bit build of BinUtls
+	#   KERNELGEN_ENABLE_BINUTILS64    - Enable 64-bit build of BinUtls
 	#   KERNELGEN_ENABLE_GMP           - Enable build of GMP
 	#   KERNELGEN_ENABLE_MPFR          - Enable build of MPFR
 	#   KERNELGEN_ENABLE_MPC           - Enbale build of MPC
@@ -1042,7 +1068,8 @@ sub build_and_test_kernelgen
 		$line =~ s/KERNELGEN_ENABLE_CLOOG64/$cloog_enable64/g;
 		$line =~ s/KERNELGEN_ENABLE_LLVM32/$llvm_enable32/g;
 		$line =~ s/KERNELGEN_ENABLE_LLVM64/$llvm_enable64/g;
-		$line =~ s/KERNELGEN_ENABLE_BINUTILS/$binutils_enable/g;
+		$line =~ s/KERNELGEN_ENABLE_BINUTILS32/$binutils_enable32/g;
+		$line =~ s/KERNELGEN_ENABLE_BINUTILS64/$binutils_enable64/g;
 		$line =~ s/KERNELGEN_ENABLE_GMP/$gmp_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_MPFR/$mpfr_enable/g;
 		$line =~ s/KERNELGEN_ENABLE_MPC/$mpc_enable/g;

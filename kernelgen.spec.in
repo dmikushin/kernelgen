@@ -66,7 +66,9 @@
 %define llvm64 KERNELGEN_ENABLE_LLVM64
 %define llvm (!(!%llvm32 && !%llvm64))
 
-%define binutils KERNELGEN_ENABLE_BINUTILS
+%define binutils32 KERNELGEN_ENABLE_BINUTILS32
+%define binutils64 KERNELGEN_ENABLE_BINUTILS64
+%define binutils (!(!%binutils32 && !%binutils64))
 
 %define gmp KERNELGEN_ENABLE_GMP
 
@@ -134,14 +136,18 @@
 %if "%{build_arch}" == "i686-linux-gnu" 
   %define flags32 CC=\"$CC $LDFLAGS32\" CXX=\"$CXX $LDFLAGS32\" FC=\"$FC $LDFLAGS32\" F77=\"$F77 $LDFLAGS32\"
   %define flags64 CC=\"$CC -m64 $LDFLAGS64\" CXX=\"$CXX -m64 $LDFLAGS64\" FC=\"$FC -m64 $LDFLAGS64\" F77=\"$F77 -m64 $LDFLAGS64\"
+  %define flags32glibc CC=\"$CC -fuse-ld=bfd $LDFLAGS32\" CXX=\"$CXX -fuse-ld=bfd $LDFLAGS32\" FC=\"$FC -fuse-ld=bfd $LDFLAGS32\" F77=\"$F77 -fuse-ld=bfd $LDFLAGS32\"
+  %define flags64glibc CC=\"$CC -fuse-ld=bfd -m64 $LDFLAGS64\" CXX=\"$CXX -fuse-ld=bfd -m64 $LDFLAGS64\" FC=\"$FC -fuse-ld=bfd -m64 $LDFLAGS64\" F77=\"$F77 -fuse-ld=bfd -m64 $LDFLAGS64\"
   %define boot_cflags32 BOOT_CFLAGS=\"\"
   %define boot_cflags64 BOOT_CFLAGS=\"-m64\"
   %define xgcc_flags_for_target32 XGCC_FLAGS_FOR_TARGET=\"\"
   %define xgcc_flags_for_target64 XGCC_FLAGS_FOR_TARGET=\"-m64\"
 %endif
 %if "%{build_arch}" == "x86_64-linux-gnu" 
-  %define flags32 CC=\"$CC -m32 $LDFLAGS32\" CXX=\"$CXX -m32 $LDFLAGS32\" FC=\"$FC -m32 $LDFLAGS32\" F77=\"$F77 -m32 $LDFLAGS32\"
+  %define flags32 CC=\"$CC  -m32 $LDFLAGS32\" CXX=\"$CXX -m32 $LDFLAGS32\" FC=\"$FC -m32 $LDFLAGS32\" F77=\"$F77 -m32 $LDFLAGS32\"
   %define flags64 CC=\"$CC $LDFLAGS64\" CXX=\"$CXX $LDFLAGS64\" FC=\"$FC $LDFLAGS64\" F77=\"$F77 $LDFLAGS64\"
+  %define flags32glibc CC=\"$CC -fuse-ld=bfd -m32 $LDFLAGS32\" CXX=\"$CXX -fuse-ld=bfd -m32 $LDFLAGS32\" FC=\"$FC -fuse-ld=bfd -m32 $LDFLAGS32\" F77=\"$F77 -fuse-ld=bfd -m32 $LDFLAGS32\"
+  %define flags64glibc CC=\"$CC -fuse-ld=bfd $LDFLAGS64\" CXX=\"$CXX -fuse-ld=bfd $LDFLAGS64\" FC=\"$FC -fuse-ld=bfd $LDFLAGS64\" F77=\"$F77 -fuse-ld=bfd $LDFLAGS64\"
   %define boot_cflags32 BOOT_CFLAGS=\"-m32\"
   %define boot_cflags64 BOOT_CFLAGS=\"\"
   %define xgcc_flags_for_target32 XGCC_FLAGS_FOR_TARGET=\"-m32\"
@@ -263,7 +269,9 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
   %endif
   %if %glibc
     rm -rf $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
+    rm -rf $RPM_BUILD_DIR/glibc-snapshot
     tar -xf $RPM_SOURCE_DIR/KERNELGEN_GLIBC_SNAP.tar.gz
+    ln -s $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP $RPM_BUILD_DIR/glibc-snapshot
   %endif
   %if %enable_db
     rm -rf $RPM_BUILD_DIR/KERNELGEN_DB_SNAP
@@ -352,7 +360,7 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     mkdir build32
     cp -rf include/ build32/include/
     cd build32
-    %define cmd ../configure --enable-jit --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+    %define cmd ../configure --enable-jit --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib --host=%{host_arch}
     %if %debug
       %{flags32} %{cmd} --enable-debug-runtime --enable-debug-symbols
     %else
@@ -367,21 +375,36 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     mkdir build64
     cp -rf include/ build64/include/
     cd build64
-    %define cmd ../configure --enable-jit --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %define cmd ../configure --enable-jit --enable-shared --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-targets=host,nvptx --with-cloog=$RPM_INSTALL_PREFIX/%{prefix} --with-isl=$RPM_INSTALL_PREFIX/%{prefix} --with-gmp=$RPM_INSTALL_PREFIX/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib64 --host=%{host_arch}
     %if %debug
       %{flags64} %{cmd} --enable-debug-runtime --enable-debug-symbols
     %else
       %{flags64} %{cmd} --enable-optimized
     %endif
   %endif
-  %if %binutils
+  %if %binutils32
     #
-    # Configure BinUtils
+    # Configure 32-bit BinUtils
     #
     cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
-    mkdir build
-    cd build
-    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-gold=default --disable-ld --enable-plugins --enable-lto --enable-werror=no --build=%{build_arch} --target=%{host_arch}
+    mkdir build32
+    cd build32
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-gold=default --enable-plugins --enable-lto --enable-werror=no --enable-64-bit-bfd
+    %if "%{host_arch}" == "x86_64-linux-gnu"
+      %{flags64} %{cmd}
+    %endif
+    %if "%{host_arch}" == "i686-linux-gnu"
+      %{flags32} %{cmd}
+    %endif
+  %endif
+  %if %binutils64
+    #
+    # Configure 64-bit BinUtils
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP
+    mkdir build64
+    cd build64
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-gold=default --enable-plugins --enable-lto --enable-werror=no
     %if "%{host_arch}" == "x86_64-linux-gnu"
       %{flags64} %{cmd}
     %endif
@@ -461,7 +484,8 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     cd $RPM_BUILD_DIR/KERNELGEN_GCC_SNAP
     mkdir build
     cd build/
-    %define cmd ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --enable-plugin --enable-gold=default --disable-ld --with-ld=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-ld --libdir=$RPM_BUILD_ROOT/%{prefix}lib 
+    %define cmd ../configure --enable-build-with-cxx --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-languages=fortran,c++ --with-mpfr-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpfr-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-gmp-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-gmp-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --with-mpc-include=$RPM_INSTALL_PREFIX/%{prefix}include/ --with-mpc-lib=$RPM_INSTALL_PREFIX/%{prefix}lib --enable-plugin --enable-gold=default --with-ld=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-ld --with-as=$RPM_INSTALL_PREFIX/%{prefix}bin/kernelgen-as --libdir=$RPM_BUILD_ROOT/%{prefix}lib --with-tune=generic --enable-clocale=gnu --enable-threads=posix --enable-checking=release
+    # TODO add in no-bootstrap mode: --with-arch-32=i686 
     %if "%{host_arch}" == "x86_64-linux-gnu"
       %if %gcc_bootstrap
         %{flags64} %{cmd}
@@ -498,32 +522,24 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
   %if %ibverbs32
     #
     # Configure 32-bit IBVERBS
+    # XXX I disabled shared, because with shared test programs fail in MVAPICH configure for 32-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP
     mkdir build32
     cd build32/
-    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} %{cmd}
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"  
-      %{flags32} %{cmd}
-    %endif
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-shared=no --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+    %{flags32} %{cmd}
   %endif
   %if %ibverbs64
     #
     # Configure 64-bit IBVERBS
+    # XXX I disabled shared, because with shared test programs fail in MVAPICH configure for 32-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP
     mkdir build64
     cd build64/
-    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
-    %if "%{host_arch}" == "x86_64-linux-gnu"
-      %{flags64} %{cmd}
-    %endif
-    %if "%{host_arch}" == "i686-linux-gnu"  
-      %{flags32} %{cmd}
-    %endif
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --program-prefix=kernelgen- --enable-shared=no --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %{flags64} %{cmd}
   %endif
   %if %mvapich32
     #
@@ -532,11 +548,11 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP
     mkdir build32
     cd build32
-    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --with-ib-libpath=$RPM_INSTALL_PREFIX/%{prefix}/lib --libdir=$RPM_BUILD_ROOT/%{prefix}lib
     %if %debug
-      KERNELGEN_FALLBACK=1 %{flags64} %{cmd} CFLAGS="-O0 -DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\"" --enable-debuginfo
+      KERNELGEN_FALLBACK=1 %{flags32} %{cmd} CFLAGS="-O0 -DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\"" --enable-debuginfo
     %else
-      KERNELGEN_FALLBACK=1 %{flags64} %{cmd} CFLAGS="-DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\""
+      KERNELGEN_FALLBACK=1 %{flags32} %{cmd} CFLAGS="-DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\""
     %endif
   %endif
   %if %mvapich64
@@ -546,7 +562,7 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP
     mkdir build64
     cd build64
-    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
+    %define cmd ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-mcast --program-prefix=kernelgen- --with-gnu-ld --with-hwloc --enable-cuda --with-cuda=%(dirname %(which nvcc))/.. --without-x --disable-cairo --enable-shared --with-ib-libpath=$RPM_INSTALL_PREFIX/%{prefix}/lib64 --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
     %if %debug
       KERNELGEN_FALLBACK=1 %{flags64} %{cmd} CFLAGS="-O0 -DPROGRAM_PREFIX=\\\"kernelgen-\\\" -DPROGRAM_SUFFIX=\\\"\\\"" --enable-debuginfo
     %else
@@ -587,16 +603,6 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     cd $RPM_BUILD_DIR/KERNELGEN_MHASH_SNAP64
     %{flags64} ./configure --prefix=$RPM_BUILD_ROOT/%{prefix} --enable-shared=no --with-pic=yes --libdir=$RPM_BUILD_ROOT/%{prefix}lib64
   %endif
-  %if %glibc32
-    #
-    # Configure 32-bit GLIBC
-    #
-    cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
-    mkdir build32
-    cd build32
-    %{flags32} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32 --host=i686-linux-gnu --build=%{build_arch} CFLAGS="$CFLAGS -march=i686" --enable-obsolete-rpc
-    echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32" >>config.make
-  %endif
   %if %glibc64
     #
     # Configure 64-bit GLIBC
@@ -604,7 +610,12 @@ A prototype of LLVM-based auto-parallelizing Fortran/C compiler for NVIDIA GPUs,
     cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
     mkdir build64
     cd build64
-    %{flags64} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --host=x86_64-linux-gnu --build=%{build_arch} --enable-obsolete-rpc
+    %define cmd %{flags64glibc} ../configure --prefix=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --with-binutils=$RPM_INSTALL_PREFIX/%{prefix}x86_64-linux-gnu/bin --includedir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --libdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ --sysconfdir=$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc --host=x86_64-linux-gnu --build=%{build_arch} --enable-obsolete-rpc --enable-bind-now --enable-multi-arch --enable-lock-elision --disable-profile --with-headers=$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/include --with-headers=$RPM_INSTALL_PREFIX/%{prefix}include --with-headers=/usr/include --enable-multilib
+    %if %debug
+      %{cmd} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen" CXXFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen"
+    %else
+      %{cmd} CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector" CXXFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector"
+    %endif
     echo "slibdir=$RPM_BUILD_ROOT/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/" >>config.make
     cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP
   %endif
@@ -717,11 +728,31 @@ cd $RPM_BUILD_DIR
     %{flags64} make -j%{njobs}
   %endif
 %endif
-%if %binutils
+%if %binutils32
   #
-  # Build BinUtils
+  # Build 32-bit BinUtils
   #
-  cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
+  cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build32
+  %if "%{host_arch}" == "x86_64-linux-gnu"
+    %if %debug
+      %{flags64} make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+    %else
+      %{flags64} make -j%{njobs}
+    %endif
+  %endif
+  %if "%{host_arch}" == "i686-linux-gnu"
+    %if %debug
+      %{flags32} make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
+    %else
+      %{flags32} make -j%{njobs}
+    %endif
+  %endif
+%endif
+%if %binutils64
+  #
+  # Build 64-bit BinUtils
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build64
   %if "%{host_arch}" == "x86_64-linux-gnu"
     %if %debug
       %{flags64} make -j%{njobs} CFLAGS="-g -O0" CXXFLAGS="-g -O0"
@@ -980,9 +1011,9 @@ cd $RPM_BUILD_DIR
   #
   cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build32
   %if %debug
-    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen -march=i686"
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen -march=i686" CXXFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen -march=i686"
   %else
-    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686"
+    %{flags32} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686" CXXFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686"
   %endif
 %endif
 %if %glibc64
@@ -991,9 +1022,9 @@ cd $RPM_BUILD_DIR
   #
   cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build64
   %if %debug
-    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen"
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen" CXXFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen"
   %else
-    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs}
+    %{flags64} KERNELGEN_FALLBACK=1 make -j%{njobs} CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector" CXXFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector" 
   %endif
 %endif
 %if %enable_db32
@@ -1040,13 +1071,13 @@ rm -rf $RPM_BUILD_ROOT
   # Install 32-bit CLooG
   #
   cd $RPM_BUILD_DIR/cloog/build32
-  %{flags32} make install -j%{njobs}
+  %{flags32} make install
 %endif
 %if %cloog64
   #
   # Install 64-bit CLooG
   #
-  %{flags64} make install -j%{njobs}
+  %{flags64} make install
 %endif
 %if "%{host_arch}" == "x86_64-linux-gnu"
   %if %llvm32
@@ -1054,14 +1085,14 @@ rm -rf $RPM_BUILD_ROOT
     # Install 32-bit LLVM first
     #
     cd $RPM_BUILD_DIR/llvm/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif
   %if %llvm64
     #
     # Install 64-bit LLVM on top of 32-bit
     #
     cd $RPM_BUILD_DIR/llvm/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif    
 %endif
 %if "%{host_arch}" == "i686-linux-gnu"
@@ -1070,14 +1101,14 @@ rm -rf $RPM_BUILD_ROOT
     # Install 64-bit LLVM first
     #
     cd $RPM_BUILD_DIR/llvm/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif
   %if %llvm32
     #
     # Install 32-bit LLVM on top of 64-bit
     #
     cd $RPM_BUILD_DIR/llvm/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif    
 %endif
 %if %dragonegg32
@@ -1127,17 +1158,37 @@ rm -rf $RPM_BUILD_ROOT
 cd $RPM_BUILD_DIR/kernelgen/build
 %flags64 make install
 %endif
-%if %binutils
-  #
-  # Install BinUtils
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build
-  %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} make install -j%{njobs}
+%if "%{host_arch}" == "x86_64-linux-gnu"
+  %if %binutils32
+    #
+    # Install 32-bit BinUtils first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build32
+    %{flags32} make install
   %endif
-  %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} make install -j%{njobs}
+  %if %binutils64
+    #
+    # Install 64-bit BinUtils on top of 32-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build64
+    %{flags64} make install
+  %endif    
+%endif
+%if "%{host_arch}" == "i686-linux-gnu"
+  %if %binutils64
+    #
+    # Install 64-bit BinUtils first
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build64
+    %{flags64} make install
   %endif
+  %if %binutils32
+    #
+    # Install 32-bit BinUtils on top of 64-bit
+    #
+    cd $RPM_BUILD_DIR/KERNELGEN_BINUTILS_SNAP/build32
+    %{flags32} make install
+  %endif    
 %endif
 %if %gmp
   #
@@ -1145,10 +1196,10 @@ cd $RPM_BUILD_DIR/kernelgen/build
   #
   cd $RPM_BUILD_DIR/KERNELGEN_GMP_SNAP/build
   %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+    %{flags64} KERNELGEN_FALLBACK=1 make install
   %endif
   %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+    %{flags32} KERNELGEN_FALLBACK=1 make install
   %endif
 %endif
 %if %mpfr
@@ -1157,10 +1208,10 @@ cd $RPM_BUILD_DIR/kernelgen/build
   #
   cd $RPM_BUILD_DIR/KERNELGEN_MPFR_SNAP/build
   %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+    %{flags64} KERNELGEN_FALLBACK=1 make install
   %endif
   %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+    %{flags32} KERNELGEN_FALLBACK=1 make install
   %endif
 %endif
 %if %mpc
@@ -1169,10 +1220,10 @@ cd $RPM_BUILD_DIR/kernelgen/build
   #
   cd $RPM_BUILD_DIR/KERNELGEN_MPC_SNAP/build
   %if "%{host_arch}" == "x86_64-linux-gnu"
-    %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+    %{flags64} KERNELGEN_FALLBACK=1 make install
   %endif
   %if "%{host_arch}" == "i686-linux-gnu"
-    %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+    %{flags32} KERNELGEN_FALLBACK=1 make install
   %endif
 %endif
 %if %libelf32
@@ -1180,14 +1231,14 @@ cd $RPM_BUILD_DIR/kernelgen/build
   # Install 32-bit LibELF
   #
   cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build32
-  %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+  %{flags32} KERNELGEN_FALLBACK=1 make install
 %endif
 %if %libelf64
   #
   # Install 64-bit LibELF
   #
   cd $RPM_BUILD_DIR/KERNELGEN_LIBELF_SNAP/build64
-  %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+  %{flags64} KERNELGEN_FALLBACK=1 make install
 %endif
 %if %gcc
   #
@@ -1218,14 +1269,14 @@ cd $RPM_BUILD_DIR/kernelgen/build
     # Install 32-bit IBVERBS first
     #
     cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif
   %if %ibverbs64
     #
     # Install 64-bit IBVERBS on top of 32-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif    
 %endif
 %if "%{host_arch}" == "i686-linux-gnu"
@@ -1234,14 +1285,14 @@ cd $RPM_BUILD_DIR/kernelgen/build
     # Install 64-bit IBVERBS first
     #
     cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif
   %if %ibverbs32
     #
     # Install 32-bit IBVERBS on top of 64-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_IBVERBS_SNAP/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif    
 %endif
 %if "%{host_arch}" == "x86_64-linux-gnu"
@@ -1250,14 +1301,14 @@ cd $RPM_BUILD_DIR/kernelgen/build
     # Install 32-bit MVAPICH first
     #
     cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif
   %if %mvapich64
     #
     # Install 64-bit MVAPICH on top of 32-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif    
 %endif
 %if "%{host_arch}" == "i686-linux-gnu"
@@ -1266,14 +1317,14 @@ cd $RPM_BUILD_DIR/kernelgen/build
     # Install 64-bit MVAPICH first
     #
     cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif
   %if %mvapich32
     #
     # Install 32-bit MVAPICH on top of 64-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_MVAPICH_SNAP/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif    
 %endif
 %if "%{host_arch}" == "x86_64-linux-gnu"
@@ -1282,14 +1333,14 @@ cd $RPM_BUILD_DIR/kernelgen/build
     # Install 32-bit NETCDF first
     #
     cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif
   %if %netcdf64
     #
     # Install 64-bit NETCDF on top of 32-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif    
 %endif
 %if "%{host_arch}" == "i686-linux-gnu"
@@ -1298,29 +1349,37 @@ cd $RPM_BUILD_DIR/kernelgen/build
     # Install 64-bit NETCDF first
     #
     cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif
   %if %netcdf32
     #
     # Install 32-bit NETCDF on top of 64-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif    
-%endif
-%if %glibc64
-  #
-  # Install 64-bit GLIBC
-  #
-  cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build64
-  %{flags64} KERNELGEN_FALLBACK=1 make install -j%{njobs}
 %endif
 %if %glibc32
   #
   # Install 32-bit GLIBC
   #
   cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build32
-  %{flags32} KERNELGEN_FALLBACK=1 make install -j%{njobs}
+  %if %debug
+    %{flags32} KERNELGEN_FALLBACK=1 make CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen -march=i686" CXXFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen -march=i686" install
+  %else
+    %{flags32} KERNELGEN_FALLBACK=1 make CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686" CXXFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector -march=i686" install
+  %endif
+%endif
+%if %glibc64
+  #
+  # Install 64-bit GLIBC
+  #
+  cd $RPM_BUILD_DIR/KERNELGEN_GLIBC_SNAP/build64
+  %if %debug
+    %{flags64} KERNELGEN_FALLBACK=1 make CFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen" CXXFLAGS="-g -O1 -U_FORTIFY_SOURCE -fno-stack-protector -fno-builtin-strlen" install
+  %else
+    %{flags64} KERNELGEN_FALLBACK=1 make CFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector" CXXFLAGS="-g -O2 -U_FORTIFY_SOURCE -fno-stack-protector" install
+  %endif
 %endif
 %if "%{host_arch}" == "x86_64-linux-gnu"
   %if %enable_db32
@@ -1328,14 +1387,14 @@ cd $RPM_BUILD_DIR/kernelgen/build
     # Install 32-bit DB first
     #
     cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif
   %if %enable_db64
     #
     # Install 64-bit DB on top of 32-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif    
 %endif
 %if "%{host_arch}" == "i686-linux-gnu"
@@ -1344,14 +1403,14 @@ cd $RPM_BUILD_DIR/kernelgen/build
     # Install 64-bit DB first
     #
     cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build64
-    %{flags64} make install -j%{njobs}
+    %{flags64} make install
   %endif
   %if %enable_db32
     #
     # Install 32-bit DB on top of 64-bit
     #
     cd $RPM_BUILD_DIR/KERNELGEN_DB_SNAP/build32
-    %{flags32} make install -j%{njobs}
+    %{flags32} make install
   %endif    
 %endif
 %if %cobol
@@ -1359,7 +1418,7 @@ cd $RPM_BUILD_DIR/kernelgen/build
 # Install COBOL
 #
 cd $RPM_BUILD_DIR/KERNELGEN_COBOL_SNAP/build
-%flags64 KERNELGEN_FALLBACK=1 make install -j%{njobs}
+%flags64 KERNELGEN_FALLBACK=1 make install
 %endif
 
 
@@ -1484,12 +1543,6 @@ rm -rf $RPM_BUILD_ROOT/%{prefix}lib/libLLVMOption.a
 
 
 %post
-#
-# Add paths for binaries and libraries into the system-wide configs.
-#
-mkdir -p $RPM_INSTALL_PREFIX/etc/profile.d
-mkdir -p $RPM_INSTALL_PREFIX/etc/ld.so.conf.d
-echo "export PATH=\$PATH:$RPM_INSTALL_PREFIX/%{prefix}bin" >>$RPM_INSTALL_PREFIX/etc/profile.d/kernelgen.sh
 %if %glibc
 #
 # Update GROUP info of GLIBC shared libraries with respect to the
@@ -1503,13 +1556,22 @@ fi
 if [ -f $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32/libpthread.so ]; then
   sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32/libpthread.so
 fi
+#
+# Duplicate system's LD.SO.CONF and create our own cache for it
+# TODO This is a temporary workaround, while the question on direct use of system GLIBC cache is open.
+#
+mkdir -p $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc
+cp /etc/ld.so.conf $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc/ld.so.conf
+cp -rf /etc/ld.so.conf.d $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc/ld.so.conf.d
+$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/sbin/ldconfig
+# ldconfig uses invalid cache file directory, involving BUILDROOT!
 %if %gcc
 #
 # Remove all rpaths for dynamic loaders (not permitted by GLIBC).
-# TODO: does not work for 32-bit ld-linux.so.2
+# TODO: does not work for 32-bit ld-linux.so.2 = Really? Why??
 #
 chrpath -d $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/ld-linux-x86-64.so.2
-#chrpath -d $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32/ld-linux.so.2
+chrpath -d $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32/ld-linux.so.2
 #
 # Create GCC spec with alternative locations for used 32-bit and 64-bit
 # dynamic linkers.
@@ -1524,14 +1586,6 @@ sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}bin/
 %endif
 
 %changelog
-* Sun Sep  2 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
-- added bundled CUDA-enabled OpenMPI
-* Sat Jul 21 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
-- added locally installed binutils with gold for default linker
-* Thu Jul 19 2012 Dmitry Mikushin <maemarcus@gmail.com> 0.2
-- adopted 0.2 spec to use nvptx backend and automatic build bot
-* Tue Sep 13 2011 Dmitry Mikushin <maemarcus@gmail.com> 0.2
-- started preparing 0.2 "accurate" release
 * Sun Jul 10 2011 Dmitry Mikushin <dmikushin@nvidia.com> 0.1
 - initial release
 
