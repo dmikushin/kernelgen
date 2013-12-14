@@ -1055,6 +1055,14 @@ switch ($target)
 		print "Build failed, aborting.\n";
 		exit(1);
 	}
+	else
+	{
+		# Add the used GPU signature.
+		$start = join("<br/>", `nvidia-smi -L`) . "<br/>" . $start;
+
+		# Add GPU driver signature.
+		$start = join("<br/>", `cat /proc/driver/nvidia/version`) . "<br/>" . $start;
+	}
 
 	case ["fedora", "debian"]
 	{
