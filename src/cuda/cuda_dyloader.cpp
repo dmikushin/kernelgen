@@ -212,15 +212,6 @@ struct CUDYfunction_t {
 
       // We are fine, if memory is already unregistered.
     }
-
-    // Unpin pinned memory for offset.
-    cuerr = cuMemHostUnregister(&offset);
-    if (cuerr != CUDA_SUCCESS) {
-      if (cuerr != CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED)
-        THROW("Cannot unpin memory for the dynamic kernel pool offset", cuerr);
-
-      // We are fine, if memory is already unregistered.
-    }
   }
 };
 
