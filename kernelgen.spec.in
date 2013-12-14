@@ -340,7 +340,7 @@ cd build/
 cd $RPM_BUILD_DIR/KERNELGEN_NETCDF_SNAP
 mkdir build
 cd build/
-KERNELGEN_FALLBACK=1 %flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-netcdf-4 --libdir=$RPM_BUILD_ROOT/%{prefix}lib
+KERNELGEN_FALLBACK=1 %flags ../configure --prefix=$RPM_BUILD_ROOT/%{prefix} --disable-netcdf-4 --disable-dap --libdir=$RPM_BUILD_ROOT/%{prefix}lib
 %endif
 %if %mvapich2
 #
