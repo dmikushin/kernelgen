@@ -486,6 +486,7 @@ static void processFunctionFromMain(Kernel *kernel, Module *m, Function *f) {
           continue;
         }
 
+      // TODO must be an intrinsic NVPTX is able to lower.
       if (callee->isIntrinsic())
         continue;
 
