@@ -61,7 +61,7 @@ static ffi_type *ffiTypeFor(Type *Ty) {
 }
 
 struct mmap_t {
-  void *addr;
+  char *addr, *buffer;
   size_t size, align;
 };
 
@@ -90,13 +90,22 @@ static void sighandler(int code, siginfo_t *siginfo, void *ucontext) {
     THROW("Not a GPU memory: " << addr);
 
   size_t align = (size_t) base % szpage;
+
+  // Copy device memory to host buffer.
+  char* buffer = new char[size];
+  // Not used, because the corresponding cuMemHostUnregister hangs.
+  // CU_SAFE_CALL(cuMemHostRegister(buffer, size, 0));
+  CU_SAFE_CALL(cuMemcpyDtoHAsync(buffer, base, size,
+                                 cuda_context->getSecondaryStream()));
+
   void *map = mmap((char *)base - align, size + align, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-  if (map == (void *)- 1)
+  if (map == (void *)-1)
     THROW("Cannot map memory onto " << base << " + " << size);
 
   mmap_t mmap;
-  mmap.addr = map;
+  mmap.buffer = buffer;
+  mmap.addr = (char*)map;
   mmap.size = size;
   mmap.align = align;
   mmappings.push_back(mmap);
@@ -105,9 +114,8 @@ static void sighandler(int code, siginfo_t *siginfo, void *ucontext) {
                           << align << ") + " << size << "\n"
                           << Verbose::Default);
 
-  CU_SAFE_CALL(
-      cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
   CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+  memcpy(base, buffer, size);
 }
 
 typedef void (*func_t)();
@@ -199,22 +207,26 @@ void kernelgen_hostcall(Kernel *kernel, FunctionType *FTy, StructType *StructTy,
         }
 
         if (mmapping == mmappings.end()) {
+          // Copy device memory to host buffer.
+          char* buffer = new char[size];
+          // Not used, because the corresponding cuMemHostUnregister hangs.
+          // CU_SAFE_CALL(cuMemHostRegister(buffer, size, 0));
+          CU_SAFE_CALL(cuMemcpyDtoHAsync(buffer, base, size,
+                                         cuda_context->getSecondaryStream()));
+
           // Map host memory with the same address and size
           // device memory has.
           void *map =
               mmap((char *)base - align, size + align, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-          if (map == (void *)- 1)
+          if (map == (void *)-1)
             THROW("Cannot map host memory onto " << base << " + " << size);
-
-          // Copy device memory to host mapped memory.
-          CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size,
-                                         cuda_context->getSecondaryStream()));
 
           // Track the mapped memory in list of mappings,
           // to synchronize them after the hostcall finishes.
           struct mmap_t mmapping;
-          mmapping.addr = map;
+          mmapping.buffer = buffer;
+          mmapping.addr = (char*)map;
           mmapping.size = size;
           mmapping.align = align;
           mmappings.push_back(mmapping);
@@ -227,17 +239,21 @@ void kernelgen_hostcall(Kernel *kernel, FunctionType *FTy, StructType *StructTy,
           // Remap the existing mapping, if it is required
           // to be larger.
           if (size + align > mmapping->size + mmapping->align) {
+            // Copy device memory to host buffer.
+            char* buffer = new char[size];
+            // Not used, because the corresponding cuMemHostUnregister hangs.
+            // CU_SAFE_CALL(cuMemHostRegister(buffer, size, 0));
+            CU_SAFE_CALL(cuMemcpyDtoHAsync(buffer, base, size,
+                                           cuda_context->getSecondaryStream()));
+
             void *remap =
                 mremap((char *)base - align, mmapping->size + mmapping->align,
                        size + align, 0);
             if (remap == (void *)- 1)
               THROW("Cannot map host memory onto " << base << " + " << size);
 
-            // Copy device memory to host mapped memory.
-            CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size,
-                                           cuda_context->getSecondaryStream()));
-
             // Store new size & align.
+            mmapping->buffer = buffer;
             mmapping->size = size;
             mmapping->align = align;
 
@@ -287,17 +303,29 @@ void kernelgen_hostcall(Kernel *kernel, FunctionType *FTy, StructType *StructTy,
   // Synchronize pending mmapped data transfers.
   CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
 
+  // Copy memory from host buffers to host mapped memory.
+  for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end();
+       i != e; i++) {
+    // TODO: transfer hangs when size is not a multiplier of some power of two.
+    // Currently the guess is 16. So, do we need to pad all arrays to 16?..
+    struct mmap_t mmap = *i;
+    char* buffer = mmap.buffer;
+    size_t size = mmap.size;
+    void* base = mmap.addr + mmap.align;
+    memcpy(base, buffer, size);
+  }
+
   ffi_call(&cif, (func_t) * func, ret, values.data());
 
   VERBOSE(Verbose::Hostcall << "Finishing hostcall to " << (void *)*func << "\n"
                             << Verbose::Default);
 
-  kernelgen_hostcall_memsync();
-
   // Unregister SIGSEGV signal handler and restore the
   // original handler.
   if (sigaction(SIGSEGV, &sa_old, &sa_new) == -1)
     THROW("Error in sigaction " << errno);
+
+  kernelgen_hostcall_memsync();
 
   activeKernel = NULL;
 
@@ -331,17 +359,28 @@ void kernelgen_hostcall_memsync() {
   // Copy data back from host-mapped memory to device.
   for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end();
        i != e; i++) {
-    // TODO: transfer hangs when size is not a multiplier of some power of two.
-    // Currently the guess is 16. So, do we need to pad all arrays to 16?..
     struct mmap_t mmap = *i;
     size_t size = mmap.size;
+
+    // Copy modified host-mapped memory to buffer.
+    memcpy(mmap.buffer, (char *)mmap.addr + mmap.align, size);
+    
+    // Unmap the host memory mapping.
+    int err = munmap(mmap.addr, mmap.size + mmap.align);
+    if (err == -1)
+      THROW("Cannot unmap memory from " << mmap.addr << " + "
+                                        << mmap.size + mmap.align);
+
+    // TODO: transfer hangs when size is not a multiplier of some power of two.
+    // Currently the guess is 16. So, do we need to pad all arrays to 16?..
     if (size % 16)
       size -= mmap.size % 16;
+
     CU_SAFE_CALL(cuMemcpyHtoDAsync((char *)mmap.addr + mmap.align,
-                                   (char *)mmap.addr + mmap.align, size,
+                                   mmap.buffer, size,
                                    cuda_context->getSecondaryStream()));
     VERBOSE(Verbose::DataIO
-            << "mmap.addr = " << mmap.addr << ", mmap.align = " << mmap.align
+            << "mmap.addr = " << (void*)mmap.addr << ", mmap.align = " << mmap.align
             << ", mmap.size = " << mmap.size << " (" << size << ")\n"
             << Verbose::Default);
   }
@@ -351,10 +390,9 @@ void kernelgen_hostcall_memsync() {
   for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end();
        i != e; i++) {
     struct mmap_t mmap = *i;
-    int err = munmap(mmap.addr, mmap.size + mmap.align);
-    if (err == -1)
-      THROW("Cannot unmap memory from " << mmap.addr << " + "
-                                        << mmap.size + mmap.align);
+    // Not used, because cuMemHostUnregister hangs.
+    // CU_SAFE_CALL(cuMemHostUnregister(buffer));
+    delete[] mmap.buffer;
   }
 
   mmappings.clear();
