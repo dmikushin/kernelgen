@@ -896,6 +896,15 @@ fi
 if [ -f $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32/libpthread.so ]; then
   sed -i s!$RPM_BUILD_ROOT!$RPM_INSTALL_PREFIX!g $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/32/libpthread.so
 fi
+#
+# Duplicate system's LD.SO.CONF and create our own cache for it
+# TODO This is a temporary workaround, while the question on direct use of system GLIBC cache is open.
+#
+mkdir -p $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc
+cp /etc/ld.so.conf $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc/ld.so.conf
+cp -rf /etc/ld.so.conf.d $RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/etc/ld.so.conf.d
+$RPM_INSTALL_PREFIX/%{prefix}lib/gcc/x86_64-unknown-linux-gnu/%{gcc_version}/sbin/ldconfig
+# ldconfig uses invalid cache file directory, involving BUILDROOT!
 %if %gcc
 #
 # Remove all rpaths for dynamic loaders (not permitted by GLIBC).
