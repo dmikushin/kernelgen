@@ -80,7 +80,7 @@ link_directories("${RPM_INSTALL_PREFIX}/lib")
 link_directories("${RPM_INSTALL_PREFIX}/lib64")
 link_directories("/opt/cuda/lib64")
 
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT} -fno-rtti")
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -gdwarf-2 -fPIC -O${OPT} -fno-rtti")
 
 #
 # IMPORT STATIC LIBRARIES
