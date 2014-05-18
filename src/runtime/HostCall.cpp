@@ -101,8 +101,15 @@ static void sighandler(int code, siginfo_t *siginfo, void* ucontext)
 	VERBOSE(Verbose::DataIO << "Mapped memory " << map << "(" << base <<
 			" - " << align << ") + " << size << "\n" << Verbose::Default);
 
-	CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
-	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+	// Copy device memory to host mapped memory.
+	char* hostcall_buffer = (char*)kernels["__kernelgen_main"]->target[RUNMODE].hostcall_buffer;
+	for (size_t offset = 0; offset < size; offset += 4096)
+	{
+		CU_SAFE_CALL(cuMemcpyDtoHAsync(hostcall_buffer, (char*)base + offset,
+			min<size_t>(size - offset, 4096), cuda_context->getSecondaryStream()));
+		CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+		memcpy(base, hostcall_buffer, min<size_t>(size - offset, 4096));
+	}
 }
 
 typedef void (*func_t)();
@@ -204,7 +211,14 @@ void kernelgen_hostcall(
 						THROW("Cannot map host memory onto " << base << " + " << size);
 
 					// Copy device memory to host mapped memory.
-					CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
+					char* hostcall_buffer = (char*)kernels["__kernelgen_main"]->target[RUNMODE].hostcall_buffer;
+					for (size_t offset = 0; offset < size; offset += 4096)
+					{
+						CU_SAFE_CALL(cuMemcpyDtoHAsync(hostcall_buffer, (char*)base + offset,
+							min<size_t>(size - offset, 4096), cuda_context->getSecondaryStream()));
+						CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+						memcpy(base, hostcall_buffer, min<size_t>(size - offset, 4096));
+					}
 
 					// Track the mapped memory in list of mappings,
 					// to synchronize them after the hostcall finishes.
@@ -229,7 +243,14 @@ void kernelgen_hostcall(
 							THROW("Cannot map host memory onto " << base << " + " << size);
 
 						// Copy device memory to host mapped memory.
-						CU_SAFE_CALL(cuMemcpyDtoHAsync(base, base, size, cuda_context->getSecondaryStream()));
+						char* hostcall_buffer = (char*)kernels["__kernelgen_main"]->target[RUNMODE].hostcall_buffer;
+						for (size_t offset = 0; offset < size; offset += 4096)
+						{
+							CU_SAFE_CALL(cuMemcpyDtoHAsync(hostcall_buffer, (char*)base + offset,
+								min<size_t>(size - offset, 4096), cuda_context->getSecondaryStream()));
+							CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+							memcpy(base, hostcall_buffer, min<size_t>(size - offset, 4096));
+						}
 
 						// Store new size & align.
 						mmapping->size = size;
@@ -275,9 +296,6 @@ void kernelgen_hostcall(
 
 	VERBOSE(Verbose::Hostcall << "Starting hostcall to " <<
 			(void*)*func << "\n" << Verbose::Default);
-
-	// Synchronize pending mmapped data transfers.
-	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
 
 	ffi_call(&cif, (func_t)*func, ret, values.data());
 
@@ -328,16 +346,24 @@ void kernelgen_hostcall_memsync()
 		struct mmap_t mmap = *i;
 		size_t size = mmap.size;
 		if (size % 16) size -= mmap.size % 16;
-		CU_SAFE_CALL(cuMemcpyHtoDAsync(
-			(char*)mmap.addr + mmap.align, (char*)mmap.addr + mmap.align, size,
-			cuda_context->getSecondaryStream()));
+		void* base = (char*)mmap.addr + mmap.align;
+
+		// Copy host mapped memory to device memory.
+		char* hostcall_buffer = (char*)kernels["__kernelgen_main"]->target[RUNMODE].hostcall_buffer;
+		for (size_t offset = 0; offset < size; offset += 4096)
+		{
+			memcpy(hostcall_buffer, base, min<size_t>(size - offset, 4096));
+			CU_SAFE_CALL(cuMemcpyHtoDAsync((char*)base + offset, hostcall_buffer,
+				min<size_t>(size - offset, 4096), cuda_context->getSecondaryStream()));
+			CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+		}
+
 		VERBOSE(Verbose::DataIO << "mmap.addr = " << mmap.addr <<
 				", mmap.align = " << mmap.align << ", mmap.size = " <<
 				mmap.size << " (" << size << ")\n" << Verbose::Default);
 	}
 	
-	// Synchronize and unmap previously mapped host memory.
-	CU_SAFE_CALL(cuStreamSynchronize(cuda_context->getSecondaryStream()));
+	// Unmap previously mapped host memory.
 	for (list<struct mmap_t>::iterator i = mmappings.begin(), e = mmappings.end(); i != e; i++)
 	{
 		struct mmap_t mmap = *i;

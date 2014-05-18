@@ -322,6 +322,12 @@ int main(int argc, char* argv[], char* envp[]) {
 				}
 			}
 
+			// Initialize a special buffer to debug kernelgen_hostcall
+			// buffer contents.
+			void* hostcall_buffer = NULL;
+			CU_SAFE_CALL(cuMemAllocHost((void**) &hostcall_buffer, 4096));
+			kernel->target[RUNMODE].hostcall_buffer = hostcall_buffer;
+
 			// Initialize callback structure.
 			// Initial lock state is "locked". It will be dropped by
 			// special GPU monitor kernel, upon its launch.

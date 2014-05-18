@@ -152,6 +152,9 @@ struct Kernel
 		
 		// Kernel callback structure.
 		kernelgen_callback_t* callback;
+
+		// A special buffer to debug kernelgen_hostcall buffer contents.
+		void* hostcall_buffer;
 		
 		// Kernel launch parameters
 		dim3 gridDim, blockDim;
