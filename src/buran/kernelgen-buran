@@ -434,12 +434,19 @@ sub build_and_test_kernelgen
 		#
 		# Checkout tests.
 		#
+		$cmd = "rm -rf $SOURCES/kernelgen_tests";
+		print "$cmd\n";
+		`$cmd`;
 		my($cmd) = "mkdir -p $SOURCES";
 		print "$cmd\n";
 		`$cmd`;
 		if ($kernelgen_rev != -1)
 		{
+			#
+			# Still need to use a newer stdwrapper.
+			#
 			$cmd = "cd $SOURCES && svn co $kernelgen_tests\@$kernelgen_rev kernelgen_tests -r$kernelgen_rev";
+			$cmd .= " && cd $SOURCES/kernelgen_tests && rm -rf stdwrapper.cu && svn update stdwrapper.cu -r2125";
 		}
 		else
 		{
@@ -448,81 +455,16 @@ sub build_and_test_kernelgen
 		print "$cmd\n";
 		`$cmd`;
 
-		#
-		# Run performance tests.
-		#
-		$cmd = "cd $SOURCES/kernelgen_tests/perf && make clean && make test.kernelgen 2>&1";
-		print "$cmd\n";
-		my($content) = join("", `bash -c "source $INSTALLROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
-		my($text) = "<h1 style=\"font-size:small;\">Performance tests</h1>\n<table cellpadding=\"10\">";
-		if ($content =~ m/Data\sfor\sreport\s\>\>\n(?<CONTENT>.*)\<\<\sData\sfor\sreport/xs)
-		{
-			$content = $+{CONTENT};
-			my(@lines) = split("\n", $content);
-			my($iline) = 0;
-			for ( ; $iline < scalar(@lines); $iline++)
-			{
-				my($line) = $lines[$iline];
+		my($text) = "";
 
-				my($name) = "unknown";
-				$line =~ s/^(?<NAME>\w+)\s\&\s//;
-				if (defined($+{NAME}))
-				{
-					$name = $+{NAME};
-				}
-
-				my($time) = "N/A";
-				$line =~ s/^(?<TIME>[^\&]+)\&\s//;
-				if (defined($+{TIME}))
-				{
-					$time = $+{TIME};
-					$time =~ s/\s//;
-				}
-
-				my($nregs) = "N/A";
-				$line =~ s/^(?<NREGS>[0-9]+)//;
-				if (defined($+{NREGS}))
-				{
-					$nregs = $+{NREGS};
-				}
-
-				$text .= "<tr>";
-				if (($time ne "N/A") and ($nregs ne "N/A"))
-				{
-					$text .= "<td style=\"border: 2px solid; color: green; width: auto;\"><b>$name</b></td>";
-					$text .= "<td style=\"border: 1px solid; width: auto;\">$time sec</td>";
-					$text .= "<td style=\"border: 1px solid; width: auto;\">$nregs regs</td>";
-				}
-				else
-				{
-					$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>$name</b></td>";
-					$text .= "<td style=\"border: 1px solid; width: auto;\">N/A</td>";
-					$text .= "<td style=\"border: 1px solid; width: auto;\">N/A</td>";
-				}
-				$text .= "<td></td>";
-				$text .= "</tr>";
-			}
-		}
-		else
-		{
-			$text .= "<tr>";
-			$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>Failed to run performance test suite</b></td>";
-			$text .= "<td></td>";
-			$text .= "<td></td>";
-			$text .= "</tr>";
-			
-			$text .= "<tr>";
-			$text .= "<td style=\"border: 1px solid; font-size:small;\">$content</td>";
-			$text .= "</tr>";
-		}
-		$text .= "</table><br/><br/>";
-		
 		#
 		# Run behavior tests.
 		#
 		$cmd = "cd $SOURCES/kernelgen_tests/behavior && make clean && make test1 2>&1";
 		print "$cmd\n";
-		my(@lines) = split("\n", `bash -c "source $INSTALLROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
+		my($content) = join("", `bash -c "source $INSTALLROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
+		print "content = $content\n";
+		my(@lines) = split("\n", "$content");
 		$text .= "<h1 style=\"font-size:small;\">Behavior tests</h1>\n<table cellpadding=\"10\">";
 		my($empty) = 1;
 		foreach $line (@lines)
@@ -590,6 +532,75 @@ sub build_and_test_kernelgen
 			$text .= "</tr>";
 		}
 		$text .= "</table>";
+
+		#
+		# Run performance tests.
+		#
+		$cmd = "cd $SOURCES/kernelgen_tests/perf && make clean && make test.kernelgen 2>&1";
+		print "$cmd\n";
+		$content = join("", `bash -c "source $INSTALLROOT/$prefix/bin/kernelgen-vars.sh && $cmd"`);
+		$text .= "<h1 style=\"font-size:small;\">Performance tests</h1>\n<table cellpadding=\"10\">";
+		if ($content =~ m/Data\sfor\sreport\s\>\>\n(?<CONTENT>.*)\<\<\sData\sfor\sreport/xs)
+		{
+			$content = $+{CONTENT};
+			my(@lines) = split("\n", $content);
+			my($iline) = 0;
+			for ( ; $iline < scalar(@lines); $iline++)
+			{
+				my($line) = $lines[$iline];
+
+				my($name) = "unknown";
+				$line =~ s/^(?<NAME>\w+)\s\&\s//;
+				if (defined($+{NAME}))
+				{
+					$name = $+{NAME};
+				}
+
+				my($time) = "N/A";
+				$line =~ s/^(?<TIME>[^\&]+)\&\s//;
+				if (defined($+{TIME}))
+				{
+					$time = $+{TIME};
+					$time =~ s/\s//;
+				}
+
+				my($nregs) = "N/A";
+				$line =~ s/^(?<NREGS>[0-9]+)//;
+				if (defined($+{NREGS}))
+				{
+					$nregs = $+{NREGS};
+				}
+
+				$text .= "<tr>";
+				if (($time ne "N/A") and ($nregs ne "N/A"))
+				{
+					$text .= "<td style=\"border: 2px solid; color: green; width: auto;\"><b>$name</b></td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">$time sec</td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">$nregs regs</td>";
+				}
+				else
+				{
+					$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>$name</b></td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">N/A</td>";
+					$text .= "<td style=\"border: 1px solid; width: auto;\">N/A</td>";
+				}
+				$text .= "<td></td>";
+				$text .= "</tr>";
+			}
+		}
+		else
+		{
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 2px solid; color: red; width: auto;\"><b>Failed to run performance test suite</b></td>";
+			$text .= "<td></td>";
+			$text .= "<td></td>";
+			$text .= "</tr>";
+			
+			$text .= "<tr>";
+			$text .= "<td style=\"border: 1px solid; font-size:small;\">$content</td>";
+			$text .= "</tr>";
+		}
+		$text .= "</table><br/><br/>";
 
 		#
 		# Cleanup.
