@@ -42,7 +42,7 @@ CUresult cudyInit(CUDYloader* loader, int capacity, std::string host_cubin = "")
 // into dynamic loader context.
 CUresult cudyLoadCubin(CUDYfunction* function,
 	CUDYloader loader, const char* name, char* cubin,
-	CUstream stream);
+	CUstream stream, short* regcount = NULL);
 
 // Load kernel function with the specified name from memory buffer
 // into dynamic loader context.

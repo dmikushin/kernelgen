@@ -81,7 +81,7 @@ extern cl::opt<bool> IgnoreAliasing;
 //extern cl::opt<bool> AllowNonAffine;
 
 //template<typename T>
-size_t use_cuda_launch_config(const char* func);
+size_t use_cuda_launch_config(int regsPerBlock, int threadsPerBlock);
 
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL, bool * isThereAtLeastOneParallelLoop = NULL);

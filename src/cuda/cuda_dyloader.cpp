@@ -672,10 +672,11 @@ CUresult cudyInit(CUDYloader* loader, int capacity, string host_cubin)
 // into dynamic loader context.
 CUresult cudyLoadCubin(CUDYfunction* function,
 	CUDYloader loader, const char* name, char* cubin,
-	CUstream stream)
+	CUstream stream, short* regcount)
 {
 	// Create function.
 	*function = new CUDYfunction_t(loader, name, cubin);
+	if (regcount) *regcount = (*function)->regcount;
 	return loader->Load(*function, stream);
 }
 
