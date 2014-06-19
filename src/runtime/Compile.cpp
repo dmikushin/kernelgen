@@ -882,35 +882,41 @@ KernelFunc kernelgen::runtime::Compile(
 			// 123   -1    -1  ->  123   1     1     one loop
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
 			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
-			size_t numberOfThreads = use_cuda_launch_config(kernel->name.c_str());  //kernel->KernelName.data()); //f->getName().data()); //kernel->name.c_str()); //block_size_with_maximum_potential_occupancy(kernel->name);
+			//size_t numberOfThreads = use_cuda_launch_config(kernel->name.c_str()); 
 			if (launchParameters.x * launchParameters.y * launchParameters.z > cuda_context->getThreadsPerBlock())
 			{
-				static dim3 blockDim0d = dim3(1, 1, 1);
-				static dim3 blockDim1d = dim3(numberOfThreads, 1, 1);
-				static dim3 blockDim2d = dim3(numberOfThreads, 1, 1);
-				static dim3 blockDim3d = dim3(numberOfThreads, 1, 1);
-				static int blockDim_init = 0;
-				if (!blockDim_init)
-				{
-					setBlockDim("kernelgen_blockdim1d", blockDim1d);
-					setBlockDim("kernelgen_blockdim2d", blockDim2d);
-					setBlockDim("kernelgen_blockdim3d", blockDim3d);
-					blockDim_init = 1;
-				}
 				switch (numberOfLoops)
 				{
-				case 0:
-					blockDim = blockDim0d;
-					assert(false);
+				case 0 :
+					{
+						dim3 blockDim0d = dim3(1, 1, 1);
+						blockDim = blockDim0d;
+						assert(false);
+					}
 					break;
-				case 1:
-					blockDim = blockDim1d;
+				case 1 :
+					{
+						dim3 blockDim1d = dim3(128, 1, 1);
+						// dim3 blockDim1d = dim3(numberOfThreads, 1, 1);
+						setBlockDim("kernelgen_blockdim1d", blockDim1d);
+						blockDim = blockDim1d;
+					}
 					break;
-				case 2:
-					blockDim = blockDim2d;
+				case 2 :
+					{
+						dim3 blockDim2d = dim3(128, 1, 1);
+						// dim3 blockDim2d = dim3(numberOfThreads, 1, 1);
+						setBlockDim("kernelgen_blockdim2d", blockDim2d);
+						blockDim = blockDim2d;
+					}		
 					break;
-				case 3:
-					blockDim = blockDim3d;
+				case 3 :
+					{
+						dim3 blockDim3d = dim3(128, 1, 1);
+						// dim3 blockDim3d = dim3(numberOfThreads, 1, 1);
+						setBlockDim("kernelgen_blockdim3d", blockDim3d);
+						blockDim = blockDim3d;
+					}
 					break;
 				}
 			}
@@ -921,7 +927,7 @@ KernelFunc kernelgen::runtime::Compile(
 			}
 			
 			// Compute grid parameters from specified blockDim and desired iterationsPerThread.
-			dim3 iterationsPerThread(1,1,1);
+			dim3 iterationsPerThread(1, 1, 1);
 			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
 			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
 			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
