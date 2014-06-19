@@ -80,6 +80,9 @@ namespace llvm
 extern cl::opt<bool> IgnoreAliasing;
 //extern cl::opt<bool> AllowNonAffine;
 
+//template<typename T>
+size_t use_cuda_launch_config(const char* func);
+
 void ConstantSubstitution( Function * func, void * args);
 Pass* createSizeOfLoopsPass(vector<Size3> *memForSize3 = NULL, bool * isThereAtLeastOneParallelLoop = NULL);
 
@@ -879,12 +882,13 @@ KernelFunc kernelgen::runtime::Compile(
 			// 123   -1    -1  ->  123   1     1     one loop
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
 			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
+			size_t numberOfThreads = use_cuda_launch_config(kernel->name.c_str());  //kernel->KernelName.data()); //f->getName().data()); //kernel->name.c_str()); //block_size_with_maximum_potential_occupancy(kernel->name);
 			if (launchParameters.x * launchParameters.y * launchParameters.z > cuda_context->getThreadsPerBlock())
 			{
 				static dim3 blockDim0d = dim3(1, 1, 1);
-				static dim3 blockDim1d = dim3(128, 1, 1);
-				static dim3 blockDim2d = dim3(128, 1, 1);
-				static dim3 blockDim3d = dim3(128, 1, 1);
+				static dim3 blockDim1d = dim3(numberOfThreads, 1, 1);
+				static dim3 blockDim2d = dim3(numberOfThreads, 1, 1);
+				static dim3 blockDim3d = dim3(numberOfThreads, 1, 1);
 				static int blockDim_init = 0;
 				if (!blockDim_init)
 				{

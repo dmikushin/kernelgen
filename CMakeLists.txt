@@ -80,6 +80,8 @@ link_directories("${RPM_INSTALL_PREFIX}/lib")
 link_directories("${RPM_INSTALL_PREFIX}/lib64")
 link_directories("/opt/cuda/lib64")
 
+#TARGET_LINK_LIBRARIES(kernelgen ${CUDA_LIBRARIES})
+
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -fPIC -O${OPT} -fno-rtti")
 
 #
@@ -148,6 +150,16 @@ foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-simple APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
 target_link_libraries(kernelgen-simple bugpoint common frontend LLVM-${LLVM_VERSION}svn libelf iberty rt)
+
+#
+# CLC
+#
+find_package(CUDA)
+CUDA_ADD_LIBRARY(clc STATIC
+    #${PROJECT_SOURCE_DIR}/src/runtime/cuda_launch_config.hpp
+    ${PROJECT_SOURCE_DIR}/src/clc/cuda_launch_config.cu
+    OPTIONS -arch sm_20
+)
 
 #
 # LLVM/POLLY TESTER
@@ -220,10 +232,11 @@ add_custom_target(cuda_free ALL DEPENDS ${PROJECT_BINARY_DIR}/free.bc)
 #
 aux_source_directory(src/runtime runtime_sources)
 add_library(kernelgen-rt SHARED ${runtime_sources})
+
 foreach(DEFINE ${LLVM_MACROS})
 	set_property(TARGET kernelgen-rt APPEND PROPERTY COMPILE_DEFINITIONS "${DEFINE}")
 endforeach()
-target_link_libraries(kernelgen-rt bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn libelf rt gmp libmhash dl libffi)
+target_link_libraries(kernelgen-rt clc bugpoint common kernelgen-cuda LLVMPolly LLVM-${LLVM_VERSION}svn libelf rt gmp libmhash dl libffi)
 add_dependencies(kernelgen-rt kernelgen-version-header)
 
 #
@@ -275,7 +288,7 @@ INSTALL(PROGRAMS
 	DESTINATION bin)
 # lib
 INSTALL(TARGETS
-	kernelgen-ct kernelgen-rt kernelgen-cuda
+	clc kernelgen-ct kernelgen-rt kernelgen-cuda
 	DESTINATION lib)
 # include/cuda
 INSTALL(FILES
