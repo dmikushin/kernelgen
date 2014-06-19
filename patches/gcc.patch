@@ -1,0 +1,1286 @@
+--- a/gcc-snapshot/gcc/gcc.c
++++ b/gcc-snapshot/gcc/gcc.c
+@@ -3925,6 +3925,27 @@
+       add_infile ("help-dummy", "c");
+     }
+ 
++  /* For KernelGen without fallback always add -fuse-linker-plugin,  
++     except if KERNELGEN_OLD_LINKER is given.  */
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  int fallback = 0;
++  if (cfallback) {
++    fallback = atoi(cfallback);
++  }
++  cfallback = getenv("KERNELGEN_OLD_LINKER");
++  if (cfallback) {
++    fallback = fallback || atoi(cfallback);
++  }
++  if (!fallback) {
++    alloc_switch ();
++    switches[n_switches].part1 = "fuse-linker-plugin";
++    switches[n_switches].args = 0;
++    switches[n_switches].live_cond = 0;
++    switches[n_switches].validated = 0;
++    switches[n_switches].ordering = 0;
++    n_switches++;
++  }
++
+   alloc_switch ();
+   switches[n_switches].part1 = 0;
+   alloc_infile ();
+--- a/gcc-snapshot/lto-plugin/lto-plugin.c	2015-10-02 01:59:07.000000000 +0400
++++ b/gcc-snapshot/lto-plugin/lto-plugin.c	2015-10-02 02:09:17.000000000 +0400
+@@ -549,22 +549,22 @@
+     }
+ 
+ 
+-  pex = pex_init (PEX_USE_PIPES, "lto-wrapper", NULL);
+-  check (pex != NULL, LDPL_FATAL, "could not pex_init lto-wrapper");
++  pex = pex_init (PEX_USE_PIPES, "kernelgen-simple", NULL);
++  check (pex != NULL, LDPL_FATAL, "could not pex_init kernelgen-simple");
+ 
+   errmsg = pex_run (pex, 0, new_argv[0], new_argv, NULL, NULL, &t);
+-  check (errmsg == NULL, LDPL_FATAL, "could not run lto-wrapper");
+-  check (t == 0, LDPL_FATAL, "could not run lto-wrapper");
++  check (errmsg == NULL, LDPL_FATAL, "could not run kernegen-simple");
++  check (t == 0, LDPL_FATAL, "could not run kernelgen-simple");
+ 
+   wrapper_output = pex_read_output (pex, 0);
+-  check (wrapper_output, LDPL_FATAL, "could not read lto-wrapper output");
++  check (wrapper_output, LDPL_FATAL, "could not read kernelgen-simple output");
+ 
+   add_output_files (wrapper_output);
+ 
+   t = pex_get_status (pex, 1, &status);
+-  check (t == 1, LDPL_FATAL, "could not get lto-wrapper exit status");
++  check (t == 1, LDPL_FATAL, "could not get kernelgen-simple exit status");
+   check (WIFEXITED (status) && WEXITSTATUS (status) == 0, LDPL_FATAL,
+-         "lto-wrapper failed");
++         "kernelgen-simple failed");
+ 
+   pex_free (pex);
+
+@@ -603,8 +603,16 @@
+ static enum ld_plugin_status
+ all_symbols_read_handler (void)
+ {
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  int fallback = 0;
++  if (cfallback) {
++    fallback = atoi(cfallback);
++  }
++
+   unsigned i;
+   unsigned num_lto_args = num_claimed_files + lto_wrapper_num_args + 1;
++  if (!fallback)
++    num_lto_args = num_claimed_files + 2;
+   char **lto_argv;
+   const char **lto_arg_ptr;
+   if (num_claimed_files == 0)
+@@ -624,8 +632,13 @@
+
+   free_1 ();
+
+-  for (i = 0; i < lto_wrapper_num_args; i++)
+-    *lto_arg_ptr++ = lto_wrapper_argv[i];
++  if (fallback) {
++    for (i = 0; i < lto_wrapper_num_args; i++)
++      *lto_arg_ptr++ = lto_wrapper_argv[i];
++  } else {
++    if (lto_wrapper_num_args > 0)
++      *lto_arg_ptr++ = lto_wrapper_argv[0];
++  }
+
+   for (i = 0; i < num_claimed_files; i++)
+     {
+--- /dev/null	2012-03-08 13:55:00.716834004 +0300
++++ b/gcc-snapshot/gcc/main.cpp	2012-03-08 15:05:24.714095594 +0300
+@@ -0,0 +1,310 @@
++/* main.c: defines main() for cc1, cc1plus, etc.
++   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify it under
++the terms of the GNU General Public License as published by the Free
++Software Foundation; either version 3, or (at your option) any later
++version.
++
++GCC is distributed in the hope that it will be useful, but WITHOUT ANY
++WARRANTY; without even the implied warranty of MERCHANTABILITY or
++FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++for more details.
++
++You should have received a copy of the GNU General Public License
++along with GCC; see the file COPYING3.  If not see
++<http://www.gnu.org/licenses/>.  */
++
++extern "C"
++{
++  #include "config.h"
++  #include "system.h"
++  #include "coretypes.h"
++  #include "tm.h"
++  #include "diagnostic-core.h"
++  #include "params.h"
++  #include "toplev.h"
++  #include <stdlib.h>
++  #include <fcntl.h>
++  #include <gelf.h>	
++  #include <libelf.h>
++}
++
++#include <string>
++#include <vector>
++
++using namespace std;
++
++/* We define main() to call toplev_main(), which is defined in toplev.c.
++   We do this in a separate file in order to allow the language front-end
++   to define a different main(), if it so desires.  */
++int main (int argc, char **argv);
++
++/* We define an intermediate buffer to store the dragonegg.so plugin result.
++   It will be then used as libkernelgen-ct.so plugin input.  */
++string dragonegg_result = "";
++
++/* It seems GCC does not care about cleaning up its
++   state completely after processing. Well, it's reasonable,
++   since the tool is not really designed to support multiple
++   compilation passes in a single launch.
++   In out approach we perform two compilation passes, thus
++   GCC state must be reset before the second pass.
++   To archive that, we will backup .data and .bss symbols
++   initla state and rewrite them after finishing the first pass.  */
++vector<char> obj_data_vector;
++static char* obj_data;
++int load_self_elf(Elf** e, Elf_Data** symbols,
++  int* nsymbols, int* idata, int* ibss)
++{
++  const char* filename = "/proc/self/exe";
++  int fd = open(filename, O_RDONLY);
++  if (fd < 0)
++  {
++    fprintf(stderr, "Cannot open %s\n", filename);
++    return 1;
++  }
++  if (elf_version(EV_CURRENT) == EV_NONE)
++  {
++    fprintf(stderr, "ELF library initialization failed: %s\n",
++      elf_errmsg(-1));
++    return 1;
++  }
++  *e = elf_begin(fd, ELF_C_READ, NULL);
++  if (!*e)
++  {
++    fprintf(stderr, "elf_begin() failed: %s\n", elf_errmsg(-1));
++    return 1;
++  }
++  size_t shstrndx;
++  if (elf_getshdrstrndx(*e, &shstrndx))
++  {
++    fprintf(stderr, "elf_getshdrstrndx() failed: %s\n",
++      elf_errmsg(-1));
++    return 1;
++  }
++  Elf_Scn* scn = elf_nextscn(*e, NULL);
++  for (int i = 1; scn != NULL; scn = elf_nextscn(*e, scn), i++)
++  {
++    GElf_Shdr shdr;
++    if (!gelf_getshdr(scn, &shdr))
++    {
++      fprintf(stderr, "gelf_getshdr() failed for %s\n",
++        elf_errmsg(-1));
++      return 1;
++    }
++
++    if (shdr.sh_type == SHT_SYMTAB)
++    {
++      *symbols = elf_getdata(scn, NULL);
++      if (!symbols)
++      {
++        fprintf(stderr, "elf_getdata() failed for %s\n",
++          elf_errmsg(-1));
++        return 1;
++      }
++      if (shdr.sh_entsize)
++        *nsymbols = shdr.sh_size / shdr.sh_entsize;
++    }
++
++    char* name = NULL;
++    if ((name = elf_strptr(*e, shstrndx, shdr.sh_name)) == NULL)
++    {
++      fprintf(stderr, "Cannot read the section %d name\n", i);
++    }
++
++    if (!strcmp(name, ".data")) *idata = i;
++    if (!strcmp(name, ".bss")) *ibss = i;
++  }
++  if (!*symbols)
++  {
++    fprintf(stderr, "Cannot find symbols table\n");
++    return 1;
++  }
++  
++  return 0;
++}
++
++/* We need to provide a fallback anchor for plugins to activate in case of
++   kernelgen-related failure. This way we can recover from minor issues and
++   compile huge projects  */
++static int gargc;
++static char** gargv;
++extern "C" void fallback(void*)
++{
++  Elf* e;
++  Elf_Data* symbols = NULL;
++  int nsymbols = 0, idata = -1, ibss = -1;
++  if (load_self_elf(&e, &symbols, &nsymbols, &idata, &ibss))
++    return;
++
++  // For each symbol:
++  // If symbol is object, restore its initial value.
++  char* obj_data_ptr = obj_data;
++  for (int isymbol = 0; isymbol < nsymbols; isymbol++)
++  {
++    GElf_Sym symbol;
++    gelf_getsym(symbols, isymbol, &symbol);
++    if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
++      ((symbol.st_shndx == idata) || (symbol.st_shndx == ibss)))
++    {
++      memcpy((void*)symbol.st_value, obj_data_ptr, symbol.st_size);
++      obj_data_ptr += symbol.st_size;
++    }
++  }
++  elf_end(e);
++
++  toplev_main(gargc, gargv);
++  exit(0);
++}
++
++int
++main (int argc, char **argv)
++{
++  gargc = argc;
++  gargv = argv;
++
++  // Check what mode is used: kernelgen or fallback.
++  // In case of kernelgen we will first create a temporary
++  // output file, generate it, and then stage through
++  // the kernelgen_link external function. This function
++  // should put the final output into the real output file.
++  // In case of fallback, the process is similar to the
++  // regular gcc's collect: no any extra activities, just
++  // generate directly to the output file and done.
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  if (cfallback) {
++    int fallback = atoi(cfallback);
++    if (fallback) {
++      return toplev_main(argc, argv);
++    }
++  }
++
++  Elf* e;
++  Elf_Data* symbols = NULL;
++  int nsymbols = 0, idata = -1, ibss = -1;
++  if (load_self_elf(&e, &symbols, &nsymbols, &idata, &ibss))
++    return 1;
++
++  // For each symbol:
++  // If symbol is object, account its size.
++  // Also track the total number of objects.
++  size_t obj_total_size = 0, nobj = 0;
++  for (int isymbol = 0; isymbol < nsymbols; isymbol++)
++  {
++    GElf_Sym symbol;
++    gelf_getsym(symbols, isymbol, &symbol);
++    if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
++      ((symbol.st_shndx == idata) || (symbol.st_shndx == ibss)))
++    {
++      obj_total_size += symbol.st_size;
++      nobj++;
++    }
++  }
++
++  // Allocate a vector to store objects initial values
++  obj_data_vector.resize(obj_total_size);
++  obj_data = (char*)&obj_data_vector[0];
++
++  // For each symbol:
++  // If symbol is object, record its size and initial content.
++  char* obj_data_ptr = obj_data;
++  for (int isymbol = 0; isymbol < nsymbols; isymbol++)
++  {
++    GElf_Sym symbol;
++    gelf_getsym(symbols, isymbol, &symbol);
++    if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
++      ((symbol.st_shndx == idata) || (symbol.st_shndx == ibss)))
++    {
++      memcpy(obj_data_ptr, (const void*)symbol.st_value, symbol.st_size);
++      obj_data_ptr += symbol.st_size;
++    }
++  }
++
++  // Run compiler with dragonegg plugin enabled.
++  // DragonEgg trashes the regular gcc output, so we
++  // will need to invoke gcc once again to get the regular
++  // assembly output.
++  int rcompiler = 0;
++  {
++    // Create new argc & argv.
++    int compiler_argc = argc + 7; // + 7 more arguments
++    vector<const char*> compiler_argv_vector;
++    compiler_argv_vector.resize(compiler_argc + 1);
++    char** compiler_argv = (char**)&compiler_argv_vector[0];
++
++    // Disable debug info generation in DragonEgg, since it is not
++    // currently handled correctly by loop extraction pass & Co.
++    int i = 0; for (int k = 0; k < argc; k++)
++      if (strcmp(argv[k], "-g"))
++        compiler_argv[i++] = argv[k];
++    string plugin_path = "-fplugin=dragonegg.so";
++    compiler_argv[i++] = (char*)plugin_path.c_str();
++    compiler_argv[i++] = "-fplugin-arg-dragonegg-emit-ir";
++    compiler_argv[i++] = "-fplugin-arg-dragonegg-llvm-ir-optimize=0";
++    char* gccopt = getenv("KERNELGEN_GCC_OPT");
++    if (gccopt)
++    {
++      compiler_argv[i++] = "-fplugin-arg-dragonegg-enable-gcc-optzns";
++      compiler_argv[i++] = gccopt;
++    }
++    compiler_argv[i++] = "-fplugin-arg-dragonegg-internal-output";
++    compiler_argv[i++] = "-D_KERNELGEN";
++    compiler_argv[i++] = NULL;
++
++    rcompiler = toplev_main(i - 1, compiler_argv);
++  }
++
++  // Check the DragonEgg result.
++  // If no result or error status, then exit now.
++  if (!dragonegg_result.size() || rcompiler) return rcompiler;
++
++  // Backup the DragonEgg result.
++  string dragonegg_result_backup = dragonegg_result;
++
++  // For each symbol:
++  // If symbol is object, restore its initial value.
++  obj_data_ptr = obj_data;
++  for (int isymbol = 0; isymbol < nsymbols; isymbol++)
++  {
++    GElf_Sym symbol;
++    gelf_getsym(symbols, isymbol, &symbol);
++    if ((GELF_ST_TYPE(symbol.st_info) == STT_OBJECT) &&
++      ((symbol.st_shndx == idata) || (symbol.st_shndx == ibss)))
++    {
++      memcpy((void*)symbol.st_value, obj_data_ptr, symbol.st_size);
++      obj_data_ptr += symbol.st_size;
++    }
++  }
++  elf_end(e);
++
++  // Restore the DragonEgg result.
++  dragonegg_result = dragonegg_result_backup;
++
++  // Run compiler with kernelgen-ct.
++  // This time compiler should generate a regular assembly
++  // file, where plugin also inserts a symbol containing
++  // DragonEgg output.
++  // Also we enable LTO by default, since kernelgen
++  // linking is based on LTO.
++  {
++    // Create new argc & argv.
++    int compiler_argc = argc + 3; // + 3 more arguments
++    vector<const char*> compiler_argv_vector;
++    compiler_argv_vector.resize(compiler_argc + 1);
++    char** compiler_argv = (char**)&compiler_argv_vector[0];
++    int i = 0; for ( ; i < argc; i++)
++      compiler_argv[i] = argv[i];
++    string plugin_path = "-fplugin=libkernelgen-ct.so";
++    compiler_argv[i++] = (char*)plugin_path.c_str();
++    compiler_argv[i++] = "-D_KERNELGEN";
++    compiler_argv[i++] = "-flto";
++    compiler_argv[i++] = NULL;
++
++    rcompiler = toplev_main(i - 1, compiler_argv);
++  }
++
++  return rcompiler;
++}
+--- a/gcc-snapshot/gcc/main.c	2011-01-03 23:52:00.000000000 +0300
++++ /dev/null	2012-03-08 13:55:00.716834004 +0300
+@@ -1,37 +0,0 @@
+-/* main.c: defines main() for cc1, cc1plus, etc.
+-   Copyright (C) 2007, 2010  Free Software Foundation, Inc.
+-
+-This file is part of GCC.
+-
+-GCC is free software; you can redistribute it and/or modify it under
+-the terms of the GNU General Public License as published by the Free
+-Software Foundation; either version 3, or (at your option) any later
+-version.
+-
+-GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+-WARRANTY; without even the implied warranty of MERCHANTABILITY or
+-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+-for more details.
+-
+-You should have received a copy of the GNU General Public License
+-along with GCC; see the file COPYING3.  If not see
+-<http://www.gnu.org/licenses/>.  */
+-
+-#include "config.h"
+-#include "system.h"
+-#include "coretypes.h"
+-#include "tm.h"
+-#include "diagnostic-core.h"
+-#include "toplev.h"
+-
+-int main (int argc, char **argv);
+-
+-/* We define main() to call toplev_main(), which is defined in toplev.c.
+-   We do this in a separate file in order to allow the language front-end
+-   to define a different main(), if it so desires.  */
+-
+-int
+-main (int argc, char **argv)
+-{
+-  return toplev_main (argc, argv);
+-}
+--- a/gcc-snapshot/gcc/toplev.c	2012-03-25 16:59:48.910888752 +0400
++++ b/gcc-snapshot/gcc/toplev.c	2012-03-25 17:00:19.527225426 +0400
+@@ -637,13 +637,13 @@
+     {
+ #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
+       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
+-				      "__gnu_lto_v1",
++				      "__kernelgen",
+ 				      (unsigned HOST_WIDE_INT) 1, 8);
+ #elif defined ASM_OUTPUT_ALIGNED_COMMON
+-      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_v1",
++      ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__kernelgen",
+ 				 (unsigned HOST_WIDE_INT) 1, 8);
+ #else
+-      ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_v1",
++      ASM_OUTPUT_COMMON (asm_out_file, "__kernelgen",
+ 			 (unsigned HOST_WIDE_INT) 1,
+ 			 (unsigned HOST_WIDE_INT) 1);
+ #endif
+--- a/gcc-snapshot/gcc/Makefile.in      2012-04-09 19:07:35.017814275 +0400
++++ b/gcc-snapshot/gcc/Makefile.in      2012-04-09 19:12:31.540422734 +0400
+@@ -50,7 +50,7 @@
+ # This must come before the language makefile fragments to allow them to
+ # add suffixes and rules of their own.
+ .SUFFIXES:
+-.SUFFIXES: .c .o .po .pox .gmo
++.SUFFIXES: .c .cpp .o .po .pox .gmo
+ 
+ # -------------------------------
+ # Standard autoconf-set variables
+@@ -215,7 +215,7 @@
+ ifneq ($(ENABLE_BUILD_WITH_CXX),yes)
+ COMPILER = $(CC)
+ COMPILER_FLAGS = $(CFLAGS)
+-LINKER = $(CC)
++LINKER = $(CXX)
+ LINKER_FLAGS = $(CFLAGS)
+ else
+ COMPILER = $(CXX)
+@@ -1038,7 +1038,7 @@
+ LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER) \
+ 	$(HOST_LIBS)
+ BACKENDLIBS = $(CLOOGLIBS) $(PPLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
+-	$(ZLIB)
++	$(ZLIB) -lelf
+ # Any system libraries needed just for GNAT.
+ SYSLIBS = @GNAT_LIBEXC@
+ 
+@@ -1071,6 +1071,9 @@
+ 	   $(CPPINC) $(GMPINC) $(DECNUMINC) \
+ 	   $(PPLINC) $(CLOOGINC)
+ 
++.cpp.o:
++	$(CXX) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
++
+ .c.o:
+ 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+ 
+@@ -2837,7 +2840,7 @@
+ plugin.o : plugin.c $(PLUGIN_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+    $(DIAGNOSTIC_CORE_H) $(TREE_H) $(TREE_PASS_H) intl.h $(PLUGIN_VERSION_H) $(GGC_H)
+ 
+-main.o : main.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(DIAGNOSTIC_CORE_H)
++main.o : main.cpp $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(DIAGNOSTIC_CORE_H)
+ 
+ host-default.o : host-default.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+    hosthooks.h $(HOSTHOOKS_DEF_H)
+--- a/gcc-snapshot/gcc/collect2.c	2013-01-13 21:03:20.000000000 +0300
++++ b/gcc-snapshot/gcc/collect2.c	2013-01-14 01:07:23.000000000 +0300
+@@ -936,16 +936,29 @@
+     num_lto_c_args++;
+   }
+ 
+-  if (lto_objects.first)
++  /* For KernelGen without fallback and without old linker scheme -
++     never invoke the LTO backend (below).  All required job is already
++     done by kernelgen-simple executed as LTO plugin, instead of lto-wrapper.  */
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  int fallback = 0;
++  if (cfallback) {
++    fallback = atoi(cfallback);
++  }
++  cfallback = getenv("KERNELGEN_OLD_LINKER");
++  if (cfallback) {
++    fallback = fallback || atoi(cfallback);
++  }
++
++  if (lto_objects.first && fallback)
+     {
+       char **lto_c_argv;
+       const char **lto_c_ptr;
+       char **p;
+       char **lto_o_ptr;
+       struct lto_object *list;
+-      char *lto_wrapper = getenv ("COLLECT_LTO_WRAPPER");
++      char *lto_wrapper = "kernelgen-simple";
+       struct pex_obj *pex;
+-      const char *prog = "lto-wrapper";
++      const char *prog = "kernelgen-simple";
+       int lto_ld_argv_size = 0;
+       char **out_lto_ld_argv;
+       int out_lto_ld_argv_size;
+@@ -1051,8 +1064,20 @@
+ 	    out_lto_ld_argv[out_lto_ld_argv_size++] = *p;
+ 	  p++;
+         }
++
+       out_lto_ld_argv[out_lto_ld_argv_size++] = 0;
+ 
++      if (debug)
++      {
++        int i = 0;
++        while (out_lto_ld_argv[i])
++        {
++          printf("%s ", out_lto_ld_argv[i]);
++          i++;
++        }
++        printf("\n");
++      }
++
+       /* Run the linker again, this time replacing the object files
+          optimized by the LTO with the temporary file generated by the LTO.  */
+       fork_execute ("ld", out_lto_ld_argv);
+@@ -1183,9 +1208,32 @@
+   /* Do not invoke xcalloc before this point, since locale needs to be
+      set first, in case a diagnostic is issued.  */
+ 
+-  ld1_argv = XCNEWVEC (char *, argc + 4);
++  /* KernelGen passes paths from LIBRARY_PATH environmental variables
++     to linker as -rpath arguments. Here we count how many extra args
++     are needed for that and their total length.  */
++
++  int nrpaths = 0;
++#ifdef KERNELGEN_ENABLE_RPATHS
++  int szrpaths = 0;
++  char* library_path = getenv(LIBRARY_PATH_ENV);
++  if (!library_path)
++    {
++       error("LIBRARY_PATH must be defined!\n");
++    }
++  char* library_path_dup = xstrdup(library_path);
++  char* library_path_tok = strtok(library_path_dup, ":");
++  while (library_path_tok)
++    {
++      nrpaths++;
++      szrpaths += strlen(library_path_tok);
++      library_path_tok = strtok(NULL, ":");
++    }
++  free(library_path_dup);
++#endif
++
++  ld1_argv = XCNEWVEC (char *, argc + 6 + nrpaths);
+   ld1 = CONST_CAST2 (const char **, char **, ld1_argv);
+-  ld2_argv = XCNEWVEC (char *, argc + 11);
++  ld2_argv = XCNEWVEC (char *, argc + 13 + nrpaths);
+   ld2 = CONST_CAST2 (const char **, char **, ld2_argv);
+   object_lst = XCNEWVEC (char *, argc);
+   object = CONST_CAST2 (const char **, char **, object_lst);
+@@ -1245,6 +1293,13 @@
+ #else
+   output_file = DEFAULT_A_OUT_NAME;
+ #endif
++  // For KernelGen without fallback - always use LTO.
++  const char* cfallback = getenv("KERNELGEN_FALLBACK");
++  int fallback = 0;
++  if (cfallback)
++    fallback = atoi(cfallback);
++  if (!fallback)
++    lto_mode = LTO_MODE_LTO;
+ 
+   obstack_begin (&temporary_obstack, 0);
+   temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
+@@ -1622,6 +1677,46 @@
+ 	}
+     }
+ 
++  /* For KernelGen without fallback always make the following additions:
++     1) add --export-dynamic to use executable global symbols for resolving
++     dependencies of subsequently loaded kernel objects;
++     2) link against KernelGen runtime library.  */
++
++  const char* export_dynamic = "--export-dynamic";
++  const char* kernelgen_rt = "-lkernelgen-rt";
++  if (!fallback) {
++    *ld1++ = *ld2++ = export_dynamic;
++    *ld1++ = *ld2++ = kernelgen_rt;
++#ifdef COLLECT_EXPORT_LIST
++    add_to_list (&libs, kernelgen_rt);
++#endif
++  }
++
++  /* Regardless KernelGen fallback mode, also do the following:
++     1) create a vector incorporating -rpath linker argument for each
++     LIBRARY_PATH token;
++     2) add -rpath arguments to the linker command line.  */
++
++#ifdef KERNELGEN_ENABLE_RPATHS
++  char* rpaths = XCNEWVEC(char, szrpaths + nrpaths * (strlen("-rpath=") + 1));
++  char* rpaths_ptr = rpaths;
++  library_path_dup = xstrdup(library_path);
++  library_path_tok = strtok(library_path_dup, ":");
++  while (library_path_tok)
++    {
++      char* rpath_arg = rpaths_ptr;
++      memcpy(rpaths_ptr, "-rpath=", strlen("-rpath="));
++      rpaths_ptr += strlen("-rpath=");
++      memcpy(rpaths_ptr, library_path_tok, strlen(library_path_tok));
++      rpaths_ptr += strlen(library_path_tok);
++      *rpaths_ptr = '\0';
++      rpaths_ptr++;
++      *ld1++ = *ld2++ = rpath_arg;
++      library_path_tok = strtok(NULL, ":");
++    }
++  free(library_path_dup);
++#endif
++
+ #ifdef COLLECT_EXPORT_LIST
+   /* This is added only for debugging purposes.  */
+   if (debug)
+@@ -1949,6 +2044,10 @@
+   maybe_unlink (export_file);
+ #endif
+ 
++#ifdef KERNELGEN_ENABLE_RPATHS
++  free(rpaths);
++#endif
++
+   return 0;
+ }
+ 
+@@ -2668,8 +2767,8 @@
+              the LTO objects list if found.  */
+           for (p = buf; (ch = *p) != '\0' && ch != '\n'; p++)
+             if (ch == ' '  && p[1] == '_' && p[2] == '_'
+-		&& (strncmp (p + (p[3] == '_' ? 2 : 1), "__gnu_lto_v1", 12) == 0)
+-		&& ISSPACE (p[p[3] == '_' ? 14 : 13]))
++		&& (strncmp (p + (p[3] == '_' ? 2 : 1), "__kernelgen", 11) == 0)
++		&& ISSPACE (p[p[3] == '_' ? 13 : 12]))
+               {
+                 add_lto_object (&lto_objects, prog_name);
+ 
+# DP: Add multiarch support to GCC.
+# DP:
+# DP: Convert the multilib option to a target triplet,
+# DP: add multiarch include directories and libraries path:
+# DP:	/usr/local/include/<arch>-linux-gnu
+# DP:	/usr/include/<arch>-linux-gnu
+# DP:	/usr/lib/<arch>-linux-gnu
+# DP: to the system paths.
+
+2011-08-18  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/invoke.texi: Document -print-multiarch.
+	* Makefile.in (s-mlib): Pass MULTIARCH_DIRNAME to genmultilib.
+	* genmultilib: Add new option for the multiarch name.
+	* gcc.c (multiarch_dir): Define.
+	(for_each_path): Search for multiarch suffixes.
+	(driver_handle_option): Handle multiarch option.
+	(do_spec_1): Pass -imultiarch if defined.
+	(main): Print multiarch.
+	(set_multilib_dir): Separate multilib and multiarch names
+	from multilib_select.
+	(print_multilib_info): Ignore multiarch names in multilib_select.
+	* incpath.c (add_standard_paths): Search the multiarch include dirs.
+	* cppdeault.h (default_include): Document multiarch in multilib
+	member.
+	* cppdefault.c: [LOCAL_INCLUDE_DIR, STANDARD_INCLUDE_DIR] Add an
+        include directory for multiarch directories.
+	* common.opt: New options --print-multiarch and -imultilib.
+	* config/s390/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+	* config/sparc/t-linux64: Likewise.
+	* config/powerpc/t-linux64: Likewise.
+	* config/i386/t-linux64: Likewise.
+	* config/mips/t-linux64: Likewise.
+	* config/alpha/t-linux: Define MULTIARCH_DIRNAME.
+	* config/arm/t-linux: Likewise.
+	* config/i386/t-linux: Likewise.
+	* config/pa/t-linux: Likewise.
+	* config/sparc/t-linux: Likewise.
+	* config/ia64/t-glibc: Define MULTIARCH_DIRNAME for linux target.
+
+
+--- a/gcc-snapshot/gcc/incpath.c
++++ b/gcc-snapshot/gcc/incpath.c
+@@ -150,8 +150,14 @@
+ 	      if (!strncmp (p->fname, cpp_GCC_INCLUDE_DIR, len))
+ 		{
+ 		  char *str = concat (iprefix, p->fname + len, NULL);
+-		  if (p->multilib && imultilib)
++		  if (p->multilib == 1 && imultilib)
+ 		    str = concat (str, dir_separator_str, imultilib, NULL);
++		  else if (p->multilib == 2)
++		    {
++		      if (!imultiarch)
++			continue;
++		      str = concat (str, dir_separator_str, imultiarch, NULL);
++		    }
+ 		  add_path (str, SYSTEM, p->cxx_aware, false);
+ 		}
+ 	    }
+@@ -195,8 +201,14 @@
+ 	  else
+ 	    str = update_path (p->fname, p->component);
+ 
+-	  if (p->multilib && imultilib)
++	  if (p->multilib == 1 && imultilib)
+ 	    str = concat (str, dir_separator_str, imultilib, NULL);
++	  else if (p->multilib == 2)
++	    {
++	      if (!imultiarch)
++		continue;
++	      str = concat (str, dir_separator_str, imultiarch, NULL);
++	    }
+ 
+ 	  add_path (str, SYSTEM, p->cxx_aware, false);
+ 	}
+--- a/gcc-snapshot/gcc/gcc.c
++++ b/gcc-snapshot/gcc/gcc.c
+@@ -1136,6 +1136,11 @@
+    set_multilib_dir based on the compilation options.  */
+ 
+ static const char *multilib_os_dir;
++
++/* Subdirectory to use for locating libraries in multiarch conventions.  Set by
++   set_multilib_dir based on the compilation options.  */
++
++static const char *multiarch_dir;
+ 
+ /* Structure to keep track of the specs that have been defined so far.
+    These are accessed using %(specname) or %[specname] in a compiler
+@@ -2049,6 +2054,7 @@
+   struct prefix_list *pl;
+   const char *multi_dir = NULL;
+   const char *multi_os_dir = NULL;
++  const char *multiarch_suffix = NULL;
+   const char *multi_suffix;
+   const char *just_multi_suffix;
+   char *path = NULL;
+@@ -2066,11 +2072,14 @@
+     }
+   if (do_multi && multilib_os_dir && strcmp (multilib_os_dir, ".") != 0)
+     multi_os_dir = concat (multilib_os_dir, dir_separator_str, NULL);
++  if (multiarch_dir)
++    multiarch_suffix = concat (multiarch_dir, dir_separator_str, NULL);
+ 
+   while (1)
+     {
+       size_t multi_dir_len = 0;
+       size_t multi_os_dir_len = 0;
++      size_t multiarch_len = 0;
+       size_t suffix_len;
+       size_t just_suffix_len;
+       size_t len;
+@@ -2079,16 +2088,15 @@
+ 	multi_dir_len = strlen (multi_dir);
+       if (multi_os_dir)
+ 	multi_os_dir_len = strlen (multi_os_dir);
++      if (multiarch_suffix)
++	multiarch_len = strlen (multiarch_suffix);
+       suffix_len = strlen (multi_suffix);
+       just_suffix_len = strlen (just_multi_suffix);
+ 
+       if (path == NULL)
+ 	{
+ 	  len = paths->max_len + extra_space + 1;
+-	  if (suffix_len > multi_os_dir_len)
+-	    len += suffix_len;
+-	  else
+-	    len += multi_os_dir_len;
++	  len += MAX (MAX (suffix_len, multi_os_dir_len), multiarch_len);
+ 	  path = XNEWVEC (char, len);
+ 	}
+ 
+@@ -2117,6 +2125,16 @@
+ 		break;
+ 	    }
+ 
++	  /* Now try the multiarch path.  */
++	  if (!skip_multi_dir
++	      && !pl->require_machine_suffix && multiarch_dir)
++	    {
++	      memcpy (path + len, multiarch_suffix, multiarch_len + 1);
++	      ret = callback (path, callback_info);
++	      if (ret)
++		break;
++	    }
++
+ 	  /* Now try the base path.  */
+ 	  if (!pl->require_machine_suffix
+ 	      && !(pl->os_multilib ? skip_multi_os_dir : skip_multi_dir))
+@@ -2970,6 +2970,9 @@
+   fputs (_("  -print-libgcc-file-name  Display the name of the compiler's companion library\n"), stdout);
+   fputs (_("  -print-file-name=<lib>   Display the full path to library <lib>\n"), stdout);
+   fputs (_("  -print-prog-name=<prog>  Display the full path to compiler component <prog>\n"), stdout);
++  fputs (_("\
++  -print-multiarch         Display the target's normalized GNU triplet, used as\n\
++                           a component in the library path\n"), stdout);
+   fputs (_("  -print-multi-directory   Display the root directory for versions of libgcc\n"), stdout);
+   fputs (_("\
+   -print-multi-lib         Display the mapping between command line options and\n\
+@@ -3218,6 +3236,7 @@
+     case OPT_print_multi_directory:
+     case OPT_print_sysroot:
+     case OPT_print_multi_os_directory:
++    case OPT_print_multiarch:
+     case OPT_print_sysroot_headers_suffix:
+     case OPT_time:
+     case OPT_wrapper:
+@@ -4868,6 +4887,15 @@
+ 		  do_spec_1 (" ", 0, NULL);
+ 		}
+ 
++	      if (multiarch_dir)
++		{
++		  do_spec_1 ("-imultiarch", 1, NULL);
++		  /* Make this a separate argument.  */
++		  do_spec_1 (" ", 0, NULL);
++		  do_spec_1 (multiarch_dir, 1, NULL);
++		  do_spec_1 (" ", 0, NULL);
++		}
++
+ 	      if (gcc_exec_prefix)
+ 		{
+ 		  do_spec_1 ("-iprefix", 1, NULL);
+@@ -6760,6 +6788,15 @@
+       return (0);
+     }
+ 
++  if (print_multiarch)
++    {
++      if (multiarch_dir == NULL)
++	printf ("\n");
++      else
++	printf ("%s\n", multiarch_dir);
++      return (0);
++    }
++
+   if (print_sysroot)
+     {
+       if (target_system_root)
+@@ -7735,10 +7772,26 @@
+ 	    q++;
+ 	  if (q < end)
+ 	    {
+-	      char *new_multilib_os_dir = XNEWVEC (char, end - q);
++	      const char *q2 = q + 1;
++	      char *new_multilib_os_dir;
++
++	      while (q2 < end && *q2 != ':')
++		q2++;
++	      if (*q2 == ':')
++		end = q2;
++	      new_multilib_os_dir = XNEWVEC (char, end - q);
+ 	      memcpy (new_multilib_os_dir, q + 1, end - q - 1);
+ 	      new_multilib_os_dir[end - q - 1] = '\0';
+ 	      multilib_os_dir = new_multilib_os_dir;
++
++	      end = this_path + this_path_len;
++	      if (q2 < end && *q2 == ':')
++		{
++		  char *new_multiarch_dir = XNEWVEC (char, end - q2);
++		  memcpy (new_multiarch_dir, q2 + 1, end - q2 - 1);
++		  new_multiarch_dir[end - q2 - 1] = '\0';
++		  multiarch_dir = new_multiarch_dir;
++		}
+ 	      break;
+ 	    }
+ 	}
+@@ -7800,7 +7853,7 @@
+       /* When --disable-multilib was used but target defines
+ 	 MULTILIB_OSDIRNAMES, entries starting with .: are there just
+ 	 to find multilib_os_dir, so skip them from output.  */
+-      if (this_path[0] == '.' && this_path[1] == ':')
++      if (this_path[0] == '.' && this_path[1] == ':' && this_path[2] != '.' && this_path[3] != ':')
+ 	skip = 1;
+ 
+       /* Check for matches with the multilib_exclusions. We don't bother
+--- a/gcc-snapshot/gcc/genmultilib
++++ b/gcc-snapshot/gcc/genmultilib
+@@ -73,6 +73,8 @@
+ # the os directory names are used exclusively.  Use the mapping when
+ # there is no one-to-one equivalence between GCC levels and the OS.
+ 
++# The optional eight argument is the multiarch name.
++
+ # The last option should be "yes" if multilibs are enabled.  If it is not
+ # "yes", all GCC multilib dir names will be ".".
+ 
+@@ -121,7 +123,8 @@
+ extra=$5
+ exclusions=$6
+ osdirnames=$7
+-enable_multilib=$8
++multiarch=$8
++enable_multilib=$9
+ 
+ echo "static const char *const multilib_raw[] = {"
+ 
+@@ -222,6 +225,9 @@
+ # names.
+ toosdirnames=
+ defaultosdirname=
++if [ -n "${multiarch}" ]; then
++  defaultosdirname=:.:${multiarch}
++fi
+ if [ -n "${osdirnames}" ]; then
+   set x ${osdirnames}
+   shift
+@@ -229,6 +235,9 @@
+     case "$1" in
+       .=*)
+         defaultosdirname=`echo $1 | sed 's|^.=|:|'`
++	if [ -n "${multiarch}" ]; then
++	  defaultosdirname=${defaultosdirname}:${multiarch}
++	fi
+ 	shift
+ 	;;
+       *=*)
+@@ -314,13 +323,13 @@
+     dirout=`echo ${combo} | sed -e 's/=/-/g'`
+   fi
+   # Remove the leading and trailing slashes.
+-  dirout=`echo ${dirout} | sed -e 's|^/||' -e 's|/$||g'`
++  dirout=`echo ${dirout} | sed -e 's|^/||' -e 's|/*:/*|:|' -e 's|/$||g'`
+ 
+   # Use the OS directory names rather than the option names.
+   if [ -n "${toosdirnames}" ]; then
+     osdirout=`echo ${combo} | sed ${toosdirnames}`
+     # Remove the leading and trailing slashes.
+-    osdirout=`echo ${osdirout} | sed -e 's|^/||' -e 's|/$||g'`
++    osdirout=`echo ${osdirout} | sed -e 's|^/||' -e 's|/*:/*|:|' -e 's|/$||g'`
+     if [ "x${enable_multilib}" != xyes ]; then
+       dirout=".:${osdirout}"
+       disable_multilib=yes
+--- a/gcc-snapshot/gcc/cppdefault.c
++++ b/gcc-snapshot/gcc/cppdefault.c
+@@ -64,6 +64,7 @@
+ #endif
+ #ifdef LOCAL_INCLUDE_DIR
+     /* /usr/local/include comes before the fixincluded header files.  */
++    { LOCAL_INCLUDE_DIR, 0, 0, 1, 1, 2 },
+     { LOCAL_INCLUDE_DIR, 0, 0, 1, 1, 0 },
+ #endif
+ #ifdef PREFIX_INCLUDE_DIR
+@@ -95,6 +96,7 @@
+ #endif
+ #ifdef STANDARD_INCLUDE_DIR
+     /* /usr/include comes dead last.  */
++    { STANDARD_INCLUDE_DIR, STANDARD_INCLUDE_COMPONENT, 0, 0, 1, 2 },
+     { STANDARD_INCLUDE_DIR, STANDARD_INCLUDE_COMPONENT, 0, 0, 1, 0 },
+ #endif
+     { 0, 0, 0, 0, 0, 0 }
+--- a/gcc-snapshot/gcc/cppdefault.h
++++ b/gcc-snapshot/gcc/cppdefault.h
+@@ -43,9 +43,11 @@
+ 				   C++.  */
+   const char add_sysroot;	/* FNAME should be prefixed by
+ 				   cpp_SYSROOT.  */
+-  const char multilib;		/* FNAME should have the multilib path
+-				   specified with -imultilib
+-				   appended.  */
++  const char multilib;		/* FNAME should have appended
++				   - the multilib path specified with -imultilib
++				     when 1 is passed,
++				   - the multiarch path specified with
++				     -imultiarch, when 2 is passed.  */
+ };
+ 
+ extern const struct default_include cpp_include_defaults[];
+--- a/gcc-snapshot/gcc/common.opt
++++ b/gcc-snapshot/gcc/common.opt
+@@ -334,6 +334,9 @@
+ -print-multi-os-directory
+ Driver Alias(print-multi-os-directory)
+ 
++-print-multiarch
++Driver Alias(print-multiarch)
++
+ -print-prog-name
+ Driver Separate Alias(print-prog-name=)
+ 
+@@ -2190,6 +2193,10 @@
+ Common Joined Var(plugindir_string) Init(0)
+ -iplugindir=<dir>	Set <dir> to be the default plugin directory
+ 
++imultiarch
++Common Joined Separate RejectDriver Var(imultiarch) Init(0)
++-imultiarch <dir>	Set <dir> to be the multiarch include subdirectory
++
+ l
+ Driver Joined Separate
+ 
+@@ -2247,6 +2254,9 @@
+ 
+ print-multi-os-directory
+ Driver Var(print_multi_os_directory)
++ 
++print-multiarch
++Driver Var(print_multiarch)
+ 
+ print-prog-name=
+ Driver JoinedOrMissing Var(print_prog_name)
+--- a/gcc-snapshot/gcc/Makefile.in
++++ b/gcc-snapshot/gcc/Makefile.in
+@@ -338,6 +338,8 @@
+ 
+ enable_plugin = @enable_plugin@
+ 
++with_float = @with_float@
++
+ CPPLIB = ../libcpp/libcpp.a
+ CPPINC = -I$(srcdir)/../libcpp/include
+ 
+@@ -1945,10 +1947,11 @@
+ 	    "$(MULTILIB_EXTRA_OPTS)" \
+ 	    "$(MULTILIB_EXCLUSIONS)" \
+ 	    "$(MULTILIB_OSDIRNAMES)" \
++	    "$(MULTIARCH_DIRNAME)" \
+ 	    "@enable_multilib@" \
+ 	    > tmp-mlib.h; \
+ 	else \
+-	  $(SHELL) $(srcdir)/genmultilib '' '' '' '' '' '' '' no \
++	  $(SHELL) $(srcdir)/genmultilib '' '' '' '' '' '' '' "$(MULTIARCH_DIRNAME)" no \
+ 	    > tmp-mlib.h; \
+ 	fi
+ 	$(SHELL) $(srcdir)/../move-if-change tmp-mlib.h multilib.h
+--- a/gcc-snapshot/gcc/config/alpha/t-linux
++++ b/gcc-snapshot/gcc/config/alpha/t-linux
+@@ -1 +1,3 @@
+ SHLIB_MAPFILES += $(srcdir)/config/alpha/libgcc-alpha-ldbl.ver
++
++MULTIARCH_DIRNAME = alpha-linux-gnu
+--- a/gcc-snapshot/gcc/config/s390/t-linux64
++++ b/gcc-snapshot/gcc/config/s390/t-linux64
+@@ -7,4 +7,4 @@
+ 
+ MULTILIB_OPTIONS = m64/m31
+ MULTILIB_DIRNAMES = 64 32
+-MULTILIB_OSDIRNAMES = ../lib64 $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib)
++MULTILIB_OSDIRNAMES = ../lib64:s390x-linux-gnu $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib):s390-linux-gnu
+--- a/gcc-snapshot/gcc/config/sparc/t-linux64
++++ b/gcc-snapshot/gcc/config/sparc/t-linux64
+@@ -26,7 +26,7 @@
+ 
+ MULTILIB_OPTIONS = m64/m32
+ MULTILIB_DIRNAMES = 64 32
+-MULTILIB_OSDIRNAMES = ../lib64 $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib)
++MULTILIB_OSDIRNAMES = ../lib64:sparc64-linux-gnu $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib):sparc-linux-gnu
+ 
+ LIBGCC = stmp-multilib
+ INSTALL_LIBGCC = install-multilib
+--- a/gcc-snapshot/gcc/config/sparc/t-linux
++++ b/gcc-snapshot/gcc/config/sparc/t-linux
+@@ -3,3 +3,5 @@
+ # Avoid the t-linux version file.
+ SHLIB_MAPFILES = $(srcdir)/libgcc-std.ver \
+ 		 $(srcdir)/config/sparc/libgcc-sparc-glibc.ver
++
++MULTIARCH_DIRNAME = sparc-linux-gnu
+--- a/gcc-snapshot/gcc/config/i386/t-linux
++++ b/gcc-snapshot/gcc/config/i386/t-linux
+@@ -3,3 +3,5 @@
+ # t-slibgcc-elf-ver and t-linux
+ SHLIB_MAPFILES = $(srcdir)/libgcc-std.ver \
+ 		 $(srcdir)/config/i386/libgcc-glibc.ver
++
++MULTIARCH_DIRNAME = i386-linux-gnu
+--- a/gcc-snapshot/gcc/config/i386/t-linux64
++++ b/gcc-snapshot/gcc/config/i386/t-linux64
+@@ -25,7 +25,11 @@
+ 
+ MULTILIB_OPTIONS = m64/m32
+ MULTILIB_DIRNAMES = 64 32 
+-MULTILIB_OSDIRNAMES = ../lib64 $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib)
++MULTILIB_OSDIRNAMES = ../lib64:x86_64-linux-gnu $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib):i386-linux-gnu
++
++ifneq (,$(findstring kfreebsd, $(target)))
++  MULTILIB_OSDIRNAMES := $(subst linux,kfreebsd,$(MULTILIB_OSDIRNAMES))
++endif
+ 
+ LIBGCC = stmp-multilib
+ INSTALL_LIBGCC = install-multilib
+--- a/gcc-snapshot/gcc/config/ia64/t-glibc
++++ b/gcc-snapshot/gcc/config/ia64/t-glibc
+@@ -3,3 +3,7 @@
+   $(srcdir)/unwind-compat.c
+ 
+ SHLIB_MAPFILES += $(srcdir)/config/ia64/libgcc-glibc.ver
++
++ifneq (,$(findstring linux, $(target)))
++MULTIARCH_DIRNAME = ia64-linux-gnu
++endif
+--- a/gcc-snapshot/gcc/config/m68k/t-linux
++++ b/gcc-snapshot/gcc/config/m68k/t-linux
+@@ -21,6 +21,9 @@
+ # Only include multilibs for 680x0 CPUs with an MMU.
+ M68K_MLIB_CPU += && (CPU ~ "^m680") && (FLAGS ~ "FL_MMU")
+ 
++MULTILIB_OSDIRNAMES = m68k-linux-gnu:m68k-linux-gnu
++MULTIARCH_DIRNAME = m68k-linux-gnu
++
+ # This rule uses MULTILIB_MATCHES to generate a definition of
+ # SYSROOT_SUFFIX_SPEC.
+ sysroot-suffix.h: $(srcdir)/config/m68k/print-sysroot-suffix.sh
+--- a/gcc-snapshot/gcc/config/rs6000/t-linux64
++++ b/gcc-snapshot/gcc/config/rs6000/t-linux64
+@@ -36,7 +36,7 @@
+ MULTILIB_EXTRA_OPTS     = fPIC mstrict-align
+ MULTILIB_EXCEPTIONS     = m64/msoft-float
+ MULTILIB_EXCLUSIONS     = m64/!m32/msoft-float
+-MULTILIB_OSDIRNAMES	= ../lib64 $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib) nof
++MULTILIB_OSDIRNAMES	= ../lib64:powerpc64-linux-gnu $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib):powerpc-linux-gnu nof
+ MULTILIB_MATCHES        = $(MULTILIB_MATCHES_FLOAT)
+ 
+ softfp_wrap_start := '\#ifndef __powerpc64__'
+--- a/gcc-snapshot/gcc/config/pa/t-linux
++++ b/gcc-snapshot/gcc/config/pa/t-linux
+@@ -35,3 +35,5 @@
+ 
+ # Compile crtbeginS.o and crtendS.o as PIC.
+ CRTSTUFF_T_CFLAGS_S = -fPIC
++
++MULTIARCH_DIRNAME = hppa-linux-gnu
+--- a/gcc-snapshot/gcc/config/mips/t-linux64
++++ b/gcc-snapshot/gcc/config/mips/t-linux64
+@@ -18,7 +18,11 @@
+ 
+ MULTILIB_OPTIONS = mabi=n32/mabi=32/mabi=64
+ MULTILIB_DIRNAMES = n32 32 64
+-MULTILIB_OSDIRNAMES = ../lib32 ../lib ../lib64
++MIPS_EL = $(if $(filter %el, $(firstword $(subst -, ,$(target)))),el)
++MULTILIB_OSDIRNAMES = \
++	../lib32:mips64$(MIPS_EL)-linux-gnuabin32 \
++	../lib:mips$(MIPS_EL)-linux-gnu \
++	../lib64:mips64$(MIPS_EL)-linux-gnuabi64
+ 
+ EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
+ 
+--- a/gcc-snapshot/gcc/config.gcc
++++ b/gcc-snapshot/gcc/config.gcc
+@@ -2180,6 +2180,7 @@
+ 		;;
+ 	    *)
+ 		tm_file="${tm_file} rs6000/linux.h glibc-stdint.h"
++		tmake_file="$tmake_file rs6000/t-linux"
+ 		;;
+ 	esac
+ 	tmake_file="${tmake_file} t-slibgcc-libgcc rs6000/t-fprules-softfp soft-fp/t-softfp"
+@@ -2187,7 +2188,8 @@
+ 	    powerpc*-*-linux*altivec*)
+ 		tm_file="${tm_file} rs6000/linuxaltivec.h" ;;
+ 	    powerpc*-*-linux*spe*)
+-		tm_file="${tm_file} rs6000/linuxspe.h rs6000/e500.h" ;;
++		tm_file="${tm_file} rs6000/linuxspe.h rs6000/e500.h"
++		tmake_file="${tmake_file} rs6000/t-linux-spe" ;;
+ 	    powerpc*-*-linux*paired*)
+ 		tm_file="${tm_file} rs6000/750cl.h" ;;
+ 	esac
+@@ -3674,6 +3678,14 @@
+ 	  i[34567]86-*-kfreebsd*-gnu | x86_64-*-kfreebsd*-gnu | \
+ 	  i[34567]86-*-gnu*)
+ 		tmake_file="${tmake_file} i386/t-fprules-softfp soft-fp/t-softfp i386/t-linux"
++		case ${target} in
++			i[34567]86-*-linux* | x86_64-*-linux*)
++				;;
++			i[34567]86-*-kfreebsd*-gnu | x86_64-*-kfreebsd*-gnu)
++				tmake_file="${tmake_file} i386/t-kfreebsd";;
++			i[34567]86-*-gnu*)
++				tmake_file="${tmake_file} i386/t-gnu";;
++		esac
+ 		;;
+ 	i[34567]86-*-solaris2*)
+ 		tmake_file="${tmake_file} i386/t-fprules-softfp soft-fp/t-softfp"
+--- /dev/null
++++ b/gcc-snapshot/gcc/config/i386/t-gnu
+@@ -0,0 +1 @@
++MULTIARCH_DIRNAME = i386-gnu
+--- /dev/null
++++ b/gcc-snapshot/gcc/config/i386/t-kfreebsd
+@@ -0,0 +1 @@
++MULTIARCH_DIRNAME = i386-kfreebsd-gnu
+--- a/gcc-snapshot/gcc/config/arm/t-linux-eabi
++++ b/gcc-snapshot/gcc/config/arm/t-linux-eabi
+@@ -42,6 +42,8 @@
+ #MULTILIB_DIRNAMES    += fa606te fa626te fmp626 fa726te
+ #MULTILIB_EXCEPTIONS  += *mthumb/*mcpu=fa606te *mthumb/*mcpu=fa626te *mthumb/*mcpu=fmp626 *mthumb/*mcpu=fa726te*
+ 
++MULTIARCH_DIRNAME = arm-linux-gnueabi$(if $(filter hard,$(with_float)),hf)
++
+ # Use a version of div0 which raises SIGFPE, and a special __clear_cache.
+ LIB1ASMFUNCS := $(filter-out _dvmd_tls,$(LIB1ASMFUNCS)) _dvmd_lnx _clear_cache
+ 
+--- a/gcc-snapshot/gcc/config/sh/t-linux
++++ b/gcc-snapshot/gcc/config/sh/t-linux
+@@ -6,3 +6,5 @@
+ MULTILIB_MATCHES = 
+ 
+ EXTRA_MULTILIB_PARTS= crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
++
++MULTILIB_OSDIRNAMES = sh4-linux-gnu:sh4-linux-gnu sh4_nofpu-linux-gnu:sh4-linux-gnu
+--- a/gcc-snapshot/gcc/configure.ac
++++ b/gcc-snapshot/gcc/configure.ac
+@@ -606,6 +606,9 @@
+ [], [enable_multilib=yes])
+ AC_SUBST(enable_multilib)
+ 
++# needed for ARM multiarch name
++AC_SUBST(with_float)
++
+ # Enable __cxa_atexit for C++.
+ AC_ARG_ENABLE(__cxa_atexit,
+ [  --enable-__cxa_atexit   enable __cxa_atexit for C++],
+--- /dev/null
++++ b/gcc-snapshot/gcc/config/rs6000/t-linux
+@@ -0,0 +1 @@
++MULTIARCH_DIRNAME = powerpc-linux-gnu
+--- /dev/null
++++ b/gcc-snapshot/gcc/config/s390/t-linux
+@@ -0,0 +1 @@
++MULTIARCH_DIRNAME = s390-linux-gnu
+--- /dev/null
++++ b/gcc-snapshot/gcc/config/rs6000/t-linux-spe
+@@ -0,0 +1 @@
++MULTIARCH_DIRNAME = powerpc-linux-gnuspe
+--- a/gcc-snapshot/libstdc++-v3/python/hook.in
++++ b/gcc-snapshot/libstdc++-v3/python/hook.in
+@@ -47,7 +47,10 @@
+     libdir = libdir[len (prefix):]
+ 
+     # Compute the ".."s needed to get from libdir to the prefix.
+-    dotdots = ('..' + os.sep) * len (libdir.split (os.sep))
++    backdirs = len (libdir.split (os.sep))
++    if not os.path.basename(os.path.dirname(__file__)).startswith('lib'):
++        backdirs += 1 # multiarch subdir
++    dotdots = ('..' + os.sep) * backdirs
+ 
+     objfile = gdb.current_objfile ().filename
+     dir_ = os.path.join (os.path.dirname (objfile), dotdots, pythondir)

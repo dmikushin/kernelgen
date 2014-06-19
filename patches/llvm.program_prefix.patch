@@ -1,0 +1,106 @@
+--- a/llvm/Makefile.config.in	(revision 164955)
++++ b/llvm/Makefile.config.in	(revision 164956)
+@@ -61,6 +61,7 @@
+ 
+ prefix          := @prefix@
+ PROJ_prefix     := $(prefix)
++program_prefix  := @program_prefix@
+ PROJ_VERSION    := $(LLVMVersion)
+ else
+ ifndef PROJ_SRC_ROOT
+--- a/llvm/projects/sample/Makefile.llvm.rules	(revision 164955)
++++ b/llvm/projects/sample/Makefile.llvm.rules	(revision 164956)
+@@ -1437,7 +1437,7 @@
+ uninstall-local::
+ 	$(Echo) Uninstall circumvented with NO_INSTALL
+ else
+-DestTool = $(DESTDIR)$(PROJ_bindir)/$(TOOLEXENAME)
++DestTool = $(DESTDIR)$(PROJ_bindir)/$(program_prefix)$(TOOLEXENAME)
+ 
+ install-local:: $(DestTool)
+ 
+@@ -1451,7 +1451,7 @@
+ 
+ # TOOLALIAS install.
+ ifdef TOOLALIAS
+-DestToolAlias = $(DESTDIR)$(PROJ_bindir)/$(TOOLALIAS)$(EXEEXT)
++DestToolAlias = $(DESTDIR)$(PROJ_bindir)/$(program_prefix)$(TOOLALIAS)$(EXEEXT)
+ 
+ install-local:: $(DestToolAlias)
+ 
+--- a/llvm/tools/llvm-config/Makefile	(revision 164955)
++++ b/llvm/tools/llvm-config/Makefile	(revision 164956)
+@@ -63,5 +63,5 @@
+ install:: $(DESTDIR)$(PROJ_bindir)
+ 	$(Echo) Installing llvm-config-host
+ 	$(Verb) $(ProgInstall) $(BuildLLVMToolDir)/llvm-config \
+-	  $(DESTDIR)$(PROJ_bindir)/llvm-config-host
++	  $(DESTDIR)$(PROJ_bindir)/$(program_prefix)llvm-config-host
+ endif
+--- a/llvm/Makefile.rules	(revision 164955)
++++ b/llvm/Makefile.rules	(revision 164956)
+@@ -1541,7 +1541,7 @@
+ else
+ ToolBinDir = $(DESTDIR)$(PROJ_bindir)
+ endif
+-DestTool = $(ToolBinDir)/$(TOOLEXENAME)
++DestTool = $(ToolBinDir)/$(program_prefix)$(TOOLEXENAME)
+ 
+ install-local:: $(DestTool)
+ 
+@@ -1556,7 +1556,7 @@
+ 
+ # TOOLALIAS install.
+ ifdef TOOLALIAS
+-DestToolAlias = $(ToolBinDir)/$(TOOLALIAS)$(EXEEXT)
++DestToolAlias = $(ToolBinDir)/$(program_prefix)$(TOOLALIAS)$(EXEEXT)
+ 
+ install-local:: $(DestToolAlias)
+ 
+--- a/llvm/autoconf/configure.ac	(revision 164955)
++++ b/llvm/autoconf/configure.ac	(revision 164956)
+@@ -1709,6 +1709,11 @@
+ dnl OCaml findlib META file
+ AC_CONFIG_FILES([bindings/ocaml/llvm/META.llvm])
+ 
++dnl Add --program-prefix value to Makefile.rules. Already an ARG variable.
++test "x$program_prefix" = "xNONE" && program_prefix=""
++AC_SUBST([program_prefix])
++
++
+ dnl Do special configuration of Makefiles
+ AC_CONFIG_COMMANDS([setup],,[llvm_src="${srcdir}"])
+ AC_CONFIG_MAKEFILE(Makefile)
+--- a/llvm/configure	(revision 157485)
++++ b/llvm/configure	(working copy)
+@@ -788,6 +788,7 @@
+ ENABLE_VISIBILITY_INLINES_HIDDEN
+ RPATH
+ RDYNAMIC
++program_prefix
+ LIBOBJS
+ LTLIBOBJS'
+ ac_subst_files=''
+@@ -21289,6 +21290,10 @@
+ ac_config_files="$ac_config_files bindings/ocaml/llvm/META.llvm"
+ 
+ 
++test "x$program_prefix" = "xNONE" && program_prefix=""
++
++
++
+ ac_config_commands="$ac_config_commands setup"
+ 
+ ac_config_commands="$ac_config_commands Makefile"
+@@ -22080,9 +22085,10 @@
+ ENABLE_PTHREADS!$ENABLE_PTHREADS$ac_delim
+ ENABLE_PIC!$ENABLE_PIC$ac_delim
+ ENABLE_SHARED!$ENABLE_SHARED$ac_delim
++program_prefix!$program_prefix$ac_delim
+ _ACEOF
+ 
+-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
++  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 98; then
+     break
+   elif $ac_last_try; then
+     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

@@ -1,0 +1,2 @@
+#!/bin/sh
+KERNELGEN_FALLBACK=1 CC=kernelgen-gcc CXX=kernelgen-g++ FC=kernelgen-gfortran F77=kernelgen-gfortran $@

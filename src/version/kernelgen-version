@@ -1,0 +1,8 @@
+#!/usr/bin/perl -w
+
+my($source) = $ARGV[0];
+my($output) = $ARGV[1];
+my($version) = `svnversion -n $source`;
+open(OUTPUT, ">$output");
+print OUTPUT "#define KERNELGEN_VERSION \"$version\"";
+close(OUTPUT);
