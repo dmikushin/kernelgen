@@ -19,7 +19,6 @@
 #include <cstddef>
 #include <cuda_runtime_api.h>
 #include <thrust/system_error.h>
-//#include <thrust/system/cuda_error.h>
 #include <thrust/system/cuda/error.h>
 
 /*! Computes a block size in number of threads for a CUDA kernel using a occupancy-promoting heuristic.
@@ -294,19 +293,9 @@ std::size_t block_size_with_maximum_potential_occupancy(int regsPerBlock, int th
 {
   cudaError_t err;
   cudaFuncAttributes attributes;
-
-/*
-std::cout << "#0" << std::endl << std::flush;
-  err = cudaFuncGetAttributes(&attributes, t);
-std::cout << "#1" << std::endl << std::flush;
-  if (err != cudaSuccess)
-    throw thrust::system_error(err, thrust::cuda_category(),
-    "Unable to get function attributes. Maybe a non __global__ function was passed?");
-std::cout << "#2" << std::endl << std::flush;
-*/
+  memset(&attributes, 0, sizeof(cudaFuncAttributes));
   attributes.maxThreadsPerBlock = threadsPerBlock;
   attributes.numRegs = regsPerBlock;
-  attributes.sharedSizeBytes = 0;
 
   int device;
   err = cudaGetDevice(&device);
@@ -314,7 +303,7 @@ std::cout << "#2" << std::endl << std::flush;
   if (err != cudaSuccess)
     throw thrust::system_error(err, thrust::cuda_category(),
     "Unable to get the current cuda device.");
-//std::cout << "#3" << std::endl << std::flush;
+
   cudaDeviceProp properties;
   err = cudaGetDeviceProperties(&properties, device);
   

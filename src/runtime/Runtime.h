@@ -191,7 +191,7 @@ KernelFunc Compile(int runmode, Kernel* kernel, llvm::Module* module = NULL, voi
 
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.
-KernelFunc Codegen(int runmode, Kernel* kernel, llvm::Module* module);
+KernelFunc Codegen(int runmode, Kernel* kernel, llvm::Module* module, short* regcount = NULL);
 
 // CUDA runtime context.
 extern kernelgen::bind::cuda::context* cuda_context;

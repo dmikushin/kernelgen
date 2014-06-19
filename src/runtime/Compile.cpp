@@ -55,6 +55,7 @@
 #include <dlfcn.h>
 #include <fstream>
 #include <stack>
+#include <limits>
 #include <list>
 #include <set>
 #include <stdio.h>
@@ -698,7 +699,7 @@ static void addPartialUnrollLoopsPass(const PassManagerBuilder &Builder, PassMan
 
 static KernelFunc CodeGenLoopFunction(
 	int runmode, Kernel* kernel, Module* m, Function* f, void * data, int szdata, int szdatai,
-	dim3& blockDim, dim3& gridDim, const Size3& launchParameters)
+	dim3& blockDim, dim3& gridDim, const Size3& launchParameters, short* regcount = NULL)
 {
 	LLVMContext &context = getGlobalContext();
 
@@ -836,7 +837,7 @@ static KernelFunc CodeGenLoopFunction(
 		manager.run(*m);
 	}
 	
-	return Codegen(runmode, kernel, m);
+	return Codegen(runmode, kernel, m, regcount);
 }
 
 static KernelFunc CodeGenMainFunction(
@@ -1163,14 +1164,17 @@ KernelFunc kernelgen::runtime::Compile(
 			{
 				for ( ; !isGridSetManually; )
 				{
+					short regcount;
 					func = CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
-						blockDim, gridDim, launchParameters);
+						blockDim, gridDim, launchParameters, &regcount);
+					cout << "regcount = " << regcount << endl;
+					size_t numberOfThreads = use_cuda_launch_config(regcount, numeric_limits<int>::max());
+					cout << "numberOfThreads = " << numberOfThreads << endl; 
 					
 					break;
 				}
 			}
 
-			//size_t numberOfThreads = use_cuda_launch_config(kernel->name.c_str()); 
 			// dim3 blockDim1d = dim3(numberOfThreads, 1, 1);
 						
 		} else { // kernel->name == "__kernelgen_main"

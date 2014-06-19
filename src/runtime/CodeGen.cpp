@@ -57,7 +57,7 @@ static unsigned int kernelgen_main_lepc_offset;
 // Compile C source to x86 binary or PTX assembly,
 // using the corresponding LLVM backends.
 KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
-		Module* m) {
+		Module* m, short* regcount) {
 
 	// Get target-specific mangling for kernel name.
 	StringRef mangledName =
@@ -324,12 +324,10 @@ KernelFunc kernelgen::runtime::Codegen(int runmode, Kernel* kernel,
 			CU_SAFE_CALL(cuModuleGetFunction(&kernel_func, module, name.c_str()));
 		} else {
 			// Load kernel function from the binary opcodes.
-			short regcount;
 			CU_SAFE_CALL(cudyLoadCubin((CUDYfunction*) &kernel_func,
 					cuda_context->loader, name.c_str(),
 					(char*)tmp3.getName().c_str(), cuda_context->getSecondaryStream(),
-					&regcount));
-			cout << "regcount = " << regcount << endl;
+					regcount));
 		}
 
 		VERBOSE("Loaded '" << name << "' at: " << kernel_func << "\n");
