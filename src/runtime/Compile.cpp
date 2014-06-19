@@ -69,14 +69,17 @@ using namespace kernelgen::runtime;
 using namespace llvm;
 using namespace polly;
 using namespace std;
+
 namespace polly
 {
 	extern cl::opt<bool> CUDA;
 };
+
 namespace llvm
 {
 	void RemoveStatistics();
 }
+
 extern cl::opt<bool> IgnoreAliasing;
 //extern cl::opt<bool> AllowNonAffine;
 
@@ -342,7 +345,7 @@ static void runPollyCUDA(Kernel *kernel, Size3 *sizeOfLoops, bool *isThereAtLeas
 {
 	runPolly(kernel, sizeOfLoops, true, isThereAtLeastOneParallelLoop);
 }
-void substituteGridParams(Kernel* kernel,dim3 & gridDim, dim3 & blockDim)
+void substituteGridParams(Kernel* kernel, dim3 & gridDim, dim3 & blockDim)
 {
 	Module * m = kernel->module;
 	vector<string> dimensions, parameters;
@@ -351,14 +354,12 @@ void substituteGridParams(Kernel* kernel,dim3 & gridDim, dim3 & blockDim)
 	dimensions.push_back("y");
 	dimensions.push_back("z");
 
-
 	parameters.push_back("nctaid");
 	parameters.push_back("ntid");
 
 	string prefix1("llvm.nvvm.read.ptx.sreg.");
 	string dot(".");
 	
-
 	unsigned int * gridParams[2];
 	gridParams[0] = (unsigned int *)&gridDim;
 	gridParams[1] = (unsigned int *)&blockDim;
@@ -663,7 +664,7 @@ static bool processCallTreeLoop(Kernel* kernel, Module* m, Function* f)
 	return true;
 }
 
-static void setBlockDim(const char* varname, dim3& blockDim)
+static bool setBlockDim(const char* varname, dim3& blockDim)
 {
 	char* cblockDim = getenv(varname);
 	if (cblockDim)
@@ -685,12 +686,262 @@ static void setBlockDim(const char* varname, dim3& blockDim)
 		{
 			blockDim = dim3(dims[0], dims[1], dims[2]);
 		}
+		return true;
 	}
+	return false;
 }
 
 static void addPartialUnrollLoopsPass(const PassManagerBuilder &Builder, PassManagerBase &PM)
 {
 	PM.add(createLoopUnrollPass(-1, 2 /* UnrollCount */, 1 /* Enable partial unrolling */));
+}
+
+static KernelFunc CodeGenLoopFunction(
+	int runmode, Kernel* kernel, Module* m, Function* f, void * data, int szdata, int szdatai,
+	dim3& blockDim, dim3& gridDim, const Size3& launchParameters)
+{
+	LLVMContext &context = getGlobalContext();
+
+	// Compute grid parameters from specified blockDim and desired iterationsPerThread.
+	// TODO Interations per thread could be non-zero, if exceed max blockDim value.
+	dim3 iterationsPerThread(1, 1, 1);
+	gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
+	gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
+	gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
+    
+	// Substitute grid parameters to reduce amount of instructions
+	// and used registers.
+	substituteGridParams(kernel, gridDim, blockDim);
+
+	// Setup .reqntid - the number of threads in thread block (CTA)
+	// for PTX code optimization.
+	// !nvvm.annotations = !{!1, !2}
+	// !1 = metadata !{void (float*)* @kernel_func_reqntid, metadata !"kernel", i32 1}
+	// !2 = metadata !{void (float*)* @kernel_func_reqntid,
+	//	metadata !"reqntidx", i32 11,
+	//	metadata !"reqntidy", i32 22,
+	//	metadata !"reqntidz", i32 33}
+	NamedMDNode* NVVMRootMD = m->getOrInsertNamedMetadata("nvvm.annotations");
+	Value* FuncDeclOps[3] = { f,
+		MDString::get(context, "kernel"),
+		ConstantInt::get(Type::getInt32Ty(context), 1) };
+	MDNode* FuncDecl = MDNode::get(context, FuncDeclOps);
+	Value* FuncAttrsOps[7] = { f,
+		MDString::get(context, "reqntidx"),
+		ConstantInt::get(Type::getInt32Ty(context), blockDim.x),
+		MDString::get(context, "reqntidy"),
+		ConstantInt::get(Type::getInt32Ty(context), blockDim.y),
+		MDString::get(context, "reqntidz"),
+		ConstantInt::get(Type::getInt32Ty(context), blockDim.z) };
+	MDNode* FuncAttrs = MDNode::get(context, FuncAttrsOps);
+	NVVMRootMD->addOperand(FuncDecl);
+	NVVMRootMD->addOperand(FuncAttrs);
+
+	// Internalize functions, in order to make use of locally
+	// defined functions, rather than intrinsics.
+	Function* kernelgen_memcpy = m->getFunction("kernelgen_memcpy");
+	for (Module::iterator iter = m->begin(), iter_end = m->end();
+		iter != iter_end; iter++)
+		if (!iter->isDeclaration() && cast<Function>(iter) != f &&
+				cast<Function>(iter) != kernelgen_memcpy)
+			iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+
+	// Optimize only loop kernels.
+
+	// Add signature record.
+	Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
+	GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),
+		true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version", 0, false);
+
+	// Internalize globals, in order to let them get removed from
+	// the optimized module.
+	for (Module::global_iterator iter = m->global_begin(),
+		iter_end = m->global_end();  iter != iter_end; iter++)
+		if (!iter->isDeclaration() && cast<GlobalVariable>(iter) != GVSig)
+			iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+				  
+	PassManager manager;
+	PassManagerBuilder builder;
+
+	// Adding extension to perform partial loops unrolling.
+	// Otherwise, the default pass manager builder will include
+	// loops unroller without partial option.
+	//builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+	//	addPartialUnrollLoopsPass);
+
+	// Do not inline anything in loop kernels. All kernel function
+	// dependencies will be taken from the main kernel module.
+	builder.Inliner = 0;
+	
+	builder.OptLevel = 3;
+	builder.SizeLevel = 3;
+	builder.DisableSimplifyLibCalls = true;
+	builder.DisableUnrollLoops = true;
+	builder.Vectorize = false;
+
+	// XXX Experimental workaround for matvec and matmul tests:
+	// Make loads not to alias with stores. This way LLVM will be able
+	// to optimize reduction.
+	if ((kernel->name == "__kernelgen_matvec_loop_7") ||
+		(kernel->name == "__kernelgen_matmul__loop_3"))
+	{
+		builder.populateModulePassManager(manager);
+		manager.run(*m);
+
+		NamedMDNode* RootMD = m->getOrInsertNamedMetadata(kernel->name + "_TBAA");
+		MDBuilder MDB(context);
+		MDNode* Root = MDB.createTBAARoot(kernel->name);
+		MDNode* Inputs = MDB.createTBAANode("inputs", Root, true /* isConstant */);
+		MDNode* Outputs = MDB.createTBAANode("outputs", Root);
+		RootMD->addOperand(Root);
+		RootMD->addOperand(Inputs);
+		RootMD->addOperand(Outputs);
+		for (Function::iterator BB = f->begin(), BBE = f->end(); BB != BBE; BB++)
+		{
+			for (BasicBlock::iterator II = BB->begin(), IIE = BB->end(); II != IIE; II++)
+			{
+				LoadInst* LI = dyn_cast<LoadInst>(cast<Value>(II));
+				if (LI)
+				{
+					LI->setMetadata(llvm::LLVMContext::MD_tbaa, Inputs);
+					continue;
+				}
+				StoreInst* SI = dyn_cast<StoreInst>(cast<Value>(II));
+				if (SI)
+				{
+					SI->setMetadata(llvm::LLVMContext::MD_tbaa, Outputs);
+					continue;
+				}
+			}
+		}
+
+		// Adding extension to perform partial loops unrolling.
+		// Otherwise, the default pass manager builder will include
+		// loops unroller without partial option.
+		builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+			addPartialUnrollLoopsPass);
+		builder.populateModulePassManager(manager);
+
+		manager.run(*m);
+	}
+	else
+	{
+		// Adding extension to perform partial loops unrolling.
+		// Otherwise, the default pass manager builder will include
+		// loops unroller without partial option.
+		builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+			addPartialUnrollLoopsPass);
+		builder.populateModulePassManager(manager);
+
+		manager.run(*m);
+	}
+	
+	return Codegen(runmode, kernel, m);
+}
+
+static KernelFunc CodeGenMainFunction(
+	int runmode, Kernel* kernel, Module* m, Function* f, void * data, int szdata, int szdatai)
+{
+	LLVMContext &context = getGlobalContext();
+
+	// Convert external functions CallInst-s into
+	// host callback form. Do not convert CallInst-s
+	// to intrinsics and calls linked from the CUDA device runtime module.
+
+	// Link entire module with the KernelGen device runtime module.
+	string linker_err;
+	if (Linker::LinkModules(m, runtime_module, Linker::PreserveSource, &linker_err))
+	{
+		THROW("Error linking runtime with kernel " << kernel->name << " : " << linker_err);
+	}
+
+	// Process the function calls tree with main function in root.
+	for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
+	    processFunctionFromMain(kernel, m, F);
+
+	// Evaluate ConstantExpr::SizeOf to integer number ConstantInt
+	PassManager manager;
+	manager.add(new TargetData(m));
+	manager.add(createInstructionCombiningPass());
+	manager.run(*m);
+	
+	// Replace all allocas for kernelgen_hostcalls by one big global variable
+	Function* kernelgenFunction = NULL;
+	kernelgenFunction = m->getFunction("kernelgen_hostcall");
+	if(kernelgenFunction)
+	{				
+		Value * tmpArg = NULL;
+		unsigned long long maximumSizeOfData = 0;
+		
+		// Set of allocas we want to collect together
+		list<Value *> allocasForArgs;
+		allocasForArgs.clear();
+
+		// Collect allocas for kernelgen_hostcall-s
+		getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
+
+		// Allocate array [i8 x maximumSizeOfData]
+		Type* allocatedType = ArrayType::get(Type::getInt8Ty(context),maximumSizeOfData);
+		GlobalVariable *collectiveAlloca = new GlobalVariable(
+			*m, allocatedType, false, GlobalValue::PrivateLinkage,
+			Constant::getNullValue(allocatedType), "memoryForHostcallArgs");
+		collectiveAlloca->setAlignment(4096);
+			
+		for(list<Value *>::iterator iter = allocasForArgs.begin(),
+			iter_end = allocasForArgs.end(); iter != iter_end; iter++ ) {
+			AllocaInst* allocaInst = cast<AllocaInst>(*iter);
+
+			// Get type of old alloca
+			Type* structPtrType = allocaInst->getType();
+
+			// Create bit cast of created alloca for specified type
+			BitCastInst* bitcast = new BitCastInst(collectiveAlloca,
+				structPtrType, "ptrToArgsStructure");
+
+			// Insert after old alloca
+			bitcast->insertAfter(allocaInst);
+
+			// Replace uses of old alloca with created bit cast
+			allocaInst->replaceAllUsesWith(bitcast);
+
+			// Erase old alloca from parent basic block
+			allocaInst->eraseFromParent();
+		}
+	}
+
+	for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end();
+		GV != GVE; GV++)
+	{
+		// Align all globals to 4096.
+		GV->setAlignment(4096);
+		
+		// Strip off "external" attribute from globals for now.
+		// XXX Should be handled by linking against proper
+		// device library, when KernelGen-aware runtime will be
+		// introduced.
+		if (!GV->hasInitializer())
+			GV->setInitializer(Constant::getNullValue(GV->getType()->getElementType()));
+	}
+
+	// Internalize functions, in order to make use of locally
+	// defined functions, rather than intrinsics.
+	Function* kernelgen_memcpy = m->getFunction("kernelgen_memcpy");
+	for (Module::iterator iter = m->begin(), iter_end = m->end();
+		iter != iter_end; iter++)
+		if (!iter->isDeclaration() && cast<Function>(iter) != f &&
+				cast<Function>(iter) != kernelgen_memcpy)
+			iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
+
+	if (!kernelgen_memcpy)
+		THROW("Cannot find function \"kernelgen_memcpy\"");
+
+	PassManager MPM;
+	MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
+	MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
+	MPM.add(createTailCallEliminationPass());
+	MPM.run(*m);
+
+	return Codegen(runmode, kernel, m);
 }
 
 KernelFunc kernelgen::runtime::Compile(
@@ -737,11 +988,6 @@ KernelFunc kernelgen::runtime::Compile(
 			manager.run(*m);
 		}
 	}
-	
-	// Add signature record.
-	Constant* CSig = ConstantDataArray::getString(context, "0.2/" KERNELGEN_VERSION, true);
-	GlobalVariable* GVSig = new GlobalVariable(*m, CSig->getType(),
-		true, GlobalValue::ExternalLinkage, CSig, "__kernelgen_version", 0, false);
 
 	switch (runmode) {
 	case KERNELGEN_RUNMODE_NATIVE : {
@@ -810,26 +1056,29 @@ KernelFunc kernelgen::runtime::Compile(
 
 		dim3 blockDim(1, 1, 1);
 		dim3 gridDim(1, 1, 1);
+		KernelFunc func = NULL;
 		if (kernel->name != "__kernelgen_main")  {	
 		
 			// Substitute integer and pointer arguments.
 			//if (szdatai != 0) ConstantSubstitution(f, data);
             
 			// Add ReadNone attribute to calls (Polly workaround).
-			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
-				if (func->isDeclaration()) {
-  					Function *Src = cuda_module->getFunction(func->getName());
-					if (!Src) continue;
+			{
+				for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+					if (func->isDeclaration()) {
+	  					Function *Src = cuda_module->getFunction(func->getName());
+						if (!Src) continue;
 
-					for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
-						use_iter != use_iter_end; use_iter++)
-					{
-						CallInst* call = cast<CallInst>(*use_iter);
+						for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+							use_iter != use_iter_end; use_iter++)
+						{
+							CallInst* call = cast<CallInst>(*use_iter);
 
-						const AttrListPtr attr = func->getAttributes();
-						const AttrListPtr attr_new = attr.addAttr(
-							~0U /*attr.getNumSlots()*/, Attribute::ReadNone);
-						call->setAttributes(attr_new);
+							const AttrListPtr attr = func->getAttributes();
+							const AttrListPtr attr_new = attr.addAttr(
+								~0U /*attr.getNumSlots()*/, Attribute::ReadNone);
+							call->setAttributes(attr_new);
+						}
 					}
 				}
 			}
@@ -840,16 +1089,18 @@ KernelFunc kernelgen::runtime::Compile(
 			runPollyCUDA(kernel, &sizeOfLoops, &isThereAtLeastOneParallelLoop);
 
 			// Remove ReadNone attribute from calls (Polly workaround).
-			for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
-				if (func->isDeclaration()) {
-  					Function *Src = cuda_module->getFunction(func->getName());
-					if (!Src) continue;
+			{
+				for (Module::iterator func = m->begin(), funce = m->end(); func != funce; func++) {
+					if (func->isDeclaration()) {
+	  					Function *Src = cuda_module->getFunction(func->getName());
+						if (!Src) continue;
 
-					for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
-						use_iter != use_iter_end; use_iter++)
-					{
-						CallInst* call = cast<CallInst>(*use_iter);
-						call->setAttributes(func->getAttributes());
+						for(Value::use_iterator use_iter = func->use_begin(), use_iter_end = func->use_end();
+							use_iter != use_iter_end; use_iter++)
+						{
+							CallInst* call = cast<CallInst>(*use_iter);
+							call->setAttributes(func->getAttributes());
+						}
 					}
 				}
 			}
@@ -882,280 +1133,58 @@ KernelFunc kernelgen::runtime::Compile(
 			// 123   -1    -1  ->  123   1     1     one loop
 			Size3 launchParameters = convertLoopSizesToLaunchParameters(sizeOfLoops);
 			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
-			//size_t numberOfThreads = use_cuda_launch_config(kernel->name.c_str()); 
-			if (launchParameters.x * launchParameters.y * launchParameters.z > cuda_context->getThreadsPerBlock())
+
+			// Setup intital compute grid.
+			dim3 grid0 = dim3(1, 1, 1);
+			if (numberOfLoops > 0) grid0 = dim3(128, 1, 1);
+			bool isGridSetManually = false;
+			switch (numberOfLoops)
 			{
-				switch (numberOfLoops)
-				{
-				case 0 :
-					{
-						dim3 blockDim0d = dim3(1, 1, 1);
-						blockDim = blockDim0d;
-						assert(false);
-					}
-					break;
-				case 1 :
-					{
-						dim3 blockDim1d = dim3(128, 1, 1);
-						// dim3 blockDim1d = dim3(numberOfThreads, 1, 1);
-						setBlockDim("kernelgen_blockdim1d", blockDim1d);
-						blockDim = blockDim1d;
-					}
-					break;
-				case 2 :
-					{
-						dim3 blockDim2d = dim3(128, 1, 1);
-						// dim3 blockDim2d = dim3(numberOfThreads, 1, 1);
-						setBlockDim("kernelgen_blockdim2d", blockDim2d);
-						blockDim = blockDim2d;
-					}		
-					break;
-				case 3 :
-					{
-						dim3 blockDim3d = dim3(128, 1, 1);
-						// dim3 blockDim3d = dim3(numberOfThreads, 1, 1);
-						setBlockDim("kernelgen_blockdim3d", blockDim3d);
-						blockDim = blockDim3d;
-					}
-					break;
-				}
+			case 1 :
+				isGridSetManually = setBlockDim("kernelgen_blockdim1d", grid0);
+				break;
+			case 2 :
+				isGridSetManually = setBlockDim("kernelgen_blockdim2d", grid0);
+				break;
+			case 3 :
+				isGridSetManually = setBlockDim("kernelgen_blockdim3d", grid0);
+				break;
 			}
-			else
-			{ 
+
+			if (launchParameters.x * launchParameters.y * launchParameters.z <= cuda_context->getThreadsPerBlock())
+			{
 				// Number of all iterations lower that number of threads in block
 				blockDim = dim3(launchParameters.x, launchParameters.y, launchParameters.z);
-			}
-			
-			// Compute grid parameters from specified blockDim and desired iterationsPerThread.
-			dim3 iterationsPerThread(1, 1, 1);
-			gridDim.x = ((unsigned int)launchParameters.x - 1) / (blockDim.x * iterationsPerThread.x) + 1;
-			gridDim.y = ((unsigned int)launchParameters.y - 1) / (blockDim.y * iterationsPerThread.y) + 1;
-			gridDim.z = ((unsigned int)launchParameters.z - 1) / (blockDim.z * iterationsPerThread.z) + 1;
-            
-			// Substitute grid parameters to reduce amount of instructions
-			// and used registers.
-			substituteGridParams(kernel, gridDim, blockDim);
-			
-			// Setup .reqntid - the number of threads in thread block (CTA)
-			// for PTX code optimization.
-			// !nvvm.annotations = !{!1, !2}
-			// !1 = metadata !{void (float*)* @kernel_func_reqntid, metadata !"kernel", i32 1}
-			// !2 = metadata !{void (float*)* @kernel_func_reqntid,
-			//	metadata !"reqntidx", i32 11,
-			//	metadata !"reqntidy", i32 22,
-			//	metadata !"reqntidz", i32 33}
-			NamedMDNode* NVVMRootMD = m->getOrInsertNamedMetadata("nvvm.annotations");
-			Value* FuncDeclOps[3] = { f,
-				MDString::get(context, "kernel"),
-				ConstantInt::get(Type::getInt32Ty(context), 1) };
-			MDNode* FuncDecl = MDNode::get(context, FuncDeclOps);
-			Value* FuncAttrsOps[7] = { f,
-				MDString::get(context, "reqntidx"),
-				ConstantInt::get(Type::getInt32Ty(context), blockDim.x),
-				MDString::get(context, "reqntidy"),
-				ConstantInt::get(Type::getInt32Ty(context), blockDim.y),
-				MDString::get(context, "reqntidz"),
-				ConstantInt::get(Type::getInt32Ty(context), blockDim.z) };
-			MDNode* FuncAttrs = MDNode::get(context, FuncAttrsOps);
-			NVVMRootMD->addOperand(FuncDecl);
-			NVVMRootMD->addOperand(FuncAttrs);		
-		}
-
-		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
-		kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
-
-		// Convert external functions CallInst-s into
-		// host callback form. Do not convert CallInst-s
-		// to intrinsics and calls linked from the CUDA device runtime module.
-		if (kernel->name == "__kernelgen_main") {
-
-			// Link entire module with the KernelGen device runtime module.
-			string linker_err;
-			if (Linker::LinkModules(m, runtime_module, Linker::PreserveSource, &linker_err))
-			{
-				THROW("Error linking runtime with kernel " << kernel->name << " : " << linker_err);
-			}
-
-			// Process the function calls tree with main function in root.
-			for (Module::iterator F = m->begin(), FE = m->end(); F != FE; F++)
-			    processFunctionFromMain(kernel, m, F);
-
-			// Evaluate ConstantExpr::SizeOf to integer number ConstantInt
-			PassManager manager;
-			manager.add(new TargetData(m));
-			manager.add(createInstructionCombiningPass());
-			manager.run(*m);
-			
-			// Replace all allocas for kernelgen_hostcalls by one big global variable
-			Function* kernelgenFunction = NULL;
-			kernelgenFunction = m->getFunction("kernelgen_hostcall");
-			if(kernelgenFunction)
-			{				
-				Value * tmpArg = NULL;
-				unsigned long long maximumSizeOfData = 0;
 				
-				// Set of allocas we want to collect together
-				list<Value *> allocasForArgs;
-				allocasForArgs.clear();
-
-				// Collect allocas for kernelgen_hostcall-s
-				getAllocasAndMaximumSize(kernelgenFunction, &allocasForArgs, &maximumSizeOfData);
-
-				// Allocate array [i8 x maximumSizeOfData]
-				Type* allocatedType = ArrayType::get(Type::getInt8Ty(context),maximumSizeOfData);
-				GlobalVariable *collectiveAlloca = new GlobalVariable(
-					*m, allocatedType, false, GlobalValue::PrivateLinkage,
-					Constant::getNullValue(allocatedType), "memoryForHostcallArgs");
-				collectiveAlloca->setAlignment(4096);
-					
-				for(list<Value *>::iterator iter = allocasForArgs.begin(),
-					iter_end = allocasForArgs.end(); iter != iter_end; iter++ ) {
-					AllocaInst* allocaInst = cast<AllocaInst>(*iter);
-
-					// Get type of old alloca
-					Type* structPtrType = allocaInst->getType();
-
-					// Create bit cast of created alloca for specified type
-					BitCastInst* bitcast = new BitCastInst(collectiveAlloca,
-						structPtrType, "ptrToArgsStructure");
-
-					// Insert after old alloca
-					bitcast->insertAfter(allocaInst);
-
-					// Replace uses of old alloca with created bit cast
-					allocaInst->replaceAllUsesWith(bitcast);
-
-					// Erase old alloca from parent basic block
-					allocaInst->eraseFromParent();
-				}
-			}
-
-			for (Module::global_iterator GV = m->global_begin(), GVE = m->global_end();
-				GV != GVE; GV++)
-			{
-				// Align all globals to 4096.
-				GV->setAlignment(4096);
-				
-				// Strip off "external" attribute from globals for now.
-				// XXX Should be handled by linking against proper
-				// device library, when KernelGen-aware runtime will be
-				// introduced.
-				if (!GV->hasInitializer())
-					GV->setInitializer(Constant::getNullValue(GV->getType()->getElementType()));
-			}
-		}
-
-		// Internalize functions, in order to make use of locally
-		// defined functions, rather than intrinsics.
-		Function* kernelgen_memcpy = m->getFunction("kernelgen_memcpy");
-		for (Module::iterator iter = m->begin(), iter_end = m->end();
-			iter != iter_end; iter++)
-			if (!iter->isDeclaration() && cast<Function>(iter) != f &&
-					cast<Function>(iter) != kernelgen_memcpy)
-				iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
-
-		// Optimize only loop kernels.
-		if (kernel->name != "__kernelgen_main")
-		{
-			// Internalize globals, in order to let them get removed from
-			// the optimized module.
-			for (Module::global_iterator iter = m->global_begin(),
-				iter_end = m->global_end();  iter != iter_end; iter++)
-				if (!iter->isDeclaration() && cast<GlobalVariable>(iter) != GVSig)
-					iter->setLinkage(GlobalValue::LinkerPrivateLinkage);
-						  
-			PassManager manager;
-			PassManagerBuilder builder;
-
-			// Adding extension to perform partial loops unrolling.
-			// Otherwise, the default pass manager builder will include
-			// loops unroller without partial option.
-			//builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-			//	addPartialUnrollLoopsPass);
-
-			// Do not inline anything in loop kernels. All kernel function
-			// dependencies will be taken from the main kernel module.
-			builder.Inliner = 0;
-			
-			builder.OptLevel = 3;
-			builder.SizeLevel = 3;
-			builder.DisableSimplifyLibCalls = true;
-			builder.DisableUnrollLoops = true;
-			builder.Vectorize = false;
-	
-			// XXX Experimental workaround for matvec and matmul tests:
-			// Make loads not to alias with stores. This way LLVM will be able
-			// to optimize reduction.
-			if ((kernel->name == "__kernelgen_matvec_loop_7") ||
-				(kernel->name == "__kernelgen_matmul__loop_3"))
-			{
-				builder.populateModulePassManager(manager);
-				manager.run(*m);
-
-				NamedMDNode* RootMD = m->getOrInsertNamedMetadata(kernel->name + "_TBAA");
-				MDBuilder MDB(context);
-				MDNode* Root = MDB.createTBAARoot(kernel->name);
-				MDNode* Inputs = MDB.createTBAANode("inputs", Root, true /* isConstant */);
-				MDNode* Outputs = MDB.createTBAANode("outputs", Root);
-				RootMD->addOperand(Root);
-				RootMD->addOperand(Inputs);
-				RootMD->addOperand(Outputs);
-				for (Function::iterator BB = f->begin(), BBE = f->end(); BB != BBE; BB++)
-				{
-					for (BasicBlock::iterator II = BB->begin(), IIE = BB->end(); II != IIE; II++)
-					{
-						LoadInst* LI = dyn_cast<LoadInst>(cast<Value>(II));
-						if (LI)
-						{
-							LI->setMetadata(llvm::LLVMContext::MD_tbaa, Inputs);
-							continue;
-						}
-						StoreInst* SI = dyn_cast<StoreInst>(cast<Value>(II));
-						if (SI)
-						{
-							SI->setMetadata(llvm::LLVMContext::MD_tbaa, Outputs);
-							continue;
-						}
-					}
-				}
-
-				// Adding extension to perform partial loops unrolling.
-				// Otherwise, the default pass manager builder will include
-				// loops unroller without partial option.
-				builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-					addPartialUnrollLoopsPass);
-				builder.populateModulePassManager(manager);
-
-				manager.run(*m);
+				func = CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
+					blockDim, gridDim, launchParameters);
 			}
 			else
 			{
-				// Adding extension to perform partial loops unrolling.
-				// Otherwise, the default pass manager builder will include
-				// loops unroller without partial option.
-				builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-					addPartialUnrollLoopsPass);
-				builder.populateModulePassManager(manager);
-
-				manager.run(*m);
+				for ( ; !isGridSetManually; )
+				{
+					func = CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
+						blockDim, gridDim, launchParameters);
+					
+					break;
+				}
 			}
-		}
-		else
-		{
-			if (!kernelgen_memcpy)
-				THROW("Cannot find function \"kernelgen_memcpy\"");
 
-			PassManager MPM;
-			MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
-			MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
-			MPM.add(createTailCallEliminationPass());
-			MPM.run(*m);
+			//size_t numberOfThreads = use_cuda_launch_config(kernel->name.c_str()); 
+			// dim3 blockDim1d = dim3(numberOfThreads, 1, 1);
+						
+		} else { // kernel->name == "__kernelgen_main"
+
+			func = CodeGenMainFunction(runmode, kernel, m, f, data, szdata, szdatai);
 		}
 
 		verifyModule(*m);
 		VERBOSE(Verbose::Sources << *m << Verbose::Default);
 
-		return Codegen(runmode, kernel, m);
+		kernel->target[KERNELGEN_RUNMODE_CUDA].gridDim = gridDim;
+		kernel->target[KERNELGEN_RUNMODE_CUDA].blockDim = blockDim;
+
+		return func;
 	}
 	case KERNELGEN_RUNMODE_OPENCL : {
 		THROW("Unsupported runmode" << runmode);
@@ -1168,3 +1197,4 @@ KernelFunc kernelgen::runtime::Compile(
    
 	return NULL;
 }
+
