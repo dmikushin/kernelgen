@@ -1136,43 +1136,66 @@ KernelFunc kernelgen::runtime::Compile(
 			int numberOfLoops = sizeOfLoops.getNumOfDimensions();
 
 			// Setup intital compute grid.
-			dim3 grid0 = dim3(1, 1, 1);
-			if (numberOfLoops > 0) grid0 = dim3(128, 1, 1);
+			//dim3 grid0 = dim3(1, 1, 1);
+			if (numberOfLoops > 0) blockDim = dim3(128, 1, 1);
 			bool isGridSetManually = false;
 			switch (numberOfLoops)
 			{
 			case 1 :
-				isGridSetManually = setBlockDim("kernelgen_blockdim1d", grid0);
+				isGridSetManually = setBlockDim("kernelgen_blockdim1d", blockDim);
 				break;
 			case 2 :
-				isGridSetManually = setBlockDim("kernelgen_blockdim2d", grid0);
+				isGridSetManually = setBlockDim("kernelgen_blockdim2d", blockDim);
 				break;
 			case 3 :
-				isGridSetManually = setBlockDim("kernelgen_blockdim3d", grid0);
+				isGridSetManually = setBlockDim("kernelgen_blockdim3d", blockDim);
 				break;
 			}
 
-			if (launchParameters.x * launchParameters.y * launchParameters.z <= cuda_context->getThreadsPerBlock())
+			if (isGridSetManually)
+			{
+                                func = CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
+                                        blockDim, gridDim, launchParameters);
+			}
+			else if (launchParameters.x * launchParameters.y * launchParameters.z <= cuda_context->getThreadsPerBlock())
 			{
 				// Number of all iterations lower that number of threads in block
 				blockDim = dim3(launchParameters.x, launchParameters.y, launchParameters.z);
 				
+				// Does not respect manual setting
 				func = CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
 					blockDim, gridDim, launchParameters);
 			}
 			else
 			{
-				for ( ; !isGridSetManually; )
+				// Initial setup
+				dim3 loopGrid;
+				short refRegCount, loopRegCount;
+				bool forceCudaLaunchConfig = true;
+                                CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
+                                        blockDim, gridDim, launchParameters, &refRegCount);
+				for ( ; ; )
 				{
-					short regcount;
-					func = CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
-						blockDim, gridDim, launchParameters, &regcount);
-					cout << "regcount = " << regcount << endl;
-					size_t numberOfThreads = use_cuda_launch_config(regcount, numeric_limits<int>::max());
-					cout << "numberOfThreads = " << numberOfThreads << endl; 
-					
-					break;
+					//cout << "regcount = " << regcount << endl;
+					size_t numberOfThreads = use_cuda_launch_config(refRegCount, launchParameters.x); //numeric_limits<int>::max());
+					//cout << "numberOfThreads = " << numberOfThreads << ", (" << launchParameters.x << "," << launchParameters.y << "," << launchParameters.z << ")" << endl << flush; 
+					loopGrid = dim3(numberOfThreads, 1, 1);
+                                        CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
+                                                loopGrid, gridDim, launchParameters, &loopRegCount);
+
+					//cout << "regcount = " << refRegCount << "/" << loopRegCount << endl;
+
+					if ( !forceCudaLaunchConfig && refRegCount >= loopRegCount )
+						break;
+					blockDim = loopGrid;
+					refRegCount = loopRegCount;
+					forceCudaLaunchConfig = false;
 				}
+
+				// Finialize
+                                func = CodeGenLoopFunction(runmode, kernel, m, f, data, szdata, szdatai,
+                                            blockDim, gridDim, launchParameters, &refRegCount);
+				//cout << "regcount(F) = " << refRegCount << endl;
 			}
 
 			// dim3 blockDim1d = dim3(numberOfThreads, 1, 1);

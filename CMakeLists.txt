@@ -288,7 +288,7 @@ INSTALL(PROGRAMS
 	DESTINATION bin)
 # lib
 INSTALL(TARGETS
-	clc kernelgen-ct kernelgen-rt kernelgen-cuda
+	kernelgen-ct kernelgen-rt kernelgen-cuda
 	DESTINATION lib)
 # include/cuda
 INSTALL(FILES
