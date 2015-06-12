@@ -104,6 +104,7 @@ Patch12:	glibc.patch
 Patch13:	gcc.patch
 Patch14:        netcdf.patch
 Patch15:        mvapich2.patch
+Patch16:        cloog.patch
 
 Group:          Applications/Engineering
 License:        GPL/BSD/Freeware
@@ -238,6 +239,9 @@ cd $RPM_BUILD_DIR
 %endif
 %if %mvapich2
 %patch15 -p1
+%endif
+%if %cloog
+%patch16 -p1
 %endif
 %endif
 
