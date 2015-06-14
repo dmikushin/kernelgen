@@ -39,7 +39,7 @@
  
  In the Fortran 90 interface there are two inquiry functions each for
  dimensions, variables, and attributes, and a single inquiry function
-@@ -7079,7 +7078,7 @@
+@@ -7034,7 +7034,7 @@
   INTEGER FUNCTION  NF_INQ_ATTNAME    (NCID, VARID, ATTNUM, name)
  @end example
  
@@ -47,5 +47,4 @@
 +@unnumberedsec Changes to put and get function 
  
  The biggest simplification in the Fortran 90 is in the nf90_put_var
- and nf90_get_var functions. Both functions are overloaded: the values 
-
+ and nf90_get_var functions. Both functions are overloaded: the values
